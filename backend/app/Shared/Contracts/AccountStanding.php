@@ -66,9 +66,9 @@ interface AccountStanding
      * alone and `NotifyAccessChange` asks the number alone, and neither should
      * carry an answer it does not use — and this one exists for the callers that
      * need both. A memo behind the old pair was the other candidate and was
-     * rejected: `ReleaseIneligibleBookings` holds one instance across a whole
-     * sweep and RELEASES credits inside the loop, so a cached verdict would
-     * outlive the balance it describes.
+     * rejected: a caller that holds one instance across a loop and releases
+     * credits inside it would read a cached verdict that outlived the balance
+     * it describes.
      *
      * @return array{withheld: bool, credits_needed: int}
      */

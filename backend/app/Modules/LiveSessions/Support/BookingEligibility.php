@@ -85,10 +85,7 @@ class BookingEligibility
         /*
         | ⚠️ ONE QUESTION, NOT TWO. The verdict and the number are the same walk —
         | the account, the balances, the workspace, its exam window — and asking
-        | them separately walked it twice on every refusal. And it IS every
-        | refusal: `ReleaseIneligibleBookings` sweeps each booked seat through
-        | `allows()`, so the double landed once per ineligible student per
-        | session, nightly.
+        | them separately walked it twice on every refusal.
         */
         $money = $this->standing->refusalFor($student, (int) $session->course_id);
 
@@ -105,14 +102,13 @@ class BookingEligibility
      * The reason a student may not OPEN this session — everything above, plus
      * spec 008's unlock condition (FR-036 → FR-042).
      *
-     * ⚠️ A SECOND ENTRY POINT, AND THE SEPARATION IS LOAD-BEARING.
-     * `ReleaseIneligibleBookings` sweeps booked seats through `allows()` and
-     * CANCELS the ones it finds ineligible. Folding the unlock condition into
-     * `refusalReason()` would therefore repossess a paid-for seat over a missed
-     * piece of homework — a punishment no requirement asks for, delivered by a
-     * nightly job with a cancellation notice attached. Losing your enrolment or
-     * running out of credit is a reason to release a seat; not having done your
-     * homework is a reason not to be given the NEXT one.
+     * ⚠️ A SECOND ENTRY POINT, AND KEEP THE SEPARATION. `refusalReason()` is the
+     * question a seat-RELEASING caller would ask; folding the unlock condition
+     * into it would repossess a paid-for seat over a missed piece of homework.
+     * Losing your enrolment or running out of credit is a reason to release a
+     * seat; not having done your homework is a reason not to be given the NEXT
+     * one. (The nightly sweep that asked it, `ReleaseIneligibleBookings`, was
+     * deleted 2026-09-23 — specs 006 and 027 had already decided against it.)
      *
      * Asked at both doors FR-041 names — booking, and entering the room.
      */
@@ -137,11 +133,10 @@ class BookingEligibility
      * ٠٣٥ · T042 — the credits already promised to OTHER seats.
      *
      * ⛔ AND IT IS HERE AND NOT IN `refusalReason()`, for the reason written
-     * above that method's sibling: `ReleaseIneligibleBookings` sweeps booked
-     * seats through `allows()` and CANCELS what it finds ineligible. Every booked
-     * seat holds a credit by definition, so folding this in would have the
-     * nightly job repossess every seat on the platform — each one refused for
-     * holding exactly the credit it is entitled to hold.
+     * above that method's sibling. Every booked seat holds a credit by
+     * definition, so a seat-releasing caller asking `refusalReason()` would
+     * repossess every seat on the platform — each one refused for holding
+     * exactly the credit it is entitled to hold.
      *
      * ⚠️ THIS IS NO LONGER ON THE HEARTBEAT, AND THE NUMBER IT USED TO CITE WAS
      * ITS OWN DOING. It said «the budget is 15 against a steady state of 14» —
@@ -199,15 +194,6 @@ class BookingEligibility
         $back = (date_create_immutable($held['first_release_at']) ?: null)?->format('Y-m-d H:i');
 
         return "رصيدك محجوزٌ لحصصٍ أخرى ({$held['held']} حصة). أوّل ما يعود منه بعد انتهاء حصة {$back}، أو اشترِ رصيداً من صفحة الأرصدة.";
-    }
-
-    /**
-     * ⚠️ THE SWEEP'S QUESTION, DELIBERATELY NARROWER. See openingRefusal() for
-     * why the unlock condition is not asked here.
-     */
-    public function allows(ClassSession $session, User $student): bool
-    {
-        return $this->refusalReason($session, $student) === null;
     }
 
     public function maySit(ClassSession $session, User $student): bool
