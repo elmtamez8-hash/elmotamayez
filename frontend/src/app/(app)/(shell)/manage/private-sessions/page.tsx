@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
+import { counted } from "@/lib/labels";
 import {
   privateSessions,
   type PrivateSessionRequest,
@@ -105,7 +106,13 @@ export default function PrivateSessionQueuePage() {
             </div>
 
             <p className="text-sm text-ink">
-              {when(request.starts_at)} · {request.duration_minutes} دقيقة
+              {when(request.starts_at)} · {counted(request.duration_minutes, {
+                one: "دقيقة",
+                two: "دقيقتان",
+                few: "دقائق",
+                many: "دقيقة",
+                other: "دقيقة",
+              })}
             </p>
 
             {rejecting === request.uuid ? (

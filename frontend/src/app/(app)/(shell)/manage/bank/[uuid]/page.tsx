@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { bank, type BankQuestion } from "@/lib/bank";
+import { counted } from "@/lib/labels";
 
 export default function EditBankQuestionPage({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
@@ -77,7 +78,13 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
         description={
           question.usage_count === undefined || question.usage_count === 0
             ? "غير مضمومٍ إلى أيّ اختبار بعد."
-            : `مضمومٌ إلى ${question.usage_count} اختبار — التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`
+            : `مضمومٌ إلى ${counted(question.usage_count, {
+                one: "اختبارٍ واحد",
+                two: "اختبارَين",
+                few: "اختبارات",
+                many: "اختباراً",
+                other: "اختبار",
+              })} —التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`
         }
         actions={
           <Button variant="danger" onClick={remove} disabled={removing}>
