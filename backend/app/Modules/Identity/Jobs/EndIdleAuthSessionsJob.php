@@ -21,7 +21,8 @@ use Laravel\Sanctum\PersonalAccessToken;
 use Throwable;
 
 /**
- * Ends the bearer-token sessions nobody has used for `auth.session_idle_days`.
+ * Ends the bearer-token sessions nobody has used for `auth.session_idle_days`,
+ * and the `/admin` sessions whose web session has outlived `session.lifetime`.
  *
  * ⛔ {@see IdleSessionGuard} ONLY FIRES WHEN A TOKEN IS PRESENTED, and the token
  * that matters most is the one that never is again — the laptop that was sold,
