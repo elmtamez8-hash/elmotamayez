@@ -87,7 +87,9 @@ class BookingEligibility
         | the account, the balances, the workspace, its exam window — and asking
         | them separately walked it twice on every refusal.
         */
-        $money = $this->standing->refusalFor($student, (int) $session->course_id);
+        // The seat's own room size and date — a group-only plan does not lift
+        // withholding on a one-to-one lesson, nor a plan ending before the day.
+        $money = $this->standing->refusalFor($student, (int) $session->course_id, $session->type->value, $session->starts_at);
 
         if (! $money['withheld']) {
             return null;

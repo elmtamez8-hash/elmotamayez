@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Events\PrivateSessionRequested;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
@@ -78,7 +79,8 @@ class RequestPrivateSession extends Action
      * FR-025, asked through the one binding definition of an eligible student.
      *
      * The session it is asked about does not exist yet and must not — so it is
-     * asked about an UNSAVED one carrying the three fields the question reads.
+     * asked about an UNSAVED one carrying the fields the question reads — the
+     * TYPE among them since the money question asks the plan's room size.
      * `StartConversation` authorises an unsaved `Conversation` for the same
      * reason: a second spelling of «may this student book» would answer
      * differently from the door the acceptance goes through.
@@ -89,6 +91,7 @@ class RequestPrivateSession extends Action
             'workspace_id' => $course->workspace_id,
             'course_id' => $course->getKey(),
             'starts_at' => $startsAt,
+            'type' => ClassSessionType::Individual,
         ]);
 
         $refusal = $this->eligibility->refusalReason($probe, $student);

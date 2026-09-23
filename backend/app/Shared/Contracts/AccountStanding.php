@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Contracts;
 
 use App\Models\User;
+use DateTimeInterface;
 
 /**
  * Whether a student's access is currently withheld for money owed.
@@ -70,9 +71,13 @@ interface AccountStanding
      * credits inside it would read a cached verdict that outlived the balance
      * it describes.
      *
+     * Asked about a SEAT, pass the session's type (`ClassSessionType` value) and
+     * start: a subscription lifts withholding only for the room size it was sold
+     * for and only on a day it covers. Asked about content, leave both null.
+     *
      * @return array{withheld: bool, credits_needed: int}
      */
-    public function refusalFor(User $student, int $courseId): array;
+    public function refusalFor(User $student, int $courseId, ?string $sessionType = null, ?DateTimeInterface $moment = null): array;
 
     /**
      * Every course in which this student is currently withheld.

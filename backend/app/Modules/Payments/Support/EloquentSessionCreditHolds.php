@@ -6,6 +6,7 @@ namespace App\Modules\Payments\Support;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Payments\Actions\PlaceCreditHold;
 use App\Modules\Payments\Actions\SettleCreditHold;
 use App\Modules\Payments\Models\CreditBalance;
@@ -63,7 +64,17 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
         | spelling — rather than re-derived, because a second answer to «is this
         | covered» would waive one door and refuse the other.
         */
-        if ($this->subscriptions->coversCourse((int) $student->getKey(), $courseId)) {
+        // ⛔ With the seat's room size and date (2026-09-23): asked course-level on
+        // `now()`, a group-only plan waived the hold on a one-to-one seat, and a
+        // plan ending on the 30th waived it on a seat dated the 5th.
+        $session = ClassSession::query()->withoutWorkspaceScope()->find($classSessionId);
+
+        if ($this->subscriptions->coversCourse(
+            (int) $student->getKey(),
+            $courseId,
+            $session?->starts_at,
+            $session?->type?->value,
+        )) {
             return new CreditHoldResult(granted: true);
         }
 
