@@ -23,6 +23,7 @@ use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -112,7 +113,7 @@ class AssignmentController extends Controller
              | {@see StudentScope}, which carries the measurement and the reason
              | a course-less assignment needs a second predicate.
              */
-            StudentScope::applyIfUnscoped($query, $user, $enrollments);
+            StudentScope::forReader($query, $user, $enrollments);
 
             // Published only, and the reader's own row attached — one eager load
             // rather than a submission lookup per card.
@@ -154,7 +155,7 @@ class AssignmentController extends Controller
      *
      * Students only by construction rather than by a check: a teacher's list is
      * already one workspace, so the facets would be one name and one course —
-     * and `StudentScope::applyIfUnscoped` leaves a reader with a context exactly
+     * and `StudentScope::forReader` leaves a reader with a context exactly
      * as it found them, so the answer is honest for both.
      */
     public function filters(Request $request, AssignmentFilterOptions $options): JsonResponse
@@ -162,14 +163,16 @@ class AssignmentController extends Controller
         return response()->json(['data' => $options->for($this->currentUser($request))]);
     }
 
-    public function show(Request $request, Assignment $assignment): JsonResponse
+    public function show(Request $request, string $assignmentUuid): JsonResponse
     {
+        $assignment = Assignment::forStudentDoor($assignmentUuid);
+
         $this->authorize('view', $assignment);
 
         $user = $this->currentUser($request);
 
         if (! $user->can(Permissions::ASSIGNMENTS_MANAGE)) {
-            $assignment->load(['submissions' => fn ($q) => $q->where('student_user_id', $user->getKey())->with('media')]);
+            $assignment->load(['submissions' => fn ($q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('student_user_id', $user->getKey())->with('media')]);
         }
 
         return response()->json(['data' => AssignmentResource::make($assignment)]);
@@ -244,8 +247,10 @@ class AssignmentController extends Controller
         return response()->json(['data' => SubmissionResource::collection($submissions)]);
     }
 
-    public function submit(SubmitAssignmentRequest $request, Assignment $assignment, SubmitAssignment $action): JsonResponse
+    public function submit(SubmitAssignmentRequest $request, string $assignmentUuid, SubmitAssignment $action): JsonResponse
     {
+        $assignment = Assignment::forStudentDoor($assignmentUuid);
+
         $this->authorize('view', $assignment);
 
         try {

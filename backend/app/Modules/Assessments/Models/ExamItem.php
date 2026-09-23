@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Assessments\ExamItemFactory;
@@ -54,7 +55,7 @@ class ExamItem extends BaseModel
     /** @return BelongsTo<Question, $this> */
     public function question(): BelongsTo
     {
-        return $this->belongsTo(Question::class);
+        return $this->belongsTo(Question::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /**

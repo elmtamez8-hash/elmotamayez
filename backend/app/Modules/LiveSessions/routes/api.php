@@ -147,7 +147,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/class-sessions/{session}/cancel', [ClassSessionController::class, 'cancel']);
 
         Route::post('/class-sessions/{sessionUuid}/book', [BookingController::class, 'store']);
-        Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
+        Route::delete('/bookings/{bookingUuid}', [BookingController::class, 'destroy']);
 
         Route::post('/class-sessions/{sessionUuid}/join', [BroadcastController::class, 'join']);
         Route::post('/class-sessions/{session}/host/{action}', [BroadcastController::class, 'host']);
@@ -165,7 +165,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | policy becomes the only thing between one student and another's
         | calendar. The controller fetches and authorises in adjacent lines.
         */
-        Route::post('/courses/{course}/private-session-requests', [PrivateSessionRequestController::class, 'store']);
+        Route::post('/courses/{courseUuid}/private-session-requests', [PrivateSessionRequestController::class, 'store']);
         Route::delete('/private-session-requests/{uuid}', [PrivateSessionRequestController::class, 'destroy']);
         Route::post('/manage/private-session-requests/{uuid}/decide', [PrivateSessionRequestController::class, 'decide']);
 

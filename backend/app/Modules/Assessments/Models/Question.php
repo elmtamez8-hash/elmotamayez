@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Modules\Assessments\Enums\BloomLevel;
 use App\Modules\Assessments\Support\BankSearch;
 use App\Modules\Courses\Models\Lesson;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Assessments\QuestionFactory;
@@ -118,7 +119,7 @@ class Question extends BaseModel
     /** @return HasMany<QuestionOption, $this> */
     public function options(): HasMany
     {
-        return $this->hasMany(QuestionOption::class)->orderBy('order');
+        return $this->hasMany(QuestionOption::class)->orderBy('order')->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return HasMany<ExamItem, $this> */

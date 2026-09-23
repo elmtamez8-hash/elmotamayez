@@ -14,12 +14,14 @@ class CertificatePolicy extends BasePolicy
 {
     public function view(User $user, Certificate $certificate): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($certificate))->denied()) {
-            return $workspaceCheck;
-        }
-
+        // Ownership first: a student stamped with another teacher's workspace
+        // fails the workspace check on the certificate they earned.
         if ($certificate->student_user_id === $user->getKey()) {
             return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($certificate))->denied()) {
+            return $workspaceCheck;
         }
 
         return $user->can(Permissions::CERTIFICATES_VIEW_ALL)

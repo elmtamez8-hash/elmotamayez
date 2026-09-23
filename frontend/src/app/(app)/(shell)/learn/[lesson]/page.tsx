@@ -404,7 +404,7 @@ export default function LearnLessonPage({
                 {detail.exam_gate === "pass" &&
                   " · لا يُفتح ما بعده حتى تجتازه"}
               </p>
-              <Button href={`/exams/${detail.reference.uuid}`}>
+              <Button href={`/exams/${detail.reference.uuid}/take`}>
                 فتح الاختبار
               </Button>
             </Card>

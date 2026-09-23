@@ -150,7 +150,7 @@ export default function SessionPage({
         <Card as="section" padding="md">
           <h2 className="text-base font-semibold text-ink">تسجيل الحصّة</h2>
           <div className="mt-3">
-            <Button href={`/learn/lessons/${session.recording.lesson_uuid}`} variant="secondary">
+            <Button href={`/learn/${session.recording.lesson_uuid}`} variant="secondary">
               افتح التسجيل
             </Button>
           </div>

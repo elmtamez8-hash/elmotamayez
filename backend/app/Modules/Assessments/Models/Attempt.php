@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Learning\Models\Enrollment;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,13 +71,13 @@ class Attempt extends BaseModel
     /** @return BelongsTo<Exam, $this> */
     public function exam(): BelongsTo
     {
-        return $this->belongsTo(Exam::class);
+        return $this->belongsTo(Exam::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<Enrollment, $this> */
     public function enrollment(): BelongsTo
     {
-        return $this->belongsTo(Enrollment::class);
+        return $this->belongsTo(Enrollment::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */
@@ -88,13 +89,13 @@ class Attempt extends BaseModel
     /** @return HasMany<Answer, $this> */
     public function answers(): HasMany
     {
-        return $this->hasMany(Answer::class, 'attempt_id');
+        return $this->hasMany(Answer::class, 'attempt_id')->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return HasMany<AttemptItem, $this> */
     public function items(): HasMany
     {
-        return $this->hasMany(AttemptItem::class, 'attempt_id')->orderBy('order')->orderBy('id');
+        return $this->hasMany(AttemptItem::class, 'attempt_id')->withoutGlobalScope(WorkspaceScope::class)->orderBy('order')->orderBy('id');
     }
 
     public function isGraded(): bool
@@ -128,7 +129,7 @@ class Attempt extends BaseModel
      */
     public function claimForGrading(): bool
     {
-        return static::query()
+        return static::query()->withoutWorkspaceScope()
             ->whereKey($this->getKey())
             ->where('status', self::STATUS_IN_PROGRESS)
             ->update(['status' => self::STATUS_GRADING]) === 1;
@@ -149,7 +150,7 @@ class Attempt extends BaseModel
      */
     public function claimForFinalize(): bool
     {
-        return static::query()
+        return static::query()->withoutWorkspaceScope()
             ->whereKey($this->getKey())
             ->where('status', self::STATUS_PENDING_GRADING)
             ->update(['status' => self::STATUS_GRADED]) === 1;

@@ -183,23 +183,6 @@ class ClassSession extends BaseModel
      * workspace and is usually no workspace at all.
      */
     /**
-     * The session behind a door a STUDENT walks through — resolved without the
-     * workspace scope, then authorised on the next line by the caller.
-     *
-     * ⛔ NOT IMPLICIT BINDING. `WorkspaceContext::id()` falls back to
-     * `users.last_workspace_id`, which is stamped on every student a teacher ever
-     * added to their workspace — so the scope ANDs the OTHER teacher's id and the
-     * student's own booked lesson answers 404. Spec 032's fix for courses and
-     * enrolments, reached from LiveSessions. The teacher-only routes (`update`,
-     * `cancel`, `host`, `feedback`) keep implicit binding: there the scope IS the
-     * tenant guard.
-     */
-    public static function forStudentDoor(string $uuid): self
-    {
-        return self::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
-    }
-
-    /**
      * What a student-facing Resource reads, loaded WITHOUT the scope.
      *
      * ⚠️ `withoutWorkspaceScope()` on the parent query does not reach a relation:

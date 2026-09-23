@@ -20,7 +20,7 @@ Route::get('/certificates/verify/{code}', [CertificateController::class, 'verify
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/certificates', [CertificateController::class, 'index']);
-    Route::get('/certificates/{certificate}', [CertificateController::class, 'show']);
+    Route::get('/certificates/{certificateUuid}', [CertificateController::class, 'show']);
     Route::post('/certificates/{certificate}/regenerate', [CertificateController::class, 'regenerate']);
 
     /*

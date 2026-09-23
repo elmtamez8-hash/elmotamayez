@@ -24,22 +24,23 @@ class AssignmentPolicy extends BasePolicy
 {
     public function view(User $user, Assignment $assignment): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($assignment))->denied()) {
-            return $workspaceCheck;
-        }
-
-        if ($user->can(Permissions::ASSIGNMENTS_MANAGE)) {
-            return Response::allow();
-        }
-
         // ⚠️ THIS ABILITY GUARDS A WRITE AS WELL AS A READ. `AssignmentController::submit()`
         // authorises `view`, and `SubmitAssignment` asks for no enrolment — so
         // "published ⇒ allow" put a stranger's uploaded file into a paying
         // teacher's marking queue. Same predicate as the list, one spelling.
-        return $assignment->isPublished()
-            && StudentScope::permits($assignment, $user, app(EnrollmentDirectory::class))
-                ? Response::allow()
-                : Response::deny();
+        //
+        // ⛔ ASKED ABOVE THE WORKSPACE CHECK, for the stamped student — see ExamPolicy::view().
+        if ($assignment->isPublished() && StudentScope::permits($assignment, $user, app(EnrollmentDirectory::class))) {
+            return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($assignment))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $user->can(Permissions::ASSIGNMENTS_MANAGE)
+            ? Response::allow()
+            : Response::deny();
     }
 
     public function manage(User $user, Assignment $assignment): Response

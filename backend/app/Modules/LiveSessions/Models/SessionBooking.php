@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -69,7 +70,9 @@ class SessionBooking extends BaseModel
     /** @return BelongsTo<ClassSession, $this> */
     public function classSession(): BelongsTo
     {
-        return $this->belongsTo(ClassSession::class);
+        // Unscoped: a seat's session is its own. Scoped, a student stamped with
+        // another teacher's workspace read null and could not cancel their seat.
+        return $this->belongsTo(ClassSession::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */

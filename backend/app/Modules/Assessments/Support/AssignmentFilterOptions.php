@@ -50,7 +50,7 @@ class AssignmentFilterOptions
      */
     public function for(User $student): array
     {
-        $base = fn (): Builder => StudentScope::applyIfUnscoped(
+        $base = fn (): Builder => StudentScope::forReader(
             Assignment::query()->published(),
             $student,
             $this->enrollments,

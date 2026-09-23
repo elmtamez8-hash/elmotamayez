@@ -24,7 +24,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Exam management.
     Route::get('/exams', [ExamController::class, 'index']);
     Route::post('/exams', [ExamController::class, 'store']);
-    Route::get('/exams/{exam}', [ExamController::class, 'show']);
+    Route::get('/exams/{examUuid}', [ExamController::class, 'show']);
     Route::put('/exams/{exam}', [ExamController::class, 'update']);
     Route::post('/exams/{exam}/publish', [ExamController::class, 'publish']);
     Route::delete('/exams/{exam}', [ExamController::class, 'destroy']);
@@ -245,8 +245,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/assignments/filters', [AssignmentController::class, 'filters']);
 
     Route::get('/assignments', [AssignmentController::class, 'index']);
-    Route::get('/assignments/{assignment}', [AssignmentController::class, 'show']);
-    Route::post('/assignments/{assignment}/submissions', [AssignmentController::class, 'submit'])
+    Route::get('/assignments/{assignmentUuid}', [AssignmentController::class, 'show']);
+    Route::post('/assignments/{assignmentUuid}/submissions', [AssignmentController::class, 'submit'])
         ->middleware('throttle:upload');
 
     Route::middleware('throttle:authoring')->group(function (): void {
@@ -297,7 +297,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     // Attempts (student-facing).
-    Route::post('/exams/{exam}/attempts', [AttemptController::class, 'start']);
-    Route::post('/attempts/{attempt}/submit', [AttemptController::class, 'submit']);
-    Route::get('/attempts/{attempt}', [AttemptController::class, 'show']);
+    Route::post('/exams/{examUuid}/attempts', [AttemptController::class, 'start']);
+    Route::post('/attempts/{attemptUuid}/submit', [AttemptController::class, 'submit']);
+    Route::get('/attempts/{attemptUuid}', [AttemptController::class, 'show']);
 });

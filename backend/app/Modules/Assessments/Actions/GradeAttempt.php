@@ -79,7 +79,7 @@ class GradeAttempt extends Action
         try {
             return DB::transaction(fn (): Attempt => $this->grade($attempt, $answersPayload));
         } catch (Throwable $exception) {
-            Attempt::query()
+            Attempt::query()->withoutWorkspaceScope()
                 ->whereKey($attempt->getKey())
                 ->where('status', Attempt::STATUS_GRADING)
                 ->update(['status' => Attempt::STATUS_IN_PROGRESS]);

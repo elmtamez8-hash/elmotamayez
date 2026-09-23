@@ -54,7 +54,7 @@ class ExamController extends Controller
              | ورقةٍ تقولُ لطالبٍ إنّ هناكَ امتحاناً لا يخصُّه، وهو ما لم يكنْ
              | ليعرفَه ولا فعلَ له يفتحُه.
              */
-            ->when(! $manages, fn ($q) => StudentScope::applyIfUnscoped($q, $user, $enrollments)
+            ->when(! $manages, fn ($q) => StudentScope::forReader($q, $user, $enrollments)
                 ->whereNotIn('id', $this->hiddenExamIds($user, $enrollments)))
             /*
              | ⚠️ THE STATUS DISJUNCTION IS GROUPED, AND IT HAS TO BE.
@@ -167,8 +167,10 @@ class ExamController extends Controller
      * يُسقِطُ الصفَّ من المنهجِ ومن الفهرس، فمَن بلغَ هنا إنّما طرَقَ المعرّفَ
      * مباشرةً — و«ليست لمجموعتك» تُخبِرُه بوجودِ شيءٍ ما كانَ ليعرفَه.
      */
-    public function show(Request $request, Exam $exam): JsonResponse
+    public function show(Request $request, string $examUuid): JsonResponse
     {
+        $exam = Exam::forStudentDoor($examUuid);
+
         $this->authorize('view', $exam);
 
         $lesson = Lesson::query()

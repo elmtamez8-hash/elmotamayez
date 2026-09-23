@@ -17,8 +17,10 @@ use Illuminate\Http\Request;
 
 class AttemptController extends Controller
 {
-    public function start(Request $request, Exam $exam, StartAttempt $action): JsonResponse
+    public function start(Request $request, string $examUuid, StartAttempt $action): JsonResponse
     {
+        $exam = Exam::forStudentDoor($examUuid);
+
         $this->authorize('view', $exam);
 
         if (! $exam->isPublished()) {
@@ -47,8 +49,10 @@ class AttemptController extends Controller
         ], 201);
     }
 
-    public function submit(SubmitAttemptRequest $request, Attempt $attempt, GradeAttempt $action): JsonResponse
+    public function submit(SubmitAttemptRequest $request, string $attemptUuid, GradeAttempt $action): JsonResponse
     {
+        $attempt = Attempt::forStudentDoor($attemptUuid);
+
         $this->authorize('submit', $attempt);
 
         /*
@@ -68,8 +72,10 @@ class AttemptController extends Controller
         return response()->json(AttemptResource::make($graded));
     }
 
-    public function show(Attempt $attempt): JsonResponse
+    public function show(string $attemptUuid): JsonResponse
     {
+        $attempt = Attempt::forStudentDoor($attemptUuid);
+
         $this->authorize('view', $attempt);
 
         return response()->json(AttemptResource::make($attempt->load('answers.question')));

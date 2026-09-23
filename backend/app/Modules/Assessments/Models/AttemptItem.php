@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use Database\Factories\Modules\Assessments\AttemptItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -57,7 +58,7 @@ class AttemptItem extends BaseModel
     /** @return BelongsTo<Question, $this> */
     public function question(): BelongsTo
     {
-        return $this->belongsTo(Question::class);
+        return $this->belongsTo(Question::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /**
