@@ -196,3 +196,29 @@ it('takes the student out of the group the course runs in', function (): void {
 
     expect(CohortMembership::query()->withoutWorkspaceScope()->find($membership->getKey())->closed_at)->not->toBeNull();
 });
+
+/*
+| ⚠️ `cancelled` is written by the reversal and nothing reopens it by hand — the
+| way back is buying again. `EnrollStudent::handOver()` treats any row that no
+| longer grants access as lapsed, so the one (workspace, course, student) row is
+| reopened under the new order instead of the unique key handing back a closed
+| one: money taken twice, curriculum still shut.
+*/
+it('reopens the cancelled enrolment when the student buys the course again', function (): void {
+    app(ReverseCourseOrder::class)->handle(reversalScreenOrder($this->order), $this->officer, 'استرداد');
+
+    expect(reversalScreenEnrollment($this->order)->status)->toBe(EnrollmentStatus::Cancelled->value);
+
+    $course = Course::query()->withoutWorkspaceScope()->findOrFail($this->order->course_id);
+    $again = app(CreateOrder::class)->handle($course, $this->student);
+    app(ApproveOrder::class)->handle($again, $this->officer);
+
+    $enrollment = reversalScreenEnrollment($again);
+
+    expect($enrollment->status)->toBe(EnrollmentStatus::Active->value)
+        ->and($enrollment->grantsContentAccess())->toBeTrue()
+        ->and(Enrollment::query()->withoutWorkspaceScope()
+            ->where('course_id', $course->getKey())
+            ->where('student_user_id', $this->student->getKey())
+            ->count())->toBe(1);
+});
