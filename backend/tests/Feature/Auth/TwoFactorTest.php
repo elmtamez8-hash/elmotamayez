@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Actions\CompleteTwoFactorChallenge;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\Device;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\SessionEndReason;
+use App\Modules\Identity\Support\TwoFactorChallenges;
+use App\Modules\Identity\Support\TwoFactorCodes;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Support\Roles;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -279,4 +282,131 @@ it('mints a secret long enough for an authenticator app to accept by hand', func
         // Base32, and nothing else: a character outside the alphabet is a key an
         // app rejects for a different reason with the same result.
         ->and((string) $secret)->toMatch('/^[A-Z2-7]+$/');
+});
+
+/** Six digits that are not the code the app is showing. */
+function twoFactorWrongCode(User $user): string
+{
+    return str_pad((string) (((int) currentCode($user) + 500_000) % 1_000_000), 6, '0', STR_PAD_LEFT);
+}
+
+/*
+| ⛔ A WRONG CODE USED TO COST THE ATTACKER NOTHING BUT TIME.
+|
+| The challenge survived every failure and the only bound was a per-IP and
+| per-challenge throttle, so a botnet guessing six digits was limited by how
+| many addresses it had. Five failures now spend the challenge: the next guess
+| needs the password again, and the per-account limiter below bounds that.
+*/
+it('burns the challenge after five wrong answers', function (): void {
+    $user = teacherAccount();
+    $codes = enrolTwoFactor($user);
+
+    app('auth')->forgetGuards();
+
+    $challenge = $this->postJson('/api/v1/auth/login', [
+        'email' => 'noura@example.com',
+        'password' => 'password',
+    ])->json('challenge');
+
+    $action = app(CompleteTwoFactorChallenge::class);
+
+    // A wrong recovery code is a guess too — it counts against the same five.
+    $guesses = [
+        [twoFactorWrongCode($user), null],
+        [twoFactorWrongCode($user), null],
+        [null, 'NOT-A-REAL-CODE'],
+        [twoFactorWrongCode($user), null],
+        [twoFactorWrongCode($user), null],
+    ];
+
+    foreach ($guesses as [$code, $recovery]) {
+        expect(fn () => $action->handle($challenge, $code, $recovery))->toThrow(DomainException::class);
+    }
+
+    expect(TwoFactorChallenges::userId($challenge))->toBeNull();
+
+    // The right code no longer opens anything: the challenge is gone.
+    expect(fn () => $action->handle($challenge, currentCode($user), null))
+        ->toThrow(DomainException::class, 'انتهت مهلة التحقق. سجّل الدخول من جديد.');
+
+    // And a recovery code was not spent by the refusal.
+    expect(app(TwoFactorCodes::class)->remainingRecoveryCodes($user->fresh()))->toBe(count($codes));
+});
+
+it('still forgives four mistakes', function (): void {
+    $user = teacherAccount();
+    enrolTwoFactor($user);
+
+    app('auth')->forgetGuards();
+
+    $challenge = $this->postJson('/api/v1/auth/login', [
+        'email' => 'noura@example.com',
+        'password' => 'password',
+    ])->json('challenge');
+
+    $action = app(CompleteTwoFactorChallenge::class);
+
+    foreach (range(1, 4) as $_) {
+        expect(fn () => $action->handle($challenge, twoFactorWrongCode($user), null))
+            ->toThrow(DomainException::class, 'الرمز غير صحيح.');
+    }
+
+    expect($action->handle($challenge, currentCode($user), null)->is($user))->toBeTrue();
+});
+
+/*
+| ⛔ PER ACCOUNT, NOT PER CHALLENGE — because the attacker holds the password and
+| can mint a fresh challenge whenever the last one is spent. Each guess here
+| arrives from a different address, which is the botnet the per-IP limit does
+| not see.
+*/
+it('bounds guessing per account across fresh challenges and addresses', function (): void {
+    $user = teacherAccount();
+    enrolTwoFactor($user);
+
+    app('auth')->forgetGuards();
+
+    $from = fn (string $ip) => $this->withServerVariables(['REMOTE_ADDR' => $ip]);
+
+    $first = $from('10.0.0.1')->postJson('/api/v1/auth/login', [
+        'email' => 'noura@example.com',
+        'password' => 'password',
+    ])->json('challenge');
+
+    $second = $from('10.0.0.2')->postJson('/api/v1/auth/login', [
+        'email' => 'noura@example.com',
+        'password' => 'password',
+    ])->json('challenge');
+
+    foreach (range(1, 5) as $i) {
+        $from('10.0.1.'.$i)->postJson('/api/v1/auth/2fa/challenge', [
+            'challenge' => $first,
+            'code' => twoFactorWrongCode($user),
+        ])->assertStatus(422);
+    }
+
+    $from('10.0.2.1')->postJson('/api/v1/auth/2fa/challenge', [
+        'challenge' => $second,
+        'code' => twoFactorWrongCode($user),
+    ])->assertStatus(429);
+
+    // Another account on the platform is not caught in that bucket.
+    $other = User::factory()->create([
+        'email' => 'salma@example.com',
+        'password' => 'password',
+        'platform_role' => PlatformRole::Teacher,
+    ]);
+    enrolTwoFactor($other);
+    app('auth')->forgetGuards();
+
+    $theirs = $from('10.0.3.1')->postJson('/api/v1/auth/login', [
+        'email' => 'salma@example.com',
+        'password' => 'password',
+    ])->json('challenge');
+
+    $from('10.0.3.2')->postJson('/api/v1/auth/2fa/challenge', [
+        'challenge' => $theirs,
+        'code' => twoFactorWrongCode($other),
+    ])->assertStatus(422);
 });

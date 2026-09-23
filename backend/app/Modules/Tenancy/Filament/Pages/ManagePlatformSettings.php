@@ -85,6 +85,7 @@ class ManagePlatformSettings extends Page
             'auth_session_retain_days' => DataCategory::query()->where('key', 'auth_session')->value('retain_days'),
             'auth_session_cap_per_user' => PlatformSettings::get('auth.auth_session_cap_per_user'),
             'auth_session_cap_min_age_days' => PlatformSettings::get('auth.auth_session_cap_min_age_days'),
+            'session_idle_days' => PlatformSettings::get('auth.session_idle_days'),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
@@ -197,6 +198,10 @@ class ManagePlatformSettings extends Page
                             | يكتبُ القاعدةَ بنصِّها: عدّةُ حقولٍ متفرّقةٍ تعني
                             | عدّةَ فرصٍ لأن يُملأَ بعضُها ويُنسى الباقي.
                             */
+                            TextInput::make('session_idle_days')
+                                ->label('إنهاء الجلسة بعد انقطاع (بالأيام)')
+                                ->helperText('جلسةٌ لم تُستخدم هذه المدّة تنتهي، ويُطلب تسجيل الدخول من جديد. صفر يعني «بلا حدّ».')
+                                ->numeric()->minValue(0)->maxValue(3650)->required(),
                             TextInput::make('auth_session_retain_days')
                                 ->label('مدّة الاحتفاظ بسجلّ الجلسات والأجهزة (بالأيام)')
                                 ->helperText('بعدها يبقى الصفّ ويذهب «من أين»: يُمسَح العنوان وتُمسَح البصمة. لا يقلّ عن ٨ أيّام.')
@@ -332,6 +337,7 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('auth.two_factor_grace_days', (int) $data['two_factor_grace_days'], $userId);
         PlatformSettings::set('auth.auth_session_cap_per_user', (int) $data['auth_session_cap_per_user'], $userId);
         PlatformSettings::set('auth.auth_session_cap_min_age_days', (int) $data['auth_session_cap_min_age_days'], $userId);
+        PlatformSettings::set('auth.session_idle_days', (int) $data['session_idle_days'], $userId);
         $this->saveSessionRetention((int) $data['auth_session_retain_days']);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);

@@ -12,6 +12,7 @@ use App\Modules\Identity\Actions\RegisterStudent;
 use App\Modules\Identity\Actions\StartAuthSession;
 use App\Modules\Identity\Actions\TerminateAuthSession;
 use App\Modules\Identity\Actions\TerminateOtherSessions;
+use App\Modules\Identity\Actions\UpdateAccountDetails;
 use App\Modules\Identity\Data\RegisterAccountData;
 use App\Modules\Identity\Data\RegisterStudentData;
 use App\Modules\Identity\Http\Requests\ChangePasswordRequest;
@@ -175,10 +176,15 @@ class AuthController extends Controller
         return response()->json(UserResource::make($this->currentUser($request)));
     }
 
-    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    /**
+     * Through {@see UpdateAccountDetails}, the Action the panel already uses: it
+     * owns «a new address drops its verification» and «the owner is told», so the
+     * two doors that change an address cannot disagree about either. The password
+     * a new address costs is checked by the request and never reaches the write.
+     */
+    public function updateProfile(UpdateProfileRequest $request, UpdateAccountDetails $action): JsonResponse
     {
-        $user = $this->currentUser($request);
-        $user->update($request->validated());
+        $user = $action->handle($this->currentUser($request), $request->profile());
 
         return response()->json(UserResource::make($user->fresh()));
     }
