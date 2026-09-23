@@ -24,6 +24,9 @@ interface EnrollmentDirectory
     /**
      * Whether this user holds an active enrolment in this course.
      *
+     * «Active» here and in every method below means «grants access»: `active`
+     * or `completed` (a course at 100% keeps growing — owner decision 2026-09-23).
+     *
      * Checked on every grant issue, not once per session: an enrolment that
      * lapses mid-course must stop the next playback request (FR-010).
      */

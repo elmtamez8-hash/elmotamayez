@@ -61,7 +61,47 @@ class EnrollStudent extends Action
             ]);
 
             event(new EnrollmentCreated($enrollment));
+
+            return $enrollment;
         }
+
+        return $this->handOver($enrollment, $source, $orderId);
+    }
+
+    /**
+     * An existing row belongs to whatever paid for it LAST.
+     *
+     * ⛔ `firstOrCreate` alone returned the old row untouched, and the unique key
+     * `(workspace, course, student)` means there is only ever one. So:
+     * - a student whose subscription had EXPIRED paid again and got the expired
+     *   row back — money taken, curriculum shut;
+     * - a RENEWAL got the row still pointing at the first month's order, so the
+     *   first month's expiry closed it (`SubscriptionAccess::close()` matches
+     *   `order_id`) while the second month was paid, and released its seats;
+     * - a course bought OUTRIGHT over a live subscription stayed
+     *   `source = subscription` and was closed when the subscription ended.
+     *
+     * A row from an outright purchase is never handed to a subscription: that
+     * would put a permanent entitlement on a timer (the reason `openAccess()`
+     * stamps `expires_at` only on a row that is the subscription's own).
+     *
+     * ponytail: the newest subscription wins even if it ends before an older one
+     * still running on the same course; guard in `close()` if plans ever stack.
+     */
+    private function handOver(Enrollment $enrollment, string $source, ?int $orderId): Enrollment
+    {
+        $lapsed = ! $enrollment->grantsContentAccess();
+
+        if (! $lapsed && $enrollment->source !== 'subscription') {
+            return $enrollment;
+        }
+
+        $enrollment->forceFill([
+            'source' => $source,
+            'order_id' => $orderId,
+            'expires_at' => null,
+            'status' => $lapsed ? 'active' : $enrollment->status,
+        ])->save();
 
         return $enrollment;
     }
