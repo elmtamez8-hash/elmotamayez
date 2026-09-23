@@ -49,6 +49,14 @@ const BY_CODE: Record<string, string> = {
   // بـ`Gate::before` ولا يحملُ ملفَّ تدريس، فقيلَ له إنَّ كشفَه حُذِف.
   no_teacher_profile:
     "لا يوجد كشف تسوية لهذا الحساب — الكشف لمن له ملفُّ تدريس على المنصّة.",
+  /*
+    Spec 013 — a minor's account opens only when a guardian consents, and the
+    sign-in refuses before minting anything. Without this entry it fell through to
+    `BY_STATUS[403]`, «لا تملك صلاحية», which tells a child they did something
+    wrong rather than who has to act.
+  */
+  pending_guardian_consent:
+    "حسابك بانتظار موافقة وليّ أمرك على معالجة بياناتك. يصله الطلب في صفحة «وليّ الأمر والأوصياء»، وتستطيع الدخول فور موافقته.",
   two_factor_required:
     "انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.",
   // Deliberately vague about WHY, because the server is: no seat, outside the

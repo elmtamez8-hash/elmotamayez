@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { ConsentScreen } from "@/components/compliance/ConsentScreen";
+import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
@@ -23,17 +25,20 @@ export function RelationRow({
   onAccept,
   onRevoke,
   onSavePermissions,
+  onConsented,
 }: {
   relation: GuardianRelation;
   onAccept: (uuid: string) => Promise<void>;
   onRevoke: (uuid: string) => Promise<void>;
   onSavePermissions: (uuid: string, permissions: string[]) => Promise<void>;
+  onConsented?: () => void;
 }) {
   const readingAsStudent = relation.viewer_side === "student";
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string[]>(() => relation.permissions.map((p) => p.key));
   const [busy, setBusy] = useState(false);
+  const [consenting, setConsenting] = useState(false);
 
   /*
    * Whose name the row is about. A student needs the GUARDIAN's name — the whole
@@ -123,6 +128,36 @@ export function RelationRow({
           )}
         </div>
       </div>
+
+      {/*
+        ⚠️ SPEC 013 — THE ONE THING THAT OPENS A MINOR'S ACCOUNT, AND NO SCREEN
+        OFFERED IT. A self-registered minor gets no sign-in until a guardian
+        consents; the notification sends the guardian here, they accept the link —
+        and until this block the page offered nothing more, so the child stayed
+        locked out for ever. The flag is the server's (`student_awaiting_consent`):
+        it needs the child's account status, which nothing else on the row carries.
+      */}
+      {relation.student_awaiting_consent && relation.student_uuid && (
+        <div className="mt-3 space-y-3 border-t border-line pt-3">
+          <Alert tone="warning" title="حساب ابنك بانتظار موافقتك">
+            لن يستطيع الدخول إلى المنصّة قبل أن توافق على معالجة بياناته.
+          </Alert>
+
+          {consenting ? (
+            <ConsentScreen
+              studentUuid={relation.student_uuid}
+              onSaved={() => {
+                setConsenting(false);
+                onConsented?.();
+              }}
+            />
+          ) : (
+            <Button size="sm" onClick={() => setConsenting(true)}>
+              مراجعة الموافقة على معالجة البيانات
+            </Button>
+          )}
+        </div>
+      )}
 
       {/*
         ⚠️ THE EDITOR IS WHAT MAKES US3 EXIST AT ALL. `PATCH /family/relations/{uuid}`

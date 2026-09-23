@@ -225,6 +225,7 @@ export default function FamilyPage() {
                 onAccept={accept}
                 onRevoke={revoke}
                 onSavePermissions={savePermissions}
+                onConsented={() => void load()}
               />
             ))}
           </ul>

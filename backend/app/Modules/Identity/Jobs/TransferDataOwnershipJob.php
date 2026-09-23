@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Jobs;
 
 use App\Models\User;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -132,6 +133,28 @@ class TransferDataOwnershipJob implements ShouldQueue
                     ));
                 }
             });
+
+        /*
+        | ⚠️ A MINOR STILL WAITING ON A GUARDIAN WHEN THEY COME OF AGE WAS LOCKED
+        | OUT FOR EVER. `StartAuthSession` refuses `pending_guardian_consent`
+        | whatever the date of birth says, and the only writer of `active` was a
+        | guardian's consent — which an adult no longer needs (FR-009) and may
+        | never get. So the person this job tells «your data is yours now» could
+        | not sign in to read it. An adult registering today is `active` with no
+        | consent row at all; this puts the one who waited in the same place.
+        |
+        | Keyed on `ownership_transferred_at` rather than on the date again, so
+        | the estimated-birthday spread above decides it once, and one statement
+        | also opens anybody who crossed before this line existed. `users` is
+        | Identity's own table — the module that writes the status.
+        */
+        User::query()
+            ->where('status', UserStatus::PendingGuardianConsent->value)
+            ->whereIn(
+                'id',
+                StudentProfile::query()->whereNotNull('ownership_transferred_at')->select('user_id'),
+            )
+            ->update(['status' => UserStatus::Active->value, 'updated_at' => now()]);
     }
 
     /**

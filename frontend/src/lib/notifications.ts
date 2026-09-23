@@ -116,6 +116,14 @@ export type GuardianRelation = {
    * what every child-scoped screen sends as `?student=`.
    */
   student_uuid?: string;
+  /*
+   * Spec 013 — the child's account is waiting for THIS reader's consent to the
+   * processing of their data, and this reader can give it (an active link
+   * carrying `data_rights`). Decided by the server because it needs the child's
+   * account status, which nothing else on the row carries. Until a guardian acts
+   * on it the child cannot sign in at all.
+   */
+  student_awaiting_consent?: boolean;
   guardian?: { uuid: string; name: string };
   permissions: { key: string; label: string }[];
   revoked_at: string | null;

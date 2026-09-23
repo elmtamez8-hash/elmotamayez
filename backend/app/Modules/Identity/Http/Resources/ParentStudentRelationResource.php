@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Http\Resources;
 
 use App\Modules\Identity\Models\ParentStudentRelation;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Shared\Support\GuardianPermission;
 use Illuminate\Http\Request;
@@ -90,6 +91,23 @@ class ParentStudentRelationResource extends JsonResource
                     && $request->user()?->getKey() === $this->guardian_user_id,
                 fn () => $this->student?->uuid,
             ),
+            /*
+            | Spec 013 · FR-003 — the guardian's half of the consent gate.
+            |
+            | ⚠️ THE ENDPOINT EXISTED AND NO SCREEN COULD REACH IT. A self-registered
+            | minor gets no token until a guardian consents (`StartAuthSession`),
+            | the notification sends the guardian to `/family`, they accept the
+            | link — and the page offered nothing else, so the child stayed locked
+            | out for ever while `PUT /privacy/consents/categories` waited for a
+            | `student_uuid` nobody sent. The screen asks the server whether to
+            | offer it rather than re-deriving it, because the answer needs the
+            | CHILD's account status, which no other field carries.
+            |
+            | True only for the reader who can actually give it: the guardian on
+            | an ACTIVE link holding `DataRights` — the permission
+            | `PrivacyConsentController` asks for.
+            */
+            'student_awaiting_consent' => $this->awaitingConsentFor($request),
             'guardian' => $this->whenLoaded('guardian', fn () => [
                 'uuid' => $this->guardian->uuid,
                 'name' => $this->guardian->name,
@@ -120,6 +138,19 @@ class ParentStudentRelationResource extends JsonResource
         }
 
         return (int) $id === (int) $this->student_user_id ? 'student' : null;
+    }
+
+    private function awaitingConsentFor(Request $request): bool
+    {
+        if ($this->viewerSide($request) !== 'guardian' || ! $this->resource->isActive()) {
+            return false;
+        }
+
+        if (! $this->resource->allows(GuardianPermission::DataRights)) {
+            return false;
+        }
+
+        return $this->student?->status === UserStatus::PendingGuardianConsent->value;
     }
 
     private function decideableForReader(Request $request): bool
