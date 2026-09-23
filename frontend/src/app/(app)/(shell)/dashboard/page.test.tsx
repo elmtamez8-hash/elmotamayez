@@ -622,6 +622,9 @@ function teacherAnswer(path: string) {
         { student_uuid: "st-1", course_uuid: "c-2", is_withheld: true },
         { student_uuid: "st-2", course_uuid: "c-1", is_withheld: false },
       ],
+      // The list is paginated: the page above is one of several, and the count
+      // over EVERY page is the server's. Deliberately not what the rows give (1).
+      meta: { current_page: 1, last_page: 3, per_page: 50, total: 120, withheld_students: 4 },
     });
   }
   if (path.startsWith("/notifications")) return Promise.resolve({ data: [] });
@@ -754,7 +757,7 @@ describe("DashboardPage · المدرّس", () => {
     vi.unstubAllGlobals();
   });
 
-  it("counts people, not rows, among the withheld", async () => {
+  it("reads the withheld people from the server's count over every page", async () => {
     asTeacher(HOST);
 
     render(<DashboardPage />);
@@ -768,8 +771,9 @@ describe("DashboardPage · المدرّس", () => {
     */
     const card = (title: string) => within(screen.getByText(title).closest("section") as HTMLElement);
 
-    // صفّانِ لطالبٍ واحدٍ ⇒ «١»، لا «٢».
-    expect(card("طلاب محجوبون").getByText("١")).toBeDefined();
+    // From `meta.withheld_students` (4), never from the page's rows — which would
+    // give «١» here and undercount any teacher with more than one page.
+    expect(card("طلاب محجوبون").getByText("٤")).toBeDefined();
     // والرقمانِ الآخرانِ من `meta.total` لا من طولِ الصفحةِ الفارغة.
     expect(card("بانتظار التصحيح").getByText("٧")).toBeDefined();
     expect(card("طلبات الحصص الخاصة").getByText("٣")).toBeDefined();

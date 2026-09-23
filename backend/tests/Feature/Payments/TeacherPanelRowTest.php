@@ -155,3 +155,79 @@ it('survives an enrolment whose student no longer exists', function (): void {
     expect($rows->firstWhere('student_uuid', $this->student->uuid))->not->toBeNull()
         ->and($rows->pluck('student_uuid'))->not->toContain($ghost->uuid);
 });
+
+it('pages the panel and carries the envelope a reader needs to find page two', function (): void {
+    // The list used to be the whole workspace in one response. Paginated, the
+    // `meta` is what tells the screen there is more — without it the table stops
+    // at the first page and says nothing.
+    foreach (range(1, 2) as $ignored) {
+        $extra = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+        $this->createEnrollment($this->workspace, $this->course, $extra);
+    }
+
+    Sanctum::actingAs(panelReader($this->workspace));
+
+    $first = $this->getJson('/api/v1/manage/billing/students?per_page=2')->assertOk();
+    $second = $this->getJson('/api/v1/manage/billing/students?per_page=2&page=2')->assertOk();
+
+    $uuids = collect($first->json('data'))->pluck('student_uuid')
+        ->merge(collect($second->json('data'))->pluck('student_uuid'));
+
+    expect($first->json('data'))->toHaveCount(2)
+        ->and($first->json('meta.total'))->toBe(3)
+        ->and($first->json('meta.last_page'))->toBe(2)
+        ->and($first->json('meta.current_page'))->toBe(1)
+        ->and($second->json('data'))->toHaveCount(1)
+        // Every enrolment on exactly one page: a stable order, no row twice.
+        ->and($uuids->unique())->toHaveCount(3);
+});
+
+it('keeps a page full when an orphaned enrolment sits among the rows', function (): void {
+    // Filtered only after the page is cut, an orphan would make its page come
+    // back short and the total would count a person listed on no page at all.
+    $ghost = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $ghost);
+    $other = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $other);
+
+    DB::table('users')->where('id', $ghost->getKey())->delete();
+
+    Sanctum::actingAs(panelReader($this->workspace));
+
+    $response = $this->getJson('/api/v1/manage/billing/students?per_page=2')->assertOk();
+
+    expect($response->json('data'))->toHaveCount(2)
+        ->and($response->json('meta.total'))->toBe(2);
+});
+
+it('counts withheld PEOPLE over every page, not the rows of one', function (): void {
+    /*
+    | The dashboard card reads this number. Before pagination it counted the
+    | rows it was handed; after, that would be the first page only — quietly
+    | wrong for exactly the teachers with the most students.
+    |
+    | One student withheld in TWO courses is one person; a second student, on
+    | another page, is withheld too. Expected: 2, whatever the page size.
+    */
+    $second = billingCourse($this->workspace);
+    $this->createEnrollment($this->workspace, $second, $this->student);
+
+    $late = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $late);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    billingBalance($this->workspace, $this->student, $this->course)
+        ->forceFill(['remaining_credits' => -2])->save();
+    billingBalance($this->workspace, $this->student, $second)
+        ->forceFill(['remaining_credits' => -1])->save();
+    billingBalance($this->workspace, $late, $this->course)
+        ->forceFill(['remaining_credits' => -3])->save();
+
+    Sanctum::actingAs(panelReader($this->workspace));
+
+    $response = $this->getJson('/api/v1/manage/billing/students?per_page=1')->assertOk();
+
+    expect($response->json('data'))->toHaveCount(1)
+        ->and($response->json('meta.total'))->toBe(3)
+        ->and($response->json('meta.withheld_students'))->toBe(2);
+});

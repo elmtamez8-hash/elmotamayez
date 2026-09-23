@@ -41,6 +41,30 @@ class StudentBalanceController extends Controller
 
         $workspace = Workspace::query()->findOrFail($workspaceId);
 
-        return response()->json(['data' => $action->handle($workspace)]);
+        $perPage = min(max((int) $request->integer('per_page', 50), 1), 100);
+
+        $page = $action->handle($workspace, $perPage, max(1, (int) $request->integer('page', 1)));
+
+        /*
+        | ⚠️ THE ENVELOPE IS BUILT BY HAND, and `meta` is not decoration. There is
+        | no Resource here (the rows are already arrays), so `response()->json()`
+        | of the paginator would put `current_page`/`last_page` at the TOP level
+        | beside `data` — a shape no reader of `Paginated<T>` in the frontend
+        | looks for, and a list that stops at page one without saying so.
+        |
+        | `withheld_students` is counted over EVERY page: the dashboard card
+        | reads it, and counting the rows of one page would undercount for any
+        | teacher whose class is longer than a page.
+        */
+        return response()->json([
+            'data' => $page->items(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'withheld_students' => $action->withheldStudentCount($workspace),
+            ],
+        ]);
     }
 }

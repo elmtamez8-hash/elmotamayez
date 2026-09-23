@@ -32,13 +32,13 @@ import { CountCard } from "./CountCard";
  * وهو يفشلُ في الاتّجاهِ الآمن — مساحةٌ في القائمةِ بلا سياقٍ محلولٍ تُبقي الحالَ
  * كما هو، وقائمةٌ فارغةٌ تعني سياقاً فارغاً يقيناً، إذ لا شيءَ آخرَ يُحَلُّ منه.
  */
+/*
+ * ⚠️ العددُ يُقرَأُ من `meta.withheld_students` ولا يُعَدُّ من `data`: القائمةُ
+ * مُقسَّمةٌ صفحاتٍ الآن، فعدُّ صفوفِ الصفحةِ الأولى يُنقِصُ العددَ بصمتٍ عند كلِّ
+ * مدرّسٍ تتجاوزُ قائمتُه صفحةً واحدة. الخادمُ يعدُّ الأشخاصَ عبرَ كلِّ الصفحات.
+ */
 const countWithheldStudents = () =>
-  billing.students().then(
-    (result) =>
-      new Set(
-        (result.data ?? []).filter((row) => row.is_withheld).map((row) => row.student_uuid),
-      ).size,
-  );
+  billing.students().then((result) => result.meta?.withheld_students ?? 0);
 
 export function WithheldStudentsCard() {
   const { user } = useAuth();

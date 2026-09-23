@@ -217,6 +217,19 @@ export interface StudentBalanceRow {
   is_withheld: boolean;
 }
 
+/** One page of the teacher's panel, with the one figure taken over all pages. */
+export interface StudentBalancePage {
+  data: StudentBalanceRow[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    /** Distinct PEOPLE withheld in at least one course, across every page. */
+    withheld_students: number;
+  };
+}
+
 /**
  * The exam-mode window in force, if any (FR-046).
  *
@@ -365,8 +378,13 @@ export const billing = {
    * The teacher's panel. Credits and withheld state, and no money at all — the
    * total a student paid is the platform's price, and a teacher who could read
    * it would solve for the platform's margin from any two rows.
+   *
+   * ⚠️ PAGINATED, and `meta.withheld_students` is counted over EVERY page. A
+   * caller that counts the rows of `data` is counting one page, which is wrong
+   * for exactly the teachers with the most students — read the meta.
    */
-  students: () => api.get<{ data: StudentBalanceRow[] }>("/manage/billing/students"),
+  students: (page = 1) =>
+    api.get<StudentBalancePage>(`/manage/billing/students?page=${page}`),
   /*
    * The exception FR-038 allows, with the record FR-039 requires.
    *
