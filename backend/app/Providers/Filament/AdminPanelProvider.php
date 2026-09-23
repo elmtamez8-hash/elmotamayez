@@ -14,6 +14,7 @@ use App\Modules\Analytics\Filament\Widgets\StudentPerformanceWidget;
 use App\Modules\Analytics\Filament\Widgets\TopTeachersWidget;
 use App\Modules\Analytics\Filament\Widgets\TrustPulseWidget;
 use App\Modules\Analytics\Filament\Widgets\ViolationsWidget;
+use App\Modules\Identity\Http\Middleware\TouchPanelSession;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
@@ -378,6 +379,11 @@ class AdminPanelProvider extends PanelProvider
                 // meaningless until the team id matches the current workspace.
                 EnsureCurrentWorkspace::class,
                 EnsureFilamentAccess::class,
-            ]);
+            ])
+            // Persistent, so Livewire's update requests keep the device row alive
+            // too — see the middleware for why page loads alone would not.
+            ->authMiddleware([
+                TouchPanelSession::class,
+            ], isPersistent: true);
     }
 }

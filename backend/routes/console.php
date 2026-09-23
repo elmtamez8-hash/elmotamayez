@@ -83,7 +83,9 @@ Schedule::command('queue:prune-failed', ['--hours' => 720])->dailyAt('02:50');
 
 // A bearer token nobody has presented for `auth.session_idle_days` is ended here,
 // because the request-time guard only sees tokens that are still being used —
-// and an abandoned one otherwise holds a device slot for ever. 02:40: before the
+// and an abandoned one otherwise holds a device slot for ever. The same job ends
+// `/admin` rows whose web session outlived `session.lifetime` (a dead one can
+// therefore read `active` for up to a day). 02:40: before the
 // 03:15–03:45 bulk deletes and the 03:30 retention sweep (which then sees these
 // rows as ended), and off :05/:20/:35/:50.
 Schedule::job(new EndIdleAuthSessionsJob, 'maintenance')->dailyAt('02:40');
