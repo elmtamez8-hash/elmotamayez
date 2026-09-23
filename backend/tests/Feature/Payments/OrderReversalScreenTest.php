@@ -5,7 +5,11 @@ declare(strict_types=1);
 use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Enums\EnrollmentStatus;
+use App\Modules\Learning\Listeners\LeaveCohortsOnOrderReversed;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnSubscriptionEnd;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
@@ -15,9 +19,11 @@ use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
 
@@ -155,4 +161,38 @@ it('refuses the reversal to a teacher, who holds no approval permission', functi
     expect(Gate::forUser($this->teacher)->allows('reverse', reversalScreenOrder($this->order)))->toBeFalse()
         // والسماحُ في الاتّجاهِ الآخر، وإلّا صدقَ الرفضُ على سياسةٍ ترفضُ الجميع.
         ->and(Gate::forUser($this->officer)->allows('reverse', reversalScreenOrder($this->order)))->toBeTrue();
+});
+
+/*
+| Owner decision 2026-09-23: a reversed course order gives back the student's
+| future seats and their place in the group, not only the content.
+*/
+it('announces the reversed course so its seats and group place are given back', function (): void {
+    Event::fake([CourseAccessWithdrawn::class]);
+
+    app(ReverseCourseOrder::class)->handle(reversalScreenOrder($this->order), $this->officer, 'استرداد');
+
+    Event::assertDispatched(
+        CourseAccessWithdrawn::class,
+        fn (CourseAccessWithdrawn $event): bool => $event->studentUserId === (int) $this->student->getKey()
+            && $event->courseIds === [(int) $this->order->course_id],
+    );
+    Event::assertListening(CourseAccessWithdrawn::class, ReleaseSeatsOnSubscriptionEnd::class);
+    Event::assertListening(CourseAccessWithdrawn::class, LeaveCohortsOnOrderReversed::class);
+});
+
+it('takes the student out of the group the course runs in', function (): void {
+    $membership = CohortMembership::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => Cohort::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'course_id' => $this->order->course_id,
+        ])->getKey(),
+        'course_id' => $this->order->course_id,
+        'student_user_id' => $this->student->getKey(),
+    ]);
+
+    app(ReverseCourseOrder::class)->handle(reversalScreenOrder($this->order), $this->officer, 'استرداد');
+
+    expect(CohortMembership::query()->withoutWorkspaceScope()->find($membership->getKey())->closed_at)->not->toBeNull();
 });

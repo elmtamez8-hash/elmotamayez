@@ -13,6 +13,7 @@ use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Shared\Actions\Action;
+use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -47,9 +48,9 @@ use Illuminate\Support\Facades\DB;
  * له بابُه (`CancelSubscription`) — وعكسُ أيٍّ منهما هنا يُعيدُ المالَ ويتركُ ما
  * اشتُرِيَ به قائماً.
  *
- * ⚠️ والمقاعدُ المحجوزةُ والعضويّةُ في المجموعةِ لا تُمَسّ هنا، وهذا مذكورٌ لا
- * منسيّ: إغلاقُ التسجيلِ يُسقِطُ الوصولَ إلى المحتوى، وتحريرُ المقاعدِ قرارٌ له
- * حدثُه الخاصّ متى طُلِب.
+ * ⚠️ والمقاعدُ المحجوزةُ ومكانُ المجموعةِ يُحرَّرانِ بحدثٍ لا من هنا (قرارُ
+ * المالك ٢٠٢٦-٠٩-٢٣): `CourseAccessWithdrawn` تسمعُه LiveSessions فتُلغي حجوزَ ما
+ * لم يبدأْ، وLearning فتُخرِجُه من المجموعة. والوحدتانِ لا تُنادَيانِ مباشرةً.
  */
 class ReverseCourseOrder extends Action
 {
@@ -94,11 +95,33 @@ class ReverseCourseOrder extends Action
                 throw new DomainException('لا دفعةَ محصَّلةً على هذا الطلبِ لتُعكَس.');
             }
 
-            $closed = Enrollment::query()
+            $closing = Enrollment::query()
                 ->withoutWorkspaceScope()
                 ->where('order_id', $order->getKey())
                 ->whereIn('status', Enrollment::GRANTING_STATUSES)
+                ->get(['id', 'course_id', 'student_user_id', 'workspace_id']);
+
+            $closed = Enrollment::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('id', $closing->pluck('id'))
+                ->whereIn('status', Enrollment::GRANTING_STATUSES)
                 ->update(['status' => EnrollmentStatus::Cancelled->value]);
+
+            // Read before the close, like `SubscriptionAccess::close()`: by the
+            // time a listener runs nothing grants access, so it could not
+            // re-derive which courses these were. Dispatched inside the
+            // transaction; both listeners are after-commit.
+            if ($closing->isNotEmpty()) {
+                CourseAccessWithdrawn::dispatch(
+                    (int) $order->workspace_id,
+                    (int) $order->user_id,
+                    array_values(array_unique(array_map(
+                        static fn (mixed $id): int => (int) $id,
+                        $closing->pluck('course_id')->all(),
+                    ))),
+                    (int) $by->getKey(),
+                );
+            }
 
             $this->reverse->handle($captured, $reason);
 
