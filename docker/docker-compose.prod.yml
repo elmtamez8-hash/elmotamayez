@@ -14,6 +14,13 @@
 
 name: elmotamayez
 
+# ⚠️ بلا تدوير يكبرُ سجلُّ كلِّ حاويةٍ على القرصِ إلى أن يمتلئ — وسجلُّ Laravel
+# صار يذهبُ إلى stderr (أدناه) بدلَ ملفٍّ داخلَ الحاوية يضيعُ مع كلِّ نشرة.
+# اقرأه بـ `docker compose logs -f backend horizon scheduler`.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
 services:
   backend:
     # ⚠️ FPM يتكلّمُ FastCGI لا HTTP، فلا `curl` يصلُ إليه من داخلِ حاويتِه —
@@ -37,6 +44,7 @@ services:
         COMPOSER_AUTH: ${COMPOSER_AUTH:-}
     image: elmotamayez-backend:latest
     restart: unless-stopped
+    logging: *logging
     working_dir: /var/www/html
     # ⚠️ لا ربطَ للشيفرة. الصورةُ هي النشرة؛ مجلَّدان فقط يعيشان أطولَ منها:
     # المرفوعاتُ (إيصالاتُ الدفعِ والوسائط) وسجلُّ التخزين.
@@ -51,6 +59,8 @@ services:
     env_file: .env
     environment:
       DB_HOST: mysql
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
       REDIS_HOST: redis
       # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
       # `SCOUT_MEILISEARCH_HOST` — اسمٌ لا يقرؤه أحد — فيسقطُ إلى الافتراضيِّ
@@ -80,6 +90,7 @@ services:
   horizon:
     image: elmotamayez-backend:latest
     restart: unless-stopped
+    logging: *logging
     working_dir: /var/www/html
     command: php artisan horizon
     # ⚠️ `horizon:status` يُرجعُ ٠ يعمل · ١ موقوف · ٢ خامل — مقيسٌ من مصدرِ
@@ -99,6 +110,8 @@ services:
     env_file: .env
     environment:
       DB_HOST: mysql
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
       REDIS_HOST: redis
       # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
       # `SCOUT_MEILISEARCH_HOST` — اسمٌ لا يقرؤه أحد — فيسقطُ إلى الافتراضيِّ
@@ -127,6 +140,7 @@ services:
   scheduler:
     image: elmotamayez-backend:latest
     restart: unless-stopped
+    logging: *logging
     working_dir: /var/www/html
     command: php artisan schedule:work
     # ⚠️ لا أمرَ حالةٍ للمجدوِل، فالنبضةُ في `routes/console.php` هي الجواب:
@@ -147,6 +161,8 @@ services:
     env_file: .env
     environment:
       DB_HOST: mysql
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
       REDIS_HOST: redis
       MEILISEARCH_HOST: http://meilisearch:7700
       # ⚠️ العنوانُ العامُّ للموقع، وغيابُه كانَ يُسقِطُ أربعةَ أشياءَ في صمت.
@@ -170,6 +186,7 @@ services:
   reverb:
     image: elmotamayez-backend:latest
     restart: unless-stopped
+    logging: *logging
     working_dir: /var/www/html
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     # ⚠️ `/up` مسارٌ تُصرِّحُ به الحزمةُ نفسُها (`HealthCheckController`) ويردُّ
@@ -184,6 +201,8 @@ services:
     env_file: .env
     environment:
       DB_HOST: mysql
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: info
       REDIS_HOST: redis
     networks: [elmotamayez]
     depends_on:
@@ -204,6 +223,7 @@ services:
         NEXT_PUBLIC_REVERB_SCHEME: ${REVERB_PUBLIC_SCHEME}
     image: elmotamayez-frontend:latest
     restart: unless-stopped
+    logging: *logging
     # ⚠️ اتّصالُ TCP لا طلبُ HTTP على `/`، **وهذا قرارٌ لا كسل**. الصفحةُ
     # الرئيسيّةُ تُصيَّرُ على الخادمِ بجلبٍ من الـAPI، فتعثّرُ الخادمِ الخلفيِّ
     # كانَ سيُعلِّمُ **الواجهةَ** معتلّةً وهي سليمة — أي اتّهامُ الحاويةِ الخطأ،
@@ -255,6 +275,7 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    logging: *logging
     # ⚠️ `/nginx-health` مسارٌ يردُّه nginx بنفسِه ولا يمرُّ بخادمٍ خلفيّ — انظر
     # `nginx.prod.conf`. فحصٌ على `/` يمرُّ إلى Next ثمّ إلى الـAPI، فيقيسُ
     # ثلاثَ حاوياتٍ ويُسمّي الأولى. و`wget` من BusyBox موجودٌ في `nginx:alpine`
@@ -308,6 +329,7 @@ services:
   certbot:
     image: certbot/certbot
     restart: unless-stopped
+    logging: *logging
     volumes:
       - certbot-www:/var/www/certbot
       - certbot-conf:/etc/letsencrypt
@@ -315,7 +337,15 @@ services:
 
   mysql:
     image: mysql:8.0
+    # الافتراضيُّ 128M يُبقي أغلبَ الجداولِ على القرص. الحجمُ من `.env` لأنّه
+    # يتبعُ ذاكرةَ الخادم (نحوَ نصفِ ما يتبقّى بعدَ بقيّةِ الحاويات)، وسجلُّ
+    # الاستعلاماتِ البطيئةِ داخلَ مجلّدِ البيانات هو ما يُسمّي الفهرسَ الناقص.
+    command:
+      - --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL:-512M}
+      - --slow-query-log=1
+      - --long-query-time=1
     restart: unless-stopped
+    logging: *logging
     environment:
       MYSQL_DATABASE: ${DB_DATABASE}
       MYSQL_USER: ${DB_USERNAME}
@@ -336,6 +366,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *logging
     # الاستمرارُ على القرص: الطابورُ يعيشُ هنا، وإعادةُ تشغيلٍ بلا AOF تفقدُ كلَّ
     # مهمّةٍ لم تُصرَفْ بعد — إشعاراتٍ وتسجيلاتٍ وتقاريرَ لا سبيلَ إلى إعادتِها.
     command: redis-server --appendonly yes
@@ -346,6 +377,7 @@ services:
   meilisearch:
     image: getmeili/meilisearch:v1.6
     restart: unless-stopped
+    logging: *logging
     environment:
       MEILI_MASTER_KEY: ${MEILISEARCH_KEY}
       MEILI_ENV: production
