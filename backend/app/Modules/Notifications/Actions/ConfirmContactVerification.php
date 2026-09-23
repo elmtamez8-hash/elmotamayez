@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Actions;
 
+use App\Modules\Notifications\Events\ContactVerified;
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -34,6 +35,10 @@ class ConfirmContactVerification extends Action
         }
 
         $verification->forceFill(['verified_at' => now()])->save();
+
+        // Announced once, on the transition — the early return above answers a
+        // repeated confirm without firing it again.
+        ContactVerified::dispatch((int) $verification->user_id, $verification->contact_value);
 
         return $verification;
     }

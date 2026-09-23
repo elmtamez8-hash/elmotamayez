@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/Field";
 import { errorMessage, fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 
 import { RelationRow } from "./RelationRow";
@@ -25,11 +26,15 @@ import { RelationRow } from "./RelationRow";
  * reading an enum.
  */
 export default function FamilyPage() {
+  const { user } = useAuth();
   const [relations, setRelations] = useState<GuardianRelation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [name, setName] = useState("");
+  const [studentCode, setStudentCode] = useState("");
+  const [requested, setRequested] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [relationType, setRelationType] = useState<"parent" | "guardian">("parent");
   const [permissions, setPermissions] = useState<string[]>(
     GUARDIAN_PERMISSIONS.map((permission) => permission.key),
@@ -54,16 +59,47 @@ export default function FamilyPage() {
   const add = async () => {
     setSubmitting(true);
     setError("");
+    setRequested(false);
+
+    const code = studentCode.trim();
 
     try {
-      await family.add({ student_name: name, relation_type: relationType, permissions });
+      /*
+       * ⚠️ THE CODE IS WHAT MAKES THIS A LINK TO A REAL ACCOUNT. Without it the
+       * row is a name-only child — `active` at once, with no account behind it,
+       * so `ChildSwitcher` (rightly) never offers it and no report, attendance
+       * or balance can ever be read. That was the only thing this form could
+       * send, so no parent could reach a child who had signed up themselves.
+       *
+       * Omitted rather than `""` when empty: the server's `uuid` rule refuses an
+       * empty string.
+       */
+      await family.add({
+        student_name: name,
+        relation_type: relationType,
+        permissions,
+        ...(code === "" ? {} : { student_uuid: code }),
+      });
       setName("");
+      setStudentCode("");
+      setRequested(code !== "");
       await load();
     } catch (err) {
       const fields = fieldErrors(err);
       setError(Object.values(fields)[0] ?? errorMessage(err, "تعذّرت الإضافة."));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+    } catch {
+      // Refused outside a secure context and in some in-app browsers. The code
+      // is on screen and selectable either way — not an error worth a banner.
+      setCopied(false);
     }
   };
 
@@ -116,6 +152,32 @@ export default function FamilyPage() {
       <h2 className="text-2xl font-bold text-ink">وليّ الأمر والأوصياء</h2>
 
       {error && <Alert tone="danger" title={error} />}
+
+      {/*
+        The FIRST STEP of linking a child who already has an account, and it had
+        no screen: the server has taken a `student_uuid` since spec 030, and no
+        student could see theirs. It is the student's own identifier, shown to
+        them alone; handing it to a parent lets that parent ASK, never see — the
+        link stays pending until the student accepts it below.
+      */}
+      {user?.platform_role === "student" && user.uuid && (
+        <Card as="section">
+          <h3 className="mb-2 font-semibold text-ink">رمز ربط حسابي</h3>
+          <p className="mb-3 text-sm text-ink-muted">
+            أرسِلْ هذا الرمز لوليّ أمرك ليُدخِله في صفحته. يصلك طلبه هنا فتقبله أو ترفضه، ولا
+            يرى شيئاً من حسابك قبل موافقتك.
+          </p>
+          <p className="mb-3 break-all font-mono text-sm text-ink select-all" dir="ltr">
+            {user.uuid}
+          </p>
+          <div className="flex items-center gap-3">
+            <Button type="button" variant="secondary" onClick={() => void copyCode(user.uuid)}>
+              نسخ الرمز
+            </Button>
+            {copied && <span className="text-sm text-secondary-ink">نُسخ.</span>}
+          </div>
+        </Card>
+      )}
 
       {/*
         The student's half, and it comes FIRST when there is something waiting: a
@@ -172,6 +234,14 @@ export default function FamilyPage() {
             required
           />
 
+          <TextField
+            id="student_uuid"
+            label="رمز حساب الطالب — إن كان له حساب على المنصّة"
+            value={studentCode}
+            onChange={setStudentCode}
+            hint="يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يصله طلبك ليوافق عليه، ولا ترى شيئاً قبل موافقته."
+          />
+
           <SelectField
             id="relation_type"
             label="صفة الارتباط"
@@ -206,6 +276,12 @@ export default function FamilyPage() {
               ))}
             </div>
           </fieldset>
+
+          {requested && (
+            <Alert tone="info" title="أُرسل الطلب إلى حساب الطالب">
+              يظهر في قائمتك هنا، وتصلك بياناته بعد أن يوافق عليه من حسابه.
+            </Alert>
+          )}
 
           <Button
             onClick={add}

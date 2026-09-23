@@ -31,7 +31,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
   const router = useRouter();
 
   const [children, setChildren] = useState<ChildLink[]>([]);
-  const [form, setForm] = useState({ name: "", age: "", school_year_slug: "" });
+  const [form, setForm] = useState({ name: "", age: "", school_year_slug: "", code: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,8 +60,17 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
        * `undefined` and the child pushed onto the signup list below was nothing at
        * all. TypeScript agreed with the lie because the type said so.
        */
+      const code = form.code.trim();
+
       const created = await api.post<ChildLink>("/family/relations", {
         student_name: form.name,
+        /*
+         * A child who already has an account: the code their own `/family`
+         * screen shows them. Without it the row is a name-only child that no
+         * report can ever be read for. Omitted — never `""` — when empty, since
+         * the server's `uuid` rule refuses an empty string.
+         */
+        ...(code === "" ? {} : { student_uuid: code }),
         age: form.age === "" ? null : Number(form.age),
         school_year_slug:
           form.school_year_slug === "" ? null : form.school_year_slug,
@@ -72,7 +81,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
       });
 
       setChildren((current) => [...current, created]);
-      setForm({ name: "", age: "", school_year_slug: "" });
+      setForm({ name: "", age: "", school_year_slug: "", code: "" });
     } catch (err: unknown) {
       const fields = fieldErrors(err);
       setErrors(fields);
@@ -135,6 +144,28 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
             <p id="child-name-error" className="mt-1 text-sm text-danger-ink">
               {errors.student_name}
             </p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="child-code" className="mb-1 block text-sm font-medium text-ink">
+            رمز حساب الطالب — إن كان له حساب على المنصّة
+          </label>
+          <input
+            id="child-code"
+            value={form.code}
+            onChange={(e) => set("code", e.target.value)}
+            dir="ltr"
+            aria-invalid={errors.student_uuid ? true : undefined}
+            aria-describedby="child-code-hint"
+            className={FIELD_CLASS}
+          />
+          <p id="child-code-hint" className="mt-1 text-sm text-ink-muted">
+            يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يصله طلبك ليوافق عليه، ولا ترى شيئاً
+            قبل موافقته.
+          </p>
+          {errors.student_uuid && (
+            <p className="mt-1 text-sm text-danger-ink">{errors.student_uuid}</p>
           )}
         </div>
 

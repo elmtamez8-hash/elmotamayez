@@ -30,6 +30,14 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   },
 }));
 
+let mockUser: Record<string, unknown> | null = null;
+
+vi.mock("@/lib/auth-context", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth-context")>("@/lib/auth-context");
+
+  return { ...actual, useAuth: () => ({ user: mockUser }) };
+});
+
 function relation(overrides: Record<string, unknown> = {}) {
   return {
     uuid: "r-1",
@@ -60,6 +68,7 @@ describe("family page", () => {
     post.mockReset();
     patch.mockReset();
     del.mockReset();
+    mockUser = null;
   });
 
   it("shows a student the GUARDIAN's name, not their own", async () => {
@@ -148,5 +157,75 @@ describe("family page", () => {
     await waitFor(() =>
       expect(patch).toHaveBeenCalledWith("/family/relations/r-1", { permissions: [] }),
     );
+  });
+
+  /*
+   * ⚠️ A CHILD WHO ALREADY HAS AN ACCOUNT COULD NOT BE LINKED FROM ANY SCREEN.
+   * The form sent `student_name` and nothing else, so every child became a
+   * name-only row — active at once, no account behind it, never offered by
+   * `ChildSwitcher`. The code is what makes the request reach the child.
+   */
+  it("sends the child's account code when the parent enters one", async () => {
+    mockUser = { uuid: "p-1", platform_role: "parent" };
+    get.mockResolvedValue({ data: [] });
+    post.mockResolvedValue(relation({ viewer_side: "guardian", can_decide: false }));
+
+    render(<FamilyPage />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /اسم الطالب/ }), {
+      target: { value: "كريم" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /رمز حساب الطالب/ }), {
+      target: { value: "  9f1c2d3e-0000-4000-8000-000000000001 " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "إضافة" }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/family/relations",
+        expect.objectContaining({
+          student_name: "كريم",
+          student_uuid: "9f1c2d3e-0000-4000-8000-000000000001",
+        }),
+      ),
+    );
+    expect(await screen.findByText("أُرسل الطلب إلى حساب الطالب")).toBeTruthy();
+  });
+
+  it("omits the code entirely for a child with no account", async () => {
+    mockUser = { uuid: "p-1", platform_role: "parent" };
+    get.mockResolvedValue({ data: [] });
+    post.mockResolvedValue(relation({ viewer_side: "guardian", status: "active" }));
+
+    render(<FamilyPage />);
+
+    fireEvent.change(await screen.findByRole("textbox", { name: /اسم الطالب/ }), {
+      target: { value: "كريم" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "إضافة" }));
+
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    // `""` would be refused by the server's uuid rule with a 422 nobody can act on.
+    expect(post.mock.calls[0][1]).not.toHaveProperty("student_uuid");
+    expect(screen.queryByText("أُرسل الطلب إلى حساب الطالب")).toBeNull();
+  });
+
+  it("shows a student the code their guardian needs, and nobody else", async () => {
+    mockUser = { uuid: "s-123", platform_role: "student" };
+    get.mockResolvedValue({ data: [] });
+
+    const { unmount } = render(<FamilyPage />);
+
+    expect(await screen.findByRole("heading", { name: "رمز ربط حسابي" })).toBeTruthy();
+    expect(screen.getByText("s-123")).toBeTruthy();
+
+    unmount();
+    mockUser = { uuid: "p-1", platform_role: "parent" };
+
+    render(<FamilyPage />);
+
+    expect(await screen.findByRole("heading", { name: "إضافة مرتبط" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "رمز ربط حسابي" })).toBeNull();
+    expect(screen.queryByText("p-1")).toBeNull();
   });
 });

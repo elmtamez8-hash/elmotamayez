@@ -7,6 +7,7 @@ namespace App\Modules\Identity;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
 use App\Modules\Identity\Listeners\CompleteReferral;
+use App\Modules\Identity\Listeners\InviteGuardianOnContactVerified;
 use App\Modules\Identity\Listeners\RecordPanelSignIn;
 use App\Modules\Identity\Listeners\ReverseReferralAward;
 use App\Modules\Identity\Listeners\RevokeTeacherSessions;
@@ -14,6 +15,7 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
 use App\Modules\Identity\Support\IdentityPersonalData;
+use App\Modules\Notifications\Events\ContactVerified;
 use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\PaymentCaptured;
 use App\Modules\Payments\Events\PaymentReversed;
@@ -106,5 +108,12 @@ class IdentityServiceProvider extends Module
         | the hole this closes rather than a new one to open.
         */
         Event::listen(Login::class, RecordPanelSignIn::class);
+
+        /*
+        | A guardian who signs up after their child is linked the moment they
+        | prove the number the child named — the reader `guardian_contact` never
+        | had. Verified, never typed: see the listener's docblock.
+        */
+        Event::listen(ContactVerified::class, InviteGuardianOnContactVerified::class);
     }
 }
