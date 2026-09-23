@@ -57,9 +57,9 @@ class RunRetentionSweepJob implements ShouldQueue
 
     /**
      * ⚠️ JOB MIDDLEWARE WITH AN EXPLICIT `expireAfter()`, AND BOTH HALVES OF THAT
-     * ARE LOAD-BEARING — this is the ONE sweep in this codebase that does not use
-     * the `Schedule::job(...)->withoutOverlapping()` idiom every other line in
-     * `routes/console.php` uses, so the departure is written down here.
+     * ARE LOAD-BEARING. This was the first sweep to leave the
+     * `Schedule::job(...)->withoutOverlapping()` idiom; since maintenance runs two
+     * workers every scheduled sweep carries the same guard (`RunsAlone`).
      *
      *  · The scheduler's lock wraps `dispatchToQueue()`. For a QUEUED job that is
      *    a few milliseconds around the push — taken and released long before the

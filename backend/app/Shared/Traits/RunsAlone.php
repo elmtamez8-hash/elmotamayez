@@ -19,8 +19,8 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
  * ⚠️ `expireAfter()` IS THE LOAD-BEARING HALF. The middleware lock does not expire
  * on its own, so a worker killed mid-run (a deploy, an OOM, the timeout) would
  * hold it for ever and the sweep would silently never run again. The expiry is the
- * supervisor's 900-second timeout plus a minute, like the jobs that spell their
- * own `middleware()` out.
+ * maintenance supervisor's timeout plus a minute, read from its config so the two
+ * cannot drift, like the jobs that spell their own `middleware()` out.
  *
  * `dontRelease()`: a duplicate of a sweep is dropped rather than retried — the
  * next scheduled run does the same walk, and with `tries: 1` a released copy
@@ -36,7 +36,7 @@ trait RunsAlone
     public function middleware(): array
     {
         return [(new WithoutOverlapping($this->overlapKey()))
-            ->expireAfter(900 + 60)
+            ->expireAfter((int) config('horizon.defaults.supervisor-maintenance.timeout', 900) + 60)
             ->dontRelease()];
     }
 

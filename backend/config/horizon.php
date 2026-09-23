@@ -352,9 +352,10 @@ return [
         | ⚠️ NEITHER EXISTING QUEUE COULD CARRY IT, AND FOR OPPOSITE REASONS.
         | `supervisor-1` runs `default` at a SIXTY-SECOND timeout with `tries: 1`,
         | so the export `SC-014` measures — fifty thousand rows — is killed
-        | mid-archive with nothing to resume from. And `maintenance` runs at
-        | `maxProcesses: 1`, so one long export would block the retention sweep and
-        | every billing sweep queued behind it, all night.
+        | mid-archive with nothing to resume from. And `maintenance` ran at
+        | `maxProcesses: 1` when this was written, so one long export would have
+        | blocked every billing sweep queued behind it, all night — and even at two
+        | it would take half that supervisor for the length of an export.
         |
         | The timeout is measured against that export and nothing else. `memory` is
         | above maintenance's because the archive is written a category at a time

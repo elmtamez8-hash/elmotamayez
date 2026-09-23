@@ -282,11 +282,13 @@ Schedule::job(new NotifyDormantBalancesJob, 'maintenance')
 | joins the two tables that grow with every sale, and has no business queueing
 | behind a mass delete's locks.
 |
-| ⚠️ `withoutOverlapping()` HERE AND NOT AS JOB MIDDLEWARE: the scheduler's lock
-| expires on its own after 1440 minutes, the middleware's does not expire at all.
-| A worker killed at its timeout would leave a permanent lock and the sweep would
-| never run again, silently — the worst failure available to the thing whose
-| entire job is noticing silence.
+| ⚠️ `withoutOverlapping()` HERE AND ALSO JOB MIDDLEWARE (`RunsAlone`) since
+| maintenance runs two workers: the scheduler's lock guards only the push, so two
+| queued copies would otherwise run side by side. The reason this line once gave
+| for keeping it OFF the job still stands and is why the middleware carries
+| `expireAfter()`: a middleware lock with no expiry, held by a worker killed at
+| its timeout, would stop the sweep for ever, silently — the worst failure
+| available to the thing whose entire job is noticing silence.
 */
 Schedule::job(new ReconcilePaymentsJob, 'maintenance')
     ->hourlyAt(50)
