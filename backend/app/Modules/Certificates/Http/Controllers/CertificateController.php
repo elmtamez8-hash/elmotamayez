@@ -11,6 +11,7 @@ use App\Modules\Certificates\Http\Resources\CertificateResource;
 use App\Modules\Certificates\Http\Resources\PublicCertificateResource;
 use App\Modules\Certificates\Models\Certificate;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -46,8 +47,17 @@ class CertificateController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $viewAll = $this->currentUser($request)->can(Permissions::CERTIFICATES_VIEW_ALL);
+
+        /*
+         | ⚠️ A STUDENT'S OWN LIST IS READ WITHOUT THE SCOPE — the ownership filter
+         | below is the guard. Scoped, a student stamped with another teacher's
+         | workspace saw an empty list of certificates they had earned. The course
+         | relation is unscoped for the same reason, or each row names no course.
+         */
         $query = Certificate::query()
-            ->with(['course', 'student'])
+            ->when(! $viewAll, fn ($q) => $q->withoutGlobalScope(WorkspaceScope::class))
+            ->with(['course' => fn ($q) => $q->withoutGlobalScope(WorkspaceScope::class), 'student'])
             /*
              | ⚠️ MATCHED THROUGH THE RELATION, SO AN UNKNOWN UUID MATCHES NOTHING
              | — the `ClassSessionController@index` idiom. FR-020's tab asks for
@@ -56,10 +66,10 @@ class CertificateController extends Controller
              */
             ->when(
                 $request->query('course'),
-                fn ($q, $uuid) => $q->whereHas('course', fn ($course) => $course->where('uuid', $uuid)),
+                fn ($q, $uuid) => $q->whereHas('course', fn ($course) => $course->withoutGlobalScope(WorkspaceScope::class)->where('uuid', $uuid)),
             );
 
-        if (! $this->currentUser($request)->can(Permissions::CERTIFICATES_VIEW_ALL)) {
+        if (! $viewAll) {
             $query->where('student_user_id', $this->currentUser($request)->getKey());
         }
 
@@ -81,11 +91,16 @@ class CertificateController extends Controller
         return response()->json(CertificateResource::collection($certificates)->response()->getData(true));
     }
 
-    public function show(Certificate $certificate): JsonResponse
+    public function show(string $certificateUuid): JsonResponse
     {
+        $certificate = Certificate::forStudentDoor($certificateUuid);
+
         $this->authorize('view', $certificate);
 
-        return response()->json(CertificateResource::make($certificate->load(['course', 'student'])));
+        return response()->json(CertificateResource::make($certificate->load([
+            'course' => fn ($q) => $q->withoutGlobalScope(WorkspaceScope::class),
+            'student',
+        ])));
     }
 
     public function regenerate(Certificate $certificate, RegenerateCertificate $action): JsonResponse

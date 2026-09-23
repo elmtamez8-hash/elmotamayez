@@ -54,7 +54,7 @@ class CancelBooking extends Action
             ])->save();
 
             if ($inWindow) {
-                ClassSession::query()
+                ClassSession::query()->withoutWorkspaceScope()
                     ->whereKey($session->getKey())
                     ->where('seats_taken', '>', 0)
                     ->decrement('seats_taken');
@@ -117,7 +117,7 @@ class CancelBooking extends Action
                 'cancellation_reason' => $reason,
             ])->save();
 
-            ClassSession::query()
+            ClassSession::query()->withoutWorkspaceScope()
                 ->whereKey($booking->class_session_id)
                 ->where('seats_taken', '>', 0)
                 ->decrement('seats_taken');

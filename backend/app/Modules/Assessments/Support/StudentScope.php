@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Support;
 
 use App\Models\User;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -41,10 +42,10 @@ use Illuminate\Database\Eloquent\Model;
  * the direction a filter must fail in.
  *
  * ⚠️ IT REPLACES `WorkspaceScope`, IT DOES NOT STACK ON TOP OF IT — which is why
- * {@see applyIfUnscoped()} is what the controllers call. A reader who HAS a
- * workspace context is already narrowed correctly and there is no leak to close
- * for them; narrowing them again would be an entitlement change wearing a
- * security fix's clothes. `StartAttempt::enrollmentFor()` returns NULL when the
+ * {@see forReader()} is what the controllers call. A reader who HAS a
+ * workspace context keeps that workspace's rows as one arm of the predicate;
+ * narrowing them further would be an entitlement change wearing a security
+ * fix's clothes. `StartAttempt::enrollmentFor()` returns NULL when the
  * exam has no course and writes the attempt anyway, so an invited workspace
  * member with no enrolment may genuinely sit a published paper — hiding it from
  * them would be offering nothing where the server would have said yes, which is
@@ -53,27 +54,33 @@ use Illuminate\Database\Eloquent\Model;
 class StudentScope
 {
     /**
-     * Narrow only when nothing else is narrowing — the hole, and only the hole.
+     * A non-managing reader's slice: their own workspace's rows, plus what their
+     * enrolments reach anywhere else.
+     *
+     * ⛔ IT USED TO BE «NARROW ONLY WHEN THE CONTEXT IS NULL», and a resolved
+     * context is not a teacher. `WorkspaceContext::id()` falls back to
+     * `users.last_workspace_id`, stamped on every student a teacher ever added to
+     * their workspace — so for that student the scope ANDed the OTHER teacher's
+     * id and `/exams` and `/assignments` were empty at the teacher they paid.
+     * Measured 2026-09-23. The scope is dropped here and the reader's own
+     * workspace comes back as one arm of {@see apply()}, so a real member sees
+     * what they always saw.
      *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  Builder<TModel>  $query
      * @return Builder<TModel>
      */
-    public static function applyIfUnscoped(Builder $query, User $user, EnrollmentDirectory $enrollments): Builder
+    public static function forReader(Builder $query, User $user, EnrollmentDirectory $enrollments): Builder
     {
-        if (app(WorkspaceContext::class)->id() !== null) {
-            return $query;
-        }
-
-        return self::apply($query, $user, $enrollments);
+        return self::apply($query->withoutGlobalScope(WorkspaceScope::class), $user, $enrollments);
     }
 
     /**
      * The same question about ONE row — for a policy, which has no query to narrow.
      *
      * ⚠️ THE LIST WAS CLOSED AND THE DOOR WAS NOT, WHICH IS THIS REPOSITORY'S
-     * TWO-SPELLINGS DEFECT IN ITS USUAL DIRECTION. `applyIfUnscoped()` above
+     * TWO-SPELLINGS DEFECT IN ITS USUAL DIRECTION. `forReader()` above
      * stopped `GET /exams` answering every published paper on the platform —
      * while `ExamPolicy::view()` and `AssignmentPolicy::view()` still read
      * "published ⇒ allow", with `belongsToCurrentWorkspace()` correctly raising
@@ -85,14 +92,19 @@ class StudentScope
      * ⚠️ IT IS A METHOD ON THIS CLASS AND NOT A CONDITION COPIED INTO THE POLICY,
      * because two spellings of one entitlement is exactly how the gap opened.
      *
-     * ⚠️ AND IT ANSWERS TRUE FOR A RESOLVED CONTEXT, mirroring
-     * {@see applyIfUnscoped()} line for line: a workspace member is already
-     * narrowed by the scope and by the check above this call, and an invited
-     * member with no enrolment may genuinely sit a course-less paper.
+     * ⚠️ AND IT ANSWERS TRUE FOR A ROW IN THE READER'S OWN WORKSPACE, mirroring
+     * {@see forReader()} line for line: an invited member with no enrolment may
+     * genuinely sit a course-less paper. Only THAT workspace — «any resolved
+     * context» let a student stamped with teacher A's workspace through every
+     * policy check about teacher B's rows, and the policies now ask this ABOVE
+     * their workspace check.
      */
     public static function permits(Model $record, User $user, EnrollmentDirectory $enrollments): bool
     {
-        if (app(WorkspaceContext::class)->id() !== null) {
+        $context = app(WorkspaceContext::class)->id();
+
+        // The reader's own workspace — the arm `forReader()` adds back to a list.
+        if ($context !== null && (int) $record->getAttribute('workspace_id') === $context) {
             return true;
         }
 
@@ -122,11 +134,13 @@ class StudentScope
     {
         $courseIds = $enrollments->activeCourseIdsFor($user);
         $workspaceIds = $enrollments->activeWorkspaceIdsFor($user);
+        $context = app(WorkspaceContext::class)->id();
 
         return $query->where(fn (Builder $scoped): Builder => $scoped
             ->whereIn('course_id', $courseIds)
             ->orWhere(fn (Builder $general): Builder => $general
                 ->whereNull('course_id')
-                ->whereIn('workspace_id', $workspaceIds)));
+                ->whereIn('workspace_id', $workspaceIds))
+            ->when($context !== null, fn (Builder $own): Builder => $own->orWhere('workspace_id', $context)));
     }
 }

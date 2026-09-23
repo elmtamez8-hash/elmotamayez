@@ -52,9 +52,11 @@ class PrivateSessionRequestController extends Controller
 
     public function store(
         RequestPrivateSessionRequest $request,
-        Course $course,
+        string $courseUuid,
         RequestPrivateSession $action,
     ): JsonResponse {
+        $course = Course::forStudentDoor($courseUuid);
+
         try {
             $created = $action->handle(
                 $course,

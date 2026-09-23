@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Assessments\Support\MistakeNotebook;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -83,7 +84,7 @@ class Answer extends BaseModel
     /** @return BelongsTo<Question, $this> */
     public function question(): BelongsTo
     {
-        return $this->belongsTo(Question::class);
+        return $this->belongsTo(Question::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */

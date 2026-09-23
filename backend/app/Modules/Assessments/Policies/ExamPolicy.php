@@ -27,15 +27,20 @@ class ExamPolicy extends BasePolicy
 
     public function view(User $user, Exam $exam): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($exam))->denied()) {
-            return $workspaceCheck;
-        }
-
         // ⚠️ PUBLISHED IS NOT AN ENTITLEMENT — it is a fact about the paper, and
         // the caller has to be asked about separately. {@see StudentScope::permits()}
         // is the spelling `ExamController::index()` already uses on the list.
+        //
+        // ⛔ AND IT IS ASKED ABOVE THE WORKSPACE CHECK. A student stamped with
+        // another teacher's workspace (`users.last_workspace_id`) fails that check
+        // for the paper they enrolled for — the allow below it was unreachable
+        // for the one person it exists for. The check still guards the teacher arm.
         if ($exam->isPublished() && StudentScope::permits($exam, $user, app(EnrollmentDirectory::class))) {
             return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($exam))->denied()) {
+            return $workspaceCheck;
         }
 
         return $user->can(Permissions::EXAMS_VIEW)

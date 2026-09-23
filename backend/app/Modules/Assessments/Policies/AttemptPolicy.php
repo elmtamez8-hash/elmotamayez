@@ -15,12 +15,14 @@ class AttemptPolicy extends BasePolicy
 {
     public function view(User $user, Attempt $attempt): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($attempt))->denied()) {
-            return $workspaceCheck;
-        }
-
+        // Ownership first: a student stamped with another teacher's workspace
+        // fails the workspace check on their own paper.
         if ($attempt->student_user_id === $user->getKey()) {
             return Response::allow();
+        }
+
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($attempt))->denied()) {
+            return $workspaceCheck;
         }
 
         if (! $user->can(Permissions::ATTEMPTS_VIEW_ALL)) {
@@ -59,10 +61,8 @@ class AttemptPolicy extends BasePolicy
 
     public function submit(User $user, Attempt $attempt): Response
     {
-        if (($workspaceCheck = $this->belongsToCurrentWorkspace($attempt))->denied()) {
-            return $workspaceCheck;
-        }
-
+        // Only the owner may submit, so the workspace check could only ever
+        // refuse the owner — the stamped student on their own paper.
         return $attempt->student_user_id === $user->getKey()
             ? Response::allow()
             : Response::deny('You can only submit your own attempts.');

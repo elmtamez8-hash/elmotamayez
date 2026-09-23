@@ -73,7 +73,7 @@ class SubmitAssignment extends Action
         }
 
         $studentId = (int) $student->getKey();
-        $existing = Submission::query()
+        $existing = Submission::query()->withoutWorkspaceScope()
             ->where('assignment_id', $assignment->getKey())
             ->where('student_user_id', $studentId)
             ->first();
@@ -121,7 +121,7 @@ class SubmitAssignment extends Action
                         ...$values,
                     ]);
                 } catch (UniqueConstraintViolationException) {
-                    $existing = Submission::query()
+                    $existing = Submission::query()->withoutWorkspaceScope()
                         ->where('assignment_id', $assignment->getKey())
                         ->where('student_user_id', $studentId)
                         ->sole();

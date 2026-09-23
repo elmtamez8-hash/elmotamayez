@@ -53,6 +53,21 @@ trait BelongsToWorkspace
     }
 
     /**
+     * The row behind a door a STUDENT walks through — resolved by uuid without
+     * the workspace scope, then authorised by the caller on the next line.
+     *
+     * ⛔ NOT IMPLICIT BINDING. `WorkspaceContext::id()` falls back to
+     * `users.last_workspace_id`, stamped on every student a teacher ever added to
+     * their workspace — so the scope ANDs the OTHER teacher's id and the student's
+     * own exam, homework, certificate or seat answers 404. Teacher-only routes
+     * keep implicit binding: there the scope IS the tenant guard.
+     */
+    public static function forStudentDoor(string $uuid): static
+    {
+        return static::query()->withoutGlobalScope(WorkspaceScope::class)->where('uuid', $uuid)->firstOrFail();
+    }
+
+    /**
      * Bypass the workspace global scope for this query.
      *
      * @param  Builder<static>  $builder

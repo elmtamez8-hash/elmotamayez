@@ -169,7 +169,11 @@ class StartAttempt extends Action
             return null;
         }
 
+        // Unscoped: the student's context may be another teacher's workspace
+        // (`users.last_workspace_id`), which would hide this enrolment and write
+        // the attempt with no `enrollment_id`.
         return Enrollment::query()
+            ->withoutWorkspaceScope()
             ->where('course_id', $exam->course_id)
             ->where('student_user_id', $student->getKey())
             ->first();
@@ -180,7 +184,10 @@ class StartAttempt extends Action
      */
     private function guardAttemptLimit(Exam $exam, User $student): void
     {
+        // ⛔ Unscoped, or a stamped student's count reads ZERO and the limit
+        // never bites — unlimited attempts at a graded paper.
         $used = Attempt::query()
+            ->withoutWorkspaceScope()
             ->where('exam_id', $exam->getKey())
             ->where('student_user_id', $student->getKey())
             // ⚠️ PRACTICE RUNS DO NOT SPEND OFFICIAL ATTEMPTS (FR-026أ). Without

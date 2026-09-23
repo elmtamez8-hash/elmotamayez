@@ -6,6 +6,7 @@ namespace App\Modules\Assessments\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Courses\Models\Course;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPublishable;
@@ -57,7 +58,7 @@ class Exam extends BaseModel
     /** @return HasMany<ExamItem, $this> */
     public function items(): HasMany
     {
-        return $this->hasMany(ExamItem::class)->orderBy('order')->orderBy('id');
+        return $this->hasMany(ExamItem::class)->withoutGlobalScope(WorkspaceScope::class)->orderBy('order')->orderBy('id');
     }
 
     /**

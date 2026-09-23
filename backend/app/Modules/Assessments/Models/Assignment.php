@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -90,7 +91,7 @@ class Assignment extends BaseModel
     /** @return HasMany<Submission, $this> */
     public function submissions(): HasMany
     {
-        return $this->hasMany(Submission::class);
+        return $this->hasMany(Submission::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */

@@ -37,8 +37,10 @@ class BookingController extends Controller
         return response()->json(SessionBookingResource::make($booking->load('classSession')), 201);
     }
 
-    public function destroy(Request $request, SessionBooking $booking, CancelBooking $action): JsonResponse
+    public function destroy(Request $request, string $bookingUuid, CancelBooking $action): JsonResponse
     {
+        $booking = SessionBooking::forStudentDoor($bookingUuid);
+
         $this->authorize('delete', $booking);
 
         try {
