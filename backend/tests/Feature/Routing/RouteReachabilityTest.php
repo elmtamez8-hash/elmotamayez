@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 | نصفُ ميزةٍ إلى الإنتاجِ بهذا بالضبط.**
 |
 | `‎/` في `docker/nginx.prod.conf` لـNext، وLaravel يصلُه ما تذكرُه قائمةُ
-| البادئاتِ **وحدَه** (`/api` · `/admin` · `/horizon` · `/docs` · `/livewire` ·
+| البادئاتِ **وحدَه** (`/api` · `/admin` · `/horizon` · `/livewire` ·
 | `/sanctum` · `/broadcasting`). فجسرُ لوحةِ الإدارةِ شُحِنَ في ٢٠٢٦-٠٩-١٧ ونصفُه
 | يعمل: `‎/api/v1/auth/panel-ticket` أجابَ ٤٠١ صحيحاً — لأنّه تحتَ `/api` —
 | بينما `‎/panel/enter/{ticket}` أجابَ **٤٠٤**، أي التذكرةُ تُسَكُّ ولا تُصرَفُ

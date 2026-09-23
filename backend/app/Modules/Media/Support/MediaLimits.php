@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Support;
 
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\PlatformSettings;
 
 /**
@@ -50,6 +52,23 @@ final class MediaLimits
     public static function maxChatAttachmentBytes(): int
     {
         return (int) PlatformSettings::get('media.max_chat_attachment_bytes', 10_485_760);
+    }
+
+    /**
+     * The most bytes the local upload route will accept for this asset.
+     *
+     * The receiving end needs its own ceiling because every check before it is
+     * a number the client chose (the declared size) and every check after it
+     * runs once the file is already on our disk. A lesson file gets its kind's
+     * allowance; anything else that reaches this route is a chat attachment
+     * (`RequestChatAttachment` is the only other writer of a pending asset) and
+     * gets the smaller chat allowance, for the reason that method gives.
+     */
+    public static function uploadCeilingFor(MediaAsset $asset): int
+    {
+        return $asset->owner_type === Lesson::class
+            ? self::maxSizeBytes($asset->kind)
+            : min(self::maxSizeBytes($asset->kind), self::maxChatAttachmentBytes());
     }
 
     public static function maxVoiceNoteSeconds(): int

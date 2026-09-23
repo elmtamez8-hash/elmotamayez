@@ -18,9 +18,20 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 class AppServiceProvider extends ServiceProvider
 {
+    /**
+     * The budget for our own SSR (see `isOwnServerRender()`).
+     *
+     * ISR caches each page for a minute, so the real volume is distinct public
+     * URLs × a fetch or two per minute — this sits far above that and still
+     * bounds a runaway render loop. It is shared by every visitor at once, which
+     * is why it is twenty times one visitor's own.
+     */
+    private const SSR_PER_MINUTE = 1200;
+
     /**
      * Register any application services.
      */
@@ -74,13 +85,110 @@ class AppServiceProvider extends ServiceProvider
      */
     private function trustConfiguredProxies(): void
     {
-        $proxies = config('app.trusted_proxies');
+        $proxies = self::configuredProxies();
 
-        if (! is_string($proxies) || trim($proxies) === '') {
+        if ($proxies === []) {
             return;
         }
 
-        TrustProxies::at($proxies === '*' ? '*' : array_map(trim(...), explode(',', $proxies)));
+        /*
+        | ⛔ `*` IS REFUSED IN PRODUCTION, LOUDLY, AT BOOT.
+        |
+        | `TrustProxies::at('*')` does not mean «trust the proxy that called you»:
+        | the framework turns it into `['0.0.0.0/0', '::/0']`, every address there
+        | is. `X-Forwarded-For` then becomes something the caller types, so every
+        | limiter keyed on `ip:` is bypassed by rotating a header, the IP recorded
+        | beside a consent or a receipt is attacker-supplied, and the webhook's IP
+        | allowlist becomes a door. A quiet fallback to «trust nothing» would be the
+        | opposite error (every person resolves to the proxy and shares one
+        | bucket), so the only honest answer is to stop and name the fix.
+        |
+        | ⚠️ This throws for artisan too, so a server still carrying `*` fails its
+        | next `migrate` — which is the point: it must be fixed before it ships.
+        */
+        if ($proxies === ['*'] && $this->app->environment('production')) {
+            throw new RuntimeException(
+                'TRUSTED_PROXIES=* is refused in production: it trusts every address, which makes X-Forwarded-For '
+                .'client-supplied and every IP rate limit bypassable. Set it to the proxy network instead '
+                .'(e.g. TRUSTED_PROXIES=172.16.0.0/12 for the docker bridge).',
+            );
+        }
+
+        TrustProxies::at($proxies === ['*'] ? '*' : $proxies);
+    }
+
+    /**
+     * `TRUSTED_PROXIES` parsed once, for the two readers that need it: the
+     * middleware above and the SSR branch of the `public`/`api` limiters below.
+     * One parser, so the two can never disagree about which network is ours.
+     *
+     * @return list<string> empty when nothing is trusted, `['*']` for the wildcard
+     */
+    private static function configuredProxies(): array
+    {
+        $proxies = config('app.trusted_proxies');
+
+        if (! is_string($proxies) || trim($proxies) === '') {
+            return [];
+        }
+
+        if (trim($proxies) === '*') {
+            return ['*'];
+        }
+
+        return array_values(array_filter(
+            array_map(trim(...), explode(',', $proxies)),
+            fn (string $proxy): bool => $proxy !== '',
+        ));
+    }
+
+    /**
+     * Is this our own Next server rendering a public page — rather than a visitor?
+     *
+     * ⚠️ WHY IT NEEDS ASKING. Public pages are rendered inside the frontend
+     * container, which fetches the API at `http://nginx:8081/api/v1` (the
+     * unpublished SSR block in `docker/nginx.prod.conf`). That fetch carries no
+     * visitor address — forwarding one would mean calling `headers()` in a server
+     * component, which turns every ISR page dynamic. So Laravel sees ONE caller
+     * for every visitor on the platform, and the per-ip `public` budget (60 a
+     * minute) was shared by all of them: one person opening sixty distinct
+     * teacher pages in a minute made every other visitor's server-rendered page
+     * fail, and Next cached the failure.
+     *
+     * HOW `$request->ip()` RESOLVES — read from the nginx config, not assumed.
+     * Both `/api` locations are `fastcgi_pass`, never `proxy_pass`, and
+     * `fastcgi_params` sends `REMOTE_ADDR = $remote_addr`:
+     *
+     *   1. A browser through 443: `REMOTE_ADDR` is the visitor's public address
+     *      (nginx terminates TLS itself). It is outside `TRUSTED_PROXIES`, so any
+     *      `X-Forwarded-For` they send is ignored ⇒ `ip()` = their own address ⇒
+     *      the normal per-ip budget.
+     *   2. Our SSR through 8081: `REMOTE_ADDR` is the frontend container, inside
+     *      the trusted docker range, and there is no `X-Forwarded-For` ⇒ Symfony
+     *      has an empty chain and falls back to the peer ⇒ `ip()` = the container
+     *      address, i.e. INSIDE the trusted range.
+     *   3. A trusted peer that DOES forward a client (any future `proxy_pass` in
+     *      front of the API) ⇒ `ip()` resolves to that client ⇒ outside the range
+     *      ⇒ the normal budget, per visitor.
+     *
+     * Nobody outside can forge case 2: presenting a trusted peer address requires
+     * being on the docker network, and the 8081 block publishes no port. So the
+     * discriminator is the RESOLVED address, not the raw peer — that is what keeps
+     * case 3 honest. The wildcard answers no: under `*` every caller is «trusted»
+     * and this would exempt the whole internet (production refuses `*` at boot;
+     * this keeps every other environment from pretending otherwise).
+     */
+    private static function isOwnServerRender(Request $request): bool
+    {
+        $ranges = self::configuredProxies();
+
+        if ($ranges === [] || $ranges === ['*']) {
+            return false;
+        }
+
+        $ip = $request->ip();
+
+        return $ip !== null && IpUtils::checkIp($ip, $ranges);
     }
 
     /**
@@ -121,8 +229,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             $user = $request->user();
 
-            return $user !== null
-                ? Limit::perMinute(300)->by('user:'.(string) $user->getKey())
+            if ($user !== null) {
+                return Limit::perMinute(300)->by('user:'.(string) $user->getKey());
+            }
+
+            // Our own server render speaks for every visitor at once — see
+            // `isOwnServerRender()`. Bounded, never `none()`: a floor, not a door.
+            return self::isOwnServerRender($request)
+                ? Limit::perMinute(self::SSR_PER_MINUTE)->by('ssr:'.$request->ip())
                 : Limit::perMinute(120)->by('ip:'.$request->ip());
         });
 
@@ -131,7 +245,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Public browsing. Generous: a visitor opening several teacher profiles in
         // a row is the behaviour the marketplace exists for.
-        RateLimiter::for('public', fn (Request $request) => Limit::perMinute(60)->by((string) $request->ip()));
+        //
+        // ⚠️ EXCEPT our own server render, which is every visitor at once
+        // (`isOwnServerRender()`). Visitors reaching the API directly through 443
+        // still resolve to their own address and keep 60 each.
+        RateLimiter::for('public', fn (Request $request) => self::isOwnServerRender($request)
+            ? Limit::perMinute(self::SSR_PER_MINUTE)->by('ssr:'.$request->ip())
+            : Limit::perMinute(60)->by((string) $request->ip()));
 
         /*
         | Asking to be somebody's guardian (spec 030 · FR-012).

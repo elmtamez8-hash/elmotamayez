@@ -123,7 +123,7 @@ it('refuses bytes for an asset that belongs to another provider', function (): v
         'status' => MediaAssetStatus::Pending,
     ]);
 
-    $this->call('PUT', "/api/v1/media/upload/{$asset->uuid}", content: 'some bytes')
+    $this->call('PUT', app(LocalMediaProvider::class)->createUploadTicket($asset)->url, content: 'some bytes')
         ->assertNotFound();
 
     expect($asset->refresh()->provider_asset_id)->toBeNull()
@@ -140,7 +140,7 @@ it('still accepts bytes for a local asset while a video host is configured', fun
         'status' => MediaAssetStatus::Pending,
     ]);
 
-    $this->call('PUT', "/api/v1/media/upload/{$asset->uuid}", content: 'some bytes')
+    $this->call('PUT', app(LocalMediaProvider::class)->createUploadTicket($asset)->url, content: 'some bytes')
         ->assertOk();
 
     expect($asset->refresh()->provider_asset_id)->not->toBeNull()

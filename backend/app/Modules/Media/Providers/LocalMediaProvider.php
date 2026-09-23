@@ -19,6 +19,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use RuntimeException;
 use Throwable;
 
@@ -112,16 +113,39 @@ class LocalMediaProvider implements MediaProviderInterface
     public function createUploadTicket(MediaAsset $asset): UploadTicket
     {
         $ttl = (int) config('media.upload_ticket_ttl_seconds');
+        $expiresAt = CarbonImmutable::now()->addSeconds($ttl);
+
+        /*
+        | ⛔ A TEMPORARY SIGNED URL, NOT THE BARE UUID.
+        |
+        | The receiving route is unauthenticated by design (a browser PUTs the
+        | bytes straight to it), and until this it was guarded by nothing but the
+        | uuid in its path — a value that also travels in API payloads, so it is
+        | an identifier and not a secret. Anyone holding one could write bytes to
+        | a pending asset with no expiry at all. The signature binds the url to
+        | THIS asset and to `$expiresAt`, the same instant the ticket announces
+        | — one number, so the two cannot drift.
+        |
+        | ⚠️ SIGNED RELATIVE (`absolute: false`, checked by `signed:relative`).
+        | The browser does not always send the bytes to the host the url names:
+        | `lib/conversations.ts::sameOriginIfOurs()` rewrites it to the page's own
+        | origin, and nginx answers both `${DOMAIN}` and `www.${DOMAIN}`. A
+        | signature over the absolute url would 403 every upload made from the
+        | other host; over the path and query it holds on either.
+        */
+        $signed = URL::temporarySignedRoute(
+            'media.upload.receive',
+            $expiresAt,
+            ['token' => $asset->uuid],
+            absolute: false,
+        );
 
         return new UploadTicket(
-            // The asset's own uuid is the token: it is unguessable, it already
-            // scopes the upload to one asset, and a second secret would need its
-            // own expiry and its own storage for no extra safety.
-            url: url("/api/v1/media/upload/{$asset->uuid}"),
+            url: url($signed),
             method: 'PUT',
             headers: ['Content-Type' => 'application/octet-stream'],
             fields: [],
-            expiresAt: CarbonImmutable::now()->addSeconds($ttl),
+            expiresAt: $expiresAt,
         );
     }
 

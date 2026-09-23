@@ -85,7 +85,7 @@ it('rejects a file that is not a video whatever it is called', function (): void
 
     // An .mp4 extension over zip bytes is trivially easy, which is why the type
     // is settled from the content and never from the name.
-    $this->call('PUT', "/api/v1/media/upload/{$assetUuid}", [], [], [], [], 'PK'.chr(3).chr(4).'not a video');
+    $this->call('PUT', (string) $upload->json('upload.url'), [], [], [], [], 'PK'.chr(3).chr(4).'not a video');
 
     $asset = MediaAsset::query()->withoutWorkspaceScope()->where('uuid', $assetUuid)->sole();
     app(CompleteMediaUpload::class)->handle($asset);

@@ -32,7 +32,12 @@ Route::get('/playback/{grant}/captions/{caption}', [CaptionController::class, 's
 
 // The local provider's upload ticket points here. A commercial provider points
 // its ticket at its own host and this route simply goes unused.
+//
+// ⛔ `signed:relative` — the ticket is a temporary signed url (see
+// `LocalMediaProvider::createUploadTicket()`). Without it this was an
+// unauthenticated write endpoint keyed on a uuid that API payloads carry.
 Route::put('/media/upload/{token}', [MediaAssetController::class, 'receiveUpload'])
+    ->middleware('signed:relative')
     ->name('media.upload.receive');
 
 Route::middleware('auth:sanctum')->group(function (): void {
