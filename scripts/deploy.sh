@@ -160,6 +160,14 @@ $COMPOSE restart horizon scheduler reverb
 echo "▸ تنظيفُ الصورِ القديمة"
 docker image prune -f >/dev/null
 
+echo "▸ جدولةُ النسخةِ الاحتياطيّة"
+# ⚠️ كانت سطراً في تعليقٍ أسفلَ `backup.sh` يُنصَّبُ باليد — أي لا يضمنُ أحدٌ
+# أنّه نُصِّب. هنا يُضافُ إن غاب ولا يتكرّر إن وُجِد، فكلُّ نشرةٍ تؤكّدُه.
+BACKUP_CRON='17 3 * * * cd /srv/elmotamayez && bash scripts/backup.sh >> /var/log/elmotamayez-backup.log 2>&1'
+crontab -l 2>/dev/null | grep -qF 'scripts/backup.sh' \
+    || { (crontab -l 2>/dev/null; echo "$BACKUP_CRON") | crontab - && echo "  + أُضيفَت"; } \
+    || echo "  ✗ تعذّرت الجدولة — النسخُ الاحتياطيّةُ لا تعمل" >&2
+
 echo "▸ فحصٌ دخانيّ"
 # ⚠️ **صفحةُ Blade واحدةٌ على الأقلّ، وهذا هو بيتُ القصيد.** كانت قائمةُ الفحصِ
 # كلُّها خضراءَ بينما `/admin/login` ترُدُّ ٥٠٠: `/` تخدمُها Next، و`/admin`
