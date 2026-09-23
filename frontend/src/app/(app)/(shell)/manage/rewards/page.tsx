@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ClockIcon, ShopIcon, SparkIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -99,17 +102,18 @@ export default function ManageRewardsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">مكافآت الطلاب</h1>
-        <p className="text-sm text-ink-muted">
-          ما يستطيع طلابك استبداله بعملاتهم، وطلبات الاستبدال المنتظرة.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShopIcon}
+        title="مكافآت الطلاب"
+        description="ما يستطيع طلابك استبداله بعملاتهم، وطلبات الاستبدال المنتظرة."
+      />
 
       {error !== null && <ErrorState description={error} onRetry={load} />}
 
-      <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">طلبات منتظرة</h2>
+      <Card as="section">
+        <div className="mb-3">
+          <SectionHeading id="pending-redemptions" Icon={ClockIcon} title="طلبات منتظرة" />
+        </div>
         {queue.length === 0 ? (
           <EmptyState title="لا طلبات منتظرة" description="ما يستبدله طلابك يظهر هنا." />
         ) : (
@@ -137,8 +141,10 @@ export default function ManageRewardsPage() {
         )}
       </Card>
 
-      <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">مكافأة جديدة</h2>
+      <Card as="section">
+        <div className="mb-3">
+          <SectionHeading id="new-reward" Icon={SparkIcon} title="مكافأة جديدة" />
+        </div>
         <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm text-ink">
             العنوان
@@ -217,8 +223,10 @@ export default function ManageRewardsPage() {
         </form>
       </Card>
 
-      <Card>
-        <h2 className="mb-3 text-base font-semibold text-ink">المكافآت المتاحة</h2>
+      <Card as="section">
+        <div className="mb-3">
+          <SectionHeading id="available-rewards" Icon={ShopIcon} title="المكافآت المتاحة" />
+        </div>
         {rewards.length === 0 ? (
           <EmptyState title="لا مكافآت بعد" description="أضِف أوّل مكافأةٍ من النموذج أعلاه." />
         ) : (

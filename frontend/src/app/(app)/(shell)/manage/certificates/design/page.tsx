@@ -8,6 +8,9 @@ import { TemplateGallery } from "@/components/certificates/TemplateGallery";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CertificateIcon, UploadIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
 import type { CertificateValues } from "@/lib/certificate-design";
 import {
@@ -191,13 +194,11 @@ export default function CertificateDesignPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">تصميم الشهادة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          اختر القالب الذي تُرسم عليه شهادات طلابك واضبط مواضع الحقول عليه. التغيير يسري على
-          الشهادات الصادرة أيضاً — لا يُعاد إصدار شيء، ولا يتغيّر اسم ولا تاريخ.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CertificateIcon}
+        title="تصميم الشهادة"
+        description="اختر القالب الذي تُرسم عليه شهادات طلابك واضبط مواضع الحقول عليه. التغيير يسري على الشهادات الصادرة أيضاً — لا يُعاد إصدار شيء، ولا يتغيّر اسم ولا تاريخ."
+      />
 
       {error !== null && <Alert tone="danger" title={error} />}
 
@@ -218,10 +219,11 @@ export default function CertificateDesignPage() {
       )}
 
       {editing !== null ? (
-        <section className="space-y-4">
-          <h2 className="text-base font-semibold text-ink">
-            مواضع الحقول — {editing.card.name ?? "تصميم"}
-          </h2>
+        <section aria-labelledby="field-positions" className="space-y-4">
+          <SectionHeading
+            id="field-positions"
+            title={`مواضع الحقول — ${editing.card.name ?? "تصميم"}`}
+          />
           <p className="text-sm text-ink-muted">
             اسحب أيّ حقل إلى موضعه على الصورة. المعاينة هنا هي الشهادة نفسها، بالاسم الأطول الذي قد
             يصل.
@@ -314,8 +316,11 @@ function UploadPanel({
   const full = used >= limit;
 
   return (
-    <section className="space-y-3 rounded-3xl border border-line bg-surface-raised p-6">
-      <h2 className="text-base font-semibold text-ink">ارفع تصميمك</h2>
+    <section
+      aria-labelledby="upload-design"
+      className="space-y-3 rounded-3xl border border-line bg-surface-raised p-6"
+    >
+      <SectionHeading id="upload-design" Icon={UploadIcon} title="ارفع تصميمك" />
       <p className="text-sm text-ink-muted">
         استعملتَ {used} من {limit} تصاميم. يُعاد ترميز الصورة على الخادم، ثمّ تضبط مواضع الحقول
         عليها قبل اعتمادها.

@@ -7,6 +7,8 @@ import { api } from "@/lib/api";
 import { formatDate } from "@/lib/labels";
 import type { Certificate } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CertificateIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 
 /**
@@ -95,23 +97,21 @@ export default function ManageCertificatesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start gap-3">
-        <div className="me-auto">
-          <h1 className="text-xl font-semibold text-ink">شهادات الطلاب</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها.
-          </p>
-        </div>
-
-        {/*
-          ⚠️ THE ONLY WAY IN. `/manage/certificates/design` is reachable from
-          nowhere else, and a screen nobody can reach is not shipped (SC-009) —
-          which is the exact defect this whole feature was born from.
-        */}
-        <Button variant="ghost" size="sm" href="/manage/certificates/design">
-          تصميم الشهادة
-        </Button>
-      </header>
+      {/*
+        ⚠️ THE ONLY WAY IN. `/manage/certificates/design` is reachable from
+        nowhere else, and a screen nobody can reach is not shipped (SC-009) —
+        which is the exact defect this whole feature was born from.
+      */}
+      <PageHeader
+        Icon={CertificateIcon}
+        title="شهادات الطلاب"
+        description="كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها."
+        actions={
+          <Button variant="ghost" size="sm" href="/manage/certificates/design">
+            تصميم الشهادة
+          </Button>
+        }
+      />
 
       <Table
         columns={columns}

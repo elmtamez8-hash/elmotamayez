@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ShieldIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { complianceQueue, type OfficerDataRequest } from "@/lib/compliance";
@@ -89,12 +91,11 @@ export default function ComplianceQueuePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">طلبات حقوق البيانات</h1>
-        <p className="text-sm text-ink-muted">
-          ما لم يُنفَّذ بعد، مرتَّباً بالأقرب إلى الموعد القانونيّ للردّ. التنفيذُ يُسجَّل باسمك.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ShieldIcon}
+        title="طلبات حقوق البيانات"
+        description="ما لم يُنفَّذ بعد، مرتَّباً بالأقرب إلى الموعد القانونيّ للردّ. التنفيذُ يُسجَّل باسمك."
+      />
 
       {error !== null && (
         <Alert tone="danger" title="تعذّر تنفيذ الإجراء">
@@ -114,7 +115,7 @@ export default function ComplianceQueuePage() {
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (
-            <Card key={request.uuid}>
+            <Card key={request.uuid} interactive>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-ink">

@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ClockIcon, InfoIcon, ShieldIcon } from "@/components/icons";
 import { offboarding, type TeacherOffboarding } from "@/lib/compliance";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
@@ -79,17 +82,16 @@ export default function OffboardingPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-xl font-semibold text-ink">إنهاء النشاط على المنصّة</h1>
-        {!refused && (
-          // Addressed to somebody with students. A reader who was just refused
-          // has none, and telling them what happens to «طلابك» is the same
-          // mistake as the button below, in a smaller font.
-          <p className="text-sm text-ink-muted">
-            ما يحدث لطلابك ولمحتواك ولمستحقّاتك حين تقرّر المغادرة.
-          </p>
-        )}
-      </header>
+      <PageHeader
+        Icon={ShieldIcon}
+        title="إنهاء النشاط على المنصّة"
+        // Addressed to somebody with students. A reader who was just refused
+        // has none, and telling them what happens to «طلابك» is the same
+        // mistake as the button below, in a smaller font.
+        description={
+          refused ? undefined : "ما يحدث لطلابك ولمحتواك ولمستحقّاتك حين تقرّر المغادرة."
+        }
+      />
 
       {error !== null && (
         <Alert tone="danger" title="تعذّر تنفيذ الإجراء">
@@ -108,7 +110,7 @@ export default function OffboardingPage() {
         // pressing it.
         null
       ) : record === null ? (
-        <Card>
+        <Card as="section">
           {/*
             ⚠️ THE CONSEQUENCES ARE LISTED BEFORE THE BUTTON, NOT AFTER IT. This
             request notifies every student in the workspace and pulls the public
@@ -116,7 +118,7 @@ export default function OffboardingPage() {
             confirmation dialog asking "are you sure?" over an unexplained action
             is not consent.
           */}
-          <h2 className="text-base font-semibold text-ink">قبل أن تطلب</h2>
+          <SectionHeading id="before-requesting" Icon={InfoIcon} title="قبل أن تطلب" />
           <ul className="mt-3 space-y-2 text-sm text-ink-muted">
             <li>• يُخطَر طلابك وأولياء أمورهم بمهلةٍ معلَنة قبل توقّف الخدمة.</li>
             <li>• تتوقّف صفحتك العامّة عن استقبال طلابٍ جدد فوراً.</li>
@@ -153,8 +155,8 @@ export default function OffboardingPage() {
           )}
         </Card>
       ) : (
-        <Card>
-          <h2 className="text-base font-semibold text-ink">حالة طلبك</h2>
+        <Card as="section">
+          <SectionHeading id="request-status" Icon={ClockIcon} title="حالة طلبك" />
 
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-4">

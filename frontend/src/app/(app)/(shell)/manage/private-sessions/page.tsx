@@ -6,6 +6,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
 import {
@@ -72,14 +74,12 @@ export default function PrivateSessionQueuePage() {
     });
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-black text-ink">طلبات الحصص الخاصة</h1>
-        <p className="text-sm text-ink-muted">
-          طلبات من طلابك على مواعيدك المعلَنة. لا تُنشأ حصة ولا يُخصم رصيد قبل
-          موافقتك.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        Icon={SessionsIcon}
+        title="طلبات الحصص الخاصة"
+        description="طلبات من طلابك على مواعيدك المعلَنة. لا تُنشأ حصة ولا يُخصم رصيد قبل موافقتك."
+      />
 
       {error && <Alert tone="danger" title="لم يكتمل الإجراء">{error}</Alert>}
 
@@ -93,12 +93,12 @@ export default function PrivateSessionQueuePage() {
       )}
 
       {requests?.map((request) => (
-        <Card key={request.uuid}>
+        <Card key={request.uuid} interactive>
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-sm font-bold text-ink">
+              <h3 className="text-sm font-bold text-ink">
                 {request.student?.name ?? "طالب"} — {request.course?.title ?? "كورس"}
-              </h2>
+              </h3>
               <span className="text-xs text-ink-muted">
                 تنتهي المهلة {when(request.expires_at)}
               </span>
