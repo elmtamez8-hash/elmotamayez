@@ -232,9 +232,15 @@ class AuthController extends Controller
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        $status = Password::sendResetLink(['email' => $request->validated('email')]);
+        Password::sendResetLink(['email' => $request->validated('email')]);
 
-        return response()->json(['message' => __($status)]);
+        /*
+        | ⛔ ONE ANSWER WHATEVER HAPPENED. `__($status)` said «لا يوجد حساب بهذا
+        | البريد» for an unknown address and «انتظر قليلاً» only for a known one
+        | (the broker throttles per existing account) — an unauthenticated oracle
+        | for who has an account here. The broker still decides what is sent.
+        */
+        return response()->json(['message' => __('passwords.sent')]);
     }
 
     /**

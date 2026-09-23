@@ -314,4 +314,10 @@ export const auth = {
     ),
   logout: () => api.post("/auth/logout"),
   me: () => api.get<User>("/auth/me"),
+  // The same answer whether or not the address has an account — see
+  // `AuthController::forgotPassword()`.
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>("/auth/forgot-password", { email }),
+  resetPassword: (data: { email: string; token: string; password: string; password_confirmation: string }) =>
+    api.post<{ message: string }>("/auth/reset-password", data),
 };
