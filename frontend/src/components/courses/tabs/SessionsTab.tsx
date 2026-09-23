@@ -1,9 +1,14 @@
 "use client";
 
+import { useState } from "react";
+
 import { SessionCard } from "@/components/sessions/SessionCard";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/states/EmptyState";
-import type { ClassSession } from "@/lib/class-sessions";
+import { ApiError } from "@/lib/api";
+import { classSessions, type ClassSession } from "@/lib/class-sessions";
+import { errorCode, userMessage } from "@/lib/errors";
 
 /**
  * This course's lessons, ahead and behind (US2 · FR-016).
@@ -125,12 +130,64 @@ function Group({
                  الماضيَ كذلك، والماضي لا غرفةَ له وله محتوىً يُفتَح. */
               href={`/sessions/${session.uuid}`}
               time="full"
-              action={past ? <RecordingLink session={session} /> : undefined}
+              action={past ? <RecordingLink session={session} /> : <BookButton session={session} />}
             />
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * «احجز» — the student's own door to a seat.
+ *
+ * ⛔ SPEC 036 DECIDED «صفرُ حجزٍ آليّ — الباقةُ تُعطي رصيداً، والطالبُ يحجزُ بالمسارِ
+ * العاديّ», and `POST /class-sessions/{uuid}/book` had no caller anywhere in the
+ * frontend. So a student who bought a session package held credit with no way to
+ * spend it. The server asks every eligibility question; this only offers the door.
+ *
+ * ⚠️ The refusal is the server's own sentence (`code: booking_refused`), never
+ * the generic 409 one — «اكتملت المقاعد» and «رصيدك محجوز» are different next steps.
+ */
+function BookButton({ session }: { session: ClassSession }) {
+  const [booked, setBooked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  if (booked || session.my_booking) {
+    return <Badge tone="success">محجوز</Badge>;
+  }
+
+  if (session.status !== "scheduled" || session.seats.available <= 0) return null;
+
+  const book = async () => {
+    setBusy(true);
+    setRefusal(null);
+
+    try {
+      await classSessions.book(session.uuid);
+      setBooked(true);
+    } catch (err) {
+      setRefusal(
+        err instanceof ApiError && errorCode(err.body) === "booking_refused" ? err.message : userMessage(err),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button size="sm" onClick={() => void book()} loading={busy} loadingLabel="جارٍ الحجز…">
+        احجز
+      </Button>
+      {refusal !== null && (
+        <p role="alert" className="text-xs text-danger-ink">
+          {refusal}
+        </p>
+      )}
+    </div>
   );
 }
 

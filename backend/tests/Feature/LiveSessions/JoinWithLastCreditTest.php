@@ -81,7 +81,9 @@ it('still refuses a second booking when every credit is held', function (): void
     Sanctum::actingAs($this->student);
     $this->asGuest();
 
-    $response = $this->postJson("/api/v1/class-sessions/{$next->uuid}/book")->assertStatus(409);
+    $response = $this->postJson("/api/v1/class-sessions/{$next->uuid}/book")->assertStatus(409)
+        // The code the student's «احجز» button reads to show THIS sentence.
+        ->assertJsonPath('code', 'booking_refused');
 
     // The frozen-credit sentence, not some other 409 (a full session is one too).
     expect($response->json('message'))->toContain('محجوز');

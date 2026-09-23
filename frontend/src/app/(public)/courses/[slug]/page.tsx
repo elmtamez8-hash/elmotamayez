@@ -427,6 +427,7 @@ export default async function CoursePage({
               currency={course.currency ?? null}
               courseUuid={course.uuid}
               isFull={course.is_full}
+              freeEnrollment={course.free_enrollment}
               teacher={course.teacher}
             />
           </div>

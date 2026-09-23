@@ -268,6 +268,12 @@ export type CourseDetail = {
    */
   private_subscription_available: boolean;
   /**
+   * Whether «سجّل مجاناً» may be drawn — the free-enrolment door's own predicate
+   * (`courseRequiresPurchase()`), never `price_minor === 0`: the price defaults
+   * to 0 on a course sold only by plan.
+   */
+  free_enrollment: boolean;
+  /**
    * The promo video's ID on the teacher's own channel (018 · FR-006).
    *
    * ⚠️ An ID, never a URL and never a ready-made embed address: the embed

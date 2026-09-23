@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   CertificateIcon,
@@ -15,6 +17,9 @@ import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
 
 /**
@@ -32,6 +37,7 @@ export function CourseRail({
   currency,
   courseUuid,
   isFull,
+  freeEnrollment = false,
   teacher,
 }: {
   priceMinor: number | null;
@@ -39,6 +45,8 @@ export function CourseRail({
   courseUuid: string;
   /** حكمُ الخادم، ولا يُشتَقُّ هنا — {@see VisitorRail}. */
   isFull: boolean;
+  /** حكمُ الخادم (`free_enrollment`)، ولا يُشتَقُّ من السعر. */
+  freeEnrollment?: boolean;
   teacher: CourseDetail["teacher"];
 }) {
   const ownership = useCourseOwnership();
@@ -48,7 +56,13 @@ export function CourseRail({
       {ownership.state === "owner" ? (
         <OwnerRail data={ownership.data} courseUuid={courseUuid} />
       ) : (
-        <VisitorRail priceMinor={priceMinor} currency={currency} isFull={isFull} />
+        <VisitorRail
+          priceMinor={priceMinor}
+          currency={currency}
+          isFull={isFull}
+          freeEnrollment={freeEnrollment}
+          courseUuid={courseUuid}
+        />
       )}
 
       {/*
@@ -130,10 +144,14 @@ function VisitorRail({
   priceMinor,
   currency,
   isFull,
+  freeEnrollment,
+  courseUuid,
 }: {
   priceMinor: number | null;
   currency: string | null;
   isFull: boolean;
+  freeEnrollment: boolean;
+  courseUuid: string;
 }) {
   return (
     <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm">
@@ -153,6 +171,8 @@ function VisitorRail({
             لا مكان شاغراً الآن. سجّل في الدَّور من تبويب «المجموعات المتاحة».
           </span>
         </p>
+      ) : freeEnrollment ? (
+        <FreeEnrollButton courseUuid={courseUuid} />
       ) : (
         <Link
           href="/signup/student"
@@ -260,5 +280,58 @@ function OwnerRail({
         </Link>
       </div>
     </aside>
+  );
+}
+
+/**
+ * «سجّل مجاناً» — the free-enrolment door, which had no caller anywhere.
+ *
+ * ⚠️ DRAWN ONLY ON THE SERVER'S `free_enrollment`, and the door refuses on the
+ * same predicate (`courseRequiresPurchase()`), so a course sold by plan never
+ * shows it. A guest is sent to sign up; a STUDENT enrols in place. A guardian is
+ * not a student — pressing it would enrol the guardian — so they get the
+ * ordinary link, and so does a teacher, whom the door refuses anyway.
+ */
+function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const className =
+    "flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60";
+
+  if (user?.platform_role !== "student") {
+    return (
+      <Link href="/signup/student" className={className}>
+        سجّل مجاناً
+      </Link>
+    );
+  }
+
+  const enrol = async () => {
+    setBusy(true);
+    setRefusal(null);
+
+    try {
+      await api.post(`/courses/${courseUuid}/enroll`, {});
+      router.push(`/enrollments/${courseUuid}`);
+    } catch (err) {
+      setRefusal(userMessage(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button type="button" className={className} onClick={() => void enrol()} disabled={busy}>
+        {busy ? "جارٍ التسجيل…" : "سجّل مجاناً"}
+      </button>
+      {refusal !== null && (
+        <p role="alert" className="text-sm text-danger-ink">
+          {refusal}
+        </p>
+      )}
+    </div>
   );
 }

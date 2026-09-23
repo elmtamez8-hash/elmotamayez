@@ -27,8 +27,11 @@ class BookingController extends Controller
         } catch (DomainException $e) {
             // 409, not 422: nothing about the request was malformed — the state
             // of the world changed. The message still says which, so the screen
-            // can explain rather than just refuse (FR-008).
-            return response()->json(['message' => $e->getMessage()], 409);
+            // can explain rather than just refuse (FR-008). `code` so the
+            // student's «احجز» button shows THIS sentence rather than the
+            // generic 409 one: «اكتملت المقاعد» and «رصيدك محجوز» are different
+            // next steps, and every message here is authored Arabic.
+            return response()->json(['message' => $e->getMessage(), 'code' => 'booking_refused'], 409);
         }
 
         return response()->json(SessionBookingResource::make($booking->load('classSession')), 201);

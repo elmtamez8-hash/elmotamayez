@@ -184,6 +184,13 @@ final class PublicFieldAllowlist
         | teachers have a plan waiting to be priced.
         */
         'private_subscription_available',
+        /*
+        | Whether the course may be entered without paying — the free-enrolment
+        | door's own predicate (`courseRequiresPurchase()`). Leaks nothing the
+        | page does not already say: the price is public, and «sold by plan» is
+        | what the groups list shows.
+        */
+        'free_enrollment',
     ];
 
     /*
