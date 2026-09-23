@@ -10,6 +10,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CheckIcon, CoursesIcon } from "@/components/icons";
 import {
   CheckboxField,
   NumberField,
@@ -211,14 +213,22 @@ export default function EditCoursePage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-ink">تعديل الكورس</h2>
-        {course.status === "draft" && (
-          <Button loading={publishing} loadingLabel="جارٍ النشر…" onClick={publish}>
-            انشر الكورس
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        Icon={CoursesIcon}
+        title="تعديل الكورس"
+        actions={
+          course.status === "draft" ? (
+            <Button
+              loading={publishing}
+              loadingLabel="جارٍ النشر…"
+              iconStart={<CheckIcon className="h-4 w-4" />}
+              onClick={publish}
+            >
+              انشر الكورس
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">

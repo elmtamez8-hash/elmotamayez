@@ -10,6 +10,8 @@ import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CoursesIcon } from "@/components/icons";
 import {
   CheckboxField,
   NumberField,
@@ -111,10 +113,11 @@ export default function CreateCoursePage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">كورس جديد</h2>
-        <p className="text-ink-muted">املأ البيانات التالية لإنشاء الكورس.</p>
-      </div>
+      <PageHeader
+        Icon={CoursesIcon}
+        title="كورس جديد"
+        description="املأ البيانات التالية لإنشاء الكورس."
+      />
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">

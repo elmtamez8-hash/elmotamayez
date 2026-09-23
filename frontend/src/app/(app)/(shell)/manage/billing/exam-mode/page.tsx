@@ -5,6 +5,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { CreditsIcon, ScheduleIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage, fieldErrors } from "@/lib/api";
@@ -86,19 +89,17 @@ export default function ExamModePage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">وضع الامتحانات</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          خلال الفترة التي تحدّدها، لا يُسمح بحجز حصة إلا برصيد كافٍ — أياً كان
-          الحد الائتماني الممنوح للطالب.
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="وضع الامتحانات"
+        description="خلال الفترة التي تحدّدها، لا يُسمح بحجز حصة إلا برصيد كافٍ — أياً كان الحد الائتماني الممنوح للطالب."
+      />
 
       {error !== "" && <Alert tone="danger" title="تعذّر الحفظ">{error}</Alert>}
 
       {active === null ? (
         <Card as="section">
-          <h2 className="text-base font-semibold text-ink">تفعيل الوضع</h2>
+          <SectionHeading id="exam-mode-open" Icon={ScheduleIcon} title="تفعيل الوضع" />
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <TextField

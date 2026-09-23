@@ -8,6 +8,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CheckIcon, CoursesIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ApiError, errorMessage } from "@/lib/api";
@@ -252,16 +254,18 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          {/* h2, not h1: the shell header already renders the page title. */}
-          <h2 className="text-2xl font-bold text-ink">محتوى الكورس</h2>
-          <p className="mt-1 text-sm text-ink-muted">
+      {/* h2, not h1 (PageHeader): the shell header already renders the page title. */}
+      <PageHeader
+        Icon={CoursesIcon}
+        title="محتوى الكورس"
+        description={
+          <>
             {tree.title} — كل ما تضيفه يبدأ مسودّة، فلا يظهر لطلابك ولا يغيّر نسبة تقدّمهم حتى
             تنشره.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+          </>
+        }
+        actions={
+        <>
           {/*
             One request for the whole batch, not one per node. A section and its
             items become visible together; publishing them in eleven separate
@@ -272,6 +276,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
           */}
           <Button
             disabled={busy}
+            iconStart={<CheckIcon className="h-4 w-4" />}
             onClick={() =>
               confirmPublish({
                 title: "نشر كل المسودّات",
@@ -286,8 +291,9 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
           <Button href={`/manage/courses/${uuid}`} variant="secondary">
             العودة إلى الكورس
           </Button>
-        </div>
-      </header>
+        </>
+        }
+      />
 
       {tree.is_sequential ? (
         <Alert tone="info" title="هذا الكورس متسلسل">

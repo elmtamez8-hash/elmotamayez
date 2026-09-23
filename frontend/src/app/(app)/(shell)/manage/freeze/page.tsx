@@ -7,6 +7,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { ScheduleIcon, SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -87,22 +90,26 @@ export default function ManageFreezePage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-2">
         <Link
           href="/manage/sessions"
           className="rounded text-sm text-ink-muted hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           ← حصصي
         </Link>
-        <h2 className="mt-1 text-2xl font-bold text-ink">فترات التجميد</h2>
+        {/* The screen «حصصي» opens it from, so the same icon. */}
+        <PageHeader Icon={SessionsIcon} title="فترات التجميد" />
       </div>
 
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">تجميد فترة</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          خلال الفترة لا تُجدول حصص جديدة ولا يُحتسب غياب ولا يتقدّم أي عدّاد، وتُعلَّق الحصص
-          المحجوزة داخلها مع إبلاغ من حجز مقعده.
-        </p>
+        <div className="mb-4">
+          <SectionHeading
+            id="freeze-new"
+            Icon={ScheduleIcon}
+            title="تجميد فترة"
+            description="خلال الفترة لا تُجدول حصص جديدة ولا يُحتسب غياب ولا يتقدّم أي عدّاد، وتُعلَّق الحصص المحجوزة داخلها مع إبلاغ من حجز مقعده."
+          />
+        </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <TextField
@@ -180,11 +187,14 @@ export default function ManageFreezePage() {
           {periods.map((period) => (
             <li
               key={period.uuid}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-raised p-3 transition-colors duration-200 hover:border-primary/40 hover:bg-primary-soft/30"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink">
-                  <bdi>{period.starts_on}</bdi> — <bdi>{period.ends_on}</bdi>
+                <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                  <ScheduleIcon className="h-4 w-4 shrink-0 text-ink-muted" />
+                  <span>
+                    <bdi>{period.starts_on}</bdi> — <bdi>{period.ends_on}</bdi>
+                  </span>
                 </p>
                 <p className="text-xs text-ink-muted">
                   {period.reason ?? "بلا سبب مذكور"}

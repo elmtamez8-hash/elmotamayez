@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField, TextField } from "@/components/ui/Field";
-import { TrashIcon } from "@/components/icons";
+import { CoursesIcon, SparkIcon, SubjectIcon, TrashIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -150,17 +151,20 @@ export default function ManageCoursesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-ink">إدارة الكورسات</h2>
-          <p className="text-ink-muted">
-            {loading
-              ? "أنشئ كورساتك وحرّرها وانشرها."
-              : `${courses.length} كورساً · أنشئها وحرّرها وانشرها.`}
-          </p>
-        </div>
-        <Button href="/manage/courses/new">كورس جديد</Button>
-      </div>
+      <PageHeader
+        Icon={CoursesIcon}
+        title="إدارة الكورسات"
+        description={
+          loading
+            ? "أنشئ كورساتك وحرّرها وانشرها."
+            : `${courses.length} كورساً · أنشئها وحرّرها وانشرها.`
+        }
+        actions={
+          <Button href="/manage/courses/new" iconStart={<SparkIcon className="h-4 w-4" />}>
+            كورس جديد
+          </Button>
+        }
+      />
 
       {error && <Alert tone="danger" title={error} />}
 
@@ -242,13 +246,15 @@ export default function ManageCoursesPage() {
           {filtered.map((course) => (
             <article
               key={course.uuid}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface-raised transition hover:border-primary/40"
+              className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 hover:border-primary/40 motion-safe:hover:-translate-y-0.5"
             >
               <Link
                 href={`/manage/courses/${course.uuid}`}
-                className="block rounded-t-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="block rounded-t-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                <div className="h-28 bg-primary-soft" />
+                <div className="grid h-28 place-items-center bg-primary-soft text-primary-ink">
+                  <CoursesIcon className="h-9 w-9 opacity-60 transition duration-200 motion-safe:group-hover:scale-110" />
+                </div>
                 <div className="p-5 pb-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Badge tone={statusTone(course.status)}>{statusLabel(course.status)}</Badge>
@@ -268,7 +274,8 @@ export default function ManageCoursesPage() {
                   {/* The two facts the filters above narrow by, on the card that
                       gets narrowed — a filter whose criterion is invisible on the
                       result leaves the reader guessing why a course is missing. */}
-                  <p className="mt-3 text-xs text-ink-muted">
+                  <p className="mt-3 flex items-center gap-1 text-xs text-ink-muted">
+                    <SubjectIcon className="h-3.5 w-3.5 shrink-0" />
                     {course.subject?.label ?? "بلا مادّة"}
                     {" · "}
                     {course.grade_level

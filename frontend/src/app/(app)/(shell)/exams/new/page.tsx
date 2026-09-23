@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ExamIcon } from "@/components/icons";
 import { NumberField, TextField, TextareaField } from "@/components/ui/Field";
 
 export default function NewExamPage() {
@@ -54,7 +56,7 @@ export default function NewExamPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h2 className="text-2xl font-bold text-ink">اختبار جديد</h2>
+      <PageHeader Icon={ExamIcon} title="اختبار جديد" />
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">
