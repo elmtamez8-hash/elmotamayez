@@ -40,6 +40,8 @@ beforeEach(function (): void {
 });
 
 it('keeps the archive readable and refuses new messages once the enrolment ends', function (): void {
+    // ⚠️ `expired`, not `completed`: a course at 100% keeps growing and keeps
+    // everything (owner decision 2026-09-23, `Enrollment::GRANTING_STATUSES`).
     $url = "/api/v1/conversations/{$this->conversationUuid}/messages";
 
     // The control: while the enrolment is live, both doors are open.
@@ -49,7 +51,7 @@ it('keeps the archive readable and refuses new messages once the enrolment ends'
 
     Enrollment::query()->withoutWorkspaceScope()
         ->whereKey($this->enrollment->getKey())
-        ->update(['status' => 'completed']);
+        ->update(['status' => 'expired']);
 
     Sanctum::actingAs($this->student);
 
@@ -63,7 +65,7 @@ it('keeps the archive readable and refuses new messages once the enrolment ends'
 it('refuses the teacher a new message into a relationship that has ended', function (): void {
     Enrollment::query()->withoutWorkspaceScope()
         ->whereKey($this->enrollment->getKey())
-        ->update(['status' => 'completed']);
+        ->update(['status' => 'expired']);
 
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     Sanctum::actingAs($this->owner);
