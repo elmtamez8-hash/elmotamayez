@@ -196,6 +196,20 @@ class OrderPolicy extends BasePolicy
             : Response::deny('You are not authorized to approve payments.');
     }
 
+    /**
+     * Reversing a captured payment is the same authority as approving it.
+     *
+     * The officer who witnesses that the money arrived is the one who records
+     * that it went back — one spelling, so the button and the Action cannot
+     * disagree about who may press it. `ReverseCourseOrder` refuses every kind
+     * but a course order, so the platform branch inside `approve()` is never
+     * the answer that lets a credit sale through here.
+     */
+    public function reverse(User $user, Order $order): Response
+    {
+        return $this->approve($user, $order);
+    }
+
     public function reject(User $user, Order $order): Response
     {
         // Refusing a platform sale is the platform's call, for the reason

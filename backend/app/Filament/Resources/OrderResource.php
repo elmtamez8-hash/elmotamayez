@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
+use App\Modules\Payments\Actions\ReverseCourseOrder;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
@@ -370,6 +371,58 @@ class OrderResource extends Resource
             });
     }
 
+    /**
+     * «عكس الدفع» — المالُ عادَ إلى الطالب، فالوصولُ يُغلَقُ معه.
+     *
+     * ⛔ `ReversePayment` لم يكنْ له بابٌ لطلبِ كورس: مُناديه الوحيدُ
+     * `CancelSubscription`. فاستردادٌ تمَّ خارجَ المنصّةِ كانَ يتركُ الكورسَ
+     * مفتوحاً للطالبِ إلى الأبد، والطلبُ يقرأُ «معتمَد».
+     *
+     * ⚠️ الزرُّ يُنادي {@see ReverseCourseOrder} وحدَه، ولا منطقَ هنا: المطالبةُ
+     * الشرطيّةُ وإغلاقُ التسجيلِ والعكسُ والتدقيقُ هناك — والإشعارُ يصلُ الطالبَ
+     * من مستمِعِ `PaymentReversed`، لا من هذا الملفّ.
+     *
+     * ⚠️ والحارسانِ هما حارسا الاعتماد: `authorize('reverse')` يُجيبُ بما يُجيبُ به
+     * `approve()` في `OrderPolicy`، والتحقّقُ بخطوتَينِ يُسأَلُ بيدٍ لأنّ `/admin`
+     * لا يمرُّ بوسيطِ `2fa.required`.
+     */
+    public static function reverseAction(): Action
+    {
+        return Action::make('reverse')
+            ->label('عكس الدفع')
+            ->icon(Heroicon::OutlinedArrowUturnLeft)
+            ->color('danger')
+            ->visible(fn (Order $record): bool => $record->kind === OrderKind::Course
+                && $record->status === OrderStatus::Approved->value)
+            ->authorize('reverse')
+            ->requiresConfirmation()
+            ->modalHeading('عكس الدفع')
+            ->modalDescription('تُسجَّلُ الدفعةُ معكوسةً ويُغلَقُ تسجيلُ الطالبِ في هذا الكورس ويُلغى الطلب، ويصلُ الطالبَ إشعارٌ بالسبب. لا تراجُعَ عن هذا من الشاشة.')
+            ->schema([
+                // ⚠️ مطلوبٌ لأنّ الطالبَ يقرؤُه في إشعارِه، والتدقيقُ يحفظُه.
+                Textarea::make('reason')
+                    ->label('السبب')
+                    ->required()
+                    ->maxLength(500)
+                    ->helperText('يصل هذا النصّ إلى الطالب مع إشعار العكس.'),
+            ])
+            ->action(function (Order $record, array $data): void {
+                if (self::refusedForTwoFactor()) {
+                    return;
+                }
+
+                try {
+                    app(ReverseCourseOrder::class)->handle($record, self::actor(), (string) $data['reason']);
+                } catch (DomainException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->persistent()->send();
+
+                    return;
+                }
+
+                Notification::make()->warning()->title('عُكست الدفعة وأُغلق التسجيل')->send();
+            });
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -427,6 +480,7 @@ class OrderResource extends Resource
                 EditAction::make(),
                 self::approveAction(),
                 self::rejectAction(),
+                self::reverseAction(),
             ]);
     }
 
