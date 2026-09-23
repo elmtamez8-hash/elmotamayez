@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Payments\Actions\CountWithheldStudents;
 use App\Modules\Payments\Actions\ListStudentBalances;
 use App\Modules\Payments\Support\StudentBalanceAllowlist;
 use App\Modules\Tenancy\Models\Workspace;
@@ -27,8 +28,12 @@ use Illuminate\Http\Request;
  */
 class StudentBalanceController extends Controller
 {
-    public function index(Request $request, ListStudentBalances $action, WorkspaceContext $context): JsonResponse
-    {
+    public function index(
+        Request $request,
+        ListStudentBalances $action,
+        CountWithheldStudents $withheld,
+        WorkspaceContext $context,
+    ): JsonResponse {
         abort_unless($this->currentUser($request)->can(Permissions::BILLING_BALANCE_VIEW), 403);
 
         $workspaceId = $context->id();
@@ -41,6 +46,30 @@ class StudentBalanceController extends Controller
 
         $workspace = Workspace::query()->findOrFail($workspaceId);
 
-        return response()->json(['data' => $action->handle($workspace)]);
+        $perPage = min(max((int) $request->integer('per_page', 50), 1), 100);
+
+        $page = $action->handle($workspace, $perPage, max(1, (int) $request->integer('page', 1)));
+
+        /*
+        | ⚠️ THE ENVELOPE IS BUILT BY HAND, and `meta` is not decoration. There is
+        | no Resource here (the rows are already arrays), so `response()->json()`
+        | of the paginator would put `current_page`/`last_page` at the TOP level
+        | beside `data` — a shape no reader of `Paginated<T>` in the frontend
+        | looks for, and a list that stops at page one without saying so.
+        |
+        | `withheld_students` is counted over EVERY page: the dashboard card
+        | reads it, and counting the rows of one page would undercount for any
+        | teacher whose class is longer than a page.
+        */
+        return response()->json([
+            'data' => $page->items(),
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'withheld_students' => $withheld->handle($workspace),
+            ],
+        ]);
     }
 }

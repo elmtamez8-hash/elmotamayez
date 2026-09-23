@@ -10,6 +10,8 @@ use App\Modules\Payments\Support\WithholdingReader;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 /**
@@ -25,11 +27,19 @@ use Illuminate\Support\Collection;
  * +4 and unblocked, while the design withholds per course precisely so the
  * paid-up course stays open. A total here is a wrong answer, not a compact one.
  *
- * Three queries whatever the size of the list (NFR-012): the enrolments, their
- * balances, and the withholding reader's one pass over the workspaces involved.
- * Nothing in this class runs per row, and {@see AccountStanding}
- * is deliberately not called from here — asking it once per student is the N+1
- * the contract forbids by name.
+ * A fixed number of queries per PAGE whatever the size of the class (NFR-012):
+ * the page's enrolments and their count, their balances, and the withholding
+ * reader's one pass over the workspaces involved. Nothing in this class runs per
+ * row, and {@see AccountStanding} is deliberately not called from here — asking
+ * it once per student is the N+1 the contract forbids by name.
+ *
+ * ⚠️ PAGINATED, because the list was the whole workspace in one response — every
+ * active enrolment with its student and course hydrated, for a screen that shows
+ * a table. A teacher with a few hundred students paid for all of them on every
+ * visit. The one caller that needs a figure over EVERY row — the dashboard's
+ * «طلاب محجوبون» card — reads {@see CountWithheldStudents} instead of
+ * counting a page, which would undercount the moment the class passed one page
+ * and say so nowhere.
  */
 class ListStudentBalances extends Action
 {
@@ -38,19 +48,34 @@ class ListStudentBalances extends Action
     ) {}
 
     /**
-     * @return Collection<int, array<string, scalar>>
+     * One page of rows. The paginator's collection is the ROWS, not the models.
+     *
+     * @return LengthAwarePaginator<int, array<string, scalar>>
      */
-    public function handle(Workspace $workspace): Collection
+    public function handle(Workspace $workspace, int $perPage = 50, int $page = 1): LengthAwarePaginator
     {
-        /** @var Collection<int, Enrollment> $enrollments */
-        $enrollments = Enrollment::query()
+        $paginator = Enrollment::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('status', 'active')
+            // Orphans are excluded IN SQL as well as below: filtered only after
+            // the page is cut, a page would come back short and the total would
+            // count people who are not on any page.
+            ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
+                ->from('users')
+                ->whereColumn('users.id', 'enrollments.student_user_id'))
+            ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
+                ->from('courses')
+                ->whereColumn('courses.id', 'enrollments.course_id'))
             ->with(['student:id,uuid,first_name,last_name', 'course:id,uuid,title'])
-            ->get();
+            // A stable order, or a row can appear on two pages and another on
+            // none as enrolments arrive between two requests.
+            ->orderBy('id')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        $enrollments = $paginator->getCollection();
 
         if ($enrollments->isEmpty()) {
-            return collect();
+            return $this->pageOf(collect(), $paginator);
         }
 
         $balances = $this->balancesFor($workspace, $enrollments);
@@ -91,7 +116,7 @@ class ListStudentBalances extends Action
          | `->with([...])` to «save a query» and this filter becomes a different
          | 500.
          */
-        return $enrollments
+        $rows = $enrollments
             ->filter(fn (Enrollment $enrollment): bool => $enrollment->getRelation('student') !== null
                 && $enrollment->getRelation('course') !== null)
             ->map(function (Enrollment $enrollment) use ($balances): array {
@@ -115,6 +140,20 @@ class ListStudentBalances extends Action
 
                 return $row;
             })->values();
+
+        return $this->pageOf($rows, $paginator);
+    }
+
+    /**
+     * The same page, carrying rows instead of models.
+     *
+     * @param  Collection<int, array<string, scalar>>  $rows
+     * @param  LengthAwarePaginator<int, Enrollment>  $source
+     * @return LengthAwarePaginator<int, array<string, scalar>>
+     */
+    private function pageOf(Collection $rows, LengthAwarePaginator $source): LengthAwarePaginator
+    {
+        return new LengthAwarePaginator($rows, $source->total(), $source->perPage(), $source->currentPage());
     }
 
     /**

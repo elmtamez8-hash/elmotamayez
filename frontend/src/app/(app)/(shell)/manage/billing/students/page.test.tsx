@@ -133,4 +133,30 @@ describe("StudentBalancesPage", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/status 403/)).toBeNull();
   });
+
+  it("appends the next page rather than stopping at the first", async () => {
+    // The endpoint pages now. Without «عرض المزيد» a long class reads as a
+    // table that simply ends — and swapping the page in would lose the rows
+    // the reader was looking at, so page two is APPENDED.
+    billing.students.mockImplementation((page = 1) =>
+      Promise.resolve(
+        page === 1
+          ? { data: [row()], meta: { current_page: 1, last_page: 2, per_page: 1, total: 2, withheld_students: 1 } }
+          : {
+              data: [row({ student_uuid: "s-2", student_name: "ليلى" })],
+              meta: { current_page: 2, last_page: 2, per_page: 1, total: 2, withheld_students: 1 },
+            },
+      ),
+    );
+
+    render(<StudentBalancesPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "عرض المزيد" }));
+
+    expect(await screen.findByText("ليلى")).toBeTruthy();
+    expect(screen.getByText("سارة")).toBeTruthy();
+    expect(billing.students).toHaveBeenLastCalledWith(2);
+    // The last page is reached: nothing left to ask for.
+    expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
+  });
 });

@@ -102,19 +102,48 @@ export default function StudentBalancesPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(() => {
-    setState("loading");
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // A failed later page keeps the rows already shown — and says so, rather than
+  // leaving a button that did nothing.
+  const [moreError, setMoreError] = useState("");
+
+  /*
+   * ⚠️ PAGINATED, and «عرض المزيد» is not decoration. The endpoint used to return
+   * the whole workspace in one response; it now pages, so a teacher with a long
+   * class would otherwise read a table that stops without saying so. Page one
+   * REPLACES the list (a reload after a ceiling edit starts again from the top);
+   * every later page is appended, never swapped in.
+   */
+  const load = useCallback((target = 1) => {
+    setMoreError("");
+
+    if (target === 1) {
+      setState("loading");
+    } else {
+      setLoadingMore(true);
+    }
 
     billing
-      .students()
+      .students(target)
       .then((res) => {
-        setRows(res.data ?? []);
+        setRows((current) => (target === 1 ? (res.data ?? []) : [...current, ...(res.data ?? [])]));
+        setLastPage(res.meta?.last_page ?? 1);
+        setPage(target);
         setState("ready");
       })
-      .catch(() => setState("error"));
+      .catch((err: unknown) => {
+        if (target === 1) {
+          setState("error");
+        } else {
+          setMoreError(userMessage(err));
+        }
+      })
+      .finally(() => setLoadingMore(false));
   }, []);
 
-  useEffect(load, [load]);
+  useEffect(() => load(1), [load]);
 
   const openEditor = (row: StudentBalanceRow) => {
     setEditing(row);
@@ -213,8 +242,23 @@ export default function StudentBalancesPage() {
         state={state}
         emptyTitle="لا طلاب مسجّلين بعد"
         emptyDescription="يظهر هنا كل طالب لديه تسجيل نشط عندك، ولو لم يشترِ رصيداً بعد."
-        onRetry={load}
+        onRetry={() => load(1)}
       />
+
+      {moreError !== "" && <Alert tone="danger" title={moreError} />}
+
+      {state === "ready" && page < lastPage && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            loading={loadingMore}
+            loadingLabel="جارٍ التحميل…"
+            onClick={() => load(page + 1)}
+          >
+            عرض المزيد
+          </Button>
+        </div>
+      )}
 
       <p className="flex items-start gap-1.5 text-xs text-ink-muted">
         <InfoIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
