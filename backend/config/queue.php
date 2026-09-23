@@ -73,6 +73,39 @@ return [
             'after_commit' => false,
         ],
 
+        /*
+        | The connection the LONG supervisors pop with (maintenance, compliance,
+        | community in `config/horizon.php`).
+        |
+        | ⚠️ `retry_after` MUST EXCEED THE LONGEST `timeout` OF EVERY WORKER THAT
+        | POPS WITH IT. Redis hands a reserved job back to the queue once
+        | `retry_after` has passed, whether or not the first worker is still on it.
+        | At the 90 seconds above, a nine-minute sweep was re-released at 1:30; the
+        | next pop found `attempts = 2` against `tries: 1` and wrote a
+        | MaxAttemptsExceeded row to `failed_jobs` — and fired `failed()` — while
+        | the original was still running. Every long job, every night.
+        |
+        | Why a second connection rather than raising the one above: the reserved
+        | deadline is computed by the connection that POPS (`RedisQueue::
+        | retrieveNextJob()` reads its own `retryAfter`), so the short queues keep
+        | their 90-second recovery after a hard-killed worker — a payment callback
+        | orphaned by an OOM is back in 90 seconds, not half an hour. And for the
+        | same reason nothing that DISPATCHES needs to name this connection: both
+        | read the same Redis keys (`queues:{name}`), so `onQueue('maintenance')`
+        | on `redis` lands where these workers look.
+        |
+        | Literal, not `env()`: an override below the longest supervisor timeout
+        | reintroduces the defect silently. `QueueTimeoutInvariantTest` holds it.
+        */
+        'redis-long' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'maintenance',
+            'retry_after' => 1900,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

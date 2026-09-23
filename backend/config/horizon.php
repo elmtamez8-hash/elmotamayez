@@ -107,6 +107,10 @@ return [
     'notification_email' => env('HORIZON_NOTIFICATION_EMAIL'),
 
     'waits' => [
+        // The key is the SUPERVISOR's connection, not the one a job was
+        // dispatched on: the long supervisors pop with `redis-long` (see
+        // `config/queue.php` for why), so their pairs are spelled that way.
+        // `QueueTimeoutInvariantTest` fails over a supervisor pair missing here.
         'redis:default' => 60,
 
         /*
@@ -131,11 +135,11 @@ return [
         | `due_at` is a legal deadline, and a queue that stalls without telling
         | anyone is exactly how one passes.
         |
-        | (`redis:maintenance` is already watched further down, at 300s since 009
+        | (`redis-long:maintenance` is already watched further down, at 300s since 009
         | — the nightly retention sweep lands on it and needs no entry of its
         | own.)
         */
-        'redis:compliance' => 1800,
+        'redis-long:compliance' => 1800,
 
         /*
         | Spec 020 — the notification queues, watched for the first time.
@@ -155,6 +159,11 @@ return [
         'redis:notifications' => 60,
         'redis:notifications-high' => 30,
 
+        // Worked by supervisor-1 since the certificates queue existed and never
+        // listed — Horizon falls back to 60 for an absent pair, so this states
+        // the number it was already using rather than changing it.
+        'redis:certificates' => 60,
+
         /*
         | Spec 009 — the maintenance queue, named in `defaults` and `environments`
         | since 005 and absent from here ever since, which under the rule above
@@ -165,7 +174,7 @@ return [
         | Loose, because everything on it is scheduled housekeeping nobody is
         | waiting on: five minutes late is late, not broken.
         */
-        'redis:maintenance' => 300,
+        'redis-long:maintenance' => 300,
 
         /*
         | Spec 010 — the community queue.
@@ -179,7 +188,7 @@ return [
         | ⚠️ AND A PAIR ABSENT FROM THIS LIST IS NOT WATCHED AT A DEFAULT, IT IS
         | NOT WATCHED — see the note at the top of this array.
         */
-        'redis:community' => 60,
+        'redis-long:community' => 60,
     ],
 
     /*
@@ -317,7 +326,7 @@ return [
         | nothing anywhere says so.
         */
         'supervisor-maintenance' => [
-            'connection' => 'redis',
+            'connection' => 'redis-long',
             'queue' => ['maintenance'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
@@ -353,7 +362,7 @@ return [
         | enqueue and are never drained — silently.
         */
         'supervisor-compliance' => [
-            'connection' => 'redis',
+            'connection' => 'redis-long',
             'queue' => ['compliance'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
@@ -433,7 +442,7 @@ return [
         | the same mistake made one level lower, in a hand-typed `--queue` list.
         */
         'supervisor-community' => [
-            'connection' => 'redis',
+            'connection' => 'redis-long',
             'queue' => ['community'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
