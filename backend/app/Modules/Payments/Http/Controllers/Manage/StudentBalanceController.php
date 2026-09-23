@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Payments\Actions\CountWithheldStudents;
 use App\Modules\Payments\Actions\ListStudentBalances;
 use App\Modules\Payments\Support\StudentBalanceAllowlist;
 use App\Modules\Tenancy\Models\Workspace;
@@ -27,8 +28,12 @@ use Illuminate\Http\Request;
  */
 class StudentBalanceController extends Controller
 {
-    public function index(Request $request, ListStudentBalances $action, WorkspaceContext $context): JsonResponse
-    {
+    public function index(
+        Request $request,
+        ListStudentBalances $action,
+        CountWithheldStudents $withheld,
+        WorkspaceContext $context,
+    ): JsonResponse {
         abort_unless($this->currentUser($request)->can(Permissions::BILLING_BALANCE_VIEW), 403);
 
         $workspaceId = $context->id();
@@ -63,7 +68,7 @@ class StudentBalanceController extends Controller
                 'last_page' => $page->lastPage(),
                 'per_page' => $page->perPage(),
                 'total' => $page->total(),
-                'withheld_students' => $action->withheldStudentCount($workspace),
+                'withheld_students' => $withheld->handle($workspace),
             ],
         ]);
     }

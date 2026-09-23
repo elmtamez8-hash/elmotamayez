@@ -37,7 +37,7 @@ use Illuminate\Support\Collection;
  * active enrolment with its student and course hydrated, for a screen that shows
  * a table. A teacher with a few hundred students paid for all of them on every
  * visit. The one caller that needs a figure over EVERY row — the dashboard's
- * «طلاب محجوبون» card — reads {@see self::withheldStudentCount()} instead of
+ * «طلاب محجوبون» card — reads {@see CountWithheldStudents} instead of
  * counting a page, which would undercount the moment the class passed one page
  * and say so nowhere.
  */
@@ -154,52 +154,6 @@ class ListStudentBalances extends Action
     private function pageOf(Collection $rows, LengthAwarePaginator $source): LengthAwarePaginator
     {
         return new LengthAwarePaginator($rows, $source->total(), $source->perPage(), $source->currentPage());
-    }
-
-    /**
-     * How many PEOPLE are withheld in at least one course, over every page.
-     *
-     * Distinct students, never rows: withholding is per course, so one student
-     * stopped in two subjects is two rows and one person — counting rows tells
-     * the teacher about twice the people they have.
-     *
-     * Derived by the same {@see WithholdingReader::stamp()} the rows use, never
-     * by a predicate written beside it: `is_withheld` is five inputs deep, and a
-     * second spelling of it in SQL is a dashboard that disagrees with the panel
-     * one click away. Only balances can be withheld (a student with no balance
-     * row holds nothing and is not withheld — see the zeros above), so the walk
-     * is over balances whose enrolment is active, in chunks so memory stays flat
-     * however large the workspace.
-     */
-    public function withheldStudentCount(Workspace $workspace): int
-    {
-        $withheld = [];
-
-        CreditBalance::query()
-            ->where('workspace_id', $workspace->getKey())
-            ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
-                ->from('enrollments')
-                ->whereColumn('enrollments.student_user_id', 'credit_balances.student_user_id')
-                ->whereColumn('enrollments.course_id', 'credit_balances.course_id')
-                ->where('enrollments.workspace_id', $workspace->getKey())
-                ->where('enrollments.status', 'active'))
-            // The same two orphans the rows skip, so the card never names a
-            // person the panel does not list.
-            ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
-                ->from('users')
-                ->whereColumn('users.id', 'credit_balances.student_user_id'))
-            ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
-                ->from('courses')
-                ->whereColumn('courses.id', 'credit_balances.course_id'))
-            ->chunkById(500, function (Collection $balances) use (&$withheld): void {
-                foreach ($this->withholding->stamp($balances) as $balance) {
-                    if ((bool) $balance->getAttribute('is_withheld')) {
-                        $withheld[(int) $balance->student_user_id] = true;
-                    }
-                }
-            });
-
-        return count($withheld);
     }
 
     /**

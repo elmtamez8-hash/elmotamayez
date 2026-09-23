@@ -105,6 +105,9 @@ export default function StudentBalancesPage() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+  // A failed later page keeps the rows already shown — and says so, rather than
+  // leaving a button that did nothing.
+  const [moreError, setMoreError] = useState("");
 
   /*
    * ⚠️ PAGINATED, and «عرض المزيد» is not decoration. The endpoint used to return
@@ -114,6 +117,8 @@ export default function StudentBalancesPage() {
    * every later page is appended, never swapped in.
    */
   const load = useCallback((target = 1) => {
+    setMoreError("");
+
     if (target === 1) {
       setState("loading");
     } else {
@@ -128,8 +133,12 @@ export default function StudentBalancesPage() {
         setPage(target);
         setState("ready");
       })
-      .catch(() => {
-        if (target === 1) setState("error");
+      .catch((err: unknown) => {
+        if (target === 1) {
+          setState("error");
+        } else {
+          setMoreError(userMessage(err));
+        }
       })
       .finally(() => setLoadingMore(false));
   }, []);
@@ -235,6 +244,8 @@ export default function StudentBalancesPage() {
         emptyDescription="يظهر هنا كل طالب لديه تسجيل نشط عندك، ولو لم يشترِ رصيداً بعد."
         onRetry={() => load(1)}
       />
+
+      {moreError !== "" && <Alert tone="danger" title={moreError} />}
 
       {state === "ready" && page < lastPage && (
         <div className="flex justify-center">
