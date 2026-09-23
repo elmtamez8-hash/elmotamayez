@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { StudentSignupForm } from "./StudentSignupForm";
@@ -71,5 +71,36 @@ describe("StudentSignupForm", () => {
     render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
 
     expect(screen.queryByLabelText("المرحلة الدراسية")).toBeNull();
+  });
+});
+
+/*
+| Spec 013 — a minor's account IS created, and the sign-in after it refuses on
+| purpose until a guardian consents. Rendered as an error it read «try again»,
+| and trying again answers 422 on the email the first attempt already took.
+*/
+const registerStudent = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>();
+
+  return { ...actual, auth: { ...actual.auth, registerStudent } };
+});
+
+describe("StudentSignupForm — a minor awaiting consent", () => {
+  it("says the account exists and who has to act, instead of an error", async () => {
+    const { ApiError } = await import("@/lib/api");
+
+    registerStudent.mockRejectedValueOnce(
+      new ApiError("pending", 403, { code: "pending_guardian_consent", message: "x" }),
+    );
+
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+
+    fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+
+    expect(await screen.findByText("أُنشئ حسابك، وهو بانتظار موافقة وليّ أمرك")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

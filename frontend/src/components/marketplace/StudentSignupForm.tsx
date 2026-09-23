@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { auth, errorMessage, fieldErrors } from "@/lib/api";
+import { ApiError, auth, errorMessage, fieldErrors } from "@/lib/api";
+import { errorCode } from "@/lib/errors";
+import { Alert } from "@/components/ui/Alert";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { safeNext } from "@/lib/safe-next";
 import { homePathFor, useAuth } from "@/lib/auth-context";
@@ -86,6 +88,7 @@ export function StudentSignupForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
+  const [awaitingGuardian, setAwaitingGuardian] = useState(false);
 
   // One key per mounted form, not per click: a double submit must reach the API
   // with the same key or the header buys nothing.
@@ -153,6 +156,19 @@ export function StudentSignupForm({
       // generic landing page, so the intent that started the signup survives it.
       router.push(safeNext(next, teacherUuid ? `/teachers/${teacherUuid}` : homePathFor(user)));
     } catch (err: unknown) {
+      /*
+       * ⚠️ SPEC 013 — NOT A FAILURE. A minor's account IS created, and the
+       * sign-in that follows refuses on purpose until a guardian consents. Shown
+       * as an error it read «try again» — and trying again 422s on the email the
+       * first attempt already registered.
+       */
+      if (err instanceof ApiError && errorCode(err.body) === "pending_guardian_consent") {
+        setAwaitingGuardian(true);
+        setLoading(false);
+
+        return;
+      }
+
       const fields = fieldErrors(err);
       setErrors(fields);
 
@@ -162,6 +178,16 @@ export function StudentSignupForm({
       setLoading(false);
     }
   };
+
+  if (awaitingGuardian) {
+    return (
+      <Alert tone="info" title="أُنشئ حسابك، وهو بانتظار موافقة وليّ أمرك">
+        يصل الطلب إلى وليّ أمرك في صفحة «وليّ الأمر والأوصياء» من حسابه على المنصّة. إن لم يكن له
+        حساب بعد، فليُنشئه ويؤكّد رقم الجوّال الذي أدخلته هنا، فيصله الطلب تلقائياً. تستطيع تسجيل
+        الدخول فور موافقته.
+      </Alert>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
