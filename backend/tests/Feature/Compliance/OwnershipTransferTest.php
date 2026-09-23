@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Models\Notification;
 
 /**
@@ -104,4 +105,30 @@ it('spreads estimated birthdays instead of releasing the whole cohort in one nig
 
     expect(StudentProfile::query()->where('user_id', $known->getKey())->sole()->ownership_transferred_at)
         ->not->toBeNull();
+});
+
+/*
+ * ⚠️ A MINOR STILL WAITING ON A GUARDIAN WHEN THEY TURN EIGHTEEN.
+ *
+ * `StartAuthSession` refuses `pending_guardian_consent` whatever the date of birth
+ * says, and a guardian's consent was the only way to `active` — so the adult this
+ * job tells «your data is yours now» could not sign in to read it, for ever. The
+ * minor beside them proves the opening is the birthday, not the job running.
+ */
+it('opens the account of a student who comes of age while still waiting on a guardian', function (): void {
+    $adult = retentionStudentBorn(now()->subYears(18)->toDateString());
+    $minor = retentionStudentBorn(now()->subYears(15)->toDateString());
+
+    foreach ([$adult, $minor] as $student) {
+        $student->forceFill(['status' => UserStatus::PendingGuardianConsent->value])->save();
+    }
+
+    TransferDataOwnershipJob::dispatchSync();
+
+    expect($adult->fresh()?->status)->toBe(UserStatus::Active->value)
+        ->and($minor->fresh()?->status)->toBe(UserStatus::PendingGuardianConsent->value);
+
+    $this->postJson('/api/v1/auth/login', ['email' => $adult->email, 'password' => 'password'])
+        ->assertOk()
+        ->assertJsonStructure(['token']);
 });

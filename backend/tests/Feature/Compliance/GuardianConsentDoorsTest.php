@@ -119,6 +119,59 @@ it('opens sign-in and the student routes once a DataRights guardian consents fro
     test()->withToken($token)->getJson('/api/v1/enrollments')->assertOk();
 })->with('student shapes');
 
+/** @return array<string, mixed> */
+function consentDoorsRegistration(string $email, string $dateOfBirth): array
+{
+    return [
+        'first_name' => 'سارة',
+        'last_name' => 'المري',
+        'email' => $email,
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'phone' => '+97455512345',
+        'country' => 'QA',
+        'school_year_slug' => 'year-10',
+        'registered_by_parent' => false,
+        'terms_accepted' => true,
+        'date_of_birth' => $dateOfBirth,
+        'guardian_contact' => '+97455598765',
+        'region_slug' => 'doha',
+    ];
+}
+
+/*
+ * ⚠️ THE ACCOUNT EXISTS AND THE SIGN-IN IS REFUSED — BOTH, AND THE SIGNUP SCREEN
+ * DEPENDS ON THE PAIR. `registerStudent` saves the row and then asks
+ * `StartAuthSession`, which refuses; the form tells the minor «your account was
+ * created, your guardian must approve». Wrap the controller in a transaction one
+ * day and that sentence becomes a lie, so the row is asserted, not assumed.
+ */
+it('creates a minor pending at signup and signs them in to nothing', function (): void {
+    marketplaceWorkspace();
+    $this->asGuest();
+
+    $this->postJson('/api/v1/auth/register/student', consentDoorsRegistration('minor@example.com', now()->subYears(14)->toDateString()))
+        ->assertForbidden()
+        ->assertJsonPath('code', 'pending_guardian_consent')
+        ->assertJsonMissingPath('token');
+
+    $student = User::query()->where('email', 'minor@example.com')->sole();
+
+    expect($student->status)->toBe(UserStatus::PendingGuardianConsent->value)
+        ->and(PersonalAccessToken::query()->where('tokenable_id', $student->getKey())->count())->toBe(0);
+});
+
+it('signs an adult straight in at signup', function (): void {
+    marketplaceWorkspace();
+    $this->asGuest();
+
+    $this->postJson('/api/v1/auth/register/student', consentDoorsRegistration('adult@example.com', now()->subYears(25)->toDateString()))
+        ->assertCreated()
+        ->assertJsonStructure(['token']);
+
+    expect(User::query()->where('email', 'adult@example.com')->sole()->status)->toBe(UserStatus::Active->value);
+});
+
 it('never blocks an adult', function (bool $stamped): void {
     $adult = consentDoorsStudent($stamped, UserStatus::Active->value);
 
