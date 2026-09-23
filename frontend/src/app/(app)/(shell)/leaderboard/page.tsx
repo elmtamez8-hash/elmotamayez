@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SelectField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StatTile } from "@/components/ui/StatTile";
+import { LeaderboardIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -111,45 +114,44 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-ink">لوحة الصدارة</h1>
-          <p className="text-sm text-ink-muted">
-            ترتيبك بين طلابٍ في مستواك. تبدأ من جديد كلَّ أسبوع.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          {/* Hidden while there is only the platform board to pick: a select with
-              one option is a control that answers nothing. */}
-          {(scopes?.length ?? 0) > 1 && (
-            <SelectField
-              id="scope"
-              label="اللوحة"
-              value={scope}
-              onChange={setScope}
-              options={(scopes ?? []).map((option) => ({
-                value: option.scope,
-                label: KIND_PREFIX[option.kind] + option.label,
-              }))}
-            />
-          )}
-          <Button
-            variant={period === "week" ? "primary" : "ghost"}
-            onClick={() => setPeriod("week")}
-          >
-            هذا الأسبوع
-          </Button>
-          {/* The hall of fame, kept separate rather than replacing the weekly
-              ranking: a cumulative board makes catching up impossible for anyone
-              who joined late, which is what the weekly reset exists to prevent. */}
-          <Button
-            variant={period === "term" ? "primary" : "ghost"}
-            onClick={() => setPeriod("term")}
-          >
-            قاعة المشاهير
-          </Button>
-        </div>
-      </header>
+      <PageHeader
+        Icon={LeaderboardIcon}
+        title="لوحة الصدارة"
+        description="ترتيبك بين طلابٍ في مستواك. تبدأ من جديد كلَّ أسبوع."
+        actions={
+          <div className="flex flex-wrap items-end gap-2">
+            {/* Hidden while there is only the platform board to pick: a select with
+                one option is a control that answers nothing. */}
+            {(scopes?.length ?? 0) > 1 && (
+              <SelectField
+                id="scope"
+                label="اللوحة"
+                value={scope}
+                onChange={setScope}
+                options={(scopes ?? []).map((option) => ({
+                  value: option.scope,
+                  label: KIND_PREFIX[option.kind] + option.label,
+                }))}
+              />
+            )}
+            <Button
+              variant={period === "week" ? "primary" : "ghost"}
+              onClick={() => setPeriod("week")}
+            >
+              هذا الأسبوع
+            </Button>
+            {/* The hall of fame, kept separate rather than replacing the weekly
+                ranking: a cumulative board makes catching up impossible for anyone
+                who joined late, which is what the weekly reset exists to prevent. */}
+            <Button
+              variant={period === "term" ? "primary" : "ghost"}
+              onClick={() => setPeriod("term")}
+            >
+              قاعة المشاهير
+            </Button>
+          </div>
+        }
+      />
 
       {loading && <RowsSkeleton />}
 
@@ -167,15 +169,19 @@ export default function LeaderboardPage() {
       {!loading && !forStudentsOnly && error === null && board !== null && (
         <>
           {board.my_rank !== null && (
-            <Card>
-              <p className="text-sm text-ink-muted">ترتيبك</p>
-              <p className="text-2xl font-bold text-ink">
-                <bdi>{board.my_rank}</bdi>
-              </p>
-              <p className="text-xs text-ink-muted">
-                <bdi>{board.my_points ?? 0}</bdi> نقطة
-              </p>
-            </Card>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatTile
+                label="ترتيبك"
+                value={String(board.my_rank)}
+                Icon={LeaderboardIcon}
+                emphasis
+                hint={
+                  <>
+                    <bdi>{board.my_points ?? 0}</bdi> نقطة
+                  </>
+                }
+              />
+            </div>
           )}
 
           {board.entries.length === 0 ? (

@@ -6,6 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { BankIcon, CreditsIcon, WalletIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api } from "@/lib/api";
@@ -107,12 +110,15 @@ export default function PayPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
-        <h1 className="mb-1 text-2xl font-bold text-ink">سداد طلبك</h1>
-        <p className="text-ink-muted">
-          {order.course_title ?? "طلب"} — <bdi>{formatMinorMoney(order.amount_minor, order.currency)}</bdi>
-        </p>
-      </header>
+      <PageHeader
+        Icon={CreditsIcon}
+        title="سداد طلبك"
+        description={
+          <>
+            {order.course_title ?? "طلب"} — <bdi>{formatMinorMoney(order.amount_minor, order.currency)}</bdi>
+          </>
+        }
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر بدء الدفع">
@@ -120,8 +126,10 @@ export default function PayPage() {
         </Alert>
       )}
 
-      <Card>
-        <h2 className="mb-2 font-bold text-ink">الدفع الإلكتروني</h2>
+      <Card interactive>
+        <div className="mb-2">
+          <SectionHeading id="pay-online" Icon={WalletIcon} title="الدفع الإلكتروني" />
+        </div>
         <p className="mb-4 text-sm leading-relaxed text-ink-muted">
           تنتقل إلى صفحة مزوّد الدفع لإتمام العملية، ثم تعود إلى هنا. لا تُخزَّن بيانات
           بطاقتك على المنصة في أي مرحلة.
@@ -142,8 +150,10 @@ export default function PayPage() {
           "the manual route appears" is stronger than "the manual route still
           works". A student who arrives while the gateway is refusing requests
           needs to see this without having to fail first. */}
-      <Card>
-        <h2 className="mb-2 font-bold text-ink">التحويل البنكي</h2>
+      <Card interactive>
+        <div className="mb-2">
+          <SectionHeading id="pay-transfer" Icon={BankIcon} title="التحويل البنكي" />
+        </div>
         <p className="mb-4 text-sm leading-relaxed text-ink-muted">
           يمكنك التحويل إلى حساب الأكاديمية ورفع صورة الإيصال، ويؤكّده الفريق قبل تفعيل
           رصيدك. هذا الطريق متاح دائماً، ولا يتوقّف بتوقّف الدفع الإلكتروني.

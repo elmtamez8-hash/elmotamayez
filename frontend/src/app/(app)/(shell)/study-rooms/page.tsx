@@ -7,6 +7,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { PracticeIcon, SparkIcon, UsersIcon } from "@/components/icons";
 import { NumberField, SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -105,13 +108,11 @@ export default function StudyRoomsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-ink">غرف المذاكرة</h1>
-        <p className="text-ink-muted">
-          افتح غرفةً وشارك رابطها مع أصدقائك، فتحلّون المجموعة نفسها في الوقت نفسه بلوحة نتائج
-          لحظية.
-        </p>
-      </div>
+      <PageHeader
+        Icon={PracticeIcon}
+        title="غرف المذاكرة"
+        description="افتح غرفةً وشارك رابطها مع أصدقائك، فتحلّون المجموعة نفسها في الوقت نفسه بلوحة نتائج لحظية."
+      />
 
       {error !== "" && <Alert tone="danger" title={error} />}
       {/* FR-023 said out loud: a short paper is an answer, and an answer nobody
@@ -119,7 +120,9 @@ export default function StudyRoomsPage() {
       {notice !== "" && <Alert tone="warning" title={notice} />}
 
       <Card>
-        <h2 className="mb-4 font-semibold text-ink">غرفة جديدة</h2>
+        <div className="mb-4">
+          <SectionHeading id="room-new" Icon={SparkIcon} title="غرفة جديدة" />
+        </div>
         {options !== null && !options.has_questions ? (
           <EmptyState
             title="لا أسئلة متاحة لك بعد"
@@ -195,7 +198,9 @@ export default function StudyRoomsPage() {
       </Card>
 
       <Card>
-        <h2 className="mb-4 font-semibold text-ink">غرفي</h2>
+        <div className="mb-4">
+          <SectionHeading id="room-mine" Icon={UsersIcon} title="غرفي" />
+        </div>
         {rooms === null || rooms.length === 0 ? (
           <EmptyState
             title="لا غرف بعد"
@@ -206,7 +211,7 @@ export default function StudyRoomsPage() {
             {rooms.map((room) => (
               <li
                 key={room.uuid}
-                className="flex items-center justify-between gap-4 rounded-lg border border-line p-3"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-line p-3 transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30"
               >
                 <span className="min-w-0">
                   <Link

@@ -93,7 +93,7 @@ export function AdaptiveRunner({
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-ink">{session.concept.name}</h2>
+            <h3 className="text-lg font-bold text-ink">{session.concept.name}</h3>
             <p className="mt-1 text-sm text-ink-muted">
               السؤال <bdi>{session.served_count}</bdi> من <bdi>{session.max_questions}</bdi> ·
               الصعوبة الآن: {difficultyLabel(session.difficulty)}

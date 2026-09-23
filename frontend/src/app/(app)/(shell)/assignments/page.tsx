@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -152,10 +153,7 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="flex items-center gap-2 text-2xl font-bold text-ink">
-        <AssignmentIcon className="h-6 w-6 text-primary-ink" />
-        واجباتي
-      </h2>
+      <PageHeader Icon={AssignmentIcon} title="واجباتي" />
 
       <FacetBar
         facets={facets}

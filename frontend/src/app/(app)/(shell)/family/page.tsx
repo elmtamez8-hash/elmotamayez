@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EyeIcon, FamilyIcon, ShieldIcon, UserPlusIcon } from "@/components/icons";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/Field";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -149,7 +152,7 @@ export default function FamilyPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h2 className="text-2xl font-bold text-ink">وليّ الأمر والأوصياء</h2>
+      <PageHeader Icon={FamilyIcon} title="وليّ الأمر والأوصياء" />
 
       {error && <Alert tone="danger" title={error} />}
 
@@ -162,7 +165,9 @@ export default function FamilyPage() {
       */}
       {user?.platform_role === "student" && user.uuid && (
         <Card as="section">
-          <h3 className="mb-2 font-semibold text-ink">رمز ربط حسابي</h3>
+          <div className="mb-2">
+            <SectionHeading id="family-code" Icon={ShieldIcon} title="رمز ربط حسابي" />
+          </div>
           <p className="mb-3 text-sm text-ink-muted">
             أرسِلْ هذا الرمز لوليّ أمرك ليُدخِله في صفحته. يصلك طلبه هنا فتقبله أو ترفضه، ولا
             يرى شيئاً من حسابك قبل موافقتك.
@@ -186,7 +191,9 @@ export default function FamilyPage() {
       */}
       {following.length > 0 && (
         <Card as="section">
-          <h3 className="mb-4 font-semibold text-ink">من يتابعني</h3>
+          <div className="mb-4">
+            <SectionHeading id="family-following" Icon={EyeIcon} title="من يتابعني" />
+          </div>
 
           <ul className="space-y-3">
             {following.map((relation) => (
@@ -203,7 +210,9 @@ export default function FamilyPage() {
       )}
 
       <Card as="section">
-        <h3 className="mb-4 font-semibold text-ink">المرتبطون</h3>
+        <div className="mb-4">
+          <SectionHeading id="family-linked" Icon={FamilyIcon} title="المرتبطون" />
+        </div>
 
         {mine.length === 0 ? (
           <p className="py-6 text-center text-ink-muted">لا يوجد مرتبطون بعد.</p>
@@ -223,7 +232,9 @@ export default function FamilyPage() {
       </Card>
 
       <Card as="section">
-        <h3 className="mb-4 font-semibold text-ink">إضافة مرتبط</h3>
+        <div className="mb-4">
+          <SectionHeading id="family-add" Icon={UserPlusIcon} title="إضافة مرتبط" />
+        </div>
 
         <div className="space-y-4">
           <TextField

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ProgressIcon } from "@/components/icons";
 import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -77,14 +79,15 @@ export default function ReportCardsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">كشف التقديرات</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          {isGuardian
+      <PageHeader
+        Icon={ProgressIcon}
+        title="كشف التقديرات"
+        description={
+          isGuardian
             ? "تقدير ابنك في كلّ فترة، بمساهمة كلّ مدرّس على حدة."
-            : "تقديرك في كلّ فترة، بمساهمة كلّ مدرّس على حدة."}
-        </p>
-      </header>
+            : "تقديرك في كلّ فترة، بمساهمة كلّ مدرّس على حدة."
+        }
+      />
 
       {isGuardian && children.length > 1 && (
         <SelectField
@@ -117,9 +120,9 @@ export default function ReportCardsPage() {
             <li key={card.uuid}>
               <Link
                 href={`/report-cards/${card.uuid}`}
-                className="block rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                className="block rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <Card as="article">
+                <Card as="article" interactive>
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="font-semibold text-ink">{cardPeriodLabel(card)}</p>
                     <p className="text-lg font-bold text-ink">

@@ -28,10 +28,10 @@ export function StoreItemCard({
   const soldOut = item.stock !== null && item.stock <= 0;
 
   return (
-    <Card>
+    <Card interactive>
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="text-base font-semibold text-ink">{item.title}</h2>
+          <h4 className="text-base font-semibold text-ink">{item.title}</h4>
           <Badge tone="neutral">{item.kind_label}</Badge>
         </div>
 

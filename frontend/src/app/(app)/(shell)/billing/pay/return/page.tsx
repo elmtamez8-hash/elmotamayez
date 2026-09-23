@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CreditsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
@@ -90,7 +92,7 @@ export default function PaymentReturnPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-ink">نتيجة الدفع</h1>
+      <PageHeader Icon={CreditsIcon} title="نتيجة الدفع" />
 
       {!isSettled(payment.status) && (
         <Alert tone="info" title="عمليتك قيد المعالجة">

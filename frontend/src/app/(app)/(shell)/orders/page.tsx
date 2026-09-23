@@ -15,6 +15,7 @@ import type { Order } from "@/lib/types";
 import { TONE_CLASSES, counted, formatDate, formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
 import { planShape, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Select } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -566,7 +567,7 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">الطلبات</h2>
+      <PageHeader Icon={OrdersIcon} title="الطلبات" />
 
       {error && (
         <p role="alert" className="rounded-lg bg-danger/15 p-3 text-sm text-danger-ink">
