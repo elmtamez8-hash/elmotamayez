@@ -21,6 +21,14 @@ x-logging: &logging
   driver: json-file
   options: { max-size: "20m", max-file: "5" }
 
+# ⚠️ كلُّ صورةٍ مُثبَّتةٌ على رقمٍ كامل، لا على وسمٍ عائم (`nginx:alpine`،
+# `mysql:8.0`). الوسمُ العائمُ يتغيّرُ تحتَ النشرةِ بلا commit: أيُّ `up -d` بعدَ
+# أن يُسحَبَ جديدٌ يُشغِّلُ نسخةً لم يقرأْها أحد، والاسترجاعُ بـ`git revert` لا
+# يُعيدُ الصورةَ القديمة. الأرقامُ اختيرت يومَ ٢٠٢٦-٠٩-٢٣ مطابقةً بالـdigest لما
+# كانت الوسومُ العائمةُ تشيرُ إليه يومَها، أي أنّ التثبيتَ لم يُرقِّ شيئاً.
+# ⚠️ ولا تُرفَعُ mysql ولا meilisearch فوقَ رقمِهما الثانويِّ في سطرٍ عابر:
+# مجلّدُ بياناتِهما مرتبطٌ بالنسخة، وترقيتُهما هجرةٌ لها خطّتُها ونسختُها الاحتياطيّة.
+
 services:
   backend:
     # ⚠️ FPM يتكلّمُ FastCGI لا HTTP، فلا `curl` يصلُ إليه من داخلِ حاويتِه —
@@ -92,6 +100,12 @@ services:
     restart: unless-stopped
     logging: *logging
     working_dir: /var/www/html
+    # ⚠️ ليسَ root. العاملُ يُنفِّذُ كلَّ مهمّةٍ في الطابور، ومهمّةٌ تُخترَقُ بحمولةٍ
+    # مصنوعةٍ تُصبحُ root داخلَ الحاويةِ وعلى مجلّدِ المرفوعاتِ كلِّه. وwww-data هو
+    # نفسُه مالكُ الملفّاتِ في الصورةِ (`chown` في `backend.Dockerfile`) ومستخدمُ
+    # عمّالِ FPM، فما يكتبُه العاملُ يقرؤه الموقعُ والعكس. ما كتبَه العاملُ حينَ كانَ
+    # root على مجلّدِ `storage` يُصلِحُه `deploy.sh` قبلَ رفعِ الخدمات.
+    user: www-data
     command: php artisan horizon
     # ⚠️ `horizon:status` يُرجعُ ٠ يعمل · ١ موقوف · ٢ خامل — مقيسٌ من مصدرِ
     # الحزمةِ لا من وثيقةٍ فوقَه. و«موقوف» يُعَدُّ اعتلالاً عمداً: Horizon
@@ -142,6 +156,9 @@ services:
     restart: unless-stopped
     logging: *logging
     working_dir: /var/www/html
+    # www-data لا root — السببُ عندَ `horizon` أعلاه. والنبضةُ التي يقرؤها الفحصُ
+    # أدناه ملفٌّ يلمسُه هذا المستخدم، فلو بقيَ ملكَ root لفشلَ اللمسُ واعتلَّت الحاوية.
+    user: www-data
     command: php artisan schedule:work
     # ⚠️ لا أمرَ حالةٍ للمجدوِل، فالنبضةُ في `routes/console.php` هي الجواب:
     # لمسةُ ملفٍّ كلَّ دقيقة، وهذا يقرأُ عمرَها. ثلاثُ دقائقَ لا دقيقتان —
@@ -188,6 +205,8 @@ services:
     restart: unless-stopped
     logging: *logging
     working_dir: /var/www/html
+    # www-data لا root، والمنفذُ ٨٠٨٠ فوقَ ١٠٢٤ فلا يحتاجُ صلاحيّة.
+    user: www-data
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     # ⚠️ `/up` مسارٌ تُصرِّحُ به الحزمةُ نفسُها (`HealthCheckController`) ويردُّ
     # `{"health":"OK"}` — لا تخمينَ فيه ولا مسارَ اخترعناه. و`curl` مثبَّتٌ في
@@ -273,7 +292,7 @@ services:
       backend: { condition: service_started }
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.31.6-alpine
     restart: unless-stopped
     logging: *logging
     # ⚠️ `/nginx-health` مسارٌ يردُّه nginx بنفسِه ولا يمرُّ بخادمٍ خلفيّ — انظر
@@ -327,7 +346,7 @@ services:
   # ⚠️ التجديدُ حلقةٌ لا مهمّةٌ لمرّةٍ واحدة. شهادةُ Let's Encrypt تسعون يوماً،
   # والنشرةُ التي تُصدِرُها يدويّاً تنتهي بعدَ ثلاثةِ أشهرٍ في يومٍ لا أحدَ يتوقّعُه.
   certbot:
-    image: certbot/certbot
+    image: certbot/certbot:v5.8.0
     restart: unless-stopped
     logging: *logging
     volumes:
@@ -336,7 +355,7 @@ services:
     entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
 
   mysql:
-    image: mysql:8.0
+    image: mysql:8.0.46
     # الافتراضيُّ 128M يُبقي أغلبَ الجداولِ على القرص. الحجمُ من `.env` لأنّه
     # يتبعُ ذاكرةَ الخادم (نحوَ نصفِ ما يتبقّى بعدَ بقيّةِ الحاويات)، وسجلُّ
     # الاستعلاماتِ البطيئةِ داخلَ مجلّدِ البيانات هو ما يُسمّي الفهرسَ الناقص.
@@ -364,7 +383,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine
     restart: unless-stopped
     logging: *logging
     # الاستمرارُ على القرص: الطابورُ يعيشُ هنا، وإعادةُ تشغيلٍ بلا AOF تفقدُ كلَّ
@@ -375,7 +394,7 @@ services:
     networks: [elmotamayez]
 
   meilisearch:
-    image: getmeili/meilisearch:v1.6
+    image: getmeili/meilisearch:v1.6.2
     restart: unless-stopped
     logging: *logging
     environment:

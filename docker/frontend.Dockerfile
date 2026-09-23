@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24.21.0-alpine AS builder
 
 WORKDIR /app
 
@@ -32,7 +32,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # الصورةَ — والمُشغِّلُ ينسخُ `standalone` و`static` وحدَهما.
 RUN --mount=type=cache,target=/app/.next/cache npm run build
 
-FROM node:24-alpine AS runner
+FROM node:24.21.0-alpine AS runner
 
 WORKDIR /app
 
@@ -44,9 +44,18 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# ⚠️ مستخدمُ `node` (المبنيُّ في الصورةِ الرسميّة) لا root، و`--chown` على
+# **النسخِ الثلاثِ** ليس زينة: إعادةُ التوليدِ (`revalidate`) تكتبُ وقتَ التشغيلِ
+# داخلَ `.next/server/app/*` و`.next/cache`. ملفّاتٌ ملكُ root تحتَ مستخدمٍ غيرِ
+# root تعني أنّ كلَّ إعادةِ توليدٍ تفشلُ بسطرٍ في السجلِّ وحدَه، والصفحةُ القديمةُ
+# تُخدَمُ إلى الأبد — لا خطأَ يراه أحد. و`.next` نفسُه يُنشأُ مسبقاً بمالكِه كما
+# في مثالِ Next الرسميّ، فلا يبقى مجلّدٌ أبٌ ضمنيٌّ ملكَ root.
+RUN mkdir -p .next && chown node:node .next
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+
+USER node
 
 EXPOSE 3000
 
