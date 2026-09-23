@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\MediaRole;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -85,7 +86,10 @@ class MediaAsset extends BaseModel
     /** @return HasMany<MediaCaption, $this> */
     public function captions(): HasMany
     {
-        return $this->hasMany(MediaCaption::class);
+        // ⚠️ Unscoped: a caption is its asset's own. Under the scope a student
+        // stamped with another teacher's workspace got an EMPTY list — no error,
+        // just a video with no subtitles for a viewer who needs them.
+        return $this->hasMany(MediaCaption::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return HasMany<PlaybackGrant, $this> */

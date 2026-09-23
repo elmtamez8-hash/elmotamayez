@@ -346,7 +346,13 @@ class Lesson extends BaseModel implements OrdersSiblings
      */
     public function mediaAsset(): MorphOne
     {
-        return $this->morphOne(MediaAsset::class, 'owner')->where('role', MediaRole::Primary);
+        // ⚠️ Unscoped: the file is the lesson's own (`owner_id`), so the scope adds
+        // no guard — and for a student stamped with ANOTHER teacher's workspace it
+        // returned null: «لا يوجد ملف» (403) on a video they paid for, and
+        // `has_asset: false` on the lesson page. The `Enrollment::course()` shape.
+        return $this->morphOne(MediaAsset::class, 'owner')
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->where('role', MediaRole::Primary);
     }
 
     /**
@@ -360,7 +366,10 @@ class Lesson extends BaseModel implements OrdersSiblings
      */
     public function attachments(): MorphMany
     {
-        return $this->morphMany(MediaAsset::class, 'owner')->where('role', MediaRole::Attachment);
+        // Unscoped for the same reason as `mediaAsset()` above.
+        return $this->morphMany(MediaAsset::class, 'owner')
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->where('role', MediaRole::Attachment);
     }
 
     /** @return BelongsTo<Course, $this> */
