@@ -29,8 +29,15 @@ class FreezeBillableSeatsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param  int|null  $armedForStart  the `starts_at` (unix) this job was armed
+     *                                   for; a session moved since makes it stale.
+     *                                   Null = not tied to a start (direct calls,
+     *                                   and jobs queued before 2026-09-23).
+     */
     public function __construct(
         private readonly int $classSessionId,
+        private readonly ?int $armedForStart = null,
     ) {}
 
     public function handle(WorkspaceContext $context): void
@@ -42,6 +49,12 @@ class FreezeBillableSeatsJob implements ShouldQueue
         }
 
         if ($session->status === ClassSessionStatus::Cancelled) {
+            return;
+        }
+
+        // Armed for a start the session no longer has: `UpdateClassSession`
+        // armed another job for the new one, and that job settles the count.
+        if ($this->armedForStart !== null && $this->armedForStart !== $session->starts_at->getTimestamp()) {
             return;
         }
 

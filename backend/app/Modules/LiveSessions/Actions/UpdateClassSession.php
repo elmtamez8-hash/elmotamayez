@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionClash;
@@ -116,9 +117,37 @@ class UpdateClassSession extends Action
                 ->where('class_session_id', $session->getKey())
                 ->whereNotNull('reminded_at')
                 ->update(['reminded_at' => null]);
+
+            $this->rearmSeatFreeze($session);
         }
 
         return $session->refresh();
+    }
+
+    /**
+     * ⛔ A NEW TIME IS OWED A NEW SEAT COUNT, or the money and the pay disagree.
+     *
+     * `FreezeBillableSeatsJob` is dispatched once, at scheduling, delayed to the
+     * ORIGINAL deadline. Moved earlier, the session closed with `billable_seats`
+     * still null — `ChargeSessionSeats` read that as «unknown» and charged every
+     * seat holder, while `AccrueTeachingUnits` read it as an empty room and paid
+     * the teacher nothing. Moved later, the count froze days early and every
+     * booking after it went unbilled.
+     *
+     * So the count is cleared and a job armed for the new deadline; the old job
+     * still fires, and either finds the count already frozen or finds the window
+     * still open and leaves (see the job).
+     */
+    private function rearmSeatFreeze(ClassSession $session): void
+    {
+        $session->forceFill([
+            'billable_seats' => null,
+            'seats_frozen_at' => null,
+            'interruption_note' => $session->interruption_note === 'zero_attendance' ? null : $session->interruption_note,
+        ])->save();
+
+        FreezeBillableSeatsJob::dispatch((int) $session->getKey(), $session->starts_at->getTimestamp())
+            ->delay($session->billableSeatsFreezeAt(now()));
     }
 
     private function assertTypeMayChange(ClassSession $session, ClassSessionType $type): void
