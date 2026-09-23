@@ -48,6 +48,7 @@ use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -202,6 +203,8 @@ class LiveSessionsServiceProvider extends Module
         | releasing one is `CancelBooking`'s job, on this side of the wall.
         */
         Event::listen(SubscriptionEnded::class, ReleaseSeatsOnSubscriptionEnd::class);
+        // A reversed course order ends the same future seats (owner decision 2026-09-23).
+        Event::listen(CourseAccessWithdrawn::class, ReleaseSeatsOnSubscriptionEnd::class);
 
         /*
         | Spec 027 · FR-040 — a subscriber's seat is taken for lessons that did

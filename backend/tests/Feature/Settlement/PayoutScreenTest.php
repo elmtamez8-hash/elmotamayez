@@ -13,6 +13,7 @@ use App\Modules\Settlement\Filament\Pages\RecordTeacherPayouts;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeacherPayout;
+use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -151,4 +152,21 @@ it('refuses an officer past their two-factor deadline and writes nothing', funct
 
     expect(TeacherPayout::query()->withoutWorkspaceScope()->count())->toBe(0)
         ->and(payoutScreenFreshPeriod($this->period)->status)->toBe(SettlementPeriodStatus::Closed);
+});
+
+/*
+| Owner decision 2026-09-23: the finance officer pays teachers, not only the
+| super admin. Granted in the matrix and, for the live row, by
+| `2026_09_23_000200_grant_payouts_to_finance_admin`.
+*/
+it('lets the finance officer record a payout', function (): void {
+    $finance = makePlatformStaff(Roles::FINANCE_ADMIN);
+    $finance->forceFill(['last_workspace_id' => $this->officerWorkspace->getKey()])->save();
+
+    Livewire::actingAs($finance)
+        ->test(RecordTeacherPayouts::class)
+        ->callTableAction('pay', $this->period, ['reference' => 'TRF-9', 'method' => 'تحويل بنكي'])
+        ->assertHasNoTableActionErrors();
+
+    expect(payoutScreenFreshPeriod($this->period)->status)->toBe(SettlementPeriodStatus::Paid);
 });

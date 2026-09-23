@@ -323,6 +323,14 @@ final class RolePermissionMatrix
                 | through `platform_staff`. The derivation is unchanged.
                 */
                 Permissions::PLANS_PRICE,
+                /*
+                | Paying the teacher (owner decision 2026-09-23). The payout
+                | screen in /admin asks this and a second factor; without it the
+                | officer who approves the money in could not record the money
+                | out, and every payout waited on the one super-admin account.
+                | Granted to the existing row by `2026_09_23_000200`.
+                */
+                Permissions::SETTLEMENT_PAYOUT_EXECUTE,
             ],
             /*
             | The data-protection officer (spec 013) — listed literally, for the

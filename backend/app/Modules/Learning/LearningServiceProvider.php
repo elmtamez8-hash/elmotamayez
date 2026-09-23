@@ -11,6 +11,7 @@ use App\Modules\Learning\Console\CohortGateImpact;
 use App\Modules\Learning\Events\EnrollmentCreated;
 use App\Modules\Learning\Listeners\CompleteExamLessonOnSubmission;
 use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
+use App\Modules\Learning\Listeners\LeaveCohortsOnOrderReversed;
 use App\Modules\Learning\Listeners\LeaveWaitlistOnEnrolment;
 use App\Modules\Learning\Listeners\ResyncCourseProgress;
 use App\Modules\Learning\Models\Cohort;
@@ -24,6 +25,7 @@ use App\Modules\Learning\Support\LearningPersonalData;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\ProgressImpact;
+use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -109,5 +111,7 @@ class LearningServiceProvider extends Module
         | كلِّ فتحِ صفحة، ويتركُ الصفَّ غيرَ مختومٍ إلى الأبد.
         */
         Event::listen(EnrollmentCreated::class, LeaveWaitlistOnEnrolment::class);
+        // A reversed course order takes back the group place (owner decision 2026-09-23).
+        Event::listen(CourseAccessWithdrawn::class, LeaveCohortsOnOrderReversed::class);
     }
 }

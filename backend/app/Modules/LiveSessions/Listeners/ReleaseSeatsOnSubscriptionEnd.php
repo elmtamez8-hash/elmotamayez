@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Events\CourseAccessWithdrawn;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -62,7 +63,7 @@ class ReleaseSeatsOnSubscriptionEnd implements ShouldHandleEventsAfterCommit, Sh
         private readonly EnrollmentDirectory $enrollments,
     ) {}
 
-    public function handle(SubscriptionEnded $event): void
+    public function handle(SubscriptionEnded|CourseAccessWithdrawn $event): void
     {
         if ($event->courseIds === []) {
             return;
