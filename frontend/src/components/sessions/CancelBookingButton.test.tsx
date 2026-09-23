@@ -44,9 +44,12 @@ function renderButton(now: () => number, onCancelled = vi.fn()) {
 }
 
 /*
- | ⚠️ NO `mockReset()`/`mockClear()` BETWEEN CASES. Measured under vitest 4.1: a
- | rejection returned by a mock that was reset beforehand surfaces as a failure of
- | the test even though the component caught it — so each case sets its own
+ | ⚠️ NO `mockReset()`/`mockClear()` BETWEEN CASES. Observed in THIS file under
+ | vitest 4.1: with either in a `beforeEach`, the refusal case failed on the
+ | ApiError the component had demonstrably caught (logged inside its `catch`),
+ | and passed with the reset removed. The cause was not isolated —
+ | `SessionsTab.test.tsx` resets and rejects without trouble — so this is a
+ | record of what happened here, not a rule. Each case sets its own
  | implementation and counts calls relative to where it started.
  */
 describe("CancelBookingButton", () => {

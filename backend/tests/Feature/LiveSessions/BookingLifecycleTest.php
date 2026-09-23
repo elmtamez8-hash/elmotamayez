@@ -116,6 +116,27 @@ it('sends the free-cancellation deadline with the booking, and cancels it over H
         ->toBe($session->refresh()->cancellationDeadline()->toIso8601String());
 });
 
+it('shows the booked student their own seat and its deadline on the session page', function (): void {
+    // The session page draws «إلغاء الحجز» off `my_booking`, which is null
+    // unless the page's read loads the bookings — so the control is only real
+    // if this is.
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+
+    Sanctum::actingAs($this->student);
+
+    $this->getJson('/api/v1/class-sessions/'.$session->uuid)
+        ->assertOk()
+        ->assertJsonPath('my_booking.uuid', $booking->uuid)
+        ->assertJsonPath('my_booking.status', BookingStatus::Booked->value)
+        ->assertJsonPath('my_booking.may_cancel_until', $session->refresh()->cancellationDeadline()->toIso8601String());
+});
+
 it('refuses a second cancellation with a sentence rather than a 500', function (): void {
     $session = ClassSession::factory()->create([
         'teacher_profile_id' => $this->teacher->getKey(),
