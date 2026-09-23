@@ -9,6 +9,9 @@ import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { BellIcon, LockIcon, SettingsIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
 
 export default function SettingsPage() {
@@ -77,10 +80,16 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      <h2 className="text-2xl font-bold text-ink">الإعدادات</h2>
+      <PageHeader Icon={SettingsIcon} title="الإعدادات" />
 
       <Card as="section">
-        <h3 className="mb-4 font-semibold text-ink">الملف الشخصي</h3>
+        <div className="mb-4">
+          <SectionHeading
+            id="settings-profile"
+            Icon={UserIcon}
+            title="الملف الشخصي"
+          />
+        </div>
         <form onSubmit={submitProfile} className="space-y-4">
           {profileError && <Alert tone="danger" title={profileError} />}
           {profileSaved && <Alert tone="success" title="حُفِظت بياناتك." />}
@@ -135,38 +144,56 @@ export default function SettingsPage() {
         الإدارة، وصورةُ الحسابِ لم يكنْ لها كاتبٌ في الشجرةِ أصلاً — وصفحةٌ لا
         يصلُ إليها رابطٌ صفحةٌ لا يفتحُها أحدٌ مهما كانت صحيحة.
       */}
-      <Card as="section">
-        <h3 className="mb-1 font-semibold text-ink">ملفّي وصورتي</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          صورة حسابك، وما تُدرّسه ولمن ووصفك — أو صفّك الدراسي ومنطقتك.
-        </p>
+      <Card as="section" interactive>
+        <div className="mb-4">
+          <SectionHeading
+            id="settings-my-profile"
+            Icon={UserIcon}
+            title="ملفّي وصورتي"
+            description="صورة حسابك، وما تُدرّسه ولمن ووصفك — أو صفّك الدراسي ومنطقتك."
+          />
+        </div>
         <Button href="/settings/profile" variant="secondary">
           افتح ملفّي
         </Button>
       </Card>
 
-      <Card as="section">
-        <h3 className="mb-1 font-semibold text-ink">الإشعارات</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          اختر القنوات لكل فئة من الإشعارات، واضبط فترة الهدوء.
-        </p>
+      <Card as="section" interactive>
+        <div className="mb-4">
+          <SectionHeading
+            id="settings-notifications"
+            Icon={BellIcon}
+            title="الإشعارات"
+            description="اختر القنوات لكل فئة من الإشعارات، واضبط فترة الهدوء."
+          />
+        </div>
         <Button href="/settings/notifications" variant="secondary">
           إعدادات الإشعارات
         </Button>
       </Card>
 
-      <Card as="section">
-        <h3 className="mb-1 font-semibold text-ink">الأجهزة والجلسات</h3>
-        <p className="mb-4 text-sm text-ink-muted">
-          راجع الأجهزة المسجَّل دخولها إلى حسابك، وأنهِ أي جلسة لا تعرفها.
-        </p>
+      <Card as="section" interactive>
+        <div className="mb-4">
+          <SectionHeading
+            id="settings-security"
+            Icon={ShieldIcon}
+            title="الأجهزة والجلسات"
+            description="راجع الأجهزة المسجَّل دخولها إلى حسابك، وأنهِ أي جلسة لا تعرفها."
+          />
+        </div>
         <Button href="/settings/security" variant="secondary">
           الأجهزة والجلسات
         </Button>
       </Card>
 
       <Card as="section">
-        <h3 className="mb-4 font-semibold text-ink">تغيير كلمة المرور</h3>
+        <div className="mb-4">
+          <SectionHeading
+            id="settings-password"
+            Icon={LockIcon}
+            title="تغيير كلمة المرور"
+          />
+        </div>
         <form onSubmit={submitPassword} className="space-y-4">
           {pwError && <Alert tone="danger" title={pwError} />}
           {pwSaved && <Alert tone="success" title="غُيِّرت كلمة المرور." />}

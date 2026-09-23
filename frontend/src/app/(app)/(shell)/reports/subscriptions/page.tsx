@@ -5,6 +5,10 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckboxField, SelectField } from "@/components/ui/Field";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { StatTile } from "@/components/ui/StatTile";
+import { BellIcon, ProgressIcon, SiteIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage, fieldErrors } from "@/lib/api";
@@ -85,35 +89,41 @@ export default function ReportSubscriptionsPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold text-ink">تقارير المنصّة</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          أرقام يوم <bdi>{formatDate(report.date)}</bdi> — تُحدَّث بتجميع ليليّ،
-          واختيارك أدناه يصلك في موعده.
-        </p>
-      </header>
+      <PageHeader
+        Icon={ProgressIcon}
+        title="تقارير المنصّة"
+        description={
+          <>
+            أرقام يوم <bdi>{formatDate(report.date)}</bdi> — تُحدَّث بتجميع ليليّ،
+            واختيارك أدناه يصلك في موعده.
+          </>
+        }
+      />
 
-      <Card as="section">
-        <h2 className="text-base font-semibold text-ink">الأرقام اليوم</h2>
+      <section aria-labelledby="report-today" className="space-y-4">
+        <SectionHeading id="report-today" Icon={ProgressIcon} title="الأرقام اليوم" />
 
-        <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {report.metrics.map((metric) => (
-            <div key={metric.key}>
-              <dt className="text-sm text-ink-muted">{metric.label}</dt>
-              <dd className="text-xl font-bold text-ink">{formatMetric(metric)}</dd>
-              {metric.is_ratio && (
-                <p className="text-xs text-ink-muted">
-                  {arabicNumber(metric.numerator)} من{" "}
-                  {arabicNumber(metric.denominator)}
-                </p>
-              )}
-            </div>
+            <StatTile
+              key={metric.key}
+              label={metric.label}
+              value={formatMetric(metric)}
+              hint={
+                metric.is_ratio ? (
+                  <>
+                    {arabicNumber(metric.numerator)} من{" "}
+                    {arabicNumber(metric.denominator)}
+                  </>
+                ) : undefined
+              }
+            />
           ))}
-        </dl>
-      </Card>
+        </div>
+      </section>
 
       <Card as="section">
-        <h2 className="text-base font-semibold text-ink">توزيع الطلاب بالمنطقة</h2>
+        <SectionHeading id="report-regions" Icon={SiteIcon} title="توزيع الطلاب بالمنطقة" />
 
         {/* A region with nobody in it is shown with a zero rather than dropped:
             the absence is the fact somebody opening this page is looking for. */}
@@ -128,7 +138,7 @@ export default function ReportSubscriptionsPage() {
       </Card>
 
       <Card as="section">
-        <h2 className="text-base font-semibold text-ink">اشتراكي في التقرير</h2>
+        <SectionHeading id="report-subscription" Icon={BellIcon} title="اشتراكي في التقرير" />
 
         {error !== "" && (
           <Alert tone="danger" title="تعذّر الحفظ">

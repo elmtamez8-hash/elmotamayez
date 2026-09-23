@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { TextField, SelectField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
-import { CloseIcon } from "@/components/icons";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { CloseIcon, MembersIcon } from "@/components/icons";
 
 interface Member {
   uuid: string;
@@ -183,7 +184,7 @@ export default function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-ink">فريقك</h2>
+      <PageHeader Icon={MembersIcon} title="فريقك" />
 
       <Card as="section" padding="sm">
         <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">

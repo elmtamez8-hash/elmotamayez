@@ -6,6 +6,8 @@ import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
 import { Alert } from "@/components/ui/Alert";
 import { Table, type Column } from "@/components/ui/Table";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { OrdersIcon } from "@/components/icons";
 
 type AuditEntry = {
   event: string;
@@ -113,12 +115,11 @@ export default function PaymentAuditPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-ink">سجلّ التدقيق المالي</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          كل قرار مالي: ماذا حدث، على ماذا، بيد من، ومن أي جهاز. السجلّ لا يُعدَّل ولا يُحذف.
-        </p>
-      </div>
+      <PageHeader
+        Icon={OrdersIcon}
+        title="سجلّ التدقيق المالي"
+        description="كل قرار مالي: ماذا حدث، على ماذا، بيد من، ومن أي جهاز. السجلّ لا يُعدَّل ولا يُحذف."
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّر عرض السجلّ">

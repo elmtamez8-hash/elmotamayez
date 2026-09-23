@@ -7,6 +7,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { LockIcon, ShieldIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -75,13 +78,16 @@ export default function SecuritySettingsPage() {
       */}
       <TwoFactorSection />
 
-      <div>
-        <h2 className="text-2xl font-bold text-ink">الأجهزة والجلسات</h2>
-        <p className="mt-2 text-sm text-ink-muted">
-          هذه هي الأجهزة التي سُجِّل الدخول إلى حسابك منها الآن. إن رأيت جهازاً
-          لا تعرفه، أنهِ جلسته ثم غيّر كلمة مرورك.
-        </p>
-      </div>
+      <PageHeader
+        Icon={ShieldIcon}
+        title="الأجهزة والجلسات"
+        description={
+          <>
+            هذه هي الأجهزة التي سُجِّل الدخول إلى حسابك منها الآن. إن رأيت جهازاً
+            لا تعرفه، أنهِ جلسته ثم غيّر كلمة مرورك.
+          </>
+        }
+      />
 
       {error !== "" && <Alert tone="danger" title={error} />}
 
@@ -98,7 +104,7 @@ export default function SecuritySettingsPage() {
         <ul className="space-y-3">
           {list.map((session) => (
             <li key={session.uuid}>
-              <Card as="article" padding="sm">
+              <Card as="article" padding="sm" interactive>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
@@ -242,11 +248,17 @@ function TwoFactorSection() {
 
   return (
     <Card as="section">
-      <h3 className="text-lg font-semibold text-ink">التحقق بخطوتين</h3>
-      <p className="mt-2 text-sm text-ink-muted">
-        رمز من تطبيق مصادقة بجانب كلمة المرور. من دونه، كلمة مرور مسرّبة تكفي
-        وحدها للدخول إلى حسابك.
-      </p>
+      <SectionHeading
+        id="two-factor"
+        Icon={LockIcon}
+        title="التحقق بخطوتين"
+        description={
+          <>
+            رمز من تطبيق مصادقة بجانب كلمة المرور. من دونه، كلمة مرور مسرّبة تكفي
+            وحدها للدخول إلى حسابك.
+          </>
+        }
+      />
 
       {error !== "" && (
         <div className="mt-4">

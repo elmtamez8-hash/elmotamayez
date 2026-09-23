@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { WorkspaceIcon } from "@/components/icons";
 import { TextField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -67,7 +69,7 @@ export default function EditWorkspacePage({
 
   return (
     <div className="mx-auto max-w-md space-y-6">
-      <h2 className="text-2xl font-bold text-ink">إعدادات مكان العمل</h2>
+      <PageHeader Icon={WorkspaceIcon} title="إعدادات مكان العمل" />
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">

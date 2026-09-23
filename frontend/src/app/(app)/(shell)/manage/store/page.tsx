@@ -5,6 +5,8 @@ import { StoreItemForm } from "@/components/store/StoreItemForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { StoreIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { formatMinorMoney } from "@/lib/labels";
 import { store, teacherNetMinor, type StoreItem } from "@/lib/store";
@@ -84,19 +86,21 @@ export default function ManageStorePage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">متجر الكتب</h1>
-          <p className="mt-1 text-sm text-ink-muted">
+      <PageHeader
+        Icon={StoreIcon}
+        title="متجر الكتب"
+        description={
+          <>
             كتبك ومذكّراتك — نسخة رقمية تُسلَّم فور اعتماد الدفع، أو نسخة مطبوعة
             تُشحَن إلى الباب.
-          </p>
-        </div>
-
-        {!creating && !editing && (
-          <Button onClick={() => setCreating(true)}>منتَج جديد</Button>
-        )}
-      </header>
+          </>
+        }
+        actions={
+          !creating && !editing ? (
+            <Button onClick={() => setCreating(true)}>منتَج جديد</Button>
+          ) : undefined
+        }
+      />
 
       {(creating || editing) && (
         <Card>

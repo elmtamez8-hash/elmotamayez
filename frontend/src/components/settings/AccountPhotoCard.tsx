@@ -7,6 +7,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { UserIcon } from "@/components/icons";
 import { useAuth } from "@/lib/auth-context";
 import { loadImageFile } from "@/lib/avatar-crop";
 import { userMessage } from "@/lib/errors";
@@ -95,11 +97,19 @@ export function AccountPhotoCard({
 
   return (
     <Card as="section">
-      <h3 className="mb-1 font-semibold text-ink">صورة الحساب</h3>
-      <p className="mb-4 text-sm text-ink-muted">
-        تظهر في كشف الحضور وقائمة مجموعتك وصفحتك العامة. الصيغ: JPG أو PNG أو
-        WEBP، حتى ٤ ميغابايت — وتُحفظ مربّعة ٥١٢×٥١٢.
-      </p>
+      <div className="mb-4">
+        <SectionHeading
+          id="account-photo"
+          Icon={UserIcon}
+          title="صورة الحساب"
+          description={
+            <>
+              تظهر في كشف الحضور وقائمة مجموعتك وصفحتك العامة. الصيغ: JPG أو PNG أو
+              WEBP، حتى ٤ ميغابايت — وتُحفظ مربّعة ٥١٢×٥١٢.
+            </>
+          }
+        />
+      </div>
 
       {error && (
         <div className="mb-4">
