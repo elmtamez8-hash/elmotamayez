@@ -126,7 +126,7 @@ class SubscriptionEligibility implements SubscriptionDirectory
         // Asked about a SEAT, the room size has to match as well — see the class
         // docblock. Asked about content (no type), any plan on the course opens it.
         if ($sessionType !== null) {
-            $live = $live->filter(fn (Subscription $subscription): bool => $subscription->plan?->session_type->value === $sessionType);
+            $live = $live->filter(fn (Subscription $subscription): bool => $subscription->plan?->session_type?->value === $sessionType);
         }
 
         if ($live->isEmpty()) {

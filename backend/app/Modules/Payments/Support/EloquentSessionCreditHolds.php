@@ -73,7 +73,7 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
             (int) $student->getKey(),
             $courseId,
             $session?->starts_at,
-            $session?->type->value,
+            $session?->type?->value,
         )) {
             return new CreditHoldResult(granted: true);
         }
