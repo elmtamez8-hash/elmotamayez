@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity;
 
+use App\Models\User;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Identity\Listeners\ActivateOnProcessingConsent;
 use App\Modules\Identity\Listeners\CompleteReferral;
@@ -22,6 +23,7 @@ use App\Modules\Payments\Events\RefundIssued;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
@@ -54,6 +56,18 @@ class IdentityServiceProvider extends Module
         parent::boot();
 
         Gate::policy(AuthSession::class, AuthSessionPolicy::class);
+
+        /*
+        | ⛔ THE RESET LINK POINTS AT THE FRONTEND, AND WITHOUT THIS LINE IT WAS A 500.
+        | Laravel's `ResetPassword` mail builds `route('password.reset')`, which this
+        | API never defines — so every request for an existing address threw
+        | `RouteNotFoundException` (audit 2026-09-23). The page that takes the
+        | token is `frontend/src/app/(app)/reset-password`; `cms.site_url` is the
+        | one spelling of the frontend's origin (it is derived from FRONTEND_URL).
+        */
+        ResetPassword::createUrlUsing(fn (User $user, string $token): string => config('cms.site_url')
+            .'/reset-password?token='.urlencode($token)
+            .'&email='.urlencode($user->getEmailForPasswordReset()));
 
         /*
         | Spec 013 — a guardian consents in `Payments`, an account opens here.

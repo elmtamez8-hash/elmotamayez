@@ -140,6 +140,15 @@ function LoginForm() {
           required
         />
 
+        <p className="text-sm">
+          <Link
+            href="/forgot-password"
+            className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            نسيت كلمة المرور؟
+          </Link>
+        </p>
+
         <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الدخول…">
           تسجيل الدخول
         </Button>
