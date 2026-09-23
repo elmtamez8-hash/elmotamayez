@@ -62,7 +62,7 @@ test.describe("الواجبات — الطالب", () => {
 
     await expect(page).toHaveURL(/\/assignments$/);
     await expect(
-      page.locator("#main").getByRole("heading", { name: "واجباتي", level: 1 }),
+      page.locator("#main").getByRole("heading", { name: "واجباتي", level: 2 }),
     ).toBeVisible();
 
     await expect(
