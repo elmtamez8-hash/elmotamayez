@@ -115,8 +115,21 @@ class Enrollment extends BaseModel
      */
     public function grantsContentAccess(): bool
     {
-        return $this->isActive() || $this->isCompleted();
+        return in_array($this->status, self::GRANTING_STATUSES, true);
     }
+
+    /**
+     * The statuses that open a course — for a query, where the method above
+     * cannot be asked. `EloquentEnrollmentDirectory` reads this, so every door
+     * (video, booking, room, exams, practice) answers what `LessonGate` answers.
+     *
+     * ⛔ Until 2026-09-23 the directory asked `active` alone: a student at 100%
+     * opened the lesson page and was refused its video, and was told «لست
+     * مسجّلاً» at the booking door. Owner decision the same day: teachers often
+     * build a course lesson by lesson as live broadcasts, so 100% is 100% of what
+     * exists so far, and a completed enrolment keeps everything.
+     */
+    public const GRANTING_STATUSES = ['active', 'completed'];
 
     /**
      * Returns all lessons of the course ordered by section → chapter → lesson order.

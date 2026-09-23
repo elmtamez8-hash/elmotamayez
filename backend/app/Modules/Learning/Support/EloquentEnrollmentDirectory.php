@@ -16,6 +16,10 @@ use Carbon\CarbonImmutable;
  * with many teachers and asks about a lesson before any workspace is current, so
  * scoping here would return nothing and silently deny every playback. The guard
  * is the student's own id, which is stricter than a workspace filter would be.
+ *
+ * ⚠️ «ACTIVE» IN THESE METHOD NAMES MEANS «GRANTS ACCESS» —
+ * `Enrollment::GRANTING_STATUSES`, i.e. `active` or `completed`. One list, so
+ * the video, the booking door and the exams answer what `LessonGate` answers.
  */
 class EloquentEnrollmentDirectory implements EnrollmentDirectory
 {
@@ -25,7 +29,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
             ->where('course_id', $courseId)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
     }
 
@@ -35,7 +39,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
             ->where('workspace_id', $workspaceId)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
     }
 
@@ -45,7 +49,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
         $ids = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->pluck('course_id')
             ->map(fn (mixed $id): int => (int) $id)
             ->unique()
@@ -60,7 +64,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
         $ids = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $user->getKey())
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->pluck('workspace_id')
             ->map(fn (mixed $id): int => (int) $id)
             ->unique()
@@ -103,7 +107,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
         $row = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->selectRaw('MAX(expires_at) as latest_expiry')
             ->selectRaw('SUM(CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END) as open_ended')
             ->first();
@@ -159,7 +163,7 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
         $query = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
-            ->where('status', 'active');
+            ->whereIn('status', Enrollment::GRANTING_STATUSES);
 
         // ⚠️ THE WORKSPACE BOUND STAYS WHEN A COURSE IS NAMED. A course id
         // arrives from a request, and narrowing to it ALONE would answer about

@@ -843,10 +843,10 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
     /**
      * Enrol the student in what the plan covers.
      *
-     * ⚠️ `expires_at` IS STAMPED ONLY ON A ROW THIS CREATED. `EnrollStudent` is
-     * `firstOrCreate`, so a student who already bought this course outright gets
-     * their existing, open-ended enrolment back — and stamping an expiry on it
-     * would revoke permanent access they paid for, a month later, silently.
+     * ⚠️ `expires_at` IS STAMPED ONLY ON THIS SUBSCRIPTION'S OWN ROW. A student
+     * who already bought this course outright gets their existing, open-ended
+     * enrolment back from `EnrollStudent` — and stamping an expiry on it would
+     * revoke permanent access they paid for, a month later, silently.
      */
     /**
      * Enrol the buyer in everything this plan covers.
@@ -876,7 +876,11 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
                 ),
             );
 
-            if ($enrollment->wasRecentlyCreated && $expiresAt !== null) {
+            // The subscription's own row — new, or handed over by `EnrollStudent`
+            // from a lapsed or earlier subscription. Never a purchased one.
+            if ($expiresAt !== null
+                && $enrollment->source === 'subscription'
+                && (int) $enrollment->order_id === (int) $order->getKey()) {
                 $enrollment->forceFill(['expires_at' => $expiresAt])->save();
             }
         }

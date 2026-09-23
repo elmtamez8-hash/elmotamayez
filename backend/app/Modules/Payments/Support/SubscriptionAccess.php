@@ -57,11 +57,14 @@ class SubscriptionAccess
      */
     public static function close(Subscription $subscription): int
     {
+        // ⛔ `completed` too: a subscriber who finishes the course keeps it open
+        // (`Enrollment::GRANTING_STATUSES`), so closing `active` alone turned
+        // finishing early into permanent free access after the month ran out.
         $rows = Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('order_id', $subscription->order_id)
             ->where('source', 'subscription')
-            ->where('status', EnrollmentStatus::Active->value)
+            ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
             ->get(['id', 'course_id']);
 
         if ($rows->isEmpty()) {
@@ -71,7 +74,7 @@ class SubscriptionAccess
         $closed = Enrollment::query()
             ->withoutWorkspaceScope()
             ->whereIn('id', $rows->pluck('id'))
-            ->where('status', EnrollmentStatus::Active->value)
+            ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
             ->update(['status' => EnrollmentStatus::Expired->value]);
 
         if ($closed > 0) {
