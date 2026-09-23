@@ -7,6 +7,7 @@ namespace App\Modules\Media\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Identity\Models\AuthSession;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\Media\PlaybackGrantFactory;
@@ -70,7 +71,11 @@ class PlaybackGrant extends BaseModel
     /** @return BelongsTo<MediaAsset, $this> */
     public function asset(): BelongsTo
     {
-        return $this->belongsTo(MediaAsset::class, 'media_asset_id');
+        // ⚠️ Unscoped: the grant IS the authorisation for this one file. Under the
+        // scope a student stamped with another teacher's workspace read null here
+        // and every playback, renewal and byte range was a 500.
+        return $this->belongsTo(MediaAsset::class, 'media_asset_id')
+            ->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */
