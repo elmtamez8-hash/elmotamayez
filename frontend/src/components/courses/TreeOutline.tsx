@@ -32,10 +32,16 @@ export function TreeOutline({
 }: {
   tree: CourseTree;
   busy: boolean;
-  onAddSection: (title: string) => void;
-  onAddChapter: (sectionUuid: string, title: string) => void;
+  /*
+   * ⚠️ THE THREE TEXT WRITES RESOLVE WHETHER THEY LANDED. The inline boxes were
+   * emptied — and the rename box closed — the moment the request LEFT, so a
+   * refusal (a title too long, a 409 from a stale tree) took the teacher's
+   * words with it. They clear on `true` only now.
+   */
+  onAddSection: (title: string) => Promise<boolean>;
+  onAddChapter: (sectionUuid: string, title: string) => Promise<boolean>;
   onAddLesson: (chapter: TreeChapter) => void;
-  onRename: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => void;
+  onRename: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => Promise<boolean>;
   onDelete: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => void;
   onMoveSection: (uuid: string, direction: -1 | 1) => void;
   onMoveChapter: (section: TreeSection, uuid: string, direction: -1 | 1) => void;
@@ -207,10 +213,7 @@ export function TreeOutline({
           busy={busy}
           value={newSectionTitle}
           onValueChange={setNewSectionTitle}
-          onSubmit={(title) => {
-            onAddSection(title);
-            setNewSectionTitle("");
-          }}
+          onSubmit={(title) => onAddSection(title)}
         />
       </Card>
     </div>
@@ -261,7 +264,7 @@ function InlineAdd({
   busy: boolean;
   value?: string;
   onValueChange?: (value: string) => void;
-  onSubmit: (title: string) => void;
+  onSubmit: (title: string) => Promise<boolean>;
 }) {
   const [internal, setInternal] = useState("");
   const current = value ?? internal;
@@ -273,8 +276,10 @@ function InlineAdd({
       onSubmit={(event) => {
         event.preventDefault();
         if (current.trim() === "") return;
-        onSubmit(current.trim());
-        setCurrent("");
+        // Cleared once the server accepted it — never before the answer.
+        void onSubmit(current.trim()).then((added) => {
+          if (added) setCurrent("");
+        });
       }}
     >
       <input
@@ -298,7 +303,7 @@ function RenameButton({
   busy,
 }: {
   current: string;
-  onRename: (title: string) => void;
+  onRename: (title: string) => Promise<boolean>;
   busy: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -317,8 +322,17 @@ function RenameButton({
       className="flex items-center gap-1"
       onSubmit={(event) => {
         event.preventDefault();
-        if (title.trim() !== "") onRename(title.trim());
-        setEditing(false);
+
+        if (title.trim() === "") {
+          setEditing(false);
+
+          return;
+        }
+
+        // The box stays open over a refusal, holding what was typed.
+        void onRename(title.trim()).then((renamed) => {
+          if (renamed) setEditing(false);
+        });
       }}
     >
       <input

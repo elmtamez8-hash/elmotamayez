@@ -22,7 +22,13 @@ import {
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
-import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
+import {
+  BLANK_TIME_MESSAGE,
+  blankTimeIndex,
+  crossesUtcMidnight,
+  toLocalSlot,
+  toUtcSlot,
+} from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { profileApi, type Faq, type TeacherProfile } from "@/lib/profile";
@@ -49,7 +55,7 @@ type SchoolYear = { slug: string; name: string };
  * واشتقاقُ الجمهورِ في TypeScript هو عطبُ «تهجئتَينِ لسؤالٍ واحد» بعينِه.
  */
 export default function ProfileSettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [subjects, setSubjects] = useState<Option[]>([]);
@@ -524,6 +530,13 @@ export default function ProfileSettingsPage() {
                * يحملُ يوماً وساعتَين — والخادمُ يرفضُها بجملةٍ عن أوقاتٍ لم
                * يكتبْها المدرّس. فالسؤالُ يُطرحُ هنا لتُقالَ الجملةُ الصّحيحة.
                */
+              // A cleared time is "" and would be converted as midnight.
+              if (blankTimeIndex(slots) !== -1) {
+                setFields({ availability: BLANK_TIME_MESSAGE });
+
+                return;
+              }
+
               const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
 
               if (straddling !== -1) {
@@ -570,7 +583,14 @@ export default function ProfileSettingsPage() {
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              void save(profileApi.saveStudent(student));
+              /*
+               * ⚠️ AND THE SESSION'S USER IS READ BACK AFTERWARDS. The form is
+               * filled from `user.student_profile`, which nothing refreshed — so
+               * the saved year sat in the database while the account in memory
+               * still held the old one, and the next load of this form (or a
+               * second save from it) put the old value straight back.
+               */
+              void save(profileApi.saveStudent(student).then(() => refreshUser()));
             }}
           >
             {/*

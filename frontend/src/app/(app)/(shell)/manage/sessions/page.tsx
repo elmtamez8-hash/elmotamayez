@@ -239,7 +239,7 @@ export default function ManageSessionsPage() {
       .catch(() => setTeachers([]));
 
     api
-      .get<{ data: Course[] }>("/courses")
+      .get<{ data: Course[] }>("/courses?per_page=200")
       .then((response) => setCourseList(response.data))
       .catch(() => setCourseList([]));
   }, []);

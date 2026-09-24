@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Resources;
 
 use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\ClassSessionFeedback;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -41,6 +42,17 @@ class AttendanceResource extends JsonResource
                 'uuid' => $this->student->uuid,
                 'name' => $this->student->name,
             ]),
+            // Set only for a reader who may write remarks; absent for everyone else.
+            'feedback' => $this->when(
+                $this->resource->relationLoaded('teacherFeedback'),
+                function (): ?array {
+                    $remark = $this->resource->getRelation('teacherFeedback');
+
+                    return $remark instanceof ClassSessionFeedback
+                        ? ['rating' => $remark->rating, 'note' => $remark->note]
+                        : null;
+                },
+            ),
         ];
     }
 }

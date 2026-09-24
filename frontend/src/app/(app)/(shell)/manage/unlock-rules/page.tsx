@@ -39,7 +39,7 @@ export default function UnlockRulesPage() {
       // The teacher's own courses, so a FIRST override can be created. Without
       // this the picker could only offer overrides that already exist, and the
       // first one would be impossible to make from the screen that manages them.
-      api.get<{ data: Course[] }>("/courses").catch(() => ({ data: [] as Course[] })),
+      api.get<{ data: Course[] }>("/courses?per_page=200").catch(() => ({ data: [] as Course[] })),
     ])
       .then(([ruleResponse, courseResponse]) => {
         setRules(ruleResponse.data ?? []);

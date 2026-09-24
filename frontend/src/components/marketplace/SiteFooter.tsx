@@ -78,25 +78,14 @@ export async function SiteFooter() {
               نربط الطلاب في العالم العربي بمدرّسين موثوقين، بحصص مباشرة ومسجّلة،
               ودرجة ثقة توضّح التزام كل مدرّس قبل أن تحجز.
             </p>
-
-            <form className="flex gap-2">
-              <label htmlFor="newsletter" className="sr-only">
-                بريدك الإلكتروني للاشتراك في النشرة
-              </label>
-              <input
-                id="newsletter"
-                type="email"
-                required
-                placeholder="بريدك الإلكتروني"
-                className="min-w-0 flex-1 rounded-xl border border-line bg-surface-raised px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              />
-              <button
-                type="submit"
-                className="shrink-0 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition duration-200 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
-              >
-                اشترك
-              </button>
-            </form>
+            {/*
+              ⚠️ A NEWSLETTER FORM STOOD HERE, AND IT SUBSCRIBED NOBODY. No
+              `onSubmit`, no route on the backend and no list anywhere — pressing
+              «اشترك» reloaded the page with the address in the query string and
+              the visitor believed they were signed up. Removed rather than wired:
+              a mailing list is a processor, a consent record and an unsubscribe
+              path, none of which exist. It comes back when they do.
+            */}
           </div>
 
           {COLUMNS.map((column) => (

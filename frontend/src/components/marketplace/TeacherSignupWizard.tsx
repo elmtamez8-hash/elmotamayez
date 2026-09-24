@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, auth, errorMessage, fieldErrors } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "@/lib/availability";
+import {
+  BLANK_TIME_MESSAGE,
+  blankTimeIndex,
+  crossesUtcMidnight,
+  toLocalSlot,
+  toUtcSlot,
+} from "@/lib/availability";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
@@ -191,7 +197,8 @@ export function TeacherSignupWizard({
     }
   }
 
-  async function send(request: () => Promise<{ application: ApplicationState }>) {
+  /** Resolves `true` when the step was saved, `false` when it was refused. */
+  async function send(request: () => Promise<{ application: ApplicationState }>): Promise<boolean> {
     setErrors({});
     setBanner("");
     setLoading(true);
@@ -201,6 +208,8 @@ export function TeacherSignupWizard({
 
       setApplication(application);
       setStep(application.current_step);
+
+      return true;
     } catch (err: unknown) {
       const fields = fieldErrors(err);
 
@@ -208,6 +217,8 @@ export function TeacherSignupWizard({
       if (Object.keys(fields).length === 0) {
         setBanner(errorMessage(err, "تعذّر حفظ البيانات، حاول مرة أخرى."));
       }
+
+      return false;
     } finally {
       setLoading(false);
     }
@@ -256,7 +267,7 @@ export function TeacherSignupWizard({
   const submitStepTwo = (event: React.FormEvent) => {
     event.preventDefault();
 
-    return send(() =>
+    void send(() =>
       api.put("/teacher/application/step-2", {
         ...professional,
         qualifications: professional.qualifications
@@ -270,7 +281,7 @@ export function TeacherSignupWizard({
   const submitStepThree = (event: React.FormEvent) => {
     event.preventDefault();
 
-    return send(() =>
+    void send(() =>
       api.put("/teacher/application/step-3", { documents_acknowledged: acknowledged }),
     );
   };
@@ -286,6 +297,13 @@ export function TeacherSignupWizard({
      | as 19:00: the hour they declared and the hour the product offered were
      | three apart, and their own public page disagreed with this very screen.
      */
+    // A cleared time is "" and would be converted — and stored — as midnight.
+    if (blankTimeIndex(slots) !== -1) {
+      setErrors({ availability: BLANK_TIME_MESSAGE });
+
+      return;
+    }
+
     const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
 
     if (straddling !== -1) {
@@ -301,12 +319,20 @@ export function TeacherSignupWizard({
       return;
     }
 
-    await send(() =>
+    const saved = await send(() =>
       api.put("/teacher/application/step-4", {
         hourly_rate: rate,
         availability: slots.map((slot) => toUtcSlot(slot)),
       }),
     );
+
+    /*
+     | ⚠️ A REFUSED STEP 4 STOPS HERE. `send()` swallows its own error, and the
+     | code below it used to run regardless — submitting the application with
+     | whatever step 4 held BEFORE this attempt, while the refusal the teacher
+     | needed to read sat under a field on a page they were navigated away from.
+     */
+    if (!saved) return;
 
     setLoading(true);
 

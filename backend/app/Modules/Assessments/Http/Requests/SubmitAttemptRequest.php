@@ -49,6 +49,13 @@ class SubmitAttemptRequest extends FormRequest
             // Rejecting it would force clients to drop skipped questions silently.
             'answers.*.selected_option_ids' => ['present', 'array'],
             'answers.*.selected_option_ids.*' => ['integer'],
+            /*
+             | An essay's answer is TEXT, and `validated()` returns only the keys a
+             | rule names — so with no rule here the text was dropped in silence,
+             | `GradeAttempt` read null, and every essay on every graded paper
+             | reached the grading board blank. Same ceiling as an assignment's.
+             */
+            'answers.*.answer_text' => ['nullable', 'string', 'max:20000'],
         ];
     }
 }

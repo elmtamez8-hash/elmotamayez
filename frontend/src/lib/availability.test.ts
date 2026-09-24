@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { crossesUtcMidnight, toLocalSlot, toUtcSlot } from "./availability";
+import { blankTimeIndex, crossesUtcMidnight, toLocalSlot, toUtcSlot } from "./availability";
 import type { AvailabilityItem } from "./public-api";
 
 /*
@@ -106,5 +106,18 @@ describe("crossesUtcMidnight", () => {
       : slot(0, `${String(24 - offsetHours).padStart(2, "0")}:00`, "23:00");
 
     expect(crossesUtcMidnight(straddling, FROM)).toBe(true);
+  });
+});
+
+describe("a cleared time", () => {
+  it("is found before any conversion can read it as midnight", () => {
+    const week: AvailabilityItem[] = [
+      { day_of_week: 0, start_time: "09:00", end_time: "11:00" },
+      { day_of_week: 1, start_time: "", end_time: "11:00" },
+    ];
+
+    expect(blankTimeIndex(week)).toBe(1);
+    expect(blankTimeIndex([week[0]])).toBe(-1);
+    expect(blankTimeIndex([{ day_of_week: 2, start_time: "09:00", end_time: " " }])).toBe(0);
   });
 });

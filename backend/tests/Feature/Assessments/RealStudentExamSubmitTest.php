@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\ExamItem;
@@ -122,4 +123,54 @@ it('still refuses one student the attempt of another', function (): void {
 
     expect(Attempt::query()->withoutWorkspaceScope()->where('uuid', $uuid)->value('status'))
         ->toBe(Attempt::STATUS_IN_PROGRESS);
+});
+
+/*
+| An essay's text reaches the answer row — and therefore the grading board.
+|
+| `SubmitAttemptRequest` carried no rule for `answer_text`, so `validated()`
+| dropped it and every essay was stored blank: the student wrote a page, the
+| teacher graded an empty box. Asserted on the STORED row, never on the response,
+| which echoes nothing of the answer anyway.
+*/
+it('keeps the text a student wrote for an essay question', function (): void {
+    $fx = adaptiveFixture(['easy']);
+
+    [$exam, $essay] = app(WorkspaceContext::class)->forWorkspace($fx['workspace'], function () use ($fx): array {
+        $exam = Exam::factory()->create([
+            'workspace_id' => $fx['workspace']->getKey(),
+            'status' => 'published',
+            'passing_score' => 50,
+            'max_attempts' => 3,
+        ]);
+
+        $essay = bankQuestion($fx['workspace'], $exam, ['type' => 'essay', 'points' => 5, 'content' => 'اشرح قانون نيوتن الأول.']);
+
+        return [$exam, $essay];
+    });
+
+    Sanctum::actingAs($fx['student']);
+    $this->asGuest();
+
+    $uuid = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
+        ->assertCreated()
+        ->json('attempt.uuid');
+
+    $this->postJson("/api/v1/attempts/{$uuid}/submit", [
+        'answers' => [[
+            'question_id' => (int) $essay->getKey(),
+            'selected_option_ids' => [],
+            'answer_text' => 'ESSAY_SENTINEL the body keeps its state of motion',
+        ]],
+    ])->assertOk();
+
+    $attempt = Attempt::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+
+    $stored = Answer::query()->withoutWorkspaceScope()
+        ->where('attempt_id', $attempt->getKey())
+        ->where('question_id', $essay->getKey())
+        ->value('answer_text');
+
+    expect($attempt->status)->toBe(Attempt::STATUS_PENDING_GRADING)
+        ->and($stored)->toBe('ESSAY_SENTINEL the body keeps its state of motion');
 });

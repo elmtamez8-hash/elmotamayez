@@ -131,4 +131,36 @@ describe("CouponField", () => {
 
     expect(screen.getByRole("button", { name: "تطبيق" }).getAttribute("type")).toBe("button");
   });
+
+  it("applies the code on Enter instead of submitting the order", async () => {
+    // ⚠️ ENTER IN A TEXT INPUT IS THE BROWSER'S IMPLICIT SUBMISSION. The buyer
+    // pressed it to apply their code and the purchase went out without it.
+    preview.mockResolvedValue({ discount_minor: 500, source: "coupon", label: "كوبون X" });
+
+    const onApplied = vi.fn();
+    const onSubmit = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+
+    render(
+      <form onSubmit={onSubmit}>
+        <CouponField kind="store_item" uuid="item-uuid" currency="QAR" onApplied={onApplied} />
+      </form>,
+    );
+
+    const input = screen.getByLabelText(/كود خصم/);
+    fireEvent.change(input, { target: { value: "X" } });
+
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    input.dispatchEvent(enter);
+
+    // Cancelled on the way up — that is what stops the implicit submission.
+    expect(enter.defaultPrevented).toBe(true);
+
+    await waitFor(() => {
+      expect(onApplied).toHaveBeenCalledWith(
+        { discount_minor: 500, source: "coupon", label: "كوبون X" },
+        "X",
+      );
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

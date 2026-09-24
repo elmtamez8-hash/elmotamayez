@@ -22,8 +22,6 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
-// Its own reads are not what this file measures.
-vi.mock("./NotificationPreferences", () => ({ NotificationPreferences: () => null }));
 
 function created(overrides: Record<string, unknown> = {}) {
   return {
@@ -71,5 +69,16 @@ describe("AddChildForm", () => {
 
     await waitFor(() => expect(post).toHaveBeenCalled());
     expect(post.mock.calls[0][1]).not.toHaveProperty("student_uuid");
+  });
+
+  it("points to the working preferences screen and calls no removed route", async () => {
+    // `/parent/notification-preferences` is gone (404), and the block that read it
+    // hid itself — and its error — whenever the read failed.
+    render(<AddChildForm schoolYears={[]} />);
+
+    const link = screen.getByRole("link", { name: "إعدادات التنبيهات" });
+
+    expect(link.getAttribute("href")).toBe("/settings/notifications");
+    expect(get.mock.calls.map(([path]) => path)).not.toContain("/parent/notification-preferences");
   });
 });

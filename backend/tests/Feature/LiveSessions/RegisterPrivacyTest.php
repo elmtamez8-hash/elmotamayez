@@ -225,3 +225,52 @@ it('keeps the host out of the roll while keeping the row that proves delivery', 
         ->where('student_user_id', $owner->getKey())
         ->exists())->toBeTrue();
 });
+
+/*
+| The teacher's remark survives a save that did not mention it.
+|
+| The register screen posts `{student_uuid, note}` and never a rating, and
+| `SubmitSessionFeedback` wrote `'rating' => $entry['rating'] ?? null` — so
+| every note saved from that screen erased the rating written beside it. And the
+| screen opened with an empty note box, so saving anything from it erased the
+| note too. The register now carries the remark to the teacher, and a key the
+| caller did not send is left alone.
+*/
+it('keeps a rating when only the note is saved, and hands the teacher back what they wrote', function (): void {
+    $student = classmate();
+
+    Attendance::query()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'status' => 'present',
+        'auto_status' => 'present',
+        'source' => 'automatic',
+        'stay_seconds' => 3400,
+    ]);
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/feedback", [
+        'entries' => [['student_uuid' => $student->uuid, 'rating' => 4, 'note' => 'أول ملاحظة']],
+    ])->assertOk();
+
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/feedback", [
+        'entries' => [['student_uuid' => $student->uuid, 'note' => 'ملاحظة معدّلة']],
+    ])->assertOk();
+
+    $row = collect($this->getJson("/api/v1/class-sessions/{$this->session->uuid}/attendance")
+        ->assertOk()
+        ->json('data'))->firstWhere('student.uuid', $student->uuid);
+
+    expect($row['feedback'])->toBe(['rating' => 4, 'note' => 'ملاحظة معدّلة']);
+
+    // The student reading their own row is not handed the teacher's editor state.
+    Sanctum::actingAs($student);
+
+    $own = $this->getJson("/api/v1/class-sessions/{$this->session->uuid}/attendance")
+        ->assertOk()
+        ->json('data.0');
+
+    expect($own)->not->toHaveKey('feedback');
+});

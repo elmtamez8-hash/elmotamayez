@@ -150,13 +150,19 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
    * would be a second implementation of the rule.
    */
   const run = useCallback(
-    async (work: () => Promise<unknown>, successMessage?: string) => {
+    // Resolves whether the WRITE landed, so an inline form (a new section's
+    // title, a rename) is cleared on success only — it used to be emptied before
+    // the answer came back, and a 422 took the teacher's words with it.
+    async (work: () => Promise<unknown>, successMessage?: string): Promise<boolean> => {
       setBusy(true);
       setNotice("");
       setError("");
 
+      let wrote = false;
+
       try {
         await work();
+        wrote = true;
         const fresh = await courses.tree(uuid);
         setTree(fresh);
         if (successMessage) setNotice(successMessage);
@@ -184,6 +190,8 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
       } finally {
         setBusy(false);
       }
+
+      return wrote;
     },
     [uuid],
   );
@@ -430,14 +438,14 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
           })
         }
         onAddSection={(title) =>
-          void run(() => courses.createSection(uuid, title), "أُضيف القسم كمسودّة.")
+          run(() => courses.createSection(uuid, title), "أُضيف القسم كمسودّة.")
         }
         onAddChapter={(sectionUuid, title) =>
-          void run(() => courses.createChapter(uuid, sectionUuid, title), "أُضيف الفصل كمسودّة.")
+          run(() => courses.createChapter(uuid, sectionUuid, title), "أُضيف الفصل كمسودّة.")
         }
         onAddLesson={addLesson}
         onRename={(kind, nodeUuid, title) =>
-          void run(() => {
+          run(() => {
             if (kind === "section") return courses.renameSection(uuid, nodeUuid, title);
             if (kind === "chapter") return courses.renameChapter(uuid, nodeUuid, title);
             return courses.renameLesson(uuid, nodeUuid, title);

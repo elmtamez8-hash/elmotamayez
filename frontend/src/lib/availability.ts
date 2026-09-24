@@ -103,6 +103,22 @@ export function toUtcSlot(slot: AvailabilityItem, from: Date = new Date()): Avai
 }
 
 /**
+ * The first row whose start or end was cleared, or −1.
+ *
+ * ⚠️ A CLEARED `<input type="time">` IS `""`, AND `hhmm("")` READS IT AS 00:00.
+ * So a teacher who emptied a field to retype it and saved in between stored a
+ * window starting — or ending — at midnight, which the server accepts as a
+ * perfectly valid time. Every caller asks this BEFORE converting, and says so
+ * in words instead of saving an hour nobody chose.
+ */
+export function blankTimeIndex(slots: AvailabilityItem[]): number {
+  return slots.findIndex((slot) => slot.start_time.trim() === "" || slot.end_time.trim() === "");
+}
+
+/** The sentence both editors show for a cleared time. */
+export const BLANK_TIME_MESSAGE = "أكمل وقتَي البداية والنهاية في كلّ فترة قبل الحفظ.";
+
+/**
  * Whether this window, once converted, would straddle midnight in UTC.
  *
  * ⚠️ SUCH A WINDOW CANNOT BE STORED AT ALL, AND THE SERVER SAYS SO IN WORDS THE

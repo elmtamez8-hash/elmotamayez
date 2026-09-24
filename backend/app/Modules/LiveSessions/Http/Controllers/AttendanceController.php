@@ -15,6 +15,7 @@ use App\Modules\LiveSessions\Http\Resources\ChildAttendanceSummaryResource;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionFeedbackResource;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\ClassSessionFeedback;
 use App\Modules\LiveSessions\Support\GuardianChild;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\GuardianDirectory;
@@ -59,6 +60,24 @@ class AttendanceController extends Controller
                 fn ($query) => $query->where('student_user_id', $viewer->getKey()),
             )
             ->get();
+
+        /*
+         | The remark the teacher already wrote, for the screen that edits it.
+         | Without it the box opened empty on every visit, and saving anything
+         | from that empty box overwrote what was there. Only for a reader who
+         | may WRITE remarks — the same `update` the feedback route asks — and
+         | in ONE query keyed by student, never a lookup per row.
+         */
+        if ($viewer->can('update', $session)) {
+            $remarks = ClassSessionFeedback::query()
+                ->where('class_session_id', $session->getKey())
+                ->get()
+                ->keyBy('student_user_id');
+
+            foreach ($attendances as $row) {
+                $row->setRelation('teacherFeedback', $remarks->get($row->student_user_id));
+            }
+        }
 
         return response()->json(['data' => AttendanceResource::collection($attendances)]);
     }

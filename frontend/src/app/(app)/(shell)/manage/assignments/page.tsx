@@ -222,8 +222,22 @@ function SubmissionRow({
   const [feedback, setFeedback] = useState(row.feedback ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [scoreError, setScoreError] = useState("");
 
   const save = async () => {
+    /*
+     | ⚠️ AN EMPTY BOX IS NOT A ZERO. `Number("")` is 0, so pressing «اعتمد» on a
+     | box left blank recorded a zero on the student's work — a mark the teacher
+     | never gave, and one that reads to the student and their guardian exactly
+     | like a real one.
+     */
+    if (score.trim() === "" || !Number.isFinite(Number(score))) {
+      setScoreError("أدخل الدرجة قبل اعتمادها.");
+
+      return;
+    }
+
+    setScoreError("");
     setSaving(true);
     setError("");
 
@@ -273,6 +287,7 @@ function SubmissionRow({
             label={`الدرجة (${points})`}
             value={score}
             onChange={setScore}
+            error={scoreError || undefined}
             min={0}
             max={points}
             step={0.25}

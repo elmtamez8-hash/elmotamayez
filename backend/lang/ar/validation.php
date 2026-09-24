@@ -336,6 +336,8 @@ return [
         'answers' => 'الإجابات',
         'question_id' => 'السؤال',
         'selected_option_ids' => 'الخيارات المختارة',
+        'answer_text' => 'نص الإجابة',
+        'answers.*.answer_text' => 'نص الإجابة',
 
         // بنك الأسئلة (‏008)
         'concept_id' => 'الفكرة',

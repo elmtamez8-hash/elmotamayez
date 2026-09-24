@@ -49,8 +49,10 @@ vi.mock("@/lib/profile", () => ({
 
 let currentUser: Partial<User> | null = null;
 
+const refreshUser = vi.fn(() => Promise.resolve());
+
 vi.mock("@/lib/auth-context", () => ({
-  useAuth: () => ({ user: currentUser }),
+  useAuth: () => ({ user: currentUser, refreshUser }),
 }));
 
 const toastError = vi.fn();
@@ -287,6 +289,21 @@ describe("the teacher's weekly availability", () => {
 
     expect(saveAvailability.mock.calls[0][0]).toHaveLength(2);
   });
+
+  it("refuses a cleared time instead of saving it as midnight", async () => {
+    const { container } = render(<ProfileSettingsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("مواعيدي الأسبوعية")).toBeDefined();
+    });
+
+    const [start] = Array.from(container.querySelectorAll('input[type="time"]'));
+    fireEvent.change(start, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "احفظ مواعيدي" }));
+
+    expect(await screen.findByText("أكمل وقتَي البداية والنهاية في كلّ فترة قبل الحفظ.")).toBeDefined();
+    expect(saveAvailability).not.toHaveBeenCalled();
+  });
 });
 
 describe("a student's own data", () => {
@@ -335,6 +352,11 @@ describe("a student's own data", () => {
         school_year_slug: "year-10",
         region_slug: "doha",
       });
+    });
+
+    // The account in memory is read back, or the form refills from the old year.
+    await waitFor(() => {
+      expect(refreshUser).toHaveBeenCalled();
     });
   });
 });

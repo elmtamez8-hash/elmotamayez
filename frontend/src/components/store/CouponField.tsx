@@ -32,6 +32,7 @@ export function CouponField({
   uuid,
   currency,
   onApplied,
+  onDraftChange,
 }: {
   kind: CouponSubjectKind;
   uuid: string;
@@ -47,8 +48,19 @@ export function CouponField({
    * a family discount, which has no code by definition.
    */
   onApplied: (discount: AppliedDiscount | null, code: string | null) => void;
+  /**
+   * What is typed in the box right now, applied or not. The purchase form asks
+   * it before sending: a code typed and never applied used to travel nowhere,
+   * and the buyer paid full price believing the discount was on.
+   */
+  onDraftChange?: (typed: string) => void;
 }) {
-  const [code, setCode] = useState("");
+  const [code, setCodeState] = useState("");
+
+  const setCode = (next: string) => {
+    setCodeState(next);
+    onDraftChange?.(next);
+  };
   const [applied, setApplied] = useState<AppliedDiscount | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,7 +95,23 @@ export function CouponField({
   return (
     <div className="space-y-2">
       <div className="flex items-end gap-2">
-        <div className="grow">
+        {/*
+          ⚠️ ENTER IN THE CODE BOX APPLIES THE CODE — it used to SUBMIT THE ORDER.
+          This field sits inside the purchase `<form>`, and Enter in a text input
+          is the browser's implicit submission: the buyer typed a code, pressed
+          Enter to apply it, and bought at full price with the code never sent.
+          Cancelling the keydown here stops that default wherever the handler
+          sits on the way up.
+        */}
+        <div
+          className="grow"
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+
+            event.preventDefault();
+            if (applied === null && !busy) void apply();
+          }}
+        >
           <TextField
             id="coupon_code"
             label="كود خصم (اختياري)"
