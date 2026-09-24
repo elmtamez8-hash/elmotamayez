@@ -9,6 +9,7 @@ use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\ConsentRegistry;
 use App\Shared\Actions\Action;
+use App\Shared\Support\CountedNoun;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -68,7 +69,7 @@ class EvaluateCreditLimit extends Action
             return $this->writer->handle(
                 $balance,
                 0,
-                "رصيد سالب منذ أكثر من {$days} يوماً — تحويل إلى الدفع المسبق.",
+                'رصيد سالب منذ أكثر من '.CountedNoun::of($days, ['one' => 'يوم واحد', 'two' => 'يومين', 'few' => 'أيام', 'many' => 'يوماً', 'other' => 'يوم']).' — تحويل إلى الدفع المسبق.',
             );
         }
 

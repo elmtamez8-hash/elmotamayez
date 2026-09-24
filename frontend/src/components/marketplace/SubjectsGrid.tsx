@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Taxonomy } from "@/lib/public-api";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { subjectIcon } from "./subject-icon";
+import { counted } from "@/lib/labels";
 
 /**
  * Clicking a subject lands on the teacher list with that filter pre-applied
@@ -45,7 +46,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
               </span>
               {subject.teachers_count !== undefined && (
                 <span className="text-xs text-ink-muted">
-                  {subject.teachers_count} مدرّس
+                  {counted(subject.teachers_count, { one: "مدرّس واحد", two: "مدرّسان", few: "مدرّسين", many: "مدرّساً", other: "مدرّس" })}
                 </span>
               )}
             </Link>

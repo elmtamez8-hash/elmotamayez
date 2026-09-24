@@ -113,7 +113,7 @@ describe("a group's own page", () => {
 
     // What was created and what was skipped, in words: a generator that
     // silently drops clashes leaves a teacher believing their month is full.
-    expect(await screen.findByText(/أُنشِئت 2 حصة/)).toBeTruthy();
+    expect(await screen.findByText(/أُنشِئت حصتان/)).toBeTruthy();
   });
 
   it("adds a single date outside the weekly pattern, into the same group", async () => {

@@ -16,6 +16,7 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Support\CountedNoun;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -224,7 +225,7 @@ class RequestPrivateSession extends Action
         }
 
         if ($written === 0) {
-            throw new DomainException("لديك {$limit} طلبات تنتظر الردّ عند هذا المدرّس. انتظر الردّ أو اسحب أحدها.");
+            throw new DomainException('لديك '.CountedNoun::of($limit, ['one' => 'طلب واحد ينتظر', 'two' => 'طلبان ينتظران', 'few' => 'طلبات تنتظر', 'many' => 'طلباً تنتظر', 'other' => 'طلب ينتظر']).' الردّ عند هذا المدرّس. انتظر الردّ أو اسحب أحدها.');
         }
 
         $request = PrivateSessionRequest::query()

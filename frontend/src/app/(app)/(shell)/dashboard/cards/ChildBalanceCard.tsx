@@ -9,6 +9,7 @@ import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
 import { CreditsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { counted } from "@/lib/labels";
 
 /**
  * رصيدُ حصصِ الابنِ — سطرٌ لكلِّ كورس.
@@ -78,7 +79,7 @@ export function ChildBalanceCard({ studentUuid, studentName }: ChildCardProps) {
                 {/* العددُ من الخادم: الأرضيّةُ الفعليّةُ تعتمدُ على السقفِ ونمطِ
                     الفوترةِ ونافذةِ الاختباراتِ وموافقةٍ سارية — ولا شيءَ من ذلك
                     في هذه الحمولة، فحسابُه هنا يُنتِجُ رقماً يبدو صحيحاً وحدَه. */}
-                محجوب — يلزم شراء <bdi>{arabicNumber(balance.credits_needed)}</bdi> حصّة
+                محجوب — يلزم شراء {counted(balance.credits_needed, { one: "حصّة واحدة", two: "حصّتين", few: "حصص", many: "حصّة", other: "حصّة" })}
                 لاستئناف الحجز.
               </p>
             )}

@@ -12,6 +12,7 @@ import { ExamIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * The papers a teacher WROTE. The student's list is `/exams`.
@@ -89,7 +90,7 @@ export default function ManageExamsPage() {
       key: "duration",
       header: "المدّة",
       numeric: true,
-      render: (row) => <bdi>{row.duration_minutes} دقيقة</bdi>,
+      render: (row) => counted(row.duration_minutes, NOUNS.minutes),
     },
     {
       key: "passing",

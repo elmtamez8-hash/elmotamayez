@@ -20,6 +20,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { ExamItemsPanel } from "@/components/bank/ExamItemsPanel";
+import { counted, NOUNS } from "@/lib/labels";
 
 export default function ManageExamPage({
   params,
@@ -137,7 +138,7 @@ export default function ManageExamPage({
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={exam.status} />
             <span>
-              <bdi>{exam.duration_minutes}</bdi> دقيقة · النجاح{" "}
+              {counted(exam.duration_minutes, NOUNS.minutes)} · النجاح{" "}
               <bdi>{exam.passing_score}%</bdi>
             </span>
           </span>

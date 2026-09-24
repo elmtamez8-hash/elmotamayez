@@ -14,7 +14,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { grading, type GradingQueueRow } from "@/lib/grading";
-import { formatDateTime } from "@/lib/labels";
+import { formatDateTime, counted } from "@/lib/labels";
 import { can, P } from "@/lib/permissions";
 
 /**
@@ -114,7 +114,7 @@ export default function GradingQueuePage() {
       <Card>
         {state === "ready" && (
           <p className="mb-3 text-sm text-ink-muted">
-            <bdi>{total}</bdi> ورقة بانتظار التصحيح.
+            {counted(total, { one: "ورقة واحدة", two: "ورقتان", few: "أوراق", many: "ورقة", other: "ورقة" })} بانتظار التصحيح.
           </p>
         )}
         <Table

@@ -12,7 +12,7 @@ import { Tabs, TabPanel, useTabParam, type TabDefinition } from "@/components/ui
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
-import { relativeDayLabel } from "@/lib/labels";
+import { counted, relativeDayLabel, UNREAD_NOTIFICATIONS } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
 import {
   notifications,
@@ -192,7 +192,7 @@ export default function NotificationsPage() {
         title="الإشعارات"
         description={
           unread > 0
-            ? `لديك ${arabicNumber(unread)} إشعاراً غير مقروء`
+            ? `لديك ${counted(unread, UNREAD_NOTIFICATIONS)}`
             : "لا إشعارات غير مقروءة"
         }
         actions={

@@ -8,6 +8,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Shared\Support\CountedNoun;
 
 /**
  * What each kind of file is allowed to be.
@@ -114,8 +115,23 @@ final class MediaLimits
     {
         $max = self::maxDurationSeconds($kind) ?? 0;
 
-        return sprintf('مدة الملف تتجاوز الحد المسموح (%d دقيقة كحدّ أقصى).', intdiv($max, 60));
+        return 'مدة الملف تتجاوز الحد المسموح ('.CountedNoun::of(intdiv($max, 60), self::MINUTES).' كحدّ أقصى).';
     }
+
+    /**
+     * «دقيقة واحدة» · «دقيقتان» · «٥ دقائق» · «١٨٠ دقيقة» — the two refusals that
+     * name a duration ceiling read one set of forms. «(%d دقيقة)» was the
+     * `many` band for every value, and «(%d دقائق)» beside it the `few` band.
+     *
+     * @var array{one: string, two: string, few: string, many: string, other: string}
+     */
+    public const MINUTES = [
+        'one' => 'دقيقة واحدة',
+        'two' => 'دقيقتان',
+        'few' => 'دقائق',
+        'many' => 'دقيقة',
+        'other' => 'دقيقة',
+    ];
 
     public static function humanBytes(int $bytes): string
     {

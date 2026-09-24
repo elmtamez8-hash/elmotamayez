@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ApiError } from "@/lib/api";
 import { classSessions, type ClassSession } from "@/lib/class-sessions";
 import { errorCode, userMessage } from "@/lib/errors";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * This course's lessons, ahead and behind (US2 · FR-016).
@@ -107,7 +108,7 @@ function Group({
         <span>{title}</span>
         <span aria-hidden className="h-px flex-1 bg-line" />
         <span className="text-xs font-normal">
-          <bdi>{sessions.length}</bdi> حصة
+          {counted(sessions.length, NOUNS.sessions)}
         </span>
       </h3>
 

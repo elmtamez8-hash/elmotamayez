@@ -132,7 +132,8 @@ it('refuses a newcomer with no balance row where credits are prepaid', function 
 
         expect(false)->toBeTrue('a prepaid workspace let a booking through at zero');
     } catch (DomainException $e) {
-        expect($e->getMessage())->toContain('1')
+        // «حصة واحدة» since #200 — Arabic has no numeral for one.
+        expect($e->getMessage())->toContain('حصة واحدة')
             ->and($e->getMessage())->toContain('الأرصدة');
     }
 

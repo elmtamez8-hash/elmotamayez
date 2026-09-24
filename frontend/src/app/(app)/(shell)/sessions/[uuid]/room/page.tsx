@@ -19,6 +19,7 @@ import {
 } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * The room.
@@ -176,7 +177,7 @@ export default function SessionRoomPage({
         {session !== null && (
           <p className="mt-1 text-sm text-ink-muted">
             {formatSessionTime(session.starts_at, session.timezone)} ·{" "}
-            <bdi>{session.duration_minutes}</bdi> دقيقة
+            {counted(session.duration_minutes, NOUNS.minutes)}
             {session.course !== undefined && <> · {session.course.title}</>}
           </p>
         )}

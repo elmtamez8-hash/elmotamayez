@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import type { Enrollment } from "@/lib/types";
-import { formatDate } from "@/lib/labels";
+import { formatDate, counted, NOUNS } from "@/lib/labels";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -211,7 +211,7 @@ export default function EnrollmentsPage() {
               stops without a second border competing with the cards' own. */}
           <span aria-hidden className="h-px flex-1 bg-line" />
           <span className="text-xs font-normal">
-            <bdi>{rows.length}</bdi> كورس
+            {counted(rows.length, NOUNS.courses)}
           </span>
         </h3>
 
