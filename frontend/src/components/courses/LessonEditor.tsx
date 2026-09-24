@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AttachmentsPanel } from "./AttachmentsPanel";
 import { LessonAudienceFields } from "./LessonAudienceFields";
 import { ArticleEditor } from "./editors/ArticleEditor";
+import { AssignmentPicker } from "./editors/AssignmentPicker";
 import { AudioEditor } from "./editors/AudioEditor";
 import { DocumentEditor } from "./editors/DocumentEditor";
 import { EmbedEditor } from "./editors/EmbedEditor";
@@ -61,22 +62,21 @@ import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses"
   offered to upload a video for it, and the server refused a request the screen
   should never have made. Video renders here now, like every other uploaded kind.
 */
-const PENDING: Partial<Record<LessonTypeValue, string>> = {
-  // The homework itself IS creatable — on /manage/assignments. What does not
-  // exist yet is a curriculum item pointing at one: the server still refuses the
-  // type (`LessonTypeRegistry` · `implemented: false`), and nothing lists
-  // assignments as reference targets. So the sentence names where to go.
-  assignment: "الواجب لا يُربَط بالمنهج بعد — أنشئه من صفحة «الواجبات».",
-};
+/*
+  EMPTY TODAY, AND KEPT. `assignment` was the last entry — «الواجب لا يُربَط
+  بالمنهج بعد» — and left standing over the picker that now exists it would be
+  the bug this spec began with, wearing the opposite face. The map stays so the
+  next type declared before it is built gets a sentence rather than a blank.
+*/
+const PENDING: Partial<Record<LessonTypeValue, string>> = {};
 
 /**
- * The types the selector offers, and the one it offers WITHOUT letting it be
- * chosen.
+ * The types the selector offers.
  *
- * `assignment` is listed and disabled with its reason attached (FR-046). Hiding
- * it would be honest about today and silent about the plan; letting it be picked
- * would be a choice that saves and then does nothing. Disabled with a sentence is
- * the only reading that is true of both.
+ * `disabled` stays in the shape for the next type declared before it is built
+ * (FR-046): listed with its reason is the only reading true of both today and
+ * the plan. No type needs it right now — `assignment` was the last, and it is
+ * placed through `AssignmentPicker`.
  */
 const TYPE_OPTIONS: Array<{ value: LessonTypeValue; label: string; disabled?: boolean }> = [
   { value: "article", label: "مقالة" },
@@ -88,17 +88,18 @@ const TYPE_OPTIONS: Array<{ value: LessonTypeValue; label: string; disabled?: bo
   { value: "file", label: "ملف" },
   { value: "exam", label: "اختبار" },
   { value: "live_session", label: "حصة مباشرة" },
-  { value: "assignment", label: "واجب — يُنشأ من صفحة «الواجبات»", disabled: true },
+  { value: "assignment", label: "واجب" },
 ];
 
 /**
  * Spec 032 · FR-007 — «فيديو مُضمَّن» is offered only to a lesson that is
  * already open.
  *
- * ⚠️ HIDDEN, NOT DISABLED, AND THAT IS THE OPPOSITE CALL FROM `assignment`
- * ABOVE — for the reason that decides between them. `assignment` is unavailable
- * to everybody until a whole spec ships, so a disabled row with its reason is
- * the only honest reading. This option is unavailable for a condition the
+ * ⚠️ HIDDEN, NOT DISABLED, AND THAT IS THE OPPOSITE CALL FROM A TYPE THAT IS
+ * NOT BUILT YET — for the reason that decides between them. A type unavailable
+ * to everybody until a spec ships gets a disabled row with its reason, the only
+ * honest reading (that is how `assignment` sat until it was placeable). This
+ * option is unavailable for a condition the
  * teacher can change on THIS screen: ticking «متاح بلا تسجيل» two sections down
  * makes it appear. The select's hint says so, so its absence is not a mystery.
  *
@@ -355,6 +356,20 @@ export function LessonEditor({
 
         {lesson.type === "exam" && (
           <ExamPicker
+            courseUuid={courseUuid}
+            lesson={lesson}
+            disabled={busy}
+            onSave={(patch) =>
+              void run(
+                () => courses.updateLesson(courseUuid, lesson.uuid, patch),
+                "حُفظ العنصر.",
+              )
+            }
+          />
+        )}
+
+        {lesson.type === "assignment" && (
+          <AssignmentPicker
             courseUuid={courseUuid}
             lesson={lesson}
             disabled={busy}

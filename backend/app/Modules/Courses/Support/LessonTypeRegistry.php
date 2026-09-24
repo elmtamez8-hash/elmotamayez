@@ -101,14 +101,17 @@ final class LessonTypeRegistry
             'implemented' => true,
         ],
         'assignment' => [
-            'self_completable' => true,
+            // ⚠️ `false`, like `exam` and for the same reason: the item is
+            // completed by the EVIDENCE — `CompleteAssignmentLessonOnSubmission`
+            // writes the progress row when the homework is actually handed in.
+            // A self-declare button here would be «I did my homework» without
+            // handing any in. See `isSelfCompletable()`.
+            'self_completable' => false,
             'family' => self::FAMILY_REFERENCE,
             'completable' => true,
             'asset_kind' => null,
             'required_to_publish' => ['reference_id'],
-            // Spec 008 owns the assignment entity. Declared here so the tree is
-            // designed once; rejected in the Action by name until then.
-            'implemented' => false,
+            'implemented' => true,
         ],
         'live_session' => [
             'self_completable' => false,
@@ -181,15 +184,17 @@ final class LessonTypeRegistry
      * and moves their percentage without answering a question. It is refused at
      * the door as well as hidden on the screen: hiding a control is not a guard.
      *
-     * ⚠️ AND `assignment` IS `true` DELIBERATELY, AGAINST THE TIDY SYMMETRY.
-     * Measured 2026-09-06: `AssignmentSubmitted` has exactly ONE listener and it
-     * sends a notification — nothing anywhere completes an assignment lesson. So
-     * grouping it with `exam` because both are FAMILY_REFERENCE would make every
-     * assignment item permanently incompletable, which caps every enrolled
-     * student below 100%, stops `CourseCompleted` firing and issues no
-     * certificate, for ever — the worst defect this repository records, created
-     * by the fix for a smaller one. The day a submission listener exists, this
-     * flips to false and the listener becomes the writer, exactly as with `exam`.
+     * ⚠️ AND `assignment` IS `false` FOR THE SAME REASON AS `exam` — AND ONLY
+     * BECAUSE ITS WRITER EXISTS. Until the curriculum could place homework, this
+     * was `true` on purpose: `AssignmentSubmitted` had one listener and it sent a
+     * notification, so nothing anywhere completed an assignment item, and
+     * grouping it with `exam` would have made every such item permanently
+     * incompletable — every enrolled student capped below 100%, no
+     * `CourseCompleted`, no certificate, for ever. The item now has two writers
+     * in Learning, exactly as `exam` does: `CompleteAssignmentLessonOnSubmission`
+     * (a hand-in from now on) and `CompleteAssignmentLessonsAlreadySubmitted`
+     * (the homework handed in BEFORE the teacher placed it in the tree). Remove
+     * either and this flag must go back to `true` in the same change.
      *
      * `note`, `live_session` and `link` are false because they are not
      * completable at all; the two lists agree there and that is not a
@@ -222,9 +227,9 @@ final class LessonTypeRegistry
      * Here rather than in each Action: `ManageLessons::create` and
      * `ChangeLessonType::handle` are two doors onto the same decision and each held
      * a byte-identical copy of the sentence. The registry owns `implemented`, so it
-     * owns what to say when the answer is false — "an assignment is not linked
-     * into the curriculum yet; write it on the assignments page" is an answer;
-     * "invalid type" sends the teacher to look for their own mistake.
+     * owns what to say when the answer is false — "this type is not available
+     * yet" is an answer; "invalid type" sends the teacher to look for their own
+     * mistake.
      *
      * @throws DomainException
      */
@@ -234,9 +239,10 @@ final class LessonTypeRegistry
             return;
         }
 
-        throw new DomainException(
-            'الواجب لا يُربَط بالمنهج بعد — أنشئه من صفحة «الواجبات». اختر نوعاً آخر لهذا العنصر.',
-        );
+        // No type is unbuilt today — `assignment` was the last. The door stays
+        // so the next declared-before-built type is refused in words rather
+        // than saved as an item that does nothing.
+        throw new DomainException('هذا النوع من العناصر غير متاح بعد. اختر نوعاً آخر لهذا العنصر.');
     }
 
     /**

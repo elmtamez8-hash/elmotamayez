@@ -145,9 +145,11 @@ final class PublishReadiness
         return match ($field) {
             'content' => 'النصّ مطلوب',
             'external_url' => 'الرابط مطلوب',
-            'reference_id' => $type === LessonType::Exam
-                ? 'اختر الاختبار الذي يضعه هذا العنصر'
-                : 'اختر الحصة التي يضعها هذا العنصر',
+            'reference_id' => match ($type) {
+                LessonType::Exam => 'اختر الاختبار الذي يضعه هذا العنصر',
+                LessonType::Assignment => 'اختر الواجب الذي يضعه هذا العنصر',
+                default => 'اختر الحصة التي يضعها هذا العنصر',
+            },
             'asset' => sprintf('ارفع الملف (%s)', LessonTypeRegistry::assetKind($type)?->label() ?? 'ملف'),
             default => $field,
         };

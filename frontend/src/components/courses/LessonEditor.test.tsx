@@ -14,11 +14,14 @@ import { LessonEditor } from "./LessonEditor";
 const lessonFetch = vi.fn();
 const typeChangePreview = vi.fn();
 const changeLessonType = vi.fn();
+const referenceTargets = vi.fn();
+const updateLesson = vi.fn();
 
 vi.mock("@/lib/courses", () => ({
   courses: {
     lesson: (...args: unknown[]) => lessonFetch(...args),
-    updateLesson: vi.fn(),
+    updateLesson: (...args: unknown[]) => updateLesson(...args),
+    referenceTargets: (...args: unknown[]) => referenceTargets(...args),
     typeChangePreview: (...args: unknown[]) => typeChangePreview(...args),
     changeLessonType: (...args: unknown[]) => changeLessonType(...args),
   },
@@ -192,5 +195,75 @@ describe("changing the type", () => {
 
     expect(screen.queryByText("غيّر النوع")).toBeNull();
     expect(changeLessonType).not.toHaveBeenCalled();
+  });
+});
+
+/*
+| An assignment item is PLACED from here now — the picker lists the course's
+| published homework and saves the one chosen as the item's reference.
+|
+| ⚠️ The first case guards the sentence that stood here while the type could
+| not be placed («الواجب لا يُربَط بالمنهج بعد»): left over a working picker it
+| is the «not yet» message this editor was rebuilt to stop telling.
+*/
+describe("an assignment item", () => {
+  const assignmentItem = {
+    type: "assignment",
+    type_label: "واجب",
+    family: "reference",
+    content: null,
+    content_html: "",
+    reference: null,
+  };
+
+  it("offers the type as a real choice, with no «not linked yet» sentence left over", async () => {
+    referenceTargets.mockResolvedValue({ exams: [], sessions: [], assignments: [] });
+
+    await open(assignmentItem);
+
+    const select = screen.getByLabelText(/نوع العنصر/) as HTMLSelectElement;
+    const option = Array.from(select.options).find((each) => each.value === "assignment");
+
+    expect(option?.disabled).toBe(false);
+    expect(screen.queryByText(/لا يُربَط بالمنهج/)).toBeNull();
+  });
+
+  it("lists this course's published homework and saves the one chosen", async () => {
+    referenceTargets.mockResolvedValue({
+      exams: [],
+      sessions: [],
+      assignments: [
+        { uuid: "hw-1", title: "واجب الكسور", due_at: null, points: 10 },
+        { uuid: "hw-2", title: "واجب الهندسة", due_at: null, points: 20 },
+      ],
+    });
+    updateLesson.mockResolvedValue({ ...BASE, ...assignmentItem });
+
+    await open(assignmentItem);
+
+    const picker = screen.getByLabelText("الواجب") as HTMLSelectElement;
+    const labels = Array.from(picker.options).map((each) => each.text);
+
+    expect(labels).toContain("واجب الكسور");
+    expect(labels).toContain("واجب الهندسة");
+    // Said before publish, not as a refusal after it.
+    expect(screen.getByText("هذا العنصر لا يشير إلى واجب بعد")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.change(picker, { target: { value: "hw-2" } });
+    });
+
+    expect(updateLesson).toHaveBeenCalledWith("c", "l-1", { reference_uuid: "hw-2" });
+  });
+
+  it("sends the teacher to write homework when the course has none published", async () => {
+    referenceTargets.mockResolvedValue({ exams: [], sessions: [], assignments: [] });
+
+    await open(assignmentItem);
+
+    expect(screen.getByText("لا واجب منشور في هذا الكورس")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "واجباتي" }).getAttribute("href")).toBe(
+      "/manage/assignments",
+    );
   });
 });

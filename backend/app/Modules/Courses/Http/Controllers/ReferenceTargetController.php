@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -15,7 +16,7 @@ use Illuminate\Http\JsonResponse;
  * What a reference item may be pointed at, for the one course being authored.
  *
  * One endpoint rather than filters bolted onto `/exams` and `/class-sessions`.
- * The pickers need exactly two lists, both narrowed to this course, and both
+ * The pickers need exactly these lists, all narrowed to this course, and all
  * authorised by the same permission that opened the editor — `manageLessons` on
  * the course. Two paginated indexes in two other modules would have to grow a
  * course filter each, and the second page of either would silently hide a target
@@ -70,9 +71,31 @@ class ReferenceTargetController extends Controller
                 'has_recording' => $session->recording_status === 'published',
             ]);
 
+        /*
+        | This course's PUBLISHED homework — the rule `ManageLessons` enforces at
+        | the write, offered here so the picker never lists a choice the save
+        | refuses. The workspace scope plus the course is what makes it the
+        | teacher's own: a course-less assignment («every student of mine») is
+        | not listed, because an item lives in ONE course's tree and
+        | `ReferenceIntegrity` treats a target from another course as missing.
+        */
+        $assignments = Assignment::query()
+            ->published()
+            ->where('course_id', $course->getKey())
+            ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('due_at')
+            ->get()
+            ->map(fn (Assignment $assignment): array => [
+                'uuid' => $assignment->uuid,
+                'title' => $assignment->title,
+                'due_at' => $assignment->due_at,
+                'points' => $assignment->points,
+            ]);
+
         return response()->json([
             'exams' => $exams->values()->all(),
             'sessions' => $sessions->values()->all(),
+            'assignments' => $assignments->values()->all(),
         ]);
     }
 }

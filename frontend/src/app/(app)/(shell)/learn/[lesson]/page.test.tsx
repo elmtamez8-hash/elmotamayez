@@ -20,6 +20,7 @@ import LearnLessonPage from "./page";
 
 const get = vi.fn();
 const post = vi.fn();
+const upload = vi.fn();
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   // ⚠️ `importOriginal` وليسَ كائناً عارياً: الصفحةُ تستوردُ `ApiError`
@@ -27,7 +28,11 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   // `undefined` في منتصفِ الرسم — فيخرجُ جسمٌ فارغٌ تماماً وتقولُ
   // الرسالةُ «لم أجدِ الزرّ» لا «لم يُرسمْ شيء».
   ...(await importOriginal<typeof import("@/lib/api")>()),
-  api: { get: (path: string) => get(path), post: (path: string) => post(path) },
+  api: {
+    get: (path: string) => get(path),
+    post: (path: string) => post(path),
+    upload: (path: string, body: FormData) => upload(path, body),
+  },
 }));
 
 const requestPlayback = vi.fn();
@@ -483,5 +488,130 @@ describe("a media lesson with no file yet", () => {
 
     await waitFor(() => expect(requestPlayback).toHaveBeenCalledWith("l-1"));
     expect(screen.queryByText("لا يوجد فيديو لهذا الدرس بعد")).toBeNull();
+  });
+});
+
+/*
+| An assignment item: the homework and its hand-in sit where the item sits, and
+| the item completes from the HAND-IN — never from a button. The server refuses
+| a self-declare on this type (`AssignmentLessonTest`); this measures the half
+| only a component test can see, that the screen offers none.
+*/
+describe("an assignment item", () => {
+  const HOMEWORK_REFERENCE = {
+    uuid: "hw-1",
+    title: "واجب الكسور",
+    due_at: "2026-10-01T12:00:00+03:00",
+    points: 20,
+    submission_type: "text",
+    late_policy: "accept",
+  };
+
+  const HOMEWORK = {
+    uuid: "hw-1",
+    title: "واجب الكسور",
+    course: null,
+    teacher: null,
+    description: "حلّ التمارين ١–٥.",
+    points: 20,
+    due_at: "2026-10-01T12:00:00+03:00",
+    submission_type: "text",
+    late_policy: "accept",
+    late_penalty_pct_per_day: 0,
+    late_penalty_cap_pct: 100,
+    status: "published",
+    published_at: null,
+    submitted_count: null,
+    pending_count: null,
+    my_submission: null,
+  };
+
+  function answerAssignment(isCompleted = false) {
+    const lessonPayload = {
+      lesson: {
+        ...ARTICLE,
+        type: "assignment",
+        type_label: "واجب",
+        may_self_complete: false,
+        is_completed: isCompleted,
+        content: null,
+        content_html: "",
+        reference: HOMEWORK_REFERENCE,
+      },
+      can_access: true,
+      blocked_reason: null,
+      blocked_message: null,
+      blocked_by_title: null,
+      enrollment_uuid: "e-1",
+    };
+
+    get.mockImplementation((path: string) => {
+      if (path.includes("/curriculum")) return Promise.resolve(tree());
+      if (path.startsWith("/assignments/")) return Promise.resolve({ data: HOMEWORK });
+
+      return Promise.resolve(lessonPayload);
+    });
+  }
+
+  it("shows the homework with its hand-in, and NEVER a «mark done» button", async () => {
+    answerAssignment();
+
+    await open();
+
+    expect(await screen.findByText("حلّ التمارين ١–٥.")).toBeDefined();
+    expect(get).toHaveBeenCalledWith("/assignments/hw-1");
+    expect(screen.getByLabelText("إجابتك")).toBeDefined();
+    expect(screen.getByText(/يكتمل هذا العنصر تلقائياً عند تسليم الواجب/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: "علِّمه مكتملاً" })).toBeNull();
+  });
+
+  it("hands the work in to the homework's own door, then re-reads the item", async () => {
+    answerAssignment();
+    upload.mockResolvedValue({ data: {} });
+
+    await open();
+
+    fireEvent.change(await screen.findByLabelText("إجابتك"), { target: { value: "الحلّ" } });
+
+    get.mockClear();
+    answerAssignment(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "سلّم" }));
+
+    await waitFor(() => {
+      expect(upload).toHaveBeenCalledWith("/assignments/hw-1/submissions", expect.any(FormData));
+    });
+
+    // The completion is the SERVER's answer, re-read — never flipped here.
+    await waitFor(() => {
+      expect(get).toHaveBeenCalledWith("/learn/lessons/l-1");
+    });
+    expect(await screen.findByText("✓ اكتمل هذا العنصر.")).toBeDefined();
+  });
+
+  it("says why the homework could not be read instead of leaving the slot blank", async () => {
+    answerAssignment();
+    get.mockImplementation((path: string) => {
+      if (path.includes("/curriculum")) return Promise.resolve(tree());
+      if (path.startsWith("/assignments/")) return Promise.reject(new Error("boom"));
+
+      return Promise.resolve({
+        lesson: {
+          ...ARTICLE,
+          type: "assignment",
+          may_self_complete: false,
+          reference: HOMEWORK_REFERENCE,
+        },
+        can_access: true,
+        blocked_reason: null,
+        blocked_message: null,
+        blocked_by_title: null,
+        enrollment_uuid: "e-1",
+      });
+    });
+
+    await open();
+
+    expect(await screen.findByText("تعذّر تحميل الواجب")).toBeDefined();
   });
 });

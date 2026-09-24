@@ -169,10 +169,10 @@ export interface LessonDetail {
   is_preview: boolean;
   is_free: boolean;
   /**
-   * What this item points at — the exam, or the session. Null on the eight types
-   * that point at nothing, and null when the target has been deleted.
+   * What this item points at — the exam, the session or the homework. Null on
+   * the types that point at nothing, and null when the target has been deleted.
    */
-  reference: ExamReference | SessionReference | null;
+  reference: LessonReference | null;
   exam_gate: ExamGate | null;
   exam_gate_label: string | null;
   /** The item's own file — one, or none. */
@@ -244,6 +244,13 @@ export interface ReferenceTargets {
     status_label: string;
     has_recording: boolean;
   }>;
+  /** This course's PUBLISHED homework — the only kind the server lets an item place. */
+  assignments: Array<{
+    uuid: string;
+    title: string;
+    due_at: string | null;
+    points: number;
+  }>;
 }
 
 export interface ExamReference {
@@ -265,6 +272,47 @@ export interface SessionReference {
    * out (FR-048): the session's time has passed and no recording ever arrived.
    */
   state: "upcoming" | "processing" | "recorded" | "cancelled" | "unavailable";
+}
+
+/**
+ * The homework an assignment item places.
+ *
+ * ⚠️ `due_at` IS THE ASSIGNMENT'S OWN DATE, never the reader's effective one —
+ * an extension lives on the student's own submission, which the lesson page
+ * reads from `/assignments/{uuid}` beside this.
+ */
+export interface AssignmentReference {
+  uuid: string;
+  title: string;
+  due_at: string | null;
+  points: number;
+  submission_type: "text" | "file" | "questions";
+  late_policy: "accept" | "reject" | "penalty";
+}
+
+/** Anything a reference item may point at. Narrow with `referenceKind()`. */
+export type LessonReference = ExamReference | SessionReference | AssignmentReference;
+
+/**
+ * Which of the three a reference is, from its shape.
+ *
+ * One spelling rather than an `"x" in reference` test at every call site: the
+ * three payloads share `uuid` and `title`, and a fourth type added with a
+ * `state` or `passing_score` of its own would silently be read as the wrong one
+ * wherever the ad-hoc test was written.
+ */
+export function referenceKind(
+  reference: LessonReference,
+): "exam" | "session" | "assignment" {
+  if ("passing_score" in reference) return "exam";
+  if ("state" in reference) return "session";
+
+  return "assignment";
+}
+
+/** `referenceKind(reference) === "assignment"`, as a type guard. */
+export function isAssignmentReference(reference: LessonReference): reference is AssignmentReference {
+  return referenceKind(reference) === "assignment";
 }
 
 /** What changing an item's type would discard — read before it is done. */

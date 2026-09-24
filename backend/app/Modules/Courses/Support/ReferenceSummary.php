@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Support;
 
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
@@ -37,6 +38,7 @@ final class ReferenceSummary
         return match (LessonType::from($lesson->type)) {
             LessonType::Exam => self::exam($lesson->reference_id),
             LessonType::LiveSession => self::session($lesson->reference_id),
+            LessonType::Assignment => self::assignment($lesson->reference_id),
             default => null,
         };
     }
@@ -57,6 +59,35 @@ final class ReferenceSummary
             // told what they are being asked for rather than discovering it.
             'passing_score' => $exam->passing_score,
             'duration_minutes' => $exam->duration_minutes,
+        ];
+    }
+
+    /**
+     * The homework this item places — what is asked, and by when.
+     *
+     * ⚠️ THE ASSIGNMENT'S OWN `due_at`, NEVER ANYBODY'S EFFECTIVE ONE. An
+     * extension lives on the student's own submission, and a shared summary
+     * that quietly differed per reader would announce that the accommodation
+     * exists (FR-056). The student's own row — and their own deadline — comes
+     * from `/assignments/{uuid}`, which is the door that also takes the hand-in.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function assignment(int $id): ?array
+    {
+        $assignment = Assignment::query()->withoutWorkspaceScope()->find($id);
+
+        if ($assignment === null) {
+            return null;
+        }
+
+        return [
+            'uuid' => $assignment->uuid,
+            'title' => $assignment->title,
+            'due_at' => $assignment->due_at,
+            'points' => $assignment->points,
+            'submission_type' => $assignment->submission_type,
+            'late_policy' => $assignment->late_policy,
         ];
     }
 

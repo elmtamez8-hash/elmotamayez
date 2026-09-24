@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning;
 
+use App\Modules\Assessments\Events\AssignmentSubmitted;
 use App\Modules\Assessments\Events\ExamSubmitted;
+use App\Modules\Courses\Events\AssignmentItemOpened;
 use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Learning\Console\CohortGateImpact;
 use App\Modules\Learning\Events\EnrollmentCreated;
+use App\Modules\Learning\Listeners\CompleteAssignmentLessonOnSubmission;
+use App\Modules\Learning\Listeners\CompleteAssignmentLessonsAlreadySubmitted;
 use App\Modules\Learning\Listeners\CompleteExamLessonOnSubmission;
 use App\Modules\Learning\Listeners\CompleteExamLessonsAlreadyAnswered;
 use App\Modules\Learning\Listeners\LeaveCohortsOnOrderReversed;
@@ -98,6 +102,13 @@ class LearningServiceProvider extends Module
         // BEFORE the teacher placed it. No submission event will ever fire for
         // them again, so publishing the item is the moment to credit them.
         Event::listen(ExamItemOpened::class, CompleteExamLessonsAlreadyAnswered::class);
+
+        // The same two halves for homework. These two are what let
+        // `LessonTypeRegistry` mark `assignment` as NOT self-completable: they
+        // are its only writers, so removing either one makes every assignment
+        // item permanently incompletable.
+        Event::listen(AssignmentSubmitted::class, CompleteAssignmentLessonOnSubmission::class);
+        Event::listen(AssignmentItemOpened::class, CompleteAssignmentLessonsAlreadySubmitted::class);
 
         // A publish batch moves the denominator for everyone at once, and
         // `progress_pct` is otherwise written only when a lesson is completed —

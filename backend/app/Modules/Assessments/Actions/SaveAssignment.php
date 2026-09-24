@@ -6,6 +6,8 @@ namespace App\Modules\Assessments\Actions;
 
 use App\Models\User;
 use App\Modules\Assessments\Models\Assignment;
+use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Lesson;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -83,6 +85,25 @@ class SaveAssignment extends Action
             $this->logActivity('assignment.created', $assignment);
 
             return $assignment;
+        }
+
+        /*
+        | ⚠️ A HOMEWORK PLACED IN A COURSE'S TREE DOES NOT CHANGE COURSE. Its
+        | item stays in the old course, whose students can no longer see or hand
+        | in the homework (`StudentScope` narrows by enrolment) — an item in their
+        | denominator nothing could complete. `ReferenceIntegrity` already treats
+        | a target from another course as missing, so no student is capped; this
+        | refusal is what tells the teacher, rather than leaving them a broken
+        | marker to find in the curriculum later.
+        */
+        $newCourse = $attributes['course_id'] === null ? null : (int) $attributes['course_id'];
+
+        if ($newCourse !== ($assignment->course_id === null ? null : (int) $assignment->course_id)
+            && Lesson::query()
+                ->withoutWorkspaceScope()
+                ->referencing(LessonType::Assignment->value, (int) $assignment->getKey())
+                ->exists()) {
+            throw new DomainException('هذا الواجب موضوع في منهج كورسه، فلا يُنقل إلى كورسٍ آخر. احذفه من المنهج أولاً.');
         }
 
         $assignment->update($attributes);

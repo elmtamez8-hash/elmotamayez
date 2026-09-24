@@ -12,6 +12,7 @@ import { EmbeddedVideo } from "@/components/player/EmbeddedVideo";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { SessionChat } from "@/components/community/SessionChat";
 import { AudioIcon, BookIcon, CheckIcon, ChevronEndIcon, HistoryIcon, PlayIcon } from "@/components/icons";
+import { AssignmentSlot } from "@/components/learn/AssignmentSlot";
 import { LessonNav } from "@/components/learn/LessonNav";
 import { LessonRail } from "@/components/learn/LessonRail";
 import { Alert } from "@/components/ui/Alert";
@@ -19,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { ApiError, api } from "@/lib/api";
-import type { ExamReference, SessionReference } from "@/lib/courses";
+import { isAssignmentReference, type LessonReference } from "@/lib/courses";
 import { userMessage } from "@/lib/errors";
 import { media, type PlaybackGrant } from "@/lib/media";
 import { curriculum, neighboursOf, type Curriculum } from "@/lib/curriculum";
@@ -48,7 +49,7 @@ interface StudentLesson {
   external_url: string | null;
   has_asset: boolean;
   attachments: StudentAttachment[];
-  reference: ExamReference | SessionReference | null;
+  reference: LessonReference | null;
   exam_gate: "attempt" | "pass" | null;
   exam_gate_label: string | null;
 }
@@ -262,6 +263,27 @@ export default function LearnLessonPage({
     }
   };
 
+  /*
+   * After a hand-in on an assignment item: the item is completed by the SERVER,
+   * from the submission (`CompleteAssignmentLessonOnSubmission`), never by a
+   * button here — so the page re-reads the item and the tree rather than
+   * flipping anything itself. The listener is queued, so the tick may land a
+   * moment later; the sentence under the homework says it completes on its own.
+   * A failed re-read is silent on purpose: the hand-in itself already succeeded
+   * and said so on the card.
+   */
+  const refreshCompletion = async () => {
+    try {
+      const result = await api.get<LessonResponse>(`/learn/lessons/${lesson}`);
+
+      setCompleted(result.lesson.is_completed);
+    } catch {
+      return;
+    }
+
+    if (detail?.course_uuid != null) await loadTree(detail.course_uuid);
+  };
+
   const [resetAsking, setResetAsking] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -437,6 +459,22 @@ export default function LearnLessonPage({
             </Card>
           )}
 
+        {/*
+          The homework, with its hand-in, where the item sits — not a link away.
+          A student reading the lesson that asks for the work is the student
+          most likely to hand it in right now.
+        */}
+        {open &&
+          detail !== null &&
+          detail.type === "assignment" &&
+          detail.reference !== null &&
+          isAssignmentReference(detail.reference) && (
+            <AssignmentSlot
+              reference={detail.reference}
+              onSubmitted={() => void refreshCompletion()}
+            />
+          )}
+
         {open &&
           detail !== null &&
           detail.type === "live_session" &&
@@ -595,7 +633,9 @@ export default function LearnLessonPage({
             <p className="text-sm text-ink-muted">
               {completed
                 ? "✓ اكتمل هذا العنصر."
-                : "يكتمل هذا العنصر تلقائياً عند تسليم الاختبار."}
+                : detail.type === "assignment"
+                  ? "يكتمل هذا العنصر تلقائياً عند تسليم الواجب."
+                  : "يكتمل هذا العنصر تلقائياً عند تسليم الاختبار."}
             </p>
           )}
 
@@ -640,7 +680,7 @@ export default function LearnLessonPage({
 function SessionSlot({
   reference,
 }: {
-  reference: ExamReference | SessionReference;
+  reference: LessonReference;
 }) {
   if (!("state" in reference)) return null;
 

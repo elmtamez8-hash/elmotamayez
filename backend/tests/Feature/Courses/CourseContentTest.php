@@ -259,7 +259,7 @@ describe('course lessons', function (): void {
             ->not->toContain('onerror');
     });
 
-    it('refuses a lesson type that is declared but not built', function (): void {
+    it('refuses an assignment item that points at no homework of this course', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
         $course = Course::factory()->create(['workspace_id' => $workspace->id]);
         $section = publishedSection($workspace->id, $course);
@@ -267,12 +267,13 @@ describe('course lessons', function (): void {
 
         Sanctum::actingAs($owner);
 
-        // Assignments belong to spec 008. The refusal names the reason — an
-        // "invalid type" would send the teacher looking for their own mistake.
+        // The type is built now — what is refused is a uuid that resolves to
+        // nothing in this course, and the sentence says which.
         $this->postJson("/api/v1/courses/{$course->uuid}/lessons", [
             'chapter_uuid' => $chapter->uuid,
             'title' => 'واجب الوحدة',
             'type' => 'assignment',
+            'reference_uuid' => (string) Str::uuid(),
         ])->assertStatus(422);
 
         expect(Lesson::where('course_id', $course->id)->count())->toBe(0);
