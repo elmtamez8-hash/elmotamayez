@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Events\SessionCompleted;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\SyncTeacherCountersJob;
 use App\Modules\LiveSessions\Models\Attendance;
@@ -17,6 +18,7 @@ use App\Modules\Notifications\Models\Notification;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Event;
 use Tests\Support\FakeBroadcastProvider;
 
 /*
@@ -75,9 +77,9 @@ function abandonedSeatHolder(): void
  * the selection is `ends_at < now - 6h`, and a fixture that called the Action by
  * hand would pass against a job that still selects nothing.
  */
-function runStaleSweep(): void
+function runStaleSweep(int $hoursAhead = 8): void
 {
-    CarbonImmutable::setTestNow(CarbonImmutable::now()->addHours(8));
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addHours($hoursAhead));
 
     try {
         app(CloseStaleSessionsJob::class)->handle(
@@ -126,6 +128,52 @@ it('marks nobody absent and tells no guardian about a lesson that never happened
     expect($this->session->refresh()->status)->toBe(ClassSessionStatus::Interrupted)
         ->and(Attendance::query()->where('class_session_id', $this->session->getKey())->count())->toBe(0)
         ->and(Notification::query()->count())->toBe($before);
+});
+
+it('leaves an abandoned session abandoned when the sweep meets it again an hour later', function (): void {
+    /*
+     * ⚠️ THE SECOND PASS, AND PRODUCTION IS WHERE IT WAS FOUND (2026-09-24).
+     *
+     * `AbandonClassSession` writes `interrupted`, which is not terminal, and the
+     * sweep used to select `interrupted` too — a leftover from the days that
+     * status had no writer. So the NEXT hourly run picked the same row up again
+     * and handed it to `CloseClassSession`: `room_closed_at` stamped on a room
+     * that never existed, every seat holder marked absent, `completed`, and
+     * `SessionCompleted` — which started the recording ingest, five attempts
+     * against a room with no egress, and «تعذّر نشر تسجيل الحصة» in the
+     * teacher's feed about a lesson nobody taught. The test above runs the sweep
+     * ONCE and is green over all of it.
+     */
+    Event::fake([SessionCompleted::class]);
+    abandonedSeatHolder();
+
+    runStaleSweep(8);
+
+    expect($this->session->refresh()->status)->toBe(ClassSessionStatus::Interrupted);
+
+    runStaleSweep(9);
+
+    expect($this->session->refresh()->status)->toBe(ClassSessionStatus::Interrupted)
+        ->and($this->session->room_closed_at)->toBeNull()
+        ->and($this->session->interruption_note)->toBe('teacher_no_show')
+        ->and(Attendance::query()->where('class_session_id', $this->session->getKey())->count())->toBe(0);
+
+    Event::assertNotDispatched(SessionCompleted::class);
+});
+
+it('refuses to close an abandoned session whoever asks', function (): void {
+    Event::fake([SessionCompleted::class]);
+    abandonedSeatHolder();
+    runStaleSweep();
+
+    // The Action is the single entrance, so the refusal is written there as
+    // well as at the sweep: a second caller must not be able to undo the verdict.
+    app(CloseClassSession::class)->handle($this->session->refresh());
+
+    expect($this->session->refresh()->status)->toBe(ClassSessionStatus::Interrupted)
+        ->and($this->session->room_closed_at)->toBeNull();
+
+    Event::assertNotDispatched(SessionCompleted::class);
 });
 
 it('counts the abandoned session against the teacher and never for them', function (): void {

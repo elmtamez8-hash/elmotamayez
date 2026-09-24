@@ -62,6 +62,22 @@ class CloseClassSession extends Action
             return $session;
         }
 
+        /*
+        | ⛔ AN ABANDONED SESSION IS NOT CLOSED — by this Action or by anyone.
+        |
+        | `Interrupted` has exactly one writer, `AbandonClassSession`: the teacher
+        | never opened the room. It is not terminal, so without this line a
+        | second caller turned that verdict back into a lesson — `room_closed_at`
+        | on a room that never existed, an Absent row for every seat holder, and
+        | `SessionCompleted`, which started the recording ingest against a room
+        | with no egress: five attempts, `failed`, and «تعذّر نشر تسجيل الحصة» in
+        | the teacher's feed. Measured on production 2026-09-24, reached by the
+        | hourly sweep meeting its own abandoned row an hour later.
+        */
+        if ($session->status === ClassSessionStatus::Interrupted) {
+            return $session;
+        }
+
         $this->closeRoom->handle($session);
 
         /*
