@@ -44,7 +44,15 @@ class CloseStaleSessionsJob implements ShouldQueue
             ->withoutWorkspaceScope()
             ->whereIn('status', [
                 ClassSessionStatus::Live,
-                ClassSessionStatus::Interrupted,
+                /*
+                 * ⛔ NOT `Interrupted`. It sat here from the days that status had
+                 * no writer; `AbandonClassSession` is now its only one, so every
+                 * row this selected was a session THIS job abandoned an hour
+                 * earlier — and the next pass handed it to `CloseClassSession`,
+                 * which undid the abandon: `completed`, `SessionCompleted`, and a
+                 * recording ingest that could only fail. An abandoned session is
+                 * finished with; nothing is left for a sweep to do to it.
+                 */
                 /*
                  * ⚠️ AND THIS ONE IS THE TEACHER WHO NEVER CAME.
                  *

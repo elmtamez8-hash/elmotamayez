@@ -77,8 +77,9 @@ it('charges nothing for a cancelled session', function (): void {
 it('charges nothing for an interrupted session', function (): void {
     Event::fake([SessionDelivered::class]);
 
-    // Interrupted is not terminal, so the close still runs — and still refuses,
-    // because the teacher never joined and stayed.
+    // Interrupted is the abandoned session (the teacher never opened the room),
+    // and the close refuses to touch it at all — so nothing is delivered and
+    // nothing is charged.
     $this->session->refresh()->forceFill(['status' => ClassSessionStatus::Interrupted])->save();
 
     app(CloseClassSession::class)->handle($this->session->refresh());
