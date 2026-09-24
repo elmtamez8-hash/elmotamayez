@@ -69,7 +69,7 @@ class ReadAnnouncementStats extends Action
         $counts = DB::table('notifications')
             ->where('source_type', Announcement::SOURCE_TYPE)
             ->whereIn('source_id', $ids)
-            ->selectRaw('source_id, COUNT(*) as notified, COUNT(read_at) as reads')
+            ->selectRaw('source_id, COUNT(*) as notified, COUNT(read_at) as read_count')
             ->groupBy('source_id')
             ->get();
 
@@ -85,7 +85,7 @@ class ReadAnnouncementStats extends Action
                 // COUNT(column) skips nulls on both engines, so this is the
                 // number of rows whose `read_at` is set — no second query and no
                 // `whereNotNull` pass over the same index.
-                'read' => (int) $row->reads,
+                'read' => (int) $row->read_count,
             ];
         }
 
