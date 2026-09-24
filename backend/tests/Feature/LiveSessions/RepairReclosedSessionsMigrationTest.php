@@ -14,6 +14,7 @@ use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 
 /*
 | The data half of PR #177: two production sessions were abandoned (the teacher
@@ -127,12 +128,59 @@ it('returns a re-closed session to what AbandonClassSession leaves', function ()
     expect(DB::table('attendances')->where('class_session_id', $session->getKey())->count())->toBe(0)
         ->and(DB::table('session_bookings')->where('class_session_id', $session->getKey())->count())->toBe(1);
 
-    // Both recording-failure rows are deleted; the guardian report is only counted.
+    // Both recording-failure rows and the «غائب» report are deleted.
     expect(reclosedNotificationTypesFor($this->owner))->toBe([])
-        ->and(reclosedNotificationTypesFor($this->student))->toBe(['session_report']);
+        ->and(reclosedNotificationTypesFor($this->student))->toBe([]);
 
     Queue::assertPushed(SyncTeacherCountersJob::class, 1);
     expect(DB::table('teaching_units')->count())->toBe(0);
+});
+
+it('deletes the guardian\'s copy of the absence report and its delivery row', function (): void {
+    /*
+    | A guardian's copy is addressed to the guardian and names the child as its
+    | SUBJECT — matching on the recipient alone would leave exactly the message
+    | the owner asked to remove: a parent told their child skipped a lesson that
+    | never happened.
+    */
+    $session = reclosedFixture();
+    $guardian = User::factory()->create();
+
+    $report = Notification::query()->create([
+        'recipient_user_id' => $guardian->getKey(),
+        'workspace_id' => $this->workspace->getKey(),
+        'type' => 'session_report',
+        'subject_user_id' => $this->student->getKey(),
+        'payload' => ['title' => $session->title],
+        'title' => 'x',
+        'body' => 'x',
+        'action_url' => '/dashboard',
+    ]);
+
+    DB::table('notification_deliveries')->insert([
+        'uuid' => (string) Str::uuid(),
+        'notification_id' => $report->getKey(),
+        'channel' => 'whatsapp',
+        'status' => 'sent',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    runReclosedRepairMigration();
+
+    expect(reclosedNotificationTypesFor($guardian))->toBe([])
+        ->and(DB::table('notification_deliveries')->where('notification_id', $report->getKey())->count())->toBe(0);
+});
+
+it('keeps the absence report of a session it does not repair', function (): void {
+    // A real lesson whose recording failed: the room opened, the register is
+    // true, and its report is the family's to keep.
+    reclosedFixture(['room_opened_at' => CarbonImmutable::now()->subDays(2)->subHours(3)]);
+
+    runReclosedRepairMigration();
+
+    expect(reclosedNotificationTypesFor($this->student))
+        ->toBe(['session_recording_unavailable', 'session_report']);
 });
 
 it('leaves a seeded completed session with no recording state alone', function (): void {

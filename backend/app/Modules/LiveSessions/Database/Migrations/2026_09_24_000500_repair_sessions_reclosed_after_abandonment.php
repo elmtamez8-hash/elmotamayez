@@ -36,17 +36,25 @@ use Illuminate\Support\Facades\Log;
  * skipped and logged rather than repaired — whatever wrote it is a different
  * defect, and reversing a wage belongs to the ledger's own Actions.
  *
- * ⚠️ `session_report` ROWS ARE COUNTED, NOT DELETED. The close also dispatched the
- * guardian report, which told each seat holder (and their guardians) «غائب» about
- * a lesson nobody held. That is the same defect, but deleting a message a parent
- * may already have read was not the decision approved here — the count is logged
- * so the owner can decide.
+ * ⚠️ AND THE ABSENCE REPORTS GO TOO (owner decision 2026-09-24). The close also
+ * dispatched `SendSessionReportsJob`, which told each seat holder and their
+ * guardians «غائب» about a lesson nobody held. A guardian's copy carries the
+ * child as its SUBJECT rather than as its recipient, which is why the match asks
+ * both columns.
+ *
+ * `attendance_alert` is listed for completeness and cannot match here:
+ * `SendAbsenceAlerts` returns on a session with no `delivered_at`, and every row
+ * this migration selects has none. It is matched on its own payload key
+ * (`session_title`), so if the shape ever existed it would go the same way.
  */
 return new class extends Migration
 {
-    private const RECORDING_FAILURE_TYPES = [
-        'session_recording_failed',
-        'session_recording_unavailable',
+    /** The notifications the wrong close produced, and the payload key naming the session. */
+    private const FALSE_NOTIFICATIONS = [
+        'session_recording_failed' => 'title',
+        'session_recording_unavailable' => 'title',
+        'session_report' => 'title',
+        'attendance_alert' => 'session_title',
     ];
 
     public function up(): void
@@ -78,7 +86,7 @@ return new class extends Migration
             // Everything the wrong close wrote after this moment is its own.
             $since = (string) ($session->room_closed_at ?? $session->starts_at);
 
-            DB::transaction(function () use ($session, $id, $since): void {
+            $deleted = DB::transaction(function () use ($session, $id, $since): int {
                 DB::table('class_sessions')->where('id', $id)->where('status', 'completed')->update([
                     'status' => 'interrupted',
                     'interruption_note' => 'teacher_no_show',
@@ -103,19 +111,21 @@ return new class extends Migration
                     ->where('source', 'automatic')
                     ->delete();
 
-                $ids = $this->matchingNotifications($session, self::RECORDING_FAILURE_TYPES, $since);
+                $ids = $this->matchingNotifications($session, $since);
 
                 foreach (array_chunk($ids, 500) as $chunk) {
-                    // Delivery rows go with them (cascadeOnDelete).
+                    // The foreign key cascades on MySQL; deleted explicitly so the
+                    // result does not depend on the engine enforcing it.
+                    DB::table('notification_deliveries')->whereIn('notification_id', $chunk)->delete();
                     DB::table('notifications')->whereIn('id', $chunk)->delete();
                 }
-            });
 
-            $reports = count($this->matchingNotifications($session, ['session_report'], $since));
+                return count($ids);
+            });
 
             Log::info('live_sessions.repair_reclosed.repaired', [
                 'session_id' => $id,
-                'session_report_rows_left' => $reports,
+                'notifications_deleted' => $deleted,
             ]);
 
             $teachers[(int) $session->teacher_profile_id] = true;
@@ -129,18 +139,18 @@ return new class extends Migration
     }
 
     /**
-     * The notifications a close of this session produced, of the given types.
+     * The false notifications a close of this session produced.
      *
      * None of them carries a source, so the session is recognised by what they
      * do carry: its workspace, a recipient who is its teacher or one of its seat
      * holders (or a guardian whose subject is one), the moment of the close, and
-     * the session's title in the payload — compared in PHP, because a JSON path
-     * over Arabic text is two dialects and one of them escapes.
+     * the session's title under the type's own payload key — compared in PHP,
+     * because a JSON path over Arabic text is two dialects and one of them
+     * escapes.
      *
-     * @param  list<string>  $types
      * @return list<int>
      */
-    private function matchingNotifications(stdClass $session, array $types, string $since): array
+    private function matchingNotifications(stdClass $session, string $since): array
     {
         $people = DB::table('session_bookings')
             ->where('class_session_id', $session->id)
@@ -159,18 +169,19 @@ return new class extends Migration
         }
 
         return array_values(DB::table('notifications')
-            ->whereIn('type', $types)
+            ->whereIn('type', array_keys(self::FALSE_NOTIFICATIONS))
             ->where('workspace_id', $session->workspace_id)
             ->where('created_at', '>=', $since)
             ->where(function ($query) use ($people): void {
                 $query->whereIn('recipient_user_id', $people)
                     ->orWhereIn('subject_user_id', $people);
             })
-            ->get(['id', 'payload'])
+            ->get(['id', 'type', 'payload'])
             ->filter(static function (object $row) use ($session): bool {
                 $payload = json_decode((string) $row->payload, true);
+                $key = self::FALSE_NOTIFICATIONS[(string) $row->type] ?? null;
 
-                return is_array($payload) && ($payload['title'] ?? null) === $session->title;
+                return is_array($payload) && $key !== null && ($payload[$key] ?? null) === $session->title;
             })
             ->map(static fn (object $row): int => (int) $row->id)
             ->all());
