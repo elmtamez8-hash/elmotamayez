@@ -9,6 +9,7 @@ import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notif
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { AttendanceChartCard } from "./cards/AttendanceChartCard";
+import { TermsConsentCard } from "@/components/billing/TermsConsentCard";
 import { ChildBalanceCard } from "./cards/ChildBalanceCard";
 import { ChildReportCardCard } from "./cards/ChildReportCardCard";
 import { ChildScheduleCard } from "./cards/ChildScheduleCard";
@@ -140,6 +141,7 @@ function ChildCards({ child }: { child: GuardianRelation }) {
   const studentUuid = child.student_uuid as string;
   const studentName = child.student_name;
   const granted = new Set(child.permissions.map((permission) => permission.key));
+  const [refresh, setRefresh] = useState(0);
 
   const cards: Array<{ key: string; card: ReactNode }> = [
     { key: "schedule", card: <ChildScheduleCard studentUuid={studentUuid} studentName={studentName} /> },
@@ -155,7 +157,26 @@ function ChildCards({ child }: { child: GuardianRelation }) {
       key: "attendance",
       card: <AttendanceChartCard studentUuid={studentUuid} studentName={studentName} />,
     },
-    { key: "payments", card: <ChildBalanceCard studentUuid={studentUuid} studentName={studentName} /> },
+    {
+      /*
+      | ⚠️ **الموافقةُ على شروطِ الدفعِ المؤجَّلِ نيابةً عن الابنِ تسكنُ هنا، تحتَ
+      | إذنِ «الدفع» نفسِه**، لا في `/billing` الخاصّةِ بوليِّ الأمر — تلك تُسجِّلُ
+      | وليَّ الأمرِ مَديناً عن نفسِه. البطاقةُ تختفي حينَ لا شيءَ معلَّق، وتعودُ
+      | وحدَها يومَ تُنشَرُ نسخةٌ جديدةٌ من الشروط. وبعدَ الموافقةِ يُعادُ تركيبُ
+      | بطاقةِ الرصيد (`refresh` في المفتاح)، لأنّ «محجوب» فيها يتغيّرُ بالموافقةِ
+      | نفسِها: الموافقةُ الساريةُ أحدُ مدخلاتِ الحجبِ الخمسة.
+      */
+      key: "payments",
+      card: (
+        <div className="space-y-6">
+          <TermsConsentCard
+            student={{ uuid: studentUuid, name: studentName }}
+            onAccepted={() => setRefresh((n) => n + 1)}
+          />
+          <ChildBalanceCard key={refresh} studentUuid={studentUuid} studentName={studentName} />
+        </div>
+      ),
+    },
     { key: "results", card: <ChildReportCardCard studentUuid={studentUuid} studentName={studentName} /> },
   ];
 

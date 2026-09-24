@@ -38,7 +38,9 @@ export default function BillingPage() {
    * without a `student` resolves the signer as the student). A child's balance
    * lives on that child's own dashboard (`ChildBalanceCard`), and buying for
    * them is `/billing/purchase`, which already asks which child. So a guardian
-   * gets those two ways out and none of the student's sections.
+   * gets those two ways out and none of the student's sections. Agreeing to the
+   * deferred-payment terms ON BEHALF of a child lives on that same dashboard
+   * card, where `TermsConsentCard` carries the child's uuid.
    */
   // The shell layout renders nothing until `user` is known, so it is never null here.
   if (dashboardAudience(user) === "guardian") {

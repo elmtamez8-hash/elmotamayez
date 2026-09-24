@@ -25,20 +25,38 @@ import { billing, type ConsentState } from "@/lib/billing";
  * account is already in; a button that records a refusal would be a second thing
  * to store and would change nothing about what the student may do.
  */
-export function TermsConsentCard() {
+/**
+ * ⚠️ WITH `student`, THE SAME CARD SIGNS FOR A CHILD — and only then may a
+ * guardian see it. A guardian's own `/billing` must never render it (the
+ * signer would become the student, agreeing to owe for themselves); on the
+ * child's dashboard it carries the child's uuid, and the server records the
+ * guardian as the signer and the child as the one who owes. The server answers
+ * the deferred-payment terms alone on that read, and a guardian without the
+ * payments permission gets a 403 — which lands in the same silent catch, so the
+ * card simply is not there.
+ */
+export function TermsConsentCard({
+  student,
+  onAccepted,
+}: {
+  student?: { uuid: string; name: string };
+  onAccepted?: () => void;
+} = {}) {
+  const studentUuid = student?.uuid;
+  const headingId = student === undefined ? "consents-heading" : `consents-heading-${student.uuid}`;
   const [documents, setDocuments] = useState<ConsentState[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
     billing
-      .consents()
+      .consents(studentUuid)
       .then((res) => setDocuments(res.data ?? []))
       // Silent: this is a card beside the balances, and a student who cannot
       // read their consent state can still read their credits. It reappears on
       // the next load.
       .catch(() => setDocuments([]));
-  }, []);
+  }, [studentUuid]);
 
   useEffect(load, [load]);
 
@@ -47,8 +65,9 @@ export function TermsConsentCard() {
     setError("");
 
     try {
-      const res = await billing.accept(document);
+      const res = await billing.accept(document, studentUuid);
       setDocuments(res.data ?? []);
+      onAccepted?.();
     } catch (err: unknown) {
       setError(errorMessage(err, "تعذّر تسجيل الموافقة. أعد المحاولة."));
     } finally {
@@ -56,13 +75,23 @@ export function TermsConsentCard() {
     }
   };
 
-  const outstanding = documents.filter((d) => d.consented_at === null);
+  const outstanding = documents.filter(
+    (d) =>
+      d.consented_at === null
+      // Belt and braces: the child read already answers this document alone,
+      // and a guardian here may not sign anything else.
+      && (student === undefined || d.document === "deferred_payment_terms"),
+  );
 
   if (outstanding.length === 0) return null;
 
   return (
-    <section aria-labelledby="consents-heading" className="space-y-4">
-      <SectionHeading id="consents-heading" Icon={DocumentIcon} title="موافقات مطلوبة" />
+    <section aria-labelledby={headingId} className="space-y-4">
+      <SectionHeading
+        id={headingId}
+        Icon={DocumentIcon}
+        title={student === undefined ? "موافقات مطلوبة" : `موافقة مطلوبة عن ${student.name}`}
+      />
 
       {error !== "" && (
         <Alert tone="danger" title="تعذّرت العملية">
@@ -75,7 +104,9 @@ export function TermsConsentCard() {
           <h4 className="text-base font-semibold text-ink">{document.label}</h4>
 
           <p className="mt-2 text-sm text-ink-muted">
-            {document.document === "deferred_payment_terms"
+            {student !== undefined
+              ? "بتسجيل موافقتك نيابةً عن ابنك يمكنه حجز حصص قبل شراء رصيدها، على أن ما يأخذه بهذه الطريقة يبقى مستحقاً على حسابه. بلا هذه الموافقة لا يُمنح ابنك أي تأجيل، وتبقى حصصه بالرصيد المشترى مسبقاً كما هي."
+              : document.document === "deferred_payment_terms"
               ? "بتسجيل موافقتك يمكنك حجز حصص قبل شراء رصيدها، على أن ما تأخذه بهذه الطريقة يبقى مستحقاً عليك. بلا هذه الموافقة لا يُمنح أي تأجيل، وتبقى الحصص بالرصيد المشترى مسبقاً كما هي."
               : "موافقة على معالجة بياناتك الشخصية داخل المنصة، وهي مستقلّة تماماً عن أي موافقة أخرى."}
           </p>
@@ -92,7 +123,9 @@ export function TermsConsentCard() {
               onClick={() => accept(document.document)}
               disabled={busy !== ""}
             >
-              أوافق على {document.label}
+              {student === undefined
+                ? `أوافق على ${document.label}`
+                : `أوافق نيابةً عن ${student.name}`}
             </Button>
           </div>
         </Card>

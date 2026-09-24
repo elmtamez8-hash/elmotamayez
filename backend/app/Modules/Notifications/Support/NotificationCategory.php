@@ -119,6 +119,7 @@ enum NotificationCategory: string
                 NotificationType::SessionRescheduleRequested,
                 NotificationType::SessionRescheduled,
                 NotificationType::SessionRescheduleRejected,
+                NotificationType::SessionRescheduleExpired,
                 /*
                 | ⚠️ 023, AND CI IS WHAT FOUND THEM UNFILED. This map runs
                 | CATEGORY → TYPES, so an unclassified type cannot crash
