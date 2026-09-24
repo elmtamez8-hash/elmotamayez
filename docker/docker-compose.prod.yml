@@ -334,6 +334,13 @@ services:
       - ../backend/public:/var/www/html/public:ro
       - certbot-www:/var/www/certbot:ro
       - certbot-conf:/etc/letsencrypt:ro
+      # ⚠️ أرشيفُ حزمِ Next **لعدّةِ نشرات**، لا حزمُ النشرةِ الحاليّةِ وحدَها.
+      # صورةُ الواجهةِ لا تحملُ إلّا `.next/static` بنائِها هي، فتبويبةٌ فُتِحَت قبلَ
+      # النشرةِ تطلبُ بعدَها حزمةً حذفَها البناءُ الجديدُ فتنالُ ٤٠٤. `deploy.sh`
+      # ينسخُ حزمَ البناءِ القائمِ والجديدِ إلى هذا المجلّدِ **قبلَ** التبديل، ويحذفُ
+      # ما لم تنسخْه نشرةٌ منذُ يومَين؛ وnginx يخدمُها من هنا مباشرةً، ويعودُ إلى
+      # Next إن غابَ ملفّ (انظر `location ^~ /_next/static/` في `nginx.prod.conf`).
+      - next-static:/srv/next/_next/static:ro
     environment:
       # قالبٌ لا ملفٌّ ثابت: `envsubst` يملأُ اسمَ النطاقِ عندَ الإقلاع، فالنطاقُ
       # يعيشُ في `.env` مع بقيّةِ الإعداداتِ بدلاً من نسخةٍ معدَّلةٍ باليد.
@@ -342,6 +349,22 @@ services:
     depends_on:
       backend: { condition: service_started }
       frontend: { condition: service_started }
+
+  # ⚠️ ليست خدمةً تعمل: أداةٌ يُشغِّلُها `deploy.sh` بـ`run --rm` ليكتبَ في أرشيفِ
+  # حزمِ Next. والـ`profile` هو ما يُبقيها خارجَ `up -d`، و`run` يُفعِّلُه لخدمةٍ
+  # يُسمّيها صراحةً. وهي هنا لا `docker run -v` في السكربت لأنّ compose عندَها هو
+  # من يُنشئُ المجلّدَ باسمِه ووسومِه، فيتعرّفُ عليه `up` ولا يشتكي من مجلّدٍ غريب.
+  #
+  # صورةُ nginx لأنّها على الخادمِ أصلاً وفيها `tar` و`find` من BusyBox، وroot لأنّ
+  # المجلّدَ يُنشَأُ ملكَ root؛ وnginx يقرؤه للقراءةِ فقط، فالملفّاتُ `a+rX`.
+  next-static-archive:
+    image: nginx:1.31.6-alpine
+    profiles: ["deploy"]
+    user: root
+    entrypoint: ["sh", "-c"]
+    volumes:
+      - next-static:/archive
+    network_mode: none
 
   # ⚠️ التجديدُ حلقةٌ لا مهمّةٌ لمرّةٍ واحدة. شهادةُ Let's Encrypt تسعون يوماً،
   # والنشرةُ التي تُصدِرُها يدويّاً تنتهي بعدَ ثلاثةِ أشهرٍ في يومٍ لا أحدَ يتوقّعُه.
@@ -415,3 +438,4 @@ volumes:
   storage:
   certbot-www:
   certbot-conf:
+  next-static:
