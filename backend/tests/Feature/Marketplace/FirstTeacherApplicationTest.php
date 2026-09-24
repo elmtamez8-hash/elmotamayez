@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -136,4 +137,26 @@ it('does not widen the marketplace filter bar', function (): void {
 
     expect($this->getJson('/api/v1/marketplace/subjects')->assertOk()->json())->toBe([])
         ->and($this->getJson('/api/v1/marketplace/grade-levels')->assertOk()->json())->toBe([]);
+});
+
+/*
+| The teacher's first sign-in goes through `StartAuthSession` like any other.
+|
+| ⛔ A BARE `createToken()` MINTED A TOKEN WITH NO SESSION AND NO DEVICE BEHIND
+| IT — so the device limit and the new-device alert skipped the first sign-in of
+| every teacher, and the wizard had no `session_uuid` to explain a later
+| eviction. The row, not only the key in the body.
+*/
+it('opens a real sign-in session for the new applicant', function (): void {
+    $response = $this->postJson('/api/v1/auth/register/teacher/step-1', firstTeacherStepOne())
+        ->assertCreated()
+        ->assertJsonStructure(['application', 'token', 'session_uuid']);
+
+    $session = AuthSession::query()
+        ->where('uuid', $response->json('session_uuid'))
+        ->first();
+
+    expect($session)->not->toBeNull()
+        ->and($session->device_id)->not->toBeNull()
+        ->and((int) $session->user_id)->toBe((int) User::query()->latest('id')->value('id'));
 });

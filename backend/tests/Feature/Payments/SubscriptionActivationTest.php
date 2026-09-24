@@ -10,11 +10,14 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Enums\PlanCoverage;
+use App\Modules\Payments\Enums\SubscriptionStatus;
+use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
@@ -383,4 +386,47 @@ it('extends a renewal across a plan the teacher repriced', function (): void {
 
     expect(CarbonImmutable::parse($renewal->starts_on)->toDateString())
         ->toBe($runningEnd->addDay()->toDateString());
+});
+
+/*
+| The subscription's day is the PLATFORM's day, stored as UTC instants.
+|
+| ⛔ `CarbonImmutable::today()` is UTC, three hours behind Doha. Approved at 00:30
+| Doha time on the 15th (21:30Z on the 14th), the subscription was dated from the
+| 14th — a paid day that had already ended — and the enrolment's `expires_at`
+| closed at 03:00 Doha the morning AFTER the last day.
+*/
+it('dates a subscription approved after local midnight from the platform day', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-10-14 21:30:00', 'UTC'));
+
+    $order = approveIt(orderForCohort());
+
+    $subscription = Subscription::query()->where('order_id', $order->getKey())->firstOrFail();
+
+    expect(CarbonImmutable::parse($subscription->starts_on)->toDateString())->toBe('2026-10-15')
+        ->and(CarbonImmutable::parse($subscription->ends_on)->toDateString())->toBe('2026-11-14');
+
+    $enrollment = Enrollment::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $this->student->getKey())
+        ->where('course_id', $this->course->getKey())
+        ->firstOrFail();
+
+    // The last instant of 2026-11-14 in Doha is 20:59:59 UTC — not 23:59:59.
+    expect(CarbonImmutable::parse($enrollment->expires_at)->utc()->toDateTimeString())
+        ->toBe('2026-11-14 20:59:59');
+});
+
+it('expires a subscription when its last day has ended in Doha, not three hours later', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-10-15 09:00:00', 'UTC'));
+
+    $order = approveIt(orderForCohort());
+    $subscription = Subscription::query()->where('order_id', $order->getKey())->firstOrFail();
+    $lastDay = CarbonImmutable::parse($subscription->effective_ends_on)->toDateString();
+
+    // 22:00Z on the last day is 01:00 the next morning in Doha: the day is over.
+    $this->travelTo(CarbonImmutable::parse($lastDay.' 22:00:00', 'UTC'));
+
+    (new ExpireSubscriptionsJob)->handle(app(DispatchNotification::class));
+
+    expect($subscription->refresh()->status)->toBe(SubscriptionStatus::Expired);
 });

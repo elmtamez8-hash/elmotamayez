@@ -365,3 +365,20 @@ it('lets a new ask through without waiting for the sweep when the old one is ove
     expect(SessionRescheduleRequest::query()->withoutWorkspaceScope()->pluck('status')->sort()->values()->all())
         ->toBe([SessionRescheduleRequest::EXPIRED, SessionRescheduleRequest::PENDING]);
 });
+
+/*
+| A proposed hour carries the same minimum notice a private request does.
+|
+| ⛔ «NOT IN THE PAST» ALONE LET A STUDENT PROPOSE AN HOUR TEN MINUTES AWAY — a
+| request the teacher cannot read, decide and prepare for before it begins. One
+| class (`LeadTime`) answers «too soon» for both doors.
+*/
+it('refuses a proposed hour inside the minimum notice, and nothing is written', function (): void {
+    $fixture = rescheduleFixture();
+
+    askToMove($fixture, CarbonImmutable::now()->addMinutes(30))
+        ->assertStatus(422)
+        ->assertJsonFragment(['message' => 'اختر موعداً يبدأ بعد ساعتين من الآن على الأقل، ليتّسع للمدرّس أن يردّ ويستعدّ.']);
+
+    expect(SessionRescheduleRequest::query()->withoutWorkspaceScope()->count())->toBe(0);
+});

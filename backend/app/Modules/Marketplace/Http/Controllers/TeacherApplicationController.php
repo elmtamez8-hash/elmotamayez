@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Identity\Actions\StartAuthSession;
 use App\Modules\Marketplace\Actions\RegisterTeacher;
 use App\Modules\Marketplace\Actions\SaveTeacherApplicationStep;
 use App\Modules\Marketplace\Actions\SubmitTeacherApplication;
@@ -25,15 +26,30 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 class TeacherApplicationController extends Controller
 {
-    public function register(RegisterTeacherRequest $request, RegisterTeacher $action): JsonResponse
-    {
+    public function register(
+        RegisterTeacherRequest $request,
+        RegisterTeacher $action,
+        StartAuthSession $startSession,
+    ): JsonResponse {
         $application = $action->handle($request->toDto());
+
+        /*
+        | Signed in immediately: the remaining three steps are authenticated, and
+        | sending someone to a login form mid-wizard loses most of them.
+        |
+        | ⛔ THROUGH `StartAuthSession`, NEVER A BARE `createToken()` — the same
+        | door a login and a student's signup use. A token minted beside it has
+        | no `auth_sessions` row and no device, so a teacher's first sign-in
+        | skipped the device limit and the new-device alert, and the client had
+        | no `session_uuid` to ask why it was later signed out.
+        */
+        $user = $application->user;
+        $result = $user === null ? null : $startSession->handle($user, $request);
 
         return response()->json([
             'application' => $this->payload($application),
-            // Signed in immediately: the remaining three steps are authenticated,
-            // and sending someone to a login form mid-wizard loses most of them.
-            'token' => $application->user?->createToken('auth-token')->plainTextToken,
+            'token' => $result?->plainTextToken,
+            'session_uuid' => $result?->session->uuid,
         ], 201);
     }
 

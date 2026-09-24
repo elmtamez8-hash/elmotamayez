@@ -249,7 +249,12 @@ export function TeacherSignupWizard({
        | token is nullable: a wizard resumed from a session already in hand has
        | nothing new to adopt.
        */
-      if (result.token) await adoptSession({ token: result.token });
+      if (result.token) {
+        await adoptSession({
+          token: result.token,
+          session_uuid: result.session_uuid ?? undefined,
+        });
+      }
       setApplication(result.application);
       setStep(result.application.current_step);
     } catch (err: unknown) {

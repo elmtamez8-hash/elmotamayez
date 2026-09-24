@@ -10,12 +10,13 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\BookingEligibility;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SubscriptionDirectory;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
-use Illuminate\Support\Carbon;
 
 /**
  * The seats a subscription pays for, taken without the student pressing anything
@@ -45,6 +46,7 @@ class ClaimSubscriptionSeats extends Action
     public function __construct(
         private readonly BookSeat $seats,
         private readonly SubscriptionDirectory $subscriptions,
+        private readonly SessionSettings $settings,
     ) {}
 
     /**
@@ -256,8 +258,18 @@ class ClaimSubscriptionSeats extends Action
             | session after midnight on the last day the student paid for — the
             | boundary that has already cost `FreezePeriod::covering()` and a
             | settlement close their own fixes.
+            |
+            | ⛔ AND «+ 1 day» IS THE START OF THE NEXT DAY IN THE PLATFORM'S
+            | TIMEZONE, CONVERTED TO UTC. Taken at UTC midnight it cut three hours
+            | late in Doha: a lesson at 01:00 on the morning after the last paid
+            | day was claimed as if it were still inside the subscription.
             */
-            $query->where('starts_at', '<', Carbon::parse($windowEnd)->startOfDay()->addDay());
+            $bound = CarbonImmutable::parse(
+                CarbonImmutable::instance($windowEnd)->toDateString(),
+                $this->settings->timezone(),
+            )->addDay()->utc();
+
+            $query->where('starts_at', '<', $bound);
         }
 
         return $query->orderBy('starts_at')->get();

@@ -178,35 +178,11 @@ interface CohortDirectory
     public function resolveCohortId(string $uuid, int $courseId): ?int;
 
     /**
-     * Whether this group is open AND has a place — **structurally, with no
-     * question about price** (spec 027 · FR-002 · FR-026 · ٠٣٦ · FR-018).
-     *
-     * ⛔ THE NAME CARRIES «STRUCTURALLY» BECAUSE IT IS A SECOND QUESTION, NOT A
-     * WIDER SPELLING OF THE PICKER'S — exactly as {@see isAssignable()} is. ٠٣٦
-     * added a price condition to what a STUDENT may join, and its one caller here
-     * is an approval of an order that has already been paid for: re-asking the
-     * price there would repossess a place over a plan the teacher switched off
-     * while the transfer was clearing.
-     *
-     * ⚠️ ASKED TWICE ON PURPOSE, AT TWO MOMENTS. The subscription order is
-     * created against a joinable group, and days can pass on a manual transfer
-     * before an officer approves it — so it is asked again in `ApproveOrder`,
-     * BEFORE the conditional claim, and a group that filled in between refuses
-     * the approval rather than putting a student in a room with no chair
-     * (FR-026). Asking it once, at either end, is one of the two halves missing.
-     *
-     * ⚠️ AND IT IS THE MODEL'S OWN PREDICATE, NOT A THIRD SPELLING. The card,
-     * the picker and this all read the model's own predicate; two spellings put one
-     * answer on the screen and another at the door.
-     */
-    public function isStructurallyJoinable(int $cohortId): bool;
-
-    /**
      * Take one seat in this group, atomically. `false` means it just filled.
      *
      * ⚠️ **A READ IS NOT A CLAIM, AND FR-024أ SAYS SO IN AS MANY WORDS.** Two
      * officers approving two orders against the last seat both pass
-     * {@see isStructurallyJoinable()} — it is a question, and the answer is stale the instant
+     * {@see isAssignable()} — it is a question, and the answer is stale the instant
      * it is given. This is one conditional UPDATE that is the check and the claim
      * together, so exactly one of them wins and the loser's approval is refused
      * **before any money is taken**, which is what makes «zero refunds caused by
@@ -227,10 +203,16 @@ interface CohortDirectory
     /**
      * Whether ADMINISTRATION could put somebody into THIS group at this instant.
      *
-     * ⚠️ The per-cohort twin of {@see assignableCohortsExist()}, and the door's
-     * half of the pair {@see isStructurallyJoinable()} already has. The picker offers what
+     * ⚠️ The per-cohort twin of {@see assignableCohortsExist()}. The picker offers what
      * this answers and the write asks it again: two spellings put one answer on
      * the screen and another at the door, which is the defect FR-030 is about.
+     *
+     * ⛔ AND IT IS WHAT `ApproveOrder` ASKS OF A PAID SUBSCRIPTION ORDER TOO — not
+     * «open and has a place». The student chose an OPEN group and paid; a
+     * teacher who closed the door while the transfer was clearing must not leave
+     * that order pending for ever, which is exactly the case `ActivateSubscription`
+     * joins with `requireOpen: false`. Archived or full still refuses, and
+     * {@see claimSeat()} is what settles the last chair.
      */
     public function isAssignable(int $cohortId): bool;
 

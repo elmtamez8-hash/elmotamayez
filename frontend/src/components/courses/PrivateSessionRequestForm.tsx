@@ -109,6 +109,7 @@ export function PrivateSessionRequestForm({
   courseUuid,
   availability,
   minutes,
+  leadMinutes,
   subscriptionAvailable,
 }: {
   courseUuid: string;
@@ -124,6 +125,14 @@ export function PrivateSessionRequestForm({
   subscriptionAvailable: boolean;
   /** Null on the course means the platform default — never «no private sessions». */
   minutes: number | null;
+  /**
+   * How far ahead an hour may be asked for, in minutes (the server's own number).
+   *
+   * ⚠️ THE PICKER COUNTS FROM IT. Starting at `now` offered the next slot even
+   * when it began in ten minutes, and `RequestPrivateSession` refuses that as
+   * too soon — the pressed-then-refused shape FR-015أ forbids.
+   */
+  leadMinutes: number;
 }) {
   const [enrolment, setEnrolment] = useState<Enrolment>("checking");
   const [teaches, setTeaches] = useState(false);
@@ -198,7 +207,11 @@ export function PrivateSessionRequestForm({
       );
   }, [courseUuid]);
 
-  const slots = startsWithin(availability, length, new Date());
+  const slots = startsWithin(
+    availability,
+    length,
+    new Date(Date.now() + leadMinutes * 60_000),
+  );
 
   /*
    * ⚠️ THIS BRANCH USED TO BE A CLOSED DOOR, AND IT WAS THE ONLY DOOR (027 · FR-003).

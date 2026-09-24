@@ -86,6 +86,13 @@ return [
     'private_request_ttl_hours' => 48,
     'private_request_max_pending' => 3,
 
+    // The earliest a student may ask for a lesson: this many minutes from now.
+    // Refusing only the past let a private hour be requested for one minute's
+    // time — a request no teacher can read, accept and prepare for. Applies to
+    // a private request AND to a proposed reschedule, and the course page
+    // offers no slot inside it.
+    'min_lead_minutes' => 120,
+
     // How long a join ticket is good for, in minutes (017 FR-007).
     //
     // The library's own default is SIX HOURS, and the contract test asserted

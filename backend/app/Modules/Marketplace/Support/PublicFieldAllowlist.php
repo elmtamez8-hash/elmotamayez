@@ -177,6 +177,12 @@ final class PublicFieldAllowlist
         */
         'private_session_minutes',
         /*
+        | How far ahead a private hour may be asked for (minutes). A platform
+        | setting, identical for every course — the request form starts its
+        | slots from it so it never offers what the server refuses as too soon.
+        */
+        'private_session_min_lead_minutes',
+        /*
         | Whether the private-subscription invitation may be drawn (027 · FR-003).
         | ONE boolean, and it leaks nothing: «no plan», «switched off» and
         | «awaiting a price» all answer false, exactly as `PurchaseSubscription`

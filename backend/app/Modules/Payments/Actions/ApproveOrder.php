@@ -211,7 +211,7 @@ class ApproveOrder extends Action
         /*
         | ⚠️ MEMBERSHIP IS ASKED FIRST, AND ASKING JOINABILITY FIRST REFUSES EVERY
         | RENEWAL. A renewing student's group is full OF THEM AND THEIR
-        | CLASSMATES, so `isStructurallyJoinable()` is false for exactly the person US4·4 and
+        | CLASSMATES, so an «open with a place» check is false for exactly the person US4·4 and
         | FR-028 promise must not be asked to choose a group again — and their
         | paid, approved order would sit `pending` for ever under «هذه المجموعة لم
         | تعد متاحة». `PurchaseSubscription::resolveCohort()` already orders the
@@ -242,17 +242,22 @@ class ApproveOrder extends Action
         }
 
         /*
-        | ⛔ THE STRUCTURAL QUESTION, AND THE «structurally» IN ITS NAME IS THE
-        | EXEMPTION ٠٣٦ · FR-018 GRANTS THIS DOOR, WRITTEN WHERE IT IS READ.
-        | ٠٣٦ made a live price part of what a STUDENT may join. The money here
-        | was taken days ago, before the manual transfer cleared — so a teacher
-        | who switched a plan off in the meantime would have this approval refused
-        | and the student left holding a payment and no group. The decision about
-        | price was made at purchase; what is still genuinely open is whether the
-        | room is open and has a chair.
+        | ⛔ «ASSIGNABLE», NOT «STRUCTURALLY JOINABLE» — AND THE DIFFERENCE IS A
+        | TEACHER CLOSING THE DOOR AFTER THE MONEY WAS SENT. The student chose an
+        | OPEN group and paid; a manual transfer takes days to clear, and a
+        | teacher who closed the group in between had this approval refused with
+        | «لم تعد هذه المجموعة متاحة», leaving a paid order pending with no way
+        | forward — while `ActivateSubscription` joins with `requireOpen: false`
+        | for exactly that case. So the question here is the one an officer's
+        | own assignment asks (`isAssignable()`: not archived, not full), the same
+        | one `resolveCourseOrderCohort()` below already asks.
+        |
+        | ⚠️ PRICE IS STILL NOT RE-ASKED (036 · FR-018): it was decided at purchase.
+        | And a full group still refuses — here with a sentence, and again under
+        | the conditional claim in `handle()`, which settles the last chair.
         */
-        if (! $this->cohorts->isStructurallyJoinable((int) $cohort['id'])) {
-            throw new DomainException('لم تعد هذه المجموعة متاحة للانضمام. تواصل مع الطالب لاختيار مجموعة أخرى.');
+        if (! $this->cohorts->isAssignable((int) $cohort['id'])) {
+            throw new DomainException('لم تعد هذه المجموعة متاحة للانضمام — امتلأت أو أُرشِفت. تواصل مع الطالب لاختيار مجموعة أخرى.');
         }
 
         return $cohort;
