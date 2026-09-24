@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Actions\InviteFromWaitlist;
 use App\Modules\Learning\Actions\JoinWaitlist;
 use App\Modules\Learning\Filament\Pages\CourseWaitlist;
 use App\Modules\Learning\Models\Cohort;
@@ -12,6 +13,7 @@ use App\Modules\Notifications\Models\Notification;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\CohortPricingGap;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Carbon;
@@ -197,4 +199,30 @@ it('warns the officer which group cannot be bought before a single invitation go
         // مَن هو الآن» — المدرّسِ أم المنصّة — ودمجُهما يُرسِلُ أحدَهما ينتظرُ
         // قراراً لا ينتظرُه أحد.
         ->and($options[(string) $this->cohort->uuid] ?? null)->toBeNull();
+});
+
+it('tells the guardian who pays when a seat opens, and not one without that consent', function (): void {
+    /*
+    | The seat goes to whoever takes it first, and the guardian is usually who
+    | pays for it — a message that waits for the child to open the site is a seat
+    | lost. It rides the PAYMENTS consent, like `subscription_activated`.
+    */
+    $entry = queueOne('سارة');
+    $student = User::query()->findOrFail($entry->student_user_id);
+
+    $payer = guardianOf($student, [GuardianPermission::Payments]);
+    $attendanceOnly = guardianOf($student, [GuardianPermission::Attendance]);
+
+    $this->cohort->forceFill(['capacity' => 2, 'members_count' => 1])->save();
+
+    expect(app(InviteFromWaitlist::class)->handle($this->cohort->refresh(), $this->officer))->toBe(1);
+
+    $copies = fn (User $user): int => Notification::query()
+        ->where('recipient_user_id', $user->getKey())
+        ->where('type', 'waitlist_invited')
+        ->count();
+
+    expect($copies($student))->toBe(1)
+        ->and($copies($payer))->toBe(1)
+        ->and($copies($attendanceOnly))->toBe(0);
 });

@@ -74,6 +74,10 @@ class NotifyStudentCohortAssigned implements ShouldHandleEventsAfterCommit, Shou
             // صفحةُ الكورس: تحملُ لوحةَ المجموعةِ ومواعيدَها، فيهبطُ الطالبُ على
             // الجواب لا على قائمةٍ يبحثُ فيها.
             actionUrl: '/enrollments/'.$course->uuid,
+            // ⚠️ The subject is what fans the message out to guardians
+            // (`RecipientResolver`): without it `targetsGuardians()` reaches
+            // nobody while the type still carries the paid channel.
+            subject: $student,
             workspaceId: $event->workspaceId,
         ));
     }

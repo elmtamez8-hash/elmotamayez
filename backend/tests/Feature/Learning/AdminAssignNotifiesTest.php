@@ -12,6 +12,7 @@ use App\Modules\Learning\Models\CohortTransferRequest;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 
@@ -97,6 +98,21 @@ it('tells the student which group they are in and when it meets', function (): v
         | إسنادُه وقعَ أصلاً — والمجموعةُ الجديدةُ بلا جدولٍ هي الحالُ العاديّة.
         */
         ->and($row->body)->toContain('لم تُعلَن مواعيدها');
+});
+
+it('tells the guardian on the schedule consent which group their child was placed in', function (): void {
+    /*
+    | A placement is a decided change to the child's timetable — the family's
+    | week moves with it. Without `subject:` on the request the fan-out reaches
+    | nobody, which is what the payments-only guardian's zero also guards.
+    */
+    $schedule = guardianOf($this->student, [GuardianPermission::Schedule]);
+    $paymentsOnly = guardianOf($this->student, [GuardianPermission::Payments]);
+
+    app(MoveMember::class)->handle($this->saturday, $this->student, $this->officer);
+
+    expect(typesSentTo($schedule))->toContain(NotificationType::CohortAssigned->value)
+        ->and(typesSentTo($paymentsOnly))->not->toContain(NotificationType::CohortAssigned->value);
 });
 
 it('says nothing extra when the student joined on their own', function (): void {

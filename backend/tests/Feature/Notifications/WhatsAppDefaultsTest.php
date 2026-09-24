@@ -60,7 +60,17 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // (`credit_balance_critical` · `access_withheld`) instead, both of which
     // are still counted here. A type nothing produces is a guardian-targeting
     // promise with a paid channel attached and nobody keeping it.
-    expect($onWhatsApp)->toHaveCount(27);
+    // 27 → 28 on 2026-09-24: `waitlist_invited`. A seat opened for whoever
+    // takes it first, and the guardian is usually who pays for it — a message
+    // that waits for the child to open the site is a seat lost. It rides the
+    // payments consent like `subscription_activated`, in the same edit.
+    // 28 → 30 the same day: `cohort_assigned` and `private_session_accepted`.
+    // Each is a DECIDED change to the child's timetable — the fact
+    // `session_rescheduled` already carries to the family — so both ride the
+    // `Schedule` consent. Their siblings (a transfer request and its answers, a
+    // private-session ask, refusal or expiry) stay off: a conversation between
+    // child and teacher about a lesson that has not moved.
+    expect($onWhatsApp)->toHaveCount(30);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

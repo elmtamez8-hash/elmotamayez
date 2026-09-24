@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\GuardianPermission;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -62,6 +63,35 @@ it('tells the student their private session was accepted', function (): void {
     assertNotifiedOnce($fx['student'], NotificationType::PrivateSessionAccepted);
 
     expect(wasNotified($fx['student'], NotificationType::PrivateSessionRejected))->toBeFalse();
+});
+
+it('tells the guardian on the schedule consent when a private session is accepted, and not when it is refused', function (): void {
+    /*
+    | The acceptance puts a new lesson on the child's timetable — the family's
+    | day moves with it. The refusal is a step in a conversation about a lesson
+    | that never existed, and stays between the child and the teacher.
+    */
+    $fx = privateSessionFixture();
+    $schedule = guardianOf($fx['student'], [GuardianPermission::Schedule]);
+    $paymentsOnly = guardianOf($fx['student'], [GuardianPermission::Payments]);
+
+    privateNoticeDecided($fx, privateNoticeRequested($fx), accept: true);
+
+    $row = assertNotifiedOnce($schedule, NotificationType::PrivateSessionAccepted);
+
+    expect($row->action_url)->toBe('/dashboard?student='.$fx['student']->uuid)
+        ->and(wasNotified($paymentsOnly, NotificationType::PrivateSessionAccepted))->toBeFalse();
+});
+
+it('keeps a refused private session between the child and the teacher', function (): void {
+    $fx = privateSessionFixture();
+    $schedule = guardianOf($fx['student'], [GuardianPermission::Schedule]);
+
+    privateNoticeDecided($fx, privateNoticeRequested($fx), accept: false, reason: 'لديّ التزام');
+
+    assertNotifiedOnce($fx['student'], NotificationType::PrivateSessionRejected);
+
+    expect(wasNotified($schedule, NotificationType::PrivateSessionRejected))->toBeFalse();
 });
 
 it('tells the student their private session was refused, with the reason', function (): void {
