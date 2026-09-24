@@ -6,7 +6,8 @@ use Database\Seeders\NotificationTemplateSeeder;
 use Illuminate\Database\Migrations\Migration;
 
 /**
- * The WhatsApp row `waitlist_invited` needs now that it reaches guardians.
+ * The WhatsApp rows three types need now that they reach guardians:
+ * `waitlist_invited`, `cohort_assigned` and `private_session_accepted`.
  *
  * `defaultChannels()` is derived from `targetsGuardians()`, and the seeder writes
  * a WhatsApp template for every type whose defaults include it — so the type

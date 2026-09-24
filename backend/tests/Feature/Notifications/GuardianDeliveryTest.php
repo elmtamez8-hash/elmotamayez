@@ -281,10 +281,11 @@ it('tells every guardian-facing type apart', function (): void {
     // never sent, and superseded by the balance ladder counted above.
     // 25 → 26 on 2026-09-24: `waitlist_invited`. A seat that opened goes to
     // whoever takes it first, and the guardian is usually who pays for it, so
-    // it rides `Payments` like `subscription_activated`. Its cohort siblings and
-    // the private-session decisions stay off: a timetable conversation, not a
-    // purchase.
-    expect($guardianTypes)->toHaveCount(26);
+    // it rides `Payments` like `subscription_activated`.
+    // 26 → 28 the same day: `cohort_assigned` and `private_session_accepted`,
+    // both a decided change to the child's timetable on the `Schedule` consent.
+    // The transfer family and the other private-session steps stay off.
+    expect($guardianTypes)->toHaveCount(28);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

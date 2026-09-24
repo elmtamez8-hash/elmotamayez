@@ -282,8 +282,13 @@ enum NotificationType: string
     | أسنَدَت. ولولا جملةٌ تقولُ ذلك لقرأَ الطالبُ اختفاءَ طلبِه عُطلاً وأعادَ
     | إرسالَه (٠٢١ · FR-028ح).
     |
-    | ⚠️ **ولا يُمَسُّ `targetsGuardians()`**: إخوتُهما الثلاثةُ فوقَهما خارجَها
-    | بالحجّةِ المكتوبةِ هناك، و`WhatsAppDefaultsTest` يؤكّدُ العددَ بالضبط.
+    | ⚠️ **والإسنادُ وحدَه يصلُ وليَّ الأمر (٢٠٢٦-٠٩-٢٤)، على موافقةِ المواعيد.**
+    | حجّةُ الإخوةِ فوقَه («وليُّ الأمرِ لا يختارُ أيَّ سبت») عن **طلبِ** الطالبِ
+    | نقلاً — محادثةٌ بينَه وبينَ مدرّسِه. أمّا الإسنادُ فقرارٌ وقعَ ومواعيدُ
+    | تغيّرَت، وهو الخبرُ نفسُه الذي يحملُه `SessionRescheduled` للأسرة: اليومُ
+    | الذي رتّبَته حولَ الحصّةِ تغيّرَ، ولا يُعيدُ ترتيبَه إلّا وليُّ الأمر. ونسخةُ
+    | وليِّ الأمرِ تذهبُ إلى لوحتِه باسمِ الابن (`GuardianActionUrl`)، حيثُ جدولُه.
+    | والإسقاطُ يبقى خارجَها: هو جوابٌ عن طلبٍ لم يُرسِلْه وليُّ الأمر.
     */
     case CohortAssigned = 'cohort_assigned';
 
@@ -301,9 +306,8 @@ enum NotificationType: string
     | صحيحةٌ عن النقلِ والإسناد، ولا تنطبقُ هنا: الدعوةُ تقولُ «فُتِحَ مقعدٌ لمن
     | يسبق»، والذي يدفعُ ثمنَه غالباً وليُّ الأمر (`PurchaseBeneficiary` يشتري
     | للابن). رسالةٌ لا تصلُ الدافعَ حتّى يفتحَ الابنُ المنصّةَ هي مقعدٌ يضيعُ
-    | على مَن جاءَ دورُه. فهو على موافقةِ الدفعِ كـ`SubscriptionActivated`،
-    | ورابطُه صفحةُ الكورسِ العامّةُ التي يفتحُها أيُّ أحد. والعددُ في
-    | `WhatsAppDefaultsTest` تحرّكَ لأجلِه عمداً.
+    | على مَن جاءَ دورُه. فهو على موافقةِ الدفعِ كـ`SubscriptionActivated`.
+    | والعددُ في `WhatsAppDefaultsTest` تحرّكَ لأجلِه عمداً.
     */
     case WaitlistInvited = 'waitlist_invited';
 
@@ -326,12 +330,17 @@ enum NotificationType: string
     | lesson, and the same split `CohortTransferApproved`/`Rejected` already
     | needed.
     |
-    | ⚠️ AND NOT ONE OF THEM TARGETS A GUARDIAN. `defaultChannels()` is DERIVED
-    | from `targetsGuardians()`, so naming them there would put a paid WhatsApp
-    | message on a parent's phone for every step of a scheduling conversation
-    | between their child and a teacher — which is how the number gets muted, and
-    | the attendance alert goes with it. No `requiredGuardianPermission()` either:
-    | one without the other picks up the channel, is billed, and reaches nobody.
+    | ⚠️ AND ONLY THE ACCEPTANCE TARGETS A GUARDIAN (2026-09-24). The ask, the
+    | refusal and the expiry are steps of a scheduling conversation between the
+    | child and a teacher about a lesson that does not exist — putting each on a
+    | parent's phone (`defaultChannels()` is DERIVED from `targetsGuardians()`,
+    | so it is a paid WhatsApp message) is how the number gets muted, and the
+    | attendance alert goes with it. The acceptance is different in kind: a new
+    | lesson is now on the child's timetable, which is the fact
+    | `AppointmentReminder` and `SessionRescheduled` already carry to the family
+    | on the `Schedule` consent. Its guardian copy lands on the guardian's
+    | dashboard with the child selected (`GuardianActionUrl`), where that
+    | timetable is.
     */
     case PrivateSessionRequested = 'private_session_requested';
 
@@ -815,7 +824,11 @@ enum NotificationType: string
             // ٠٣٦ — الشكلُ الثاني من الشراءِ نفسِه.
             self::SessionPlanActivated,
             // ٠٣٤ — مقعدٌ فُتِحَ لمن يسبقُ إليه، والدافعُ غالباً وليُّ الأمر.
-            self::WaitlistInvited => true,
+            self::WaitlistInvited,
+            // A decided change to the child's timetable — the family's day moves
+            // with it, the same fact SessionRescheduled carries.
+            self::CohortAssigned,
+            self::PrivateSessionAccepted => true,
             default => false,
         };
     }
@@ -839,6 +852,9 @@ enum NotificationType: string
             self::SessionReport => GuardianPermission::Attendance,
             self::SessionCancelled => GuardianPermission::Schedule,
             self::SessionRescheduled => GuardianPermission::Schedule,
+            // The same consent: each is the child's timetable changing.
+            self::CohortAssigned,
+            self::PrivateSessionAccepted => GuardianPermission::Schedule,
             // Payments, specifically. A guardian with no right to see the
             // financial record has no business being told about a payment due
             // on it — the permission is the message's audience, not a filter
