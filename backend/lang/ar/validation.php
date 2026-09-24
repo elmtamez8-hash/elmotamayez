@@ -530,12 +530,63 @@ return [
         'keys.p256dh' => 'مفتاح التعمية',
         'keys.auth' => 'مفتاح المصادقة',
 
-        // إنشاءُ الواجب (FR-043). بلا هذه تُعرَضُ الحقولُ بمفاتيحِها الخامّ تحتَ
-        // نموذجِ المدرّس.
+        // حقولٌ وصلت رسائلُها بمفتاحها الخام على الإنتاج (2026-09-24) — مثلاً
+        // «يجب ألا تقل قيمة capacity عن 1» على شاشة إنشاء مجموعة.
+        'capacity' => 'السعة',
+        'count' => 'العدد',
+        'score' => 'الدرجة',
+        'feedback' => 'ملاحظات التصحيح',
+        'extra_time_pct' => 'نسبة الوقت الإضافي',
+        'extended_days' => 'أيام التمديد',
+        'until' => 'موعد انتهاء المهلة',
         'due_at' => 'موعد التسليم',
+        'class_session_id' => 'الحصة',
         'submission_type' => 'طريقة التسليم',
         'late_policy' => 'سياسة التأخير',
-        'late_penalty_pct_per_day' => 'نسبة الخصم عن كل يوم',
-        'late_penalty_cap_pct' => 'أقصى خصم',
+        'late_penalty_pct_per_day' => 'نسبة الخصم عن كل يوم تأخير',
+        'late_penalty_cap_pct' => 'الحد الأقصى لخصم التأخير',
+        'answer_text' => 'نص الإجابة',
+        'anonymous' => 'التصحيح دون أسماء',
+        'requires_attendance' => 'اشتراط الحضور',
+        'requires_assignment' => 'اشتراط الواجب',
+        'min_score_pct' => 'أقل نسبة درجة',
+        'note' => 'الملاحظة',
+        'user_uuid' => 'المستخدم',
+        'decision' => 'القرار',
+        'section_uuid' => 'القسم',
+        'chapter_uuid' => 'الفصل',
+        'external_url' => 'الرابط الخارجي',
+        'reference_uuid' => 'العنصر المرتبط',
+        'exam_gate' => 'شرط الاختبار',
+        'teacher_profile_uuid' => 'المدرّس',
+        'session_uuids' => 'الحصص',
+        'days' => 'عدد الأيام',
+        'accept' => 'القبول',
+        'to_starts_at' => 'الموعد الجديد',
+        'approve' => 'الموافقة',
+        'coupon_code' => 'كود الخصم',
+        'coverage_type' => 'نطاق الباقة',
+        'coverage_uuid' => 'ما تشمله الباقة',
+        'requested_price_minor' => 'السعر المطلوب',
+        'acknowledge_hidden_cohorts' => 'الإقرار بالمجموعات المخفية',
+        'stop_selling_after_days' => 'إيقاف البيع بعد (أيام)',
+        'max_unredeemed_credits' => 'أقصى عدد من الأرصدة غير المستخدمة',
+        'cohort' => 'المجموعة',
+        'reference' => 'المرجع',
+        'requested_amount_minor' => 'المبلغ المطلوب',
+        'participates' => 'المشاركة',
+        'is_downloadable' => 'السماح بالتنزيل',
+    ],
+
+    /*
+    | قيمُ المعاملات المعروضة داخل الرسالة. قاعدةُ `after:now` تطبع كلمةَ `now`
+    | كما هي («تاريخاً بعد now»)، وLaravel يقرأ بديلها من
+    | `validation.values.{attribute}.{value}` — مفتاحٌ لكلّ حقلٍ لأنّ البحثَ
+    | حرفيٌّ ولا يقبل `*`. كلُّ حقلٍ يحمل `after:now` له سطرٌ هنا.
+    */
+    'values' => [
+        'starts_at' => ['now' => 'الآن'],
+        'until' => ['now' => 'الآن'],
+        'expires_at' => ['now' => 'الآن'],
     ],
 ];

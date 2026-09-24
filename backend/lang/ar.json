@@ -9,6 +9,8 @@
     "The provided credentials are incorrect.": "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
     "The provided password does not match your current password.": "كلمة المرور الحالية غير صحيحة.",
     "This password reset link will expire in :count minutes.": "ينتهي هذا الرابط بعد :count دقيقة.",
+    "(and :count more error)": "(وخطأ آخر)",
+    "(and :count more errors)": "(وأخطاء أخرى عددها :count)",
     "Whoops!": "عذراً!",
     "You are receiving this email because we received a password reset request for your account.": "وصلتك هذه الرسالة لأنّ طلباً لإعادة ضبط كلمة مرور حسابك وصلنا.",
     "You must be signed in to change your password.": "يجب تسجيل الدخول لتغيير كلمة المرور."

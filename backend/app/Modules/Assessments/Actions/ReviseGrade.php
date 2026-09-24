@@ -44,11 +44,11 @@ class ReviseGrade extends Action
     public function handle(Answer $answer, User $grader, array $marks, string $reason): Answer
     {
         if ($answer->graded_at === null) {
-            throw new DomainException('This answer has not been graded yet.');
+            throw new DomainException('هذه الإجابة لم تُصحَّح بعد.');
         }
 
         if (trim($reason) === '') {
-            throw new DomainException('A revision needs a reason.');
+            throw new DomainException('اكتب سبب تعديل الدرجة.');
         }
 
         $ceiling = $this->marks->ceilingFor($answer);
@@ -58,7 +58,7 @@ class ReviseGrade extends Action
         $supersedes = $answer->currentGradingRecords()->orderByDesc('id')->first();
 
         if (! $answer->claimForRevision($expected, (int) $grader->getKey())) {
-            throw new DomainException('This grade has already been revised.');
+            throw new DomainException('عُدِّلت هذه الدرجة من قبل.');
         }
 
         return DB::transaction(function () use ($answer, $grader, $marks, $awarded, $ceiling, $expected, $supersedes, $reason): Answer {

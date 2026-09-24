@@ -128,6 +128,30 @@ describe("the room before the teacher opens it", () => {
   });
 });
 
+describe("a cancelled session", () => {
+  it("says it was cancelled instead of the student sentence about a seat", async () => {
+    /*
+    | ⛔ `CancelClassSession` never stamps `room_closed_at`, so the host of a
+    | cancelled lesson was told «تأكّد من حجز مقعدك» — a sentence written for a
+    | student, about a booking the teacher never had.
+    */
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ status: "cancelled", status_label: "ملغاة", join_open: false }))
+        : Promise.reject(new Error("403")),
+    );
+    post.mockImplementation(() => Promise.reject(new Error("403")));
+
+    await renderRoom();
+
+    expect(screen.getByText("هذه الحصة ملغاة")).toBeTruthy();
+    expect(screen.queryByText("تعذّر الدخول")).toBeNull();
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+    expect(joinCalls()).toBe(1);
+  });
+});
+
 describe("the session page opened early", () => {
   it("shows «دخول الغرفة» when the window opens, without a reload", async () => {
     let calls = 0;

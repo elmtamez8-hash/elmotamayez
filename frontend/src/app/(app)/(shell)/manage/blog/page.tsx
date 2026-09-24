@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DocumentIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
@@ -86,6 +87,9 @@ export default function ManageBlogPage() {
   const [editing, setEditing] = useState<ManagedArticle | "new" | null>(null);
   const [form, setForm] = useState<ArticleInput>(EMPTY);
   const [busy, setBusy] = useState(false);
+  // Deleting takes the article off the public blog with no restore on any
+  // screen, so the press asks first.
+  const [askingDelete, setAskingDelete] = useState<ManagedArticle | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
 
@@ -162,6 +166,7 @@ export default function ManageBlogPage() {
       setError(userMessage(err));
     } finally {
       setBusy(false);
+      setAskingDelete(null);
     }
   }
 
@@ -296,11 +301,24 @@ export default function ManageBlogPage() {
               إلغاء
             </Button>
             {editing !== "new" && mayDelete ? (
-              <Button variant="danger" onClick={() => remove(editing)} disabled={busy}>
+              <Button variant="danger" onClick={() => setAskingDelete(editing)} disabled={busy}>
                 احذف
               </Button>
             ) : null}
           </div>
+
+          <Modal
+            open={askingDelete !== null}
+            title="حذف المقال"
+            message="سيختفي المقال من مدوّنتك العامّة ولا يمكن استرجاعه من هنا."
+            confirmLabel="احذف المقال"
+            tone="danger"
+            busy={busy}
+            onConfirm={() => {
+              if (askingDelete !== null) void remove(askingDelete);
+            }}
+            onCancel={() => setAskingDelete(null)}
+          />
         </Card>
       ) : null}
 

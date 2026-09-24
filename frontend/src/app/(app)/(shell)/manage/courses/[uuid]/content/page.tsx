@@ -231,6 +231,36 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
     setAsk(question);
   };
 
+  const confirmAsk = () => {
+    if (ask === null) return;
+
+    /*
+      ⛔ AN EMPTY TITLE IS REFUSED **WITH A REASON**, and the window stays
+      open. The old `window.prompt` branch returned silently on an empty
+      string — «nothing happened» about a correct press is the defect
+      people report as «the button does not work».
+    */
+    if (ask.kind === "title" && newTitle.trim() === "") {
+      setAskError("اكتب عنواناً للعنصر أولاً.");
+
+      return;
+    }
+
+    const value = newTitle;
+
+    setAsk(null);
+    ask.run(value);
+  };
+
+  /*
+    ⚠️ «مرئية لطلابك الآن» IS ONLY TRUE OF A PUBLISHED COURSE. Items published
+    inside a draft course are still invisible to every student, and the toast
+    said otherwise — so the teacher is told which switch is still off.
+  */
+  const courseIsDraft = tree.status !== "published";
+  const draftCourseNote =
+    "نُشرت المسودّات، لكن الكورس نفسه ما زال مسودّة — انشره من «تعديل الكورس» ليراه طلابك.";
+
   const addLesson = (chapter: TreeChapter) => {
     askIn({
       kind: "title",
@@ -281,7 +311,9 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
               confirmPublish({
                 title: "نشر كل المسودّات",
                 confirmLabel: "انشر الآن",
-                message: "نُشرت المسودّات — صارت مرئية لطلابك الآن.",
+                message: courseIsDraft
+                  ? draftCourseNote
+                  : "نُشرت المسودّات — صارت مرئية لطلابك الآن.",
               })
             }
           >
@@ -341,26 +373,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         confirmLabel={ask?.confirmLabel ?? ""}
         tone={ask?.tone}
         onCancel={() => setAsk(null)}
-        onConfirm={() => {
-          if (ask === null) return;
-
-          /*
-            ⛔ AN EMPTY TITLE IS REFUSED **WITH A REASON**, and the window stays
-            open. The old `window.prompt` branch returned silently on an empty
-            string — «nothing happened» about a correct press is the defect
-            people report as «the button does not work».
-          */
-          if (ask.kind === "title" && newTitle.trim() === "") {
-            setAskError("اكتب عنواناً للعنصر أولاً.");
-
-            return;
-          }
-
-          const value = newTitle;
-
-          setAsk(null);
-          ask.run(value);
-        }}
+        onConfirm={confirmAsk}
       >
         {ask?.kind === "title" && (
           /*
@@ -368,14 +381,24 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             first focusable descendant, and `Modal` renders `children` above its
             button row — so the field is where focus lands, by construction
             rather than by a prop `TextField` does not take.
+
+            A `<form>` so Enter submits, as the section and chapter inputs
+            already do; the button row stays the Modal's own.
           */
-          <TextField
-            id="new-lesson-title"
-            label="عنوان العنصر الجديد"
-            value={newTitle}
-            onChange={setNewTitle}
-            error={askError === "" ? undefined : askError}
-          />
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmAsk();
+            }}
+          >
+            <TextField
+              id="new-lesson-title"
+              label="عنوان العنصر الجديد"
+              value={newTitle}
+              onChange={setNewTitle}
+              error={askError === "" ? undefined : askError}
+            />
+          </form>
         )}
       </Modal>
 
@@ -400,7 +423,9 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             confirmLabel: status === "published" ? "انشر" : "نفّذ",
             message:
               status === "published"
-                ? `نُشر «${label}» — صار مرئياً لطلابك الآن.`
+                ? courseIsDraft
+                  ? `نُشر «${label}»، لكن الكورس نفسه ما زال مسودّة — انشره من «تعديل الكورس» ليراه طلابك.`
+                  : `نُشر «${label}» — صار مرئياً لطلابك الآن.`
                 : `أُلغي نشر «${label}» — لم يعد يظهر لطلابك.`,
           })
         }

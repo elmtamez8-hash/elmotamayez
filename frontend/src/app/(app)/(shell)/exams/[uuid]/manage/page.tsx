@@ -47,6 +47,9 @@ export default function ManageExamPage({
   const [publishing, setPublishing] = useState(false);
 
   const [confirmExam, setConfirmExam] = useState(false);
+  // A second press during the request fired a second DELETE, which answers 404
+  // and printed an error over a deletion that had succeeded.
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -111,12 +114,14 @@ export default function ManageExamPage({
 
   const deleteExam = async () => {
     setError("");
+    setDeleting(true);
     try {
       await api.delete(`/exams/${uuid}`);
       router.push("/manage/exams");
     } catch (err: unknown) {
       setError(userMessage(err));
       setConfirmExam(false);
+      setDeleting(false);
     }
   };
 
@@ -163,10 +168,15 @@ export default function ManageExamPage({
               and cannot be translated. */}
           {confirmExam ? (
             <>
-              <Button size="sm" variant="danger" onClick={deleteExam}>
+              <Button size="sm" variant="danger" loading={deleting} onClick={deleteExam}>
                 أكّد حذف الاختبار
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmExam(false)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={deleting}
+                onClick={() => setConfirmExam(false)}
+              >
                 إلغاء
               </Button>
             </>

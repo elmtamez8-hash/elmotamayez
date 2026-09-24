@@ -52,7 +52,7 @@ class EssayMarks
     public function total(Answer $answer, array $marks, float $ceiling): float
     {
         if ($marks === []) {
-            throw new DomainException('A grade needs at least one mark.');
+            throw new DomainException('ضع درجةً واحدةً على الأقل قبل الحفظ.');
         }
 
         $criteria = RubricCriterion::query()
@@ -66,7 +66,7 @@ class EssayMarks
             $points = (float) $mark['points'];
 
             if ($points < 0) {
-                throw new DomainException('A mark cannot be negative.');
+                throw new DomainException('لا يمكن أن تكون الدرجة سالبة.');
             }
 
             $criterionId = $mark['criterion_id'] ?? null;
@@ -75,11 +75,11 @@ class EssayMarks
                 $criterion = $criteria->get($criterionId);
 
                 if ($criterion === null) {
-                    throw new DomainException('That criterion does not belong to this question.');
+                    throw new DomainException('هذا المعيار لا ينتمي لهذا السؤال.');
                 }
 
                 if ($points > (float) $criterion->max_points) {
-                    throw new DomainException('A mark cannot exceed what its criterion is worth.');
+                    throw new DomainException('لا يمكن أن تتجاوز الدرجةُ الحدَّ الأقصى لمعيارها.');
                 }
             }
 
@@ -87,7 +87,7 @@ class EssayMarks
         }
 
         if ($awarded > $ceiling) {
-            throw new DomainException('The marks add up to more than the question is worth.');
+            throw new DomainException('مجموع الدرجات أكبر من درجة السؤال.');
         }
 
         return $awarded;

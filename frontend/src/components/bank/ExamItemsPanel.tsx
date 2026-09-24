@@ -47,6 +47,7 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<BankQuestion[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   const toDraft = (item: ExamItem): Draft => ({
     uuid: item.question?.uuid ?? "",
@@ -79,12 +80,18 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
     }
 
     setSearching(true);
+    setSearchError("");
 
     const timer = setTimeout(() => {
       bank
         .questions({ q })
         .then((response) => setResults(response.data ?? []))
-        .catch(() => setResults([]))
+        .catch((err: unknown) => {
+          setResults([]);
+          // A failed search is not an empty bank: «لا نتائج» over a 500 sent
+          // a teacher to write a question that already existed.
+          setSearchError(userMessage(err));
+        })
         .finally(() => setSearching(false));
     }, 300);
 
@@ -242,7 +249,11 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
 
           {searching && <p className="text-sm text-ink-muted">جارٍ البحث…</p>}
 
-          {!searching && q.trim() !== "" && results.length === 0 && (
+          {!searching && searchError !== "" && (
+            <p className="text-sm text-danger-ink">{searchError}</p>
+          )}
+
+          {!searching && searchError === "" && q.trim() !== "" && results.length === 0 && (
             <p className="text-sm text-ink-muted">
               لا نتائج. <Link href="/manage/bank/new" className="text-primary-ink hover:underline">
                 أنشئ سؤالاً جديداً
