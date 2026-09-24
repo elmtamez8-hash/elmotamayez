@@ -296,8 +296,14 @@ enum NotificationType: string
     | حالُه، ورسالةٌ تقولُ «فُتِحَت مقاعد» لمن لم ينَلْ واحداً منها هي الوعدُ
     | الذي تمنعُه FR-027 مُرسَلاً في رسالة.
     |
-    | ⚠️ **وخارجَ `targetsGuardians()` كإخوتِه** — أسرةُ المجموعاتِ كلُّها خارجَها
-    | بالحجّةِ المكتوبةِ فوقَها، و`WhatsAppDefaultsTest` يؤكّدُ العددَ بالضبط.
+    | ⚠️ **ويصلُ وليَّ الأمرِ، على خلافِ إخوتِه — لأنّه عن شراءٍ لا عن موعد.**
+    | حجّةُ الأسرةِ فوقَه («وليُّ الأمرِ لا يختارُ أيَّ سبتٍ يدرسُ فيه ابنُه»)
+    | صحيحةٌ عن النقلِ والإسناد، ولا تنطبقُ هنا: الدعوةُ تقولُ «فُتِحَ مقعدٌ لمن
+    | يسبق»، والذي يدفعُ ثمنَه غالباً وليُّ الأمر (`PurchaseBeneficiary` يشتري
+    | للابن). رسالةٌ لا تصلُ الدافعَ حتّى يفتحَ الابنُ المنصّةَ هي مقعدٌ يضيعُ
+    | على مَن جاءَ دورُه. فهو على موافقةِ الدفعِ كـ`SubscriptionActivated`،
+    | ورابطُه صفحةُ الكورسِ العامّةُ التي يفتحُها أيُّ أحد. والعددُ في
+    | `WhatsAppDefaultsTest` تحرّكَ لأجلِه عمداً.
     */
     case WaitlistInvited = 'waitlist_invited';
 
@@ -807,7 +813,9 @@ enum NotificationType: string
             self::StorePurchaseUnavailable,
             self::SubscriptionActivated,
             // ٠٣٦ — الشكلُ الثاني من الشراءِ نفسِه.
-            self::SessionPlanActivated => true,
+            self::SessionPlanActivated,
+            // ٠٣٤ — مقعدٌ فُتِحَ لمن يسبقُ إليه، والدافعُ غالباً وليُّ الأمر.
+            self::WaitlistInvited => true,
             default => false,
         };
     }
@@ -866,7 +874,8 @@ enum NotificationType: string
             self::ShipmentStatusChanged,
             self::StorePurchaseUnavailable,
             self::SubscriptionActivated,
-            self::SessionPlanActivated => GuardianPermission::Payments,
+            self::SessionPlanActivated,
+            self::WaitlistInvited => GuardianPermission::Payments,
             default => null,
         };
     }

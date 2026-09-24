@@ -279,7 +279,12 @@ it('tells every guardian-facing type apart', function (): void {
     // money committed, or invent two dates the family reads as true.
     // 26 → 25 on 2026-09-24: `payment_reminder` DELETED — declared in 003,
     // never sent, and superseded by the balance ladder counted above.
-    expect($guardianTypes)->toHaveCount(25);
+    // 25 → 26 on 2026-09-24: `waitlist_invited`. A seat that opened goes to
+    // whoever takes it first, and the guardian is usually who pays for it, so
+    // it rides `Payments` like `subscription_activated`. Its cohort siblings and
+    // the private-session decisions stay off: a timetable conversation, not a
+    // purchase.
+    expect($guardianTypes)->toHaveCount(26);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();
