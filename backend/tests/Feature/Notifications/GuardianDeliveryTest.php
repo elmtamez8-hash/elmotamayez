@@ -82,7 +82,7 @@ it('never tells a guardian about something they are not authorised for', functio
             'guardian_user_id' => $guardian->getKey(),
         ]);
 
-    notifyAbout($student, NotificationType::PaymentReminder);
+    notifyAbout($student, NotificationType::ExamResult);
 
     expect(Notification::query()->forRecipient($guardian)->count())->toBe(0)
         ->and(Notification::query()->forRecipient($student)->count())->toBe(1);
@@ -277,7 +277,9 @@ it('tells every guardian-facing type apart', function (): void {
     // type because the subscription template demands a start and an end date
     // and throws on an empty variable: reusing it would either fail after the
     // money committed, or invent two dates the family reads as true.
-    expect($guardianTypes)->toHaveCount(26);
+    // 26 → 25 on 2026-09-24: `payment_reminder` DELETED — declared in 003,
+    // never sent, and superseded by the balance ladder counted above.
+    expect($guardianTypes)->toHaveCount(25);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

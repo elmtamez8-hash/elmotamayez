@@ -33,18 +33,19 @@ use App\Modules\Notifications\Support\NotificationType;
  */
 
 /**
- * Reserved since spec 003 and never claimed. Each is a guardian-facing type the
- * founding enum declared ahead of its producer; the producer never came.
+ * Types allowed to have no producer, each with its reason.
+ *
+ * EMPTY since 2026-09-24, and meant to stay that way. The three reserved in 003
+ * were decided by the owner: `attendance_alert` gained its producer
+ * (`SendAbsenceAlerts`), `academic_warning` gained its
+ * (`WarnOnConsecutiveFailures`), and `payment_reminder` was deleted. A new entry
+ * here is a type shipped ahead of the code that sends it — say why beside it.
  *
  * @return array<string, string>
  */
 function everyTypeReservedExceptions(): array
 {
-    return [
-        NotificationType::AttendanceAlert->value => 'Declared in 003 for spec 005; 005 shipped `session_report` (which rides the same `Attendance` guardian permission) and never wired this one. Used only as a dispatcher fixture.',
-        NotificationType::PaymentReminder->value => 'Declared in 003 for spec 006; the balance ladder shipped as `credit_balance_low`/`credit_balance_critical`/`access_withheld` instead. Used only as a dispatcher fixture.',
-        NotificationType::AcademicWarning->value => 'Declared in 003 for spec 008; 008 shipped no academic-warning producer. No test references it at all.',
-    ];
+    return [];
 }
 
 /**

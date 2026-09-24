@@ -100,6 +100,9 @@ class Attendance extends BaseModel
             // deliberately not fillable for the reason `stay_seconds` left.
             'credit_verdict_at' => 'datetime',
             'report_sent_at' => 'datetime',
+            // Claimed by a conditional UPDATE in `SendAbsenceAlerts`, never
+            // mass-assigned — the `captured_order_id` rule.
+            'absence_alerted_at' => 'datetime',
             'recording_watched_at' => 'datetime',
         ];
     }

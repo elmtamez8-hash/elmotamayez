@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Learning\Events\CohortMembershipOpened;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Events\SessionCompleted;
@@ -20,6 +21,7 @@ use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnSubscriptionEnd;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnTransfer;
+use App\Modules\LiveSessions\Listeners\SendAbsenceAlerts;
 use App\Modules\LiveSessions\Listeners\SendAttendanceCorrection;
 use App\Modules\LiveSessions\Listeners\UpdateTeacherCounters;
 use App\Modules\LiveSessions\Models\Attendance;
@@ -225,6 +227,12 @@ class LiveSessionsServiceProvider extends Module
         // A report already in a guardian's hands is corrected rather than left
         // standing (FR-037).
         Event::listen(AttendanceOverridden::class, SendAttendanceCorrection::class);
+
+        // The instant absence alert — the register is final, and a student
+        // marked absent is told now, with their guardians, rather than after
+        // the report's delay. Heard on the confirmation ONLY: an override
+        // afterwards is the report's correction, not a second alert.
+        Event::listen(AttendanceConfirmed::class, SendAbsenceAlerts::class);
 
         // Ingest starts when the session closes, not when the room does: the
         // provider needs the session over before it has anything to hand back.

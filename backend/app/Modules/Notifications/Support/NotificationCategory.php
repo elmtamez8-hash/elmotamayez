@@ -165,7 +165,6 @@ enum NotificationCategory: string
                 NotificationType::TeacherOffboardingNotice,
             ],
             self::Balance => [
-                NotificationType::PaymentReminder,
                 NotificationType::PaymentConfirmed,
                 NotificationType::PaymentFailed,
                 NotificationType::PaymentReversed,

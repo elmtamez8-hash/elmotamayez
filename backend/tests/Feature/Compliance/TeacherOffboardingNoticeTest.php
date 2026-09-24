@@ -53,6 +53,9 @@ it('tells every actively enrolled student, and the guardian who arranged the sch
 
     $active = offboardingNoticeStudent($course, EnrollmentStatus::Active);
     $alsoActive = offboardingNoticeStudent($otherCourse, EnrollmentStatus::Active);
+    // A completed enrolment keeps full access (`Enrollment::GRANTING_STATUSES`),
+    // so the teacher leaving ends something it still holds.
+    $completed = offboardingNoticeStudent($course, EnrollmentStatus::Completed);
     $finished = offboardingNoticeStudent($course, EnrollmentStatus::Cancelled);
 
     $scheduleGuardian = guardianOf($active, [GuardianPermission::Schedule]);
@@ -62,6 +65,7 @@ it('tells every actively enrolled student, and the guardian who arranged the sch
 
     assertNotifiedOnce($active, NotificationType::TeacherOffboardingNotice);
     assertNotifiedOnce($alsoActive, NotificationType::TeacherOffboardingNotice);
+    assertNotifiedOnce($completed, NotificationType::TeacherOffboardingNotice);
     assertNotifiedOnce($scheduleGuardian, NotificationType::TeacherOffboardingNotice);
 
     expect(wasNotified($finished, NotificationType::TeacherOffboardingNotice))->toBeFalse()

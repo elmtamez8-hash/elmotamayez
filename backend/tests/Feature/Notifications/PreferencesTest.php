@@ -96,7 +96,7 @@ it('refuses to switch off a mandatory type', function (): void {
 
     $this->putJson('/api/v1/notifications/preferences', [
         'preferences' => [[
-            'type' => NotificationType::PaymentReminder->value,
+            'type' => NotificationType::AccessWithheld->value,
             'channels' => [],
         ]],
     ])->assertStatus(422)->assertJsonValidationErrors('preferences.0.channels');

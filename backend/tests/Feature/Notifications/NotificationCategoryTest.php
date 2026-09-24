@@ -63,7 +63,7 @@ it('keeps what a student owes apart from what a teacher is owed', function (): v
     expect($balance)->toContain(NotificationType::AccessWithheld->value)
         ->and($balance)->not->toContain(NotificationType::TeacherPayoutIssued->value)
         ->and($settlement)->toContain(NotificationType::TeacherPayoutIssued->value)
-        ->and($settlement)->not->toContain(NotificationType::PaymentReminder->value)
+        ->and($settlement)->not->toContain(NotificationType::CreditBalanceLow->value)
         ->and(array_intersect($balance, $settlement))->toBeEmpty();
 });
 
