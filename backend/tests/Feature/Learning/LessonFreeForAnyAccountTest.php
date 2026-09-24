@@ -120,6 +120,10 @@ it('opens a free lesson for a signed-in account with no enrolment, at both doors
             ->assertOk()
             ->assertJsonPath('can_access', true)
             ->assertJsonPath('lesson.content', 'FREE_LESSON_BODY')
+            // Read through a relation — null for the stamped reader if the
+            // payload's eager load runs under the scope, and without it the page
+            // loses its curriculum rail and its break-report button.
+            ->assertJsonPath('lesson.course_uuid', (string) $this->course->uuid)
             // No enrolment behind it: the page draws no completion control and
             // the completion door has no enrolment uuid to be called with.
             ->assertJsonPath('enrollment_uuid', null);

@@ -423,7 +423,20 @@ class EnrollmentController extends Controller
         // query: the break-report door is addressed by (course, lesson), and a
         // lazy `$lesson->course` here would be one more SELECT on the one
         // endpoint that plays every lesson in the product.
-        $lesson->load(['section', 'chapter', 'attachments', 'course:id,uuid']);
+        //
+        // ⚠️ AND EVERY TENANT RELATION CARRIES THE BYPASS. A reader stamped on
+        // another teacher's workspace (`users.last_workspace_id`) resolves a
+        // context the scope then ANDs onto these reads: `course` came back null,
+        // so `course_uuid` was null and the page lost its curriculum rail and
+        // its break-report button — measured on the free-lesson door
+        // (`LessonFreeForAnyAccountTest`), and true of an enrolled stamped
+        // student before it. `attachments` is unscoped at the relation already.
+        $lesson->load([
+            'section' => fn ($query) => $query->withoutWorkspaceScope(),
+            'chapter' => fn ($query) => $query->withoutWorkspaceScope(),
+            'attachments',
+            'course' => fn ($query) => $query->withoutWorkspaceScope()->select('id', 'uuid'),
+        ]);
 
         // A draft or archived item answers 404, not a payload with a reason.
         //
