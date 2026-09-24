@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Jobs;
 
+use App\Modules\LiveSessions\Events\SessionRescheduleExpired;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\LiveSessions\Support\PendingRescheduleRequest;
 use App\Shared\Traits\RunsAlone;
@@ -30,6 +31,11 @@ use Throwable;
  * decision pressed one second before this pass reaches the row wins and this
  * pass matches nothing.
  *
+ * ⚠️ AND IT TELLS THE STUDENT, BEHIND THAT SAME `true`. An expiry used to be a
+ * silent status the student found only by reading «منتهٍ» on their timetable;
+ * `SessionRescheduleExpired` is dispatched by the winner alone, so the message
+ * goes out exactly once however many passes overlap.
+ *
  * `RunsAlone` for the reason every scheduled sweep carries it: the dispatch lock
  * guards the push, not the run. The per-row `try/catch` keeps one bad row from
  * killing the pass that exists to catch the others.
@@ -47,7 +53,12 @@ class ExpireSessionRescheduleRequestsJob implements ShouldQueue
             ->chunkById(200, function ($requests): void {
                 foreach ($requests as $request) {
                     try {
-                        PendingRescheduleRequest::settle($request, SessionRescheduleRequest::EXPIRED, null);
+                        // Only the pass that settled the row tells the student:
+                        // a teacher's answer that won by a second, or a second
+                        // sweep over an already-expired row, says nothing.
+                        if (PendingRescheduleRequest::settle($request, SessionRescheduleRequest::EXPIRED, null)) {
+                            SessionRescheduleExpired::dispatch($request->refresh());
+                        }
                     } catch (Throwable $e) {
                         report($e);
                     }

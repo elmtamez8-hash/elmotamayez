@@ -32,9 +32,33 @@ use RuntimeException;
  */
 class TermsConsentController extends Controller
 {
-    public function index(Request $request, ConsentRegistry $registry): JsonResponse
+    public function index(Request $request, ConsentRegistry $registry, GuardianDirectory $guardians): JsonResponse
     {
-        return response()->json(['data' => $this->stateFor($this->currentUser($request), $registry)]);
+        $reader = $this->currentUser($request);
+
+        if ($request->string('student')->toString() === '') {
+            return response()->json(['data' => $this->stateFor($reader, $registry)]);
+        }
+
+        /*
+        | ⚠️ A GUARDIAN READING FOR A CHILD SEES THE DEFERRED-PAYMENT TERMS ALONE.
+        | The read is resolved through the same `studentFor()` the signature uses,
+        | with the same permission (`Payments`) — two spellings of «who may see
+        | this child's outstanding terms» would put one answer on the card and
+        | another at the POST. And the data-processing row is left out rather than
+        | shown: it is asked under a DIFFERENT permission (`DataRights`) and has
+        | its own screen on `/family`, so reporting it here would tell a guardian
+        | holding only the payments consent about a document they cannot sign.
+        */
+        $document = ConsentDocument::DeferredPaymentTerms;
+        $student = $this->studentFor($request, $reader, $guardians, $document);
+
+        $state = array_values(array_filter(
+            $this->stateFor($student, $registry),
+            static fn (array $row): bool => $row['document'] === $document->value,
+        ));
+
+        return response()->json(['data' => $state]);
     }
 
     public function store(
@@ -62,8 +86,19 @@ class TermsConsentController extends Controller
         }
 
         // The state after signing, in the same shape as the GET, so the screen
-        // re-renders from the response instead of asking again.
-        return response()->json(['data' => $this->stateFor($student, $registry)], 201);
+        // re-renders from the response instead of asking again — and for a
+        // guardian signing for a child, the same one-document shape their GET
+        // answered, or the card would suddenly list a document it never offered.
+        $state = $this->stateFor($student, $registry);
+
+        if ($student->getKey() !== $signer->getKey()) {
+            $state = array_values(array_filter(
+                $state,
+                static fn (array $row): bool => $row['document'] === $document->value,
+            ));
+        }
+
+        return response()->json(['data' => $state], 201);
     }
 
     /**
