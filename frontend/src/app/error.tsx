@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import Link from "next/link";
+
+import { reloadOnceForStaleChunk } from "@/lib/stale-chunk";
 
 /**
  * The screen for a client-side exception, which the product did not have.
@@ -40,6 +42,12 @@ import Link from "next/link";
  * reload is offered beside the retry rather than instead of it — retrying for
  * ever against a chunk that no longer exists is the loop this pairing avoids.
  *
+ * ⚠️ AND A FAILED CHUNK NO LONGER WAITS FOR SOMEBODY TO PRESS IT. Measured on
+ * production 2026-09-24: every tab open across a deploy landed here, and we
+ * deploy several times a day. So a chunk failure reloads the document ONCE by
+ * itself (`lib/stale-chunk.ts`, guarded so it can never loop); a second one
+ * inside the guard window falls through to this screen, buttons and all.
+ *
  * ⚠️ AND THERE IS DELIBERATELY NO `global-error.tsx`. That file must render its
  * own `<html>` and `<body>`, and this repository has exactly one root layout on
  * purpose — «adding a second `<html>` anywhere re-splits the product». It would
@@ -63,7 +71,15 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [reloading, setReloading] = useState(false);
+
   useEffect(() => {
+    if (reloadOnceForStaleChunk(error)) {
+      setReloading(true);
+
+      return;
+    }
+
     /*
       ⚠️ THE CONSOLE LINE IS FOR THE PERSON HELPING, NOT FOR US — nothing here
       ships errors anywhere, and this file is not the place to start doing it.
@@ -73,6 +89,16 @@ export default function Error({
     */
     console.error("[error boundary]", error);
   }, [error]);
+
+  if (reloading) {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-2xl items-center justify-center px-6 py-16 text-center">
+        <p className="text-sm text-ink-muted" role="status">
+          جارٍ تحميل أحدث نسخة من الموقع…
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-16 text-center">
