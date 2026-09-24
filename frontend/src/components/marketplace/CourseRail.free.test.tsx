@@ -8,12 +8,14 @@ import { CourseRail } from "./CourseRail";
 | genuinely free course could not be entered at all.
 |
 | ⚠️ Drawn on the server's `free_enrollment` only. A guardian is NOT a student:
-| pressing the button would enrol the guardian, so they get the signup link.
+| pressing the button would enrol the guardian, so a signed-in guardian (or
+| teacher) is sent to their own home instead.
 */
 
 const post = vi.fn();
 const push = vi.fn();
 let mockUser: Record<string, unknown> | null = null;
+let mockLoading = false;
 
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
@@ -22,7 +24,7 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 vi.mock("@/lib/auth-context", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/auth-context")>()),
-  useAuth: () => ({ user: mockUser, loading: false }),
+  useAuth: () => ({ user: mockUser, loading: mockLoading }),
 }));
 
 vi.mock("@/components/marketplace/CourseOwnership", () => ({
@@ -40,6 +42,22 @@ const teacher = {
   trust_score: null,
   trust_score_band: "building",
 } as never;
+
+function RailWithFree() {
+  return (
+    <CourseRail
+      priceMinor={0}
+      currency={null}
+      courseUuid="c-1"
+      isFull={false}
+      freeEnrollment
+      enrolmentOpen
+      privateSubscriptionAvailable={false}
+      joinableGroup={false}
+      teacher={teacher}
+    />
+  );
+}
 
 function rail(freeEnrollment: boolean) {
   render(
@@ -60,6 +78,7 @@ function rail(freeEnrollment: boolean) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockUser = null;
+  mockLoading = false;
 });
 
 describe("the free course", () => {
@@ -74,14 +93,41 @@ describe("the free course", () => {
     expect(post).toHaveBeenCalledWith("/courses/c-1/enroll", {});
   });
 
-  it("sends a guest — and a guardian — to sign up, never enrolling them", () => {
+  it("sends a guest to sign up and back to this course", () => {
     rail(true);
-    expect(screen.getByRole("link", { name: "سجّل مجاناً" })).toBeTruthy();
 
+    expect(screen.getByRole("link", { name: "سجّل مجاناً" }).getAttribute("href")).toBe(
+      `/signup/student?next=${encodeURIComponent("/courses/c-1")}`,
+    );
+  });
+
+  it("sends a signed-in guardian or teacher home — never to the signup page, never enrolling them", () => {
+    /*
+    | ⚠️ A person with an account was being asked to make a second one. The door
+    | refuses to enrol either of them, so the button says so and goes home.
+    */
     mockUser = { platform_role: "parent" };
-    rail(true);
+    const { unmount } = render(<RailWithFree />);
+
     expect(screen.queryByRole("button", { name: "سجّل مجاناً" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "سجّل مجاناً" })).toBeNull();
+    expect(screen.getByRole("link", { name: "العودة إلى صفحتك" }).getAttribute("href")).toBe("/teachers");
+    unmount();
+
+    mockUser = { platform_role: "teacher", workspaces: [{ uuid: "w-1", name: "w" }] };
+    render(<RailWithFree />);
+
+    expect(screen.getByRole("link", { name: "العودة إلى صفحتك" }).getAttribute("href")).toBe("/dashboard");
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it("draws nothing while the session is still being restored", () => {
+    mockLoading = true;
+
+    rail(true);
+
+    expect(screen.queryByText("سجّل مجاناً")).toBeNull();
+    expect(screen.queryByText("العودة إلى صفحتك")).toBeNull();
   });
 
   it("keeps the ordinary button on a course that is not free", () => {

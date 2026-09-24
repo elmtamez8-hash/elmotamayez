@@ -74,6 +74,8 @@ class UpdateAccountDetails extends Action
                     'name' => $user->name,
                     'event' => 'تغيّر البريد الإلكتروني المسجَّل لحسابك. إن لم تكن أنت من غيّره، غيّر كلمة المرور فوراً وأنهِ الجلسات التي لا تعرفها.',
                 ],
+                // Where the reader can see every signed-in device and end one.
+                actionUrl: '/settings/security',
             ));
         }
 

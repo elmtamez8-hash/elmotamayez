@@ -79,8 +79,10 @@ it('sends the template name and its parameters in their declared order', functio
             // placeholders, so a list built by walking the payload — whose key
             // order is whatever a listener happened to write — puts the student's
             // name where the duration belongs, in a message to their parent, with
-            // no error anywhere.
-            && $parameters === ['حصّة الجبر', 'سلمى', 'حاضرة', '45', 'أداء جيّد'];
+            // no error anywhere. And the order is the BODY's: «حالة {{ student_name }}
+            // في حصة «{{ title }}»» reads the child first — this line pinned the
+            // lesson first until 2026-09-24 (`TemplateVariableOrderTest`).
+            && $parameters === ['سلمى', 'حصّة الجبر', 'حاضرة', '45', 'أداء جيّد'];
     });
 });
 

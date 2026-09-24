@@ -70,6 +70,13 @@ it('moves the address, drops its verification and tells the owner', function ():
     expect($fresh->email)->toBe('huda.new@example.com')
         ->and($fresh->email_verified_at)->toBeNull()
         ->and(securityAlertsFor($user))->toBe(1);
+
+    // The alert carries the door to the devices screen — «if this was not you»
+    // is only actionable from there.
+    expect(Notification::query()
+        ->where('recipient_user_id', $user->getKey())
+        ->where('type', NotificationType::SecurityAlert->value)
+        ->value('action_url'))->toBe('/settings/security');
 });
 
 it('asks nothing of a name change', function (): void {

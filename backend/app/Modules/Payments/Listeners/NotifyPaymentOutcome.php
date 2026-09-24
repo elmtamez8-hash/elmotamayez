@@ -34,26 +34,41 @@ class NotifyPaymentOutcome implements ShouldHandleEventsAfterCommit, ShouldQueue
 
     public function handleCaptured(PaymentCaptured $event): void
     {
+        $order = $event->order;
+
+        /*
+        | ⚠️ `describe()`, never `course->title ?? ''`. A credit, store or
+        | subscription order carries no course, and the template REQUIRES this
+        | variable — so the empty string refused the whole message and the payer
+        | of every non-course order was never told their money arrived.
+        */
         $this->dispatch->handle(new NotificationRequest(
-            recipient: $event->order->user,
+            recipient: $order->user,
             type: NotificationType::PaymentConfirmed,
-            variables: ['course' => $event->order->course->title ?? ''],
-            workspaceId: $event->order->workspace_id,
+            variables: ['course' => $this->describe($order)],
+            // Where the thing bought now lives — the same rule as an approved receipt.
+            actionUrl: $order->kind === OrderKind::Store ? '/store' : '/billing',
+            workspaceId: $order->workspace_id,
         ));
     }
 
     public function handleFailed(PaymentFailed $event): void
     {
+        $order = $event->order;
+
         $this->dispatch->handle(new NotificationRequest(
-            recipient: $event->order->user,
+            recipient: $order->user,
             type: NotificationType::PaymentFailed,
             variables: [
-                'course' => $event->order->course->title ?? '',
+                'course' => $this->describe($order),
                 // FR-008 — the sentence the student reads. Never the provider's
                 // raw error, which names systems they have no relationship with.
                 'reason' => $event->reason ?? 'سبب غير محدَّد من مزوّد الدفع.',
             ],
-            workspaceId: $event->order->workspace_id,
+            // The order row is where the attempt lives and where it is retried —
+            // the same destination a rejected receipt points at.
+            actionUrl: '/orders',
+            workspaceId: $order->workspace_id,
         ));
     }
 

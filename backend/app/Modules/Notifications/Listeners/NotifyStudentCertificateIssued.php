@@ -8,7 +8,9 @@ use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Scopes\WorkspaceScope;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Support\Facades\Log;
 
 class NotifyStudentCertificateIssued implements ShouldQueue
 {
@@ -25,10 +27,27 @@ class NotifyStudentCertificateIssued implements ShouldQueue
             return;
         }
 
-        // course_id is nullable on the certificate, and the template does not
-        // require the title — a certificate whose course was removed is still
-        // worth telling the student about, by its number.
-        $course = $certificate->course;
+        /*
+        | ⚠️ REFUSE, DON'T SEND A GAP. The body prints «عن «{{ course_title }}»»,
+        | and `course_id` is nullable on the certificate — so a certificate whose
+        | course was removed used to go out as «عن «»», a sentence naming nothing.
+        | The title is a REQUIRED template variable now, so an empty one would be
+        | refused by the renderer anyway; saying so here, with the certificate's
+        | id in the log, is what makes the silence findable. The certificate
+        | itself is issued and verifiable either way.
+        */
+        // ⚠️ Without the scope: the course belongs to the certificate's
+        // workspace, and a context that resolves elsewhere (a stamped student's
+        // `last_workspace_id`) would read null and skip a real certificate.
+        $course = $certificate->course()->withoutGlobalScope(WorkspaceScope::class)->first();
+
+        if ($course === null || (string) $course->title === '') {
+            Log::warning('[notifications] certificate_issued skipped: certificate has no course', [
+                'certificate_id' => $certificate->getKey(),
+            ]);
+
+            return;
+        }
 
         $this->dispatch->handle(new NotificationRequest(
             recipient: $student,
@@ -36,7 +55,7 @@ class NotifyStudentCertificateIssued implements ShouldQueue
             variables: [
                 'name' => $student->name,
                 'certificate_number' => $certificate->certificate_number,
-                'course_title' => $course === null ? '' : $course->title,
+                'course_title' => $course->title,
             ],
             actionUrl: '/certificates/verify/'.$certificate->verification_code,
             subject: $student,
