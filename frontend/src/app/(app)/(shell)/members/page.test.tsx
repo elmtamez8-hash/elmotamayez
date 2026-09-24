@@ -20,7 +20,7 @@ import MembersPage from "./page";
  * all. Offering either is a control that answers 403 — which this repository has
  * already paid for once, as a sidebar full of links a student could not open.
  */
-const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
+const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() }));
 const auth = vi.hoisted(() => ({ user: { permissions: ["members.update"] } }));
 
 /*
@@ -66,6 +66,7 @@ describe("MembersPage", () => {
   beforeEach(() => {
     api.get.mockReset();
     api.patch.mockReset();
+    api.delete.mockReset();
     auth.user = { permissions: ["members.update"] };
   });
 
@@ -137,5 +138,69 @@ describe("MembersPage", () => {
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/status 422/)).toBeNull();
+  });
+
+  /*
+   * ⛔ `DELETE …/members/{member}` HAD NO CALLER. The control is offered on
+   * `members.remove` — the name the door asks since this change — never on the
+   * owner's row, and it asks in a window before anything is sent.
+   */
+  describe("removal", () => {
+    it("asks first, sends nothing until confirmed, then deletes that member and reloads", async () => {
+      auth.user = { permissions: ["members.remove"] };
+      respond();
+      api.delete.mockResolvedValue(undefined);
+
+      render(<MembersPage />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "إزالة سارة" }));
+
+      // The question is on screen and nothing has left the browser yet.
+      expect(await screen.findByText("إزالة سارة من فريقك؟")).toBeTruthy();
+      expect(api.delete).not.toHaveBeenCalled();
+
+      await userEvent.click(screen.getByRole("button", { name: "أزِله" }));
+
+      await waitFor(() =>
+        expect(api.delete).toHaveBeenCalledWith("/workspaces/w-1/members/u-asst"),
+      );
+      expect(api.delete).toHaveBeenCalledTimes(1);
+      // Reloaded from the server: the initial pair of reads, then a second pair.
+      await waitFor(() => expect(api.get).toHaveBeenCalledTimes(4));
+    });
+
+    it("never offers it on the owner's row, nor to a reader without members.remove", async () => {
+      auth.user = { permissions: ["members.remove"] };
+      respond();
+
+      const { unmount } = render(<MembersPage />);
+
+      await screen.findByRole("button", { name: "إزالة سارة" });
+      expect(screen.queryByRole("button", { name: "إزالة هدى" })).toBeNull();
+      unmount();
+
+      // `members.update` and `members.invite` are different questions; neither
+      // is the one the door asks before removing somebody.
+      auth.user = { permissions: ["members.update", "members.invite"] };
+      respond();
+      render(<MembersPage />);
+
+      await screen.findByText("سارة");
+      expect(screen.queryByRole("button", { name: /إزالة/ })).toBeNull();
+    });
+
+    it("shows the server's refusal as a sentence, never raw", async () => {
+      auth.user = { permissions: ["members.remove"] };
+      respond();
+      api.delete.mockRejectedValue(new Error("Request failed with status 403"));
+
+      render(<MembersPage />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "إزالة سارة" }));
+      await userEvent.click(await screen.findByRole("button", { name: "أزِله" }));
+
+      expect(await screen.findByRole("alert")).toBeTruthy();
+      expect(screen.queryByText(/status 403/)).toBeNull();
+    });
   });
 });

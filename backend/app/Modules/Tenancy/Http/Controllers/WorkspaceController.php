@@ -121,7 +121,7 @@ class WorkspaceController extends Controller
 
     public function removeMember(Request $request, Workspace $workspace, User $member, RemoveMember $action): JsonResponse
     {
-        $this->authorize('manageMembers', $workspace);
+        $this->authorize('removeMember', $workspace);
 
         if ($workspace->isOwnedBy($member)) {
             return response()->json(['message' => 'لا يمكن إزالة صاحب مساحة العمل.'], 422);

@@ -83,6 +83,31 @@ class WorkspacePolicy extends BasePolicy
     }
 
     /**
+     * Taking somebody out of the workspace.
+     *
+     * ⚠️ `members.remove`, NOT `members.invite` — and until this method existed
+     * the first was read by nothing at all. Removal went through
+     * {@see manageMembers()}, which asks the INVITE permission, so the name an
+     * owner ticks on the roles screen to delegate removal did nothing and the one
+     * that delegated inviting silently delegated removal with it. The screen now
+     * offers «إزالة» on `members.remove`; the door has to ask the same name or
+     * the button and the refusal disagree.
+     *
+     * Membership first, for the reason {@see manageMembers()} gives: `can()`
+     * answers for the CURRENT team, not for `$workspace`.
+     */
+    public function removeMember(User $user, Workspace $workspace): Response
+    {
+        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
+            return Response::deny('You do not belong to this workspace.');
+        }
+
+        return $user->can(Permissions::MEMBERS_REMOVE)
+            ? Response::allow()
+            : Response::deny('You are not authorized to remove workspace members.');
+    }
+
+    /**
      * Switch how this workspace collects (spec 006, FR-011).
      *
      * ⚠️ THE ONLY CALLER THAT REACHES THE `allow` BRANCH TODAY NEVER RUNS THIS

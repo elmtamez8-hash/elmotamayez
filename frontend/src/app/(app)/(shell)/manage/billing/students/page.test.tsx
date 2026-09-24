@@ -32,6 +32,8 @@ vi.mock("@/lib/billing", () => ({
   formatCredits: (n: number) => String(n),
 }));
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => auth }));
+// «راسِل» sits in the student cell and asks the router for the thread it opens.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 /*
  * ⚠️ THE LABELS ARE MATCHED BY REGEX, NOT BY AN EXACT STRING. `Field` appends a

@@ -128,6 +128,33 @@ it('shows reviews on the public profile under a shortened student name', functio
         ->and($payload['items'][0])->not->toHaveKey('email');
 });
 
+/*
+| FR-034 from the screen's side. The report route took a review uuid while the
+| public profile published none, so «إبلاغ» had nothing to post — a route no
+| client could reach. The round trip is the assertion: the uuid read off the
+| profile is the one the report door accepts.
+*/
+it('publishes each review uuid, and that uuid is what the report route accepts', function (): void {
+    $student = studentWhoAttendedWith($this->teacher);
+    postReview($student, $this->teacher->uuid, 2, 'rude comment');
+
+    $this->asGuest();
+    $items = $this->getJson("/api/v1/marketplace/teachers/{$this->teacher->uuid}")->json('data.reviews.items');
+    $uuid = $items[0]['uuid'] ?? null;
+
+    expect($uuid)->toBeString()->not->toBe('');
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $this->postJson("/api/v1/reviews/{$uuid}/report", ['reason' => 'spam'])
+        ->assertStatus(202);
+
+    $this->assertDatabaseHas('moderation_actions', [
+        'subject_type' => 'review',
+        'reason' => 'spam',
+    ]);
+});
+
 it('drops a hidden review from the public payload and the average', function (): void {
     $kept = studentWhoAttendedWith($this->teacher);
     $hidden = studentWhoAttendedWith($this->teacher);

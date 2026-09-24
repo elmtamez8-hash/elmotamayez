@@ -63,6 +63,8 @@ export type TeacherCard = {
 };
 
 export type ReviewItem = {
+  /** What «إبلاغ» posts to `/reviews/{uuid}/report`; names the review, nobody behind it. */
+  uuid: string;
   student_display_name: string;
   // Null far more often than not — a student who never uploaded one. Initials
   // are the designed fallback, not a placeholder waiting to be replaced.

@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { Workspace } from "./types";
 
 /**
  * The private chat (spec 010 · US2).
@@ -119,6 +120,26 @@ export const conversations = {
       workspace: workspaceUuid,
       ...(studentUuid ? { student: studentUuid } : {}),
     }),
+
+  /**
+   * «راسِل» — the teacher's side opening (or reopening) the thread with one of
+   * their students.
+   *
+   * ⚠️ THE WORKSPACE IS THE ONE THE API IS ACTING IN, read from `/workspaces`
+   * exactly as the team screen reads it, never assumed from a list the student
+   * row came from. The server decides whether this student is theirs
+   * (`ConversationPolicy::post()` — an active enrolment in that workspace), so
+   * a stranger's uuid is refused at the door rather than filtered here.
+   */
+  openWithStudent: async (studentUuid: string) => {
+    const workspaces = await api.get<{ data: Workspace[] }>("/workspaces");
+    const list = workspaces.data ?? [];
+    const current = list.find((w) => w.is_current) ?? list[0];
+
+    if (current === undefined) throw new Error("no workspace");
+
+    return conversations.start(current.uuid, studentUuid);
+  },
 
   /**
    * One page, oldest-first.
