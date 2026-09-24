@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Assessments\Events\AssignmentSubmitted;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Assessments\Support\AssignmentAudience;
 use App\Modules\Assessments\Support\AssignmentDeadline;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionContentAccess;
@@ -62,6 +63,20 @@ class SubmitAssignment extends Action
             && ! app(SessionContentAccess::class)
                 ->mayOpenSessionContent($student, (int) $assignment->class_session_id)) {
             throw new DomainException('محتوى هذه الحصة مقفول — افتحه بخصم حصة من رصيدك.');
+        }
+
+        /*
+        | ⛔ ٠٢٦ — THE AUDIENCE OF THE ITEM THAT PLACES IT, asked here and not
+        | only on the list: hiding a row is not a guard, and this Action is what
+        | every caller reaches. Above the deadline for the reason the session
+        | check is: a hidden homework must not answer «late».
+        |
+        | ⚠️ And the sentence reveals nothing — the row is already dropped from
+        | the curriculum and the list, so whoever reaches this line typed the
+        | uuid, and «this is for another group» would confirm it exists.
+        */
+        if (AssignmentAudience::hides($student, $assignment)) {
+            throw new DomainException('هذا الواجب غير متاح حالياً.');
         }
 
         if ($assignment->submission_type === Assignment::TYPE_FILE && $file === null) {

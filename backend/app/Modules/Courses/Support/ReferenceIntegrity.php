@@ -39,6 +39,7 @@ final class ReferenceIntegrity
     private const TARGETS = [
         'exam' => 'exams',
         'live_session' => 'class_sessions',
+        'assignment' => 'assignments',
     ];
 
     /**
@@ -60,7 +61,35 @@ final class ReferenceIntegrity
      */
     private const REQUIRED = [
         'exams' => ['status' => 'published'],
+        /*
+        | ⛔ THE DENOMINATOR GUARD FOR HOMEWORK, and it is this one line. An
+        | assignment item is completed only by a hand-in
+        | (`CompleteAssignmentLessonOnSubmission`), and `SubmitAssignment`
+        | refuses anything unpublished — so an item over a draft or a deleted
+        | assignment would sit in every student's denominator with nothing in the
+        | product able to complete it: capped below 100% for ever, no
+        | `CourseCompleted`, no certificate. Treated as missing, it drops out of
+        | `progressEligible()` for every student reader and is marked broken on
+        | the teacher's tree — the same road the exam takes.
+        */
+        'assignments' => ['status' => 'published'],
     ];
+
+    /**
+     * Targets that must belong to the SAME course as the item that places them.
+     *
+     * An exam and a session are placed by a picker that lists this course's
+     * rows and nothing else. An assignment's `course_id` is editable on
+     * `/manage/assignments` after it has been placed, and a homework moved to
+     * another course is one the students of THIS course can no longer see or
+     * hand in (`StudentScope` narrows by enrolment) — so its item would be in
+     * their denominator with nothing able to complete it. Asked at the read,
+     * for the reason the class docblock gives; `SaveAssignment` refuses the move
+     * too, so the teacher is told rather than finding a broken marker.
+     *
+     * @var list<string>
+     */
+    private const SAME_COURSE = ['assignments'];
 
     /**
      * Drops items whose target is gone — and items of a reference type that
@@ -104,6 +133,10 @@ final class ReferenceIntegrity
 
                             foreach (self::REQUIRED[$table] ?? [] as $column => $value) {
                                 $exists->where($table.'.'.$column, $value);
+                            }
+
+                            if (in_array($table, self::SAME_COURSE, true)) {
+                                $exists->whereColumn($table.'.course_id', 'lessons.course_id');
                             }
                         });
                 });
@@ -162,10 +195,19 @@ final class ReferenceIntegrity
                             $query->where($column, $value);
                         }
                     })
-                    ->pluck('id')->all();
+                    // id => course_id, so the same-course rule is asked here
+                    // exactly as `apply()` asks it.
+                    ->pluck(in_array($table, self::SAME_COURSE, true) ? 'course_id' : 'id', 'id')->all();
 
             foreach ($items as $lesson) {
-                if ($lesson->reference_id === null || ! in_array($lesson->reference_id, $live, true)) {
+                $referenceId = $lesson->reference_id;
+
+                $present = $referenceId !== null
+                    && array_key_exists($referenceId, $live)
+                    && (! in_array($table, self::SAME_COURSE, true)
+                        || (int) $live[$referenceId] === (int) $lesson->course_id);
+
+                if (! $present) {
                     $missing[(int) $lesson->getKey()] = true;
                 }
             }

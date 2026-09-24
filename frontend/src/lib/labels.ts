@@ -589,6 +589,8 @@ export const NOUNS = {
   attempts: { one: "محاولة واحدة", two: "محاولتان", few: "محاولات", many: "محاولة", other: "محاولة" },
   courses: { one: "كورس واحد", two: "كورسان", few: "كورسات", many: "كورساً", other: "كورس" },
   assignments: { one: "واجب واحد", two: "واجبان", few: "واجبات", many: "واجباً", other: "واجب" },
+  /** A mark out of N. After «من» spread it and override `two` with «درجتين». */
+  points: { one: "درجة واحدة", two: "درجتان", few: "درجات", many: "درجة", other: "درجة" },
   students: { one: "طالب واحد", two: "طالبان", few: "طلاب", many: "طالباً", other: "طالب" },
   seatsAvailable: {
     one: "مقعد واحد متاح",

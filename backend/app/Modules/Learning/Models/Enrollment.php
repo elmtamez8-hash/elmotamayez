@@ -79,10 +79,27 @@ class Enrollment extends BaseModel
         return $this->belongsTo(User::class, 'student_user_id');
     }
 
-    /** @return HasMany<LessonProgress, $this> */
+    /**
+     * This enrolment's own progress rows — keyed by `enrollment_id`, so the
+     * enrolment IS the guard and the workspace scope adds nothing but a way to
+     * be wrong.
+     *
+     * ⚠️ UNSCOPED, for the stamped student. `WorkspaceContext::id()` falls back to
+     * `users.last_workspace_id`, which is stamped on every student a teacher, an
+     * invitation or a seeder ever added to a workspace — so inside such a
+     * student's own request a scoped read ANDed ANOTHER workspace onto this
+     * relation and answered zero rows. `CourseProgress::completed()` reads it, so
+     * completing any lesson at a second teacher rewrote `progress_pct` to 0 and
+     * the course could never reach 100% (found by `AssignmentLessonTest`, whose
+     * hand-in runs that chain inside the student's request). The
+     * `Enrollment::course()` fix in spec 032, reached through the relation that
+     * hangs off it — the family CLAUDE.md records under «a scoped relation read».
+     *
+     * @return HasMany<LessonProgress, $this>
+     */
     public function progress(): HasMany
     {
-        return $this->hasMany(LessonProgress::class);
+        return $this->hasMany(LessonProgress::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     public function isActive(): bool

@@ -94,7 +94,7 @@ class ChangeLessonType extends Action
         // exactly the ambiguity a `reference_type` column would have created, got
         // in through the back door of "keeping" the value.
         if ($lesson->reference_id !== null) {
-            $losses[] = 'الاختبار أو الحصة المرتبطة';
+            $losses[] = 'الاختبار أو الحصة أو الواجب المرتبط';
         }
 
         if (LessonTypeRegistry::isCompletable($current) && ! LessonTypeRegistry::isCompletable($target)) {
