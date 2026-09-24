@@ -191,6 +191,13 @@ final class PublicFieldAllowlist
         | what the groups list shows.
         */
         'free_enrollment',
+        /*
+        | Whether anything on the page can be bought now — a joinable group or the
+        | private invitation. Derived from the two fields above, so it says
+        | nothing they do not already say; what it removes is a price and a
+        | button shown over a course nobody can buy.
+        */
+        'enrolment_open',
     ];
 
     /*

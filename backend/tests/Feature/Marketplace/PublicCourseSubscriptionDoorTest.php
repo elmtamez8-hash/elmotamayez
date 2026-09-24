@@ -269,3 +269,73 @@ it('does not offer free enrolment on a course with a one-off price', function ()
 
     expect(doorPayload($this->course)['free_enrollment'])->toBeFalse();
 });
+
+/*
+| Owner decision 2026-09-24 — a course is sold through a group or through the
+| private invitation, and through nothing else. `enrolment_open` is what lets
+| the rail stop showing a price and «سجّل في الكورس» over a course neither door
+| can honour («Arabic Calligraphy», 25 US$, no group and no plan).
+*/
+it('is closed for enrolment with no group and no plan, whatever the price', function (): void {
+    $this->course->forceFill(['price_minor' => 2_500])->save();
+
+    $payload = doorPayload($this->course);
+
+    // PRESENT, not merely allowlisted — `PublicExposureTest` cannot see a
+    // missing key, and a missing key reads as `undefined` ⇒ closed everywhere.
+    expect($payload)->toHaveKey('enrolment_open')
+        ->and($payload['enrolment_open'])->toBeFalse();
+});
+
+it('is open for enrolment when one group is joinable', function (): void {
+    cohortAt($this->course);
+
+    expect(doorPayload($this->course)['enrolment_open'])->toBeTrue();
+});
+
+it('is closed for enrolment when every group is full or closed', function (): void {
+    /*
+    | The groups ARE published (priced, so they appear with their states) and
+    | none can be joined — the count is the positive control that `cohorts` is
+    | not simply empty, which would pass this case against a build that reads
+    | nothing at all.
+    */
+    cohortAt($this->course, ['capacity' => 1, 'members_count' => 1]);
+    cohortAt($this->course, ['status' => Cohort::CLOSED]);
+
+    $payload = doorPayload($this->course);
+
+    expect($payload['cohorts'])->toHaveCount(2)
+        ->and($payload['enrolment_open'])->toBeFalse();
+});
+
+it('is open for enrolment through the private invitation alone', function (): void {
+    AvailabilitySlot::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'teacher_profile_id' => $this->teacher->getKey(),
+    ]);
+
+    Plan::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'price_minor' => 90_000,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    $payload = doorPayload($this->course);
+
+    expect($payload['cohorts'])->toBe([])
+        ->and($payload['private_subscription_available'])->toBeTrue()
+        ->and($payload['enrolment_open'])->toBeTrue();
+});
+
+it('is not opened by a group plan with no group to join with it', function (): void {
+    Plan::factory()->group()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'price_minor' => 45_000,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    expect(doorPayload($this->course)['enrolment_open'])->toBeFalse();
+});
