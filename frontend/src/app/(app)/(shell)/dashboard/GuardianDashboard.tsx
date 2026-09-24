@@ -52,6 +52,20 @@ export function GuardianDashboard() {
 
   useEffect(load, [load]);
 
+  /*
+    ⚠️ `?student=` يختارُ الابنَ الذي جاءَ الإشعارُ عنه. نسخةُ وليِّ الأمرِ من
+    إشعارِ الطالبِ تصلُ هنا (`GuardianActionUrl` في الخادم) بدلَ صفحةِ الطالبِ
+    التي لا يفتحُها وليُّ الأمر — ومن غيرِ هذا السطرِ يهبطُ على أوّلِ أبنائه
+    أبجديّاً، وهو غالباً ليس الابنَ الذي يسألُ عنه. يُقرَأُ بعدَ التركيبِ لا في
+    الحالةِ الابتدائيّة: الصفحةُ تُصيَّرُ على الخادمِ أوّلاً ولا `window` هناك.
+    ومعرِّفٌ ليس من أبنائه يسقطُ إلى الأوّلِ كما كان.
+  */
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("student");
+
+    if (wanted) setSelected(wanted);
+  }, []);
+
   const children = selectableChildren(relations);
   const current = children.find((child) => child.student_uuid === selected) ?? children[0];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { NotificationLink } from "@/components/notifications/NotificationLink";
 import { useCallback, useEffect, useState } from "react";
 
 import { userMessage } from "@/lib/errors";
@@ -77,12 +77,12 @@ export function LatestNotificationsCard() {
                 {row.action_url === null ? (
                   row.title
                 ) : (
-                  <Link
+                  <NotificationLink
                     href={row.action_url}
                     className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     {row.title}
-                  </Link>
+                  </NotificationLink>
                 )}
               </p>
               {/* غيرُ المقروءِ يُعلَّمُ بنصٍّ كذلك لا بلونٍ وحدَه: نقطةٌ ملوّنةٌ

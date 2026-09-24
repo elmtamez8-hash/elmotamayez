@@ -99,7 +99,9 @@ class AssignmentController extends Controller
             ->orderByDesc('due_at');
 
         if ($manages) {
-            $query->withCount([
+            // The course, so the edit form opens with the one it was set for. One
+            // eager load, never a lookup per row — the Resource reads it `whenLoaded`.
+            $query->with('course:id,uuid,title')->withCount([
                 'submissions as submitted_count' => fn (Builder $q): Builder => $q->whereNotNull('submitted_at'),
                 'submissions as pending_count' => fn (Builder $q): Builder => $q->whereNotNull('submitted_at')->whereNull('graded_at'),
             ]);
@@ -187,12 +189,12 @@ class AssignmentController extends Controller
         }
 
         try {
-            $assignment = $action->handle($workspaceId, $this->currentUser($request), $request->validated());
+            $assignment = $action->handle($workspaceId, $this->currentUser($request), $request->actionData());
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(['data' => AssignmentResource::make($assignment)], 201);
+        return response()->json(['data' => AssignmentResource::make($assignment->load('course:id,uuid,title'))], 201);
     }
 
     public function update(SaveAssignmentRequest $request, Assignment $assignment, SaveAssignment $action): JsonResponse
@@ -203,14 +205,14 @@ class AssignmentController extends Controller
             $assignment = $action->handle(
                 (int) $assignment->workspace_id,
                 $this->currentUser($request),
-                $request->validated(),
+                $request->actionData($assignment),
                 $assignment,
             );
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        return response()->json(['data' => AssignmentResource::make($assignment)]);
+        return response()->json(['data' => AssignmentResource::make($assignment->load('course:id,uuid,title'))]);
     }
 
     public function publish(Request $request, Assignment $assignment, SaveAssignment $action): JsonResponse

@@ -60,6 +60,27 @@ export interface Assignment {
 
 type Meta = { total: number; current_page: number; last_page: number };
 
+/**
+ * What `POST /manage/assignments` and `PATCH /manage/assignments/{uuid}` take —
+ * the keys of `SaveAssignmentRequest::rules()`, and `AssignmentForm.test.tsx`
+ * reads that file so the two cannot drift apart.
+ *
+ * `course_uuid` null means «every student of mine», a real shape (`StudentScope`
+ * reads a course-less assignment workspace-wide). `due_at` may be null on a
+ * draft; the server refuses to PUBLISH one without it.
+ */
+export interface AssignmentInput {
+  title: string;
+  description: string | null;
+  points: number;
+  due_at: string | null;
+  course_uuid: string | null;
+  submission_type: "text" | "file";
+  late_policy: "accept" | "reject" | "penalty";
+  late_penalty_pct_per_day: number;
+  late_penalty_cap_pct: number;
+}
+
 export interface AssignmentFilterOptions {
   teachers: { uuid: string; label: string }[];
   courses: { uuid: string; label: string }[];
@@ -130,6 +151,11 @@ export const assignments = {
       score,
       feedback,
     }),
+
+  create: (body: AssignmentInput) => api.post<{ data: Assignment }>("/manage/assignments", body),
+
+  update: (uuid: string, body: AssignmentInput) =>
+    api.patch<{ data: Assignment }>(`/manage/assignments/${uuid}`, body),
 
   publish: (uuid: string) => api.post<{ data: Assignment }>(`/manage/assignments/${uuid}/publish`),
 };

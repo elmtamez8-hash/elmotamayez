@@ -62,7 +62,11 @@ import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses"
   should never have made. Video renders here now, like every other uploaded kind.
 */
 const PENDING: Partial<Record<LessonTypeValue, string>> = {
-  assignment: "الواجبات تصل مع بنك الأسئلة.",
+  // The homework itself IS creatable — on /manage/assignments. What does not
+  // exist yet is a curriculum item pointing at one: the server still refuses the
+  // type (`LessonTypeRegistry` · `implemented: false`), and nothing lists
+  // assignments as reference targets. So the sentence names where to go.
+  assignment: "الواجب لا يُربَط بالمنهج بعد — أنشئه من صفحة «الواجبات».",
 };
 
 /**
@@ -84,7 +88,7 @@ const TYPE_OPTIONS: Array<{ value: LessonTypeValue; label: string; disabled?: bo
   { value: "file", label: "ملف" },
   { value: "exam", label: "اختبار" },
   { value: "live_session", label: "حصة مباشرة" },
-  { value: "assignment", label: "واجب — يصل مع بنك الأسئلة", disabled: true },
+  { value: "assignment", label: "واجب — يُنشأ من صفحة «الواجبات»", disabled: true },
 ];
 
 /**

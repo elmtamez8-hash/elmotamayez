@@ -493,6 +493,30 @@ describe("DashboardPage · وليّ الأمر", () => {
     expect(paths.some((p) => p.startsWith("/schedule/children"))).toBe(true);
   });
 
+  /*
+  | ⚠️ `?student=` IS WHERE A GUARDIAN'S NOTIFICATION LANDS (`GuardianActionUrl`),
+  | and the child it names must be the one shown. «أحمد» sorts before «كريم», so
+  | without the query read this opens on أحمد — the wrong child, silently — which
+  | is exactly what the assertion below would catch.
+  */
+  it("opens on the child a notification named in ?student=", async () => {
+    window.history.replaceState({}, "", "/dashboard?student=child-1");
+
+    try {
+      asGuardian([
+        relation(),
+        relation({ uuid: "rel-2", student_name: "أحمد", student_uuid: "child-2" }),
+      ]);
+
+      render(<DashboardPage />);
+
+      expect(await screen.findByText("حصص كريم القادمة")).toBeDefined();
+      expect(screen.queryByText("حصص أحمد القادمة")).toBeNull();
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
   it("omits a card whose permission was not granted, and never draws it empty", async () => {
     asGuardian([relation({ permissions: [{ key: "schedule", label: "المواعيد والحصص" }] })]);
 

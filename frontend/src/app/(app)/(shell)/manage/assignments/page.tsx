@@ -12,9 +12,13 @@ import { NumberField, TextareaField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { assignments, stateLabel, type Assignment, type Submission } from "@/lib/assignments";
 import { formatDateTime } from "@/lib/labels";
+import type { Course } from "@/lib/types";
+
+import { AssignmentForm } from "./AssignmentForm";
 
 /**
  * The teacher's homework: what is set, and what is waiting to be marked.
@@ -28,6 +32,13 @@ export default function ManageAssignmentsPage() {
   const [items, setItems] = useState<Assignment[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [open, setOpen] = useState<string | null>(null);
+  // `"new"`, the assignment being edited, or nothing — one form on the page.
+  const [editing, setEditing] = useState<Assignment | "new" | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  // A refused publish, against the row that was refused. It used to be
+  // `.catch(() => load())`: the server's «واجبٌ بلا موعد لا يُنشر» was thrown
+  // away and the teacher watched the button do nothing.
+  const [publishError, setPublishError] = useState<{ uuid: string; message: string } | null>(null);
 
   const load = useCallback(() => {
     setState("loading");
@@ -44,6 +55,29 @@ export default function ManageAssignmentsPage() {
 
   useEffect(load, [load]);
 
+  // The course picker. A failure leaves it empty, which still offers «كل طلابي»
+  // — the form stays usable rather than blocked on a list.
+  useEffect(() => {
+    api
+      .get<{ data: Course[] }>("/courses")
+      .then((response) => setCourses(response.data ?? []))
+      .catch(() => setCourses([]));
+  }, []);
+
+  const publish = (uuid: string) => {
+    setPublishError(null);
+
+    assignments
+      .publish(uuid)
+      .then(load)
+      .catch((cause: unknown) => setPublishError({ uuid, message: userMessage(cause) }));
+  };
+
+  const saved = () => {
+    setEditing(null);
+    load();
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
@@ -52,12 +86,24 @@ export default function ManageAssignmentsPage() {
         description="ما نشرته لطلابك، وكم سلّم منهم، وما ينتظر تصحيحك."
       />
 
+      {editing === null ? (
+        <Button onClick={() => setEditing("new")}>واجب جديد</Button>
+      ) : (
+        <AssignmentForm
+          key={editing === "new" ? "new" : editing.uuid}
+          editing={editing === "new" ? null : editing}
+          courses={courses}
+          onSaved={saved}
+          onCancel={() => setEditing(null)}
+        />
+      )}
+
       {state === "loading" && <RowsSkeleton count={3} />}
       {state === "error" && <ErrorState onRetry={load} />}
       {state === "empty" && (
         <EmptyState
           title="لا واجبات بعد"
-          description="الواجب يُنشأ من صفحة الحصة أو الكورس، ويظهر هنا فور نشره."
+          description="اضغط «واجب جديد» لتكتب أوّل واجب. يُحفَظ مسوّدةً لا يراها الطلاب حتى تنشره."
         />
       )}
 
@@ -94,12 +140,21 @@ export default function ManageAssignmentsPage() {
               {assignment.status !== "published" && (
                 <Button
                   variant="ghost"
-                  onClick={() => assignments.publish(assignment.uuid).then(load).catch(() => load())}
+                  onClick={() => publish(assignment.uuid)}
                 >
                   انشره
                 </Button>
               )}
+              <Button variant="ghost" onClick={() => setEditing(assignment)}>
+                عدّل
+              </Button>
             </div>
+
+            {publishError !== null && publishError.uuid === assignment.uuid && (
+              <div className="mt-3">
+                <Alert tone="danger" title={publishError.message} />
+              </div>
+            )}
 
             {open === assignment.uuid && (
               <SubmissionList assignmentUuid={assignment.uuid} points={assignment.points} />

@@ -61,7 +61,7 @@ it('refuses to create an assignment item, naming what brings it', function (): v
         'type' => 'assignment',
     ])->assertStatus(422);
 
-    expect($response->json('message'))->toContain('بنك الأسئلة');
+    expect($response->json('message'))->toContain('لا يُربَط بالمنهج');
 });
 
 it('refuses to change an existing item into an assignment, with the same sentence', function (): void {
@@ -80,7 +80,7 @@ it('refuses to change an existing item into an assignment, with the same sentenc
         ['type' => 'assignment'],
     )->assertStatus(422);
 
-    expect($response->json('message'))->toContain('بنك الأسئلة');
+    expect($response->json('message'))->toContain('لا يُربَط بالمنهج');
 });
 
 it('fails if the assignment type is switched on without spec 008 behind it', function (): void {

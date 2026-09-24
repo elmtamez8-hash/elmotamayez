@@ -430,6 +430,25 @@ export function localDateTimeToIso(value: string): string {
   return Number.isNaN(at.getTime()) ? value : at.toISOString();
 }
 
+/**
+ * The reverse of {@link localDateTimeToIso}: an instant from the API, as the
+ * `YYYY-MM-DDTHH:mm` a `datetime-local` input accepts, in the browser's zone.
+ *
+ * ⚠️ The input refuses a full ISO string with a `Z` and stays EMPTY without an
+ * error, so an edit form fed `due_at` raw reads as «no deadline was ever set».
+ */
+export function isoToLocalDateTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+
+  const at = new Date(iso);
+
+  if (Number.isNaN(at.getTime())) return "";
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+}
+
 export function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("ar", {
     style: "currency",

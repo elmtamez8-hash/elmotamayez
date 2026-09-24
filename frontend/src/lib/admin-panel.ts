@@ -20,8 +20,11 @@ import { api } from "@/lib/api";
  * معقول، والتذكرةُ مصروفةٌ على أيِّ حالٍ فلا شيءَ يُعادُ استعمالُه بالزرِّ
  * الخلفيّ.
  */
-export async function openAdminPanel(): Promise<void> {
-  const { url } = await api.post<{ url: string }>("/auth/panel-ticket", {});
+export async function openAdminPanel(to?: string): Promise<void> {
+  // `to` is a path inside the panel, named HERE — on the authenticated POST —
+  // and never on the link that spends the ticket. The server drops anything
+  // that is not under `/admin`, so a stray value lands on the panel's root.
+  const { url } = await api.post<{ url: string }>("/auth/panel-ticket", to === undefined ? {} : { to });
 
   window.location.assign(url);
 }

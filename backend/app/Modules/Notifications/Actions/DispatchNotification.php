@@ -14,6 +14,7 @@ use App\Modules\Notifications\Jobs\DeliverNotificationJob;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Support\DeliveryStatus;
+use App\Modules\Notifications\Support\GuardianActionUrl;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Notifications\Support\PreferenceResolver;
@@ -110,7 +111,15 @@ class DispatchNotification extends Action
             'payload' => $request->variables,
             'title' => $rendered->title,
             'body' => $rendered->body,
-            'action_url' => $request->actionUrl,
+            /*
+            | ⚠️ PER RECIPIENT. Anyone in the resolved list who is not the
+            | primary recipient is a guardian — `RecipientResolver` adds nobody
+            | else — and the listener's link is the student's page, which a
+            | guardian cannot open (see GuardianActionUrl).
+            */
+            'action_url' => $recipient->is($request->recipient)
+                ? $request->actionUrl
+                : GuardianActionUrl::for($request->actionUrl, $request->subject ?? $request->recipient),
         ]);
 
         NotificationRequested::dispatch($notification);
