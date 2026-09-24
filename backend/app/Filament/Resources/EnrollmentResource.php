@@ -64,12 +64,46 @@ class EnrollmentResource extends Resource
                             ->label('الطالب')
                             ->relationship('student', 'email')
                             ->disabled(),
+                        // ⚠️ «ملغى» لا يُختارُ من هنا. الإلغاءُ يمرُّ بـ«عكس الدفعة» على
+                        // الطلب (`ReverseCourseOrder`)، وهو الذي يُطلِقُ
+                        // `CourseAccessWithdrawn` فتُحرَّرُ المقاعدُ ويخرجُ الطالبُ من
+                        // مجموعته — تعديلُ العمودِ وحدَه يتركُ الاثنين معلّقَين. وصفٌّ
+                        // مُلغى أصلاً يُعرَضُ بحالتِه ويُقفَلُ الحقل: إعادةُ فتحِه شراءٌ
+                        // جديد (`EnrollStudent::handOver()`)، لا تعديلُ حالة. والقائمةُ
+                        // المُرشَّحةُ تُشكِّلُ طلباً واحداً لا الذي يليه، فالحارسُ الثاني
+                        // في `EditEnrollment::mutateFormDataBeforeSave()`.
                         Select::make('status')
                             ->label('الحالة')
-                            ->options(EnrollmentStatus::options())
+                            ->options(fn (?Enrollment $record): array => self::statusOptionsFor($record))
+                            ->disabled(fn (?Enrollment $record): bool => self::isCancelled($record))
+                            ->helperText(fn (?Enrollment $record): ?string => self::isCancelled($record)
+                                ? 'أُلغِيَ هذا التسجيلُ بعكسِ دفعته، ولا يُعادُ فتحُه من هنا.'
+                                : null)
                             ->required(),
                     ]),
             ]);
+    }
+
+    /**
+     * كلُّ الحالاتِ عدا «ملغى» — إلّا لصفٍّ مُلغى أصلاً، فيُعرَضُ بحالتِه بدلَ
+     * أن يظهرَ الحقلُ فارغاً.
+     *
+     * @return array<string, string>
+     */
+    public static function statusOptionsFor(?Enrollment $record): array
+    {
+        $options = EnrollmentStatus::options();
+
+        if (! self::isCancelled($record)) {
+            unset($options[EnrollmentStatus::Cancelled->value]);
+        }
+
+        return $options;
+    }
+
+    public static function isCancelled(?Enrollment $record): bool
+    {
+        return $record?->status === EnrollmentStatus::Cancelled->value;
     }
 
     public static function table(Table $table): Table
