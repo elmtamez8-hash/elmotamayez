@@ -11,8 +11,10 @@ use App\Modules\LiveSessions\Actions\AssignSessionsToCohort;
 use App\Modules\LiveSessions\Actions\ClaimSubscriptionSeats;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Jobs\ClaimSubscriptionSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Models\Plan;
@@ -229,6 +231,41 @@ it('reports a full session instead of taking somebody else’s seat', function (
         ->and($result['refused'])->toHaveCount(1)
         ->and((int) $full->refresh()->seats_taken)->toBe(1)
         ->and(bookingFor($full, $classmate)->status)->toBe(BookingStatus::Booked);
+});
+
+it('tells the subscriber and the teacher about a seat it could not take', function (): void {
+    $full = cohortSessionAt(CarbonImmutable::now()->addDays(7), seatsTotal: 1);
+    $classmate = User::factory()->create(['last_workspace_id' => null]);
+
+    app(WorkspaceContext::class)->forWorkspace($this->workspace, function () use ($full, $classmate): void {
+        SessionBooking::query()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'class_session_id' => $full->getKey(),
+            'student_user_id' => $classmate->getKey(),
+            'status' => BookingStatus::Booked,
+            'is_billable' => true,
+            'booked_at' => now(),
+        ]);
+
+        $full->forceFill(['seats_taken' => 1])->save();
+    });
+
+    // Through the JOB, which is where the announcement lives — the Action above
+    // returns the refusals and tells nobody.
+    ClaimSubscriptionSeatsJob::dispatchSync(
+        (int) $this->workspace->getKey(),
+        (int) $this->student->getKey(),
+        (int) $this->course->getKey(),
+        (int) $this->cohort->getKey(),
+        $this->windowEnd->toIso8601String(),
+    );
+
+    // A paid month that could not be seated is news the student must have, and
+    // the teacher is the only one who can widen the capacity (FR-042).
+    assertNotifiedOnce($this->student, NotificationType::SubscriptionSeatUnavailable);
+    assertNotifiedOnce($this->owner, NotificationType::SubscriptionSeatUnavailable);
+
+    expect(wasNotified($classmate, NotificationType::SubscriptionSeatUnavailable))->toBeFalse();
 });
 
 it('takes a seat for a subscriber whose credit balance is zero', function (): void {

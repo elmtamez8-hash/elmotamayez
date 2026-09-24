@@ -41,6 +41,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Data\NotificationEnvelope;
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\MessageTemplate;
+use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Data\CreditMovement;
@@ -1354,6 +1355,47 @@ function fakeWebPush(array $statuses = [], int $default = 201): FakeWebPush
     app()->instance(WebPush::class, $fake);
 
     return $fake;
+}
+
+/**
+ * The ONE notification of this type the recipient holds, asserted delivered and
+ * rendered.
+ *
+ * ⚠️ RENDERED IS THE HALF THAT MATTERS. `TemplateRenderer` refuses a payload that
+ * is missing a template variable and `DispatchNotification` logs rather than
+ * failing, so a listener that forgets one key delivers NOTHING — and a test that
+ * only asserted the listener ran would be green over it. The row existing proves
+ * the render succeeded; a `{{` left in the body proves a key the template never
+ * declared was relied on.
+ *
+ * Here rather than in a test file: every file of `EveryNotificationTypeIsTestedTest`'s
+ * coverage calls it, and a Pest helper is a global function.
+ */
+function assertNotifiedOnce(User $recipient, NotificationType $type): Notification
+{
+    $rows = Notification::query()
+        ->where('recipient_user_id', $recipient->getKey())
+        ->where('type', $type->value)
+        ->get();
+
+    expect($rows)->toHaveCount(1);
+
+    $row = $rows->sole();
+
+    expect((string) $row->title)->not->toBe('')
+        ->and((string) $row->body)->not->toBe('')
+        ->and((string) $row->title.(string) $row->body)->not->toContain('{{');
+
+    return $row;
+}
+
+/** Whether this person holds any notification of this type at all. */
+function wasNotified(User $recipient, NotificationType $type): bool
+{
+    return Notification::query()
+        ->where('recipient_user_id', $recipient->getKey())
+        ->where('type', $type->value)
+        ->exists();
 }
 
 function envelopeFor(User $user, NotificationType $type = NotificationType::SessionReport): NotificationEnvelope

@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Jobs\ClaimSubscriptionSeatsJob;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\SendSessionReportsJob;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Enums\PlanCoverage;
@@ -24,6 +25,7 @@ use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -191,6 +193,22 @@ it('still writes a subscription, a membership and a seat for a plan sold by the 
     // ⚠️ AND THE SEAT CLAIM IS TRIGGERED. It is dispatched with the
     // subscription's end date — exactly the argument the hours shape has none of.
     Queue::assertPushed(ClaimSubscriptionSeatsJob::class);
+});
+
+it('tells the hours buyer and the paying guardian that the plan is active', function (): void {
+    $payer = guardianOf($this->student, [GuardianPermission::Payments]);
+    $scheduleOnly = guardianOf($this->student, [GuardianPermission::Schedule]);
+
+    sessionPlanBought(sessionPlanShaped(bySessions: true));
+
+    // `session_plan_activated`, not `subscription_activated`: the hours shape
+    // writes no subscription row, so the month's wording would promise a window
+    // that does not exist.
+    assertNotifiedOnce($this->student, NotificationType::SessionPlanActivated);
+    assertNotifiedOnce($payer, NotificationType::SessionPlanActivated);
+
+    expect(wasNotified($scheduleOnly, NotificationType::SessionPlanActivated))->toBeFalse()
+        ->and(wasNotified($this->student, NotificationType::SubscriptionActivated))->toBeFalse();
 });
 
 it('gives the hours buyer an enrolment and a membership too', function (): void {
