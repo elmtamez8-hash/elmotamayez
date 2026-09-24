@@ -18,6 +18,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 
@@ -218,6 +219,16 @@ it('refuses the member the unlock gate refuses, and seats the classmate beside t
     expect(seatsHeldBy($gated))->toBe(0)
         ->and(seatsHeldBy($clear))->toBe(1)
         ->and($session->refresh()->seats_taken)->toBe(1);
+
+    /*
+    | ⚠️ AND NOBODY IS TOLD, DELIBERATELY. `BookSubscribersOnScheduled` announces
+    | a SUBSCRIBER's refusal only: a member paying by credit was promised nothing
+    | by this pass, and «تعذّر حجز مقعدك» at every one of them on every published
+    | schedule is a channel that gets muted. The subscriber's half — where the
+    | message IS sent — is measured in `SubscriptionSeatClaimTest`.
+    */
+    expect(wasNotified($gated, NotificationType::SubscriptionSeatUnavailable))->toBeFalse()
+        ->and(wasNotified($this->owner, NotificationType::SubscriptionSeatUnavailable))->toBeFalse();
 });
 
 it('leaves a seat the student already holds exactly as it was', function (): void {

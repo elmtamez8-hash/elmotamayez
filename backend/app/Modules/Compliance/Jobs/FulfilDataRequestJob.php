@@ -11,6 +11,9 @@ use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Exceptions\LegalHoldInForce;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Support\ComplianceSettings;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -139,6 +142,8 @@ class FulfilDataRequestJob implements ShouldQueue
                 // may open a new one, and NULL never collides with NULL.
                 'open_key' => null,
             ])->save();
+
+            $this->tellRequester($request);
         } catch (LegalHoldInForce $hold) {
             /*
             | ⚠️ A HOLD IS NOT A FAILURE, AND IT MUST NOT LOOK LIKE ONE. Left in
@@ -185,5 +190,39 @@ class FulfilDataRequestJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    /**
+     * The archive is ready (spec 013 · FR-026) — told to whoever asked, who is
+     * also the one person the download route lets through.
+     *
+     * ⚠️ AN EXPORT OR AN ACCESS ONLY. An erasure produces nothing to download,
+     * and the template says «open "my privacy" to download the file» — sent
+     * after an erasure it would point at an archive that does not exist, to an
+     * account that may itself have just been anonymised.
+     */
+    private function tellRequester(DataRequest $request): void
+    {
+        // Resolved here rather than injected into `handle()`, whose signature is
+        // called directly (`LogHygieneTest`): the notification is a consequence
+        // of the fulfilment, not an input to it.
+        $notifications = app(DispatchNotification::class);
+
+        $requester = $request->requester;
+        $subject = $request->subject;
+
+        if ($requester === null || $subject === null) {
+            return;
+        }
+
+        $notifications->handle(new NotificationRequest(
+            recipient: $requester,
+            type: NotificationType::DataRequestCompleted,
+            variables: [
+                'student_name' => $subject->name,
+                'request_type' => $request->type->label(),
+            ],
+            actionUrl: '/settings/privacy',
+        ));
     }
 }

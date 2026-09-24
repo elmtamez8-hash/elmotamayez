@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Events\ProcessingConsentGranted;
 use App\Modules\Payments\Models\TermsConsent;
@@ -49,6 +52,7 @@ class RecordTermsConsent extends Action
         private readonly CreditAccounts $accounts,
         private readonly BillingSettings $settings,
         private readonly SetCreditLimit $limits,
+        private readonly DispatchNotification $notifications,
     ) {}
 
     /**
@@ -111,6 +115,10 @@ class RecordTermsConsent extends Action
             DB::afterCommit(fn () => ProcessingConsentGranted::dispatch($student, $signer, $consent));
         }
 
+        if ($document === ConsentDocument::DataProcessing && $signer->getKey() !== $student->getKey()) {
+            DB::afterCommit(fn () => $this->announceConflict($signer, $student, $consent));
+        }
+
         if ($granted && $isFirst && $document === ConsentDocument::DeferredPaymentTerms) {
             // `afterCommit` so that a caller who wraps this in a transaction
             // announces nothing that could still roll back. With no transaction
@@ -150,6 +158,62 @@ class RecordTermsConsent extends Action
             : GuardianPermission::Payments;
 
         return $this->guardians->isAuthorised($signer, $student, $permission);
+    }
+
+    /**
+     * Two authorised guardians disagree about a child's data (spec 013 · R6).
+     *
+     * ⚠️ THIS TYPE HAD A TEMPLATE, A SPEC ROW AND A TEST OF WHAT IT MUST NOT SAY
+     * — and nothing sent it, so that test was asserting over zero rows.
+     *
+     * Both parties hear it: the guardian who just decided, and every OTHER
+     * guardian whose own latest decision on the current version points the other
+     * way. The message names the child and nobody else — the two may be in a
+     * custody dispute, and «your co-guardian refused» is personal data about a
+     * third party written by us (the template carries `student_name` alone).
+     * The student's own decision is not a guardian's and never counts as a side.
+     */
+    private function announceConflict(User $signer, User $student, TermsConsent $consent): void
+    {
+        $others = TermsConsent::query()
+            ->where('student_user_id', $student->getKey())
+            ->where('document', ConsentDocument::DataProcessing->value)
+            ->where('version', $consent->version)
+            ->whereNotIn('user_id', [$signer->getKey(), $student->getKey()])
+            ->orderByDesc('consented_at')
+            ->orderByDesc('id')
+            ->get(['user_id', 'decision']);
+
+        $opposed = [];
+
+        foreach ($others as $row) {
+            $id = (int) $row->user_id;
+
+            // The latest decision per guardian is the one that stands; an
+            // earlier one they have since changed is not a conflict.
+            if (array_key_exists($id, $opposed)) {
+                continue;
+            }
+
+            $opposed[$id] = $row->decision !== $consent->decision;
+        }
+
+        $opposedIds = array_keys(array_filter($opposed));
+
+        if ($opposedIds === []) {
+            return;
+        }
+
+        $recipients = User::query()->whereIn('id', [...$opposedIds, $signer->getKey()])->get();
+
+        foreach ($recipients as $recipient) {
+            $this->notifications->handle(new NotificationRequest(
+                recipient: $recipient,
+                type: NotificationType::GuardianConsentConflict,
+                variables: ['student_name' => $student->name],
+                actionUrl: '/family',
+            ));
+        }
     }
 
     /**

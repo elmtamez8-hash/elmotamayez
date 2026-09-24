@@ -158,6 +158,18 @@ it('moves the asked-for lesson and leaves the next one exactly where it was', fu
         ->and($fixture['nextSaturday']->fresh()->starts_at->toIso8601String())->toBe($nextBefore);
 });
 
+it('tells the teacher a student asked to move a lesson, and nobody else', function (): void {
+    $fixture = rescheduleFixture();
+
+    askToMove($fixture)->assertCreated();
+
+    // The request is the teacher's to decide, so it lands in their feed — not in
+    // the other seat holder's, who has been asked nothing yet.
+    assertNotifiedOnce($fixture['owner'], NotificationType::SessionRescheduleRequested);
+
+    expect(wasNotified($fixture['students'][1], NotificationType::SessionRescheduleRequested))->toBeFalse();
+});
+
 it('tells every seat holder the new time, not only the one who asked', function (): void {
     $fixture = rescheduleFixture();
 

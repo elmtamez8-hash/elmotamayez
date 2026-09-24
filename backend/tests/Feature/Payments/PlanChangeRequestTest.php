@@ -9,6 +9,7 @@ use App\Modules\Learning\Models\CohortMembershipEvent;
 use App\Modules\Learning\Support\CohortMembershipWriter;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\DecidePlanChange;
 use App\Modules\Payments\Actions\RequestPlanChange;
 use App\Modules\Payments\Actions\SavePlan;
@@ -177,6 +178,19 @@ it('changes nothing at all when the platform refuses', function (): void {
     expect($request->fresh()->status)->toBe(PlanChangeStatus::Rejected)
         ->and(Plan::query()->withoutWorkspaceScope()->count())->toBe(1)
         ->and(livePlans())->toBe(['حصّة واحدة/1/10000']);
+});
+
+it('tells the teacher a refusal, with the officer\'s reason in it', function (): void {
+    $request = askToChange(['requested_price_minor' => 60_000]);
+
+    app(DecidePlanChange::class)->handle($request, $this->officer, approve: false, reason: 'السعر أقل من تكلفة الحصة.');
+
+    // The only producer of `plan_change_rejected`, measured from the decision
+    // itself — the approval case below never reached this branch.
+    $sent = assertNotifiedOnce($this->teacher, NotificationType::PlanChangeRejected);
+
+    expect((string) $sent->body)->toContain('السعر أقل من تكلفة الحصة.')
+        ->and(wasNotified($this->teacher, NotificationType::PlanChangeApproved))->toBeFalse();
 });
 
 it('tells the teacher what was decided, with the shape in the sentence', function (): void {

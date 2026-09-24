@@ -9,6 +9,7 @@ use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\RecordTermsConsent;
 use App\Modules\Payments\Enums\ConsentDocument;
 use App\Modules\Payments\Models\TermsConsent;
@@ -145,6 +146,21 @@ it('keeps the refusing guardian out of the other guardian\'s view of the decisio
     $this->travel(1)->seconds();
     $record->handle($this->refusing, $this->student, ConsentDocument::DataProcessing, '203.0.113.2', null, ['student_name'], granted: false);
 
+    // ⚠️ THE ROWS FIRST. Until `guardian_consent_conflict` had a producer this
+    // test asserted "no message names the refuser" over ZERO messages — true of
+    // any build, including one that named them. Both parties are told, once each.
+    $conflicts = Notification::query()
+        ->where('type', NotificationType::GuardianConsentConflict->value)
+        ->get();
+
+    expect($conflicts->pluck('recipient_user_id')->map(fn ($id): int => (int) $id)->sort()->values()->all())
+        ->toBe(collect([$this->consenting->getKey(), $this->refusing->getKey()])->map(fn ($id): int => (int) $id)->sort()->values()->all());
+
+    foreach ($conflicts as $conflict) {
+        expect((string) $conflict->body)->not->toBe('')
+            ->and((string) $conflict->body)->not->toContain('{{');
+    }
+
     // Re-encoded, because `getContent()` escapes non-ASCII — an assertion written
     // with an Arabic needle against the raw body passes whatever the payload holds.
     $body = json_encode(
@@ -156,4 +172,19 @@ it('keeps the refusing guardian out of the other guardian\'s view of the decisio
 
     expect($body)->not->toContain($refuserName)
         ->and($body)->not->toContain((string) $this->refusing->uuid);
+});
+
+/*
+ * The mirror: two guardians who AGREE are not a conflict. Without this case a
+ * producer that fired on every second signature would keep the test above green.
+ */
+it('tells nobody about a conflict when the guardians agree', function (): void {
+    $record = app(RecordTermsConsent::class);
+
+    $record->handle($this->consenting, $this->student, ConsentDocument::DataProcessing, '203.0.113.1', null, ['student_name']);
+    $this->travel(1)->seconds();
+    $record->handle($this->refusing, $this->student, ConsentDocument::DataProcessing, '203.0.113.2', null, ['student_name']);
+
+    expect(TermsConsent::query()->where('student_user_id', $this->student->getKey())->count())->toBe(2)
+        ->and(Notification::query()->where('type', NotificationType::GuardianConsentConflict->value)->count())->toBe(0);
 });
