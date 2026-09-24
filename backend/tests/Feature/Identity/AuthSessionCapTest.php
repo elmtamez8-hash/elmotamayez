@@ -26,6 +26,11 @@ function cappedSessionFixture(User $user, int $count, int $endedDaysAgo, bool $a
 {
     $device = Device::factory()->create(['user_id' => $user->getKey()]);
 
+    // Read the clock once: `now()` per row let a second tick between two rows
+    // and gave them the same `ended_at`, so which one survived was luck (CI
+    // flaked on it twice on 2026-09-24).
+    $now = now();
+
     $ids = [];
 
     for ($i = 0; $i < $count; $i++) {
@@ -35,10 +40,10 @@ function cappedSessionFixture(User $user, int $count, int $endedDaysAgo, bool $a
         ]);
 
         DB::table('auth_sessions')->where('id', $session->getKey())->update([
-            'created_at' => now()->subDays($endedDaysAgo + 1),
+            'created_at' => $now->copy()->subDays($endedDaysAgo + 1),
             // Distinct seconds so the ordering is unambiguous unless a case
             // deliberately makes two collide.
-            'ended_at' => now()->subDays($endedDaysAgo)->subSeconds($i),
+            'ended_at' => $now->copy()->subDays($endedDaysAgo)->subSeconds($i),
             'ip_hash' => $anonymised ? null : hash('sha256', 'addr'.$i),
         ]);
 
