@@ -59,7 +59,7 @@ export default function ManageAssignmentsPage() {
   // — the form stays usable rather than blocked on a list.
   useEffect(() => {
     api
-      .get<{ data: Course[] }>("/courses")
+      .get<{ data: Course[] }>("/courses?per_page=200")
       .then((response) => setCourses(response.data ?? []))
       .catch(() => setCourses([]));
   }, []);
