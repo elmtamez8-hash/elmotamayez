@@ -190,7 +190,8 @@ export default function AccommodationsPage() {
     },
   ];
 
-  const nothingToGrant = extraTime.trim() === "" && extraDays.trim() === "";
+  // Zero in both is a row that grants nothing — an audit entry with no arrangement behind it.
+  const nothingToGrant = Number(extraTime || 0) <= 0 && Number(extraDays || 0) <= 0;
 
   return (
     <div className="space-y-6">
