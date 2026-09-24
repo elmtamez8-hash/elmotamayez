@@ -20,3 +20,6 @@ backend/make_session_tmp.php
 # `docker/.env.prod.example` هو ما يُتابَع؛ مفتاحٌ يدخلُ التاريخَ لا يخرجُ منه
 # بحذفِه، وتدويرُه يعني نشرةً جديدةً لا commit.
 docker/.env
+
+# بصمةُ آخرِ nginx.prod.conf وصلَ إلى الحاوية — يكتبُها `scripts/deploy.sh` على الخادم.
+docker/.nginx.prod.conf.sha256
