@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { counted, type CountedForms } from "./labels";
+import { counted, NOUNS, UNREAD_NOTIFICATIONS, type CountedForms } from "./labels";
 
 /*
 | تمييزُ العددِ — «٢ مدرّس متاح» (٢٠٢٦-٠٩-١١).
@@ -80,5 +80,35 @@ describe("counted", () => {
 
     expect(counted(0, seats)).toBe("لا مقاعد متاحة");
     expect(counted(100, seats)).toBe("١٠٠ مقعد متبقٍّ");
+  });
+});
+
+/*
+| The shared noun sets. A typo in one of them is a typo on every screen that
+| counts that noun, so each is read at the four bands once, here.
+*/
+describe("NOUNS", () => {
+  it.each([
+    ["minutes", ["دقيقة واحدة", "دقيقتان", "٣ دقائق", "١١ دقيقة"]],
+    ["hours", ["ساعة واحدة", "ساعتان", "٣ ساعات", "١١ ساعة"]],
+    ["days", ["يوم واحد", "يومان", "٣ أيام", "١١ يوماً"]],
+    ["sessions", ["حصة واحدة", "حصتان", "٣ حصص", "١١ حصة"]],
+    ["questions", ["سؤال واحد", "سؤالان", "٣ أسئلة", "١١ سؤالاً"]],
+    ["attempts", ["محاولة واحدة", "محاولتان", "٣ محاولات", "١١ محاولة"]],
+    ["courses", ["كورس واحد", "كورسان", "٣ كورسات", "١١ كورساً"]],
+    ["assignments", ["واجب واحد", "واجبان", "٣ واجبات", "١١ واجباً"]],
+    ["students", ["طالب واحد", "طالبان", "٣ طلاب", "١١ طالباً"]],
+    ["seatsAvailable", ["مقعد واحد متاح", "مقعدان متاحان", "٣ مقاعد متاحة", "١١ مقعداً متاحاً"]],
+  ] as const)("%s", (noun, expected) => {
+    expect([1, 2, 3, 11].map((n) => counted(n, NOUNS[noun]))).toEqual(expected);
+  });
+
+  it("the unread notifications heading", () => {
+    expect([1, 2, 3, 11].map((n) => counted(n, UNREAD_NOTIFICATIONS))).toEqual([
+      "إشعار واحد غير مقروء",
+      "إشعاران غير مقروءين",
+      "٣ إشعارات غير مقروءة",
+      "١١ إشعاراً غير مقروء",
+    ]);
   });
 });

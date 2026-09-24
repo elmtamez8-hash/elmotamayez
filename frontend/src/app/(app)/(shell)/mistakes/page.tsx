@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/labels";
+import { formatDate, counted, NOUNS } from "@/lib/labels";
 import {
   mistakes,
   type Mistake,
@@ -174,7 +174,7 @@ export default function MistakesPage() {
 
         {!loading && error === null && rows.length > 0 && (
           <p className="text-sm text-ink-muted">
-            <bdi>{total}</bdi> {includeResolved ? "سؤالاً في دفترك" : "سؤالاً ما زال قائماً"}
+            {counted(total, NOUNS.questions)} {includeResolved ? "في دفترك" : total === 1 ? "ما زال قائماً" : total === 2 ? "ما زالا قائمَين" : "ما زالت قائمة"}
           </p>
         )}
       </div>

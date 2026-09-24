@@ -34,7 +34,7 @@ import {
   type ManagedCohort,
 } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
-import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone } from "@/lib/labels";
+import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
 
 /**
  * One group: its week, its students, its history, and its own settings.
@@ -373,7 +373,7 @@ export default function ManageCohortPage({
                   })
                   .then((result) => {
                     setNote(
-                      `أُنشِئت ${result.created.length} حصة` +
+                      `أُنشِئت ${counted(result.created.length, NOUNS.sessions)}` +
                         (result.skipped.length > 0
                           ? ` · تُخطّيت ${result.skipped.length} (تداخل أو تجميد)`
                           : ""),

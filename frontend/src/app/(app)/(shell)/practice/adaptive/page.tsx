@@ -15,7 +15,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { adaptive, type AdaptiveConcept, type AdaptiveStart } from "@/lib/adaptive";
 import { ApiError } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { difficultyLabel } from "@/lib/labels";
+import { difficultyLabel, counted } from "@/lib/labels";
 
 /**
  * The adaptive path: pick a concept, and the questions follow the student.
@@ -127,7 +127,7 @@ export default function AdaptivePracticePage() {
               </div>
 
               <p className="mt-3 text-sm text-ink-muted">
-                <bdi>{concept.question_count}</bdi> سؤالاً متاحاً · أعلى مستوًى:{" "}
+                {counted(concept.question_count, { one: "سؤال واحد متاح", two: "سؤالان متاحان", few: "أسئلة متاحة", many: "سؤالاً متاحاً", other: "سؤال متاح" })} · أعلى مستوًى:{" "}
                 {/* Stated, because mastery is measured AT it — a screen that
                     assumed «صعب» would set a bar this concept may not have. */}
                 {difficultyLabel(concept.ceiling_difficulty)}

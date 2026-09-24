@@ -568,3 +568,46 @@ export function counted(count: number, forms: CountedForms): string {
 
   return `${arabicNumber(count)} ${noun}`;
 }
+
+/**
+ * The nouns the product counts most, in the NOMINATIVE — a badge, a heading, a
+ * subject («٣ أسئلة» · «سؤالان»). One set per noun, so a screen that counts
+ * minutes does not write the five bands a sixth time.
+ *
+ * ⚠️ THE CASE IS THE CALLER'S, AND ONLY THE DUAL SHOWS IT. After a verb or a
+ * preposition the dual takes «ـين» («تحتاج حصتين» · «بعد دقيقتين»), so a
+ * sentence in the accusative or genitive spreads one of these and overrides
+ * `two` — it does not reuse the nominative «حصتان», which reads as a subject.
+ */
+export const NOUNS = {
+  minutes: { one: "دقيقة واحدة", two: "دقيقتان", few: "دقائق", many: "دقيقة", other: "دقيقة" },
+  seconds: { one: "ثانية واحدة", two: "ثانيتان", few: "ثوانٍ", many: "ثانية", other: "ثانية" },
+  hours: { one: "ساعة واحدة", two: "ساعتان", few: "ساعات", many: "ساعة", other: "ساعة" },
+  days: { one: "يوم واحد", two: "يومان", few: "أيام", many: "يوماً", other: "يوم" },
+  sessions: { one: "حصة واحدة", two: "حصتان", few: "حصص", many: "حصة", other: "حصة" },
+  questions: { one: "سؤال واحد", two: "سؤالان", few: "أسئلة", many: "سؤالاً", other: "سؤال" },
+  attempts: { one: "محاولة واحدة", two: "محاولتان", few: "محاولات", many: "محاولة", other: "محاولة" },
+  courses: { one: "كورس واحد", two: "كورسان", few: "كورسات", many: "كورساً", other: "كورس" },
+  assignments: { one: "واجب واحد", two: "واجبان", few: "واجبات", many: "واجباً", other: "واجب" },
+  students: { one: "طالب واحد", two: "طالبان", few: "طلاب", many: "طالباً", other: "طالب" },
+  seatsAvailable: {
+    one: "مقعد واحد متاح",
+    two: "مقعدان متاحان",
+    few: "مقاعد متاحة",
+    many: "مقعداً متاحاً",
+    other: "مقعد متاح",
+  },
+} as const satisfies Record<string, CountedForms>;
+
+/**
+ * «إشعار واحد غير مقروء» · «٣ إشعارات غير مقروءة» — the feed's heading and the
+ * bell's label read the same count, so they read the same forms. It was «لديك ١
+ * إشعاراً غير مقروء» on production (2026-09-24): the `many` band printed for one.
+ */
+export const UNREAD_NOTIFICATIONS: CountedForms = {
+  one: "إشعار واحد غير مقروء",
+  two: "إشعاران غير مقروءين",
+  few: "إشعارات غير مقروءة",
+  many: "إشعاراً غير مقروء",
+  other: "إشعار غير مقروء",
+};

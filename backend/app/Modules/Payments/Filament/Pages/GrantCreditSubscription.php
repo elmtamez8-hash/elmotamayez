@@ -18,6 +18,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\CountedNoun;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
@@ -490,7 +491,7 @@ class GrantCreditSubscription extends Page implements HasTable
                                     ->orderBy('credits')
                                     ->get()
                                     ->mapWithKeys(fn (CreditPackage $p): array => [
-                                        $p->getKey() => $p->name.' — '.$p->credits.' حصص',
+                                        $p->getKey() => $p->name.' — '.CountedNoun::of((int) $p->credits, ['one' => 'حصة واحدة', 'two' => 'حصتان', 'few' => 'حصص', 'many' => 'حصة', 'other' => 'حصة']),
                                     ])
                                     ->all())
                                 // The `in` rule Filament derives from `options()`

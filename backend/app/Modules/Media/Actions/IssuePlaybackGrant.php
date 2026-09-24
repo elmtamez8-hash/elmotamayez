@@ -18,6 +18,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionContentAccess;
+use App\Shared\Support\CountedNoun;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use RuntimeException;
@@ -133,7 +134,7 @@ class IssuePlaybackGrant extends Action
         $courseUuid = (string) Course::query()->withoutWorkspaceScope()->whereKey($courseId)->value('uuid');
 
         throw new AccessWithheldException(
-            "هذا الملف موقوف حتى سداد رصيد هذا الكورس. تحتاج {$needed} حصة على الأقل، وتُشترى من صفحة الأرصدة. حصصك المحجوزة ودروسك العادية لا تتأثّر.",
+            'هذا الملف موقوف حتى سداد رصيد هذا الكورس. تحتاج '.CountedNoun::of($needed, CountedNoun::SESSIONS_OBJECT).' على الأقل، وتُشترى من صفحة الأرصدة. حصصك المحجوزة ودروسك العادية لا تتأثّر.',
             creditsNeeded: $needed,
             courseUuid: $courseUuid,
         );

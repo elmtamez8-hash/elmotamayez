@@ -11,6 +11,7 @@ use App\Modules\Compliance\Support\ExportFieldAllowlist;
 use App\Modules\Compliance\Support\PersonalDataRegistry;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\PersonalDataOwner;
+use App\Shared\Support\CountedNoun;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -244,7 +245,7 @@ class ExecuteDataExport extends Action
         ];
 
         foreach ($counts as $category => $count) {
-            $lines[] = '- `data/'.$category.'.json` — '.$count.' سجلّاً';
+            $lines[] = '- `data/'.$category.'.json` — '.CountedNoun::of($count, ['one' => 'سجلّ واحد', 'two' => 'سجلّان', 'few' => 'سجلّات', 'many' => 'سجلّاً', 'other' => 'سجلّ']);
         }
 
         $lines[] = '';

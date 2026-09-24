@@ -24,6 +24,8 @@ import { userMessage } from "@/lib/errors";
 import { media, type PlaybackGrant } from "@/lib/media";
 import { curriculum, neighboursOf, type Curriculum } from "@/lib/curriculum";
 import { formatSessionTime } from "@/lib/session-format";
+import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 interface StudentLesson {
   uuid: string;
@@ -427,7 +429,7 @@ export default function LearnLessonPage({
             <Card>
               <p className="mb-3 text-sm text-ink-muted">
                 {"passing_score" in detail.reference &&
-                  `النجاح من ${detail.reference.passing_score}٪ · ${detail.reference.duration_minutes} دقيقة`}
+                  `النجاح من ${arabicNumber(detail.reference.passing_score)}٪ · ${counted(detail.reference.duration_minutes, NOUNS.minutes)}`}
                 {detail.exam_gate === "pass" &&
                   " · لا يُفتح ما بعده حتى تجتازه"}
               </p>

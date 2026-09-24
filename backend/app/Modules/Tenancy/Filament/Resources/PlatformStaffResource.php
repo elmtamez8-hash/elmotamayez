@@ -11,6 +11,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformStaffDirectory;
 use App\Modules\Tenancy\Support\RolePermissionMatrix;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\CountedNoun;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
@@ -210,7 +211,7 @@ class PlatformStaffResource extends Resource
                 // able to execute a rights request.
                 Roles::COMPLIANCE_OFFICER => 'مسؤول حماية البيانات',
                 default => $role,
-            }." ({$count} صلاحية)";
+            }.' ('.CountedNoun::of($count, ['one' => 'صلاحية واحدة', 'two' => 'صلاحيتان', 'few' => 'صلاحيات', 'many' => 'صلاحية', 'other' => 'صلاحية']).')';
         }
 
         return $options;

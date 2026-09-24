@@ -15,9 +15,10 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import type { AdaptiveDifficulty } from "@/lib/adaptive";
 import { userMessage } from "@/lib/errors";
-import { difficultyLabel } from "@/lib/labels";
+import { difficultyLabel, counted, NOUNS } from "@/lib/labels";
 import { practice, type PracticeFilterOptions } from "@/lib/practice";
 import { studyRooms, type StudyRoom } from "@/lib/study-rooms";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Open a study room, or go back into one (spec 012 · US3).
@@ -92,7 +93,7 @@ export default function StudyRoomsPage() {
 
       if (created.requested_count !== undefined && created.requested_count > created.question_count) {
         setNotice(
-          `طلبتَ ${created.requested_count} سؤالاً والمتاح لك ${created.question_count}، فبُنيت الغرفة بالمتاح.`,
+          `طلبتَ ${counted(created.requested_count, { ...NOUNS.questions, two: "سؤالين" })} والمتاح لك ${arabicNumber(created.question_count)}، فبُنيت الغرفة بالمتاح.`,
         );
       }
 
@@ -221,8 +222,8 @@ export default function StudyRoomsPage() {
                     {room.concept?.name ?? "كل الأفكار"} · {room.host.name}
                   </Link>
                   <span className="block text-xs text-ink-muted">
-                    <bdi>{room.question_count}</bdi> أسئلة ·{" "}
-                    <bdi>{room.duration_minutes}</bdi> دقيقة
+                    {counted(room.question_count, NOUNS.questions)} ·{" "}
+                    {counted(room.duration_minutes, NOUNS.minutes)}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

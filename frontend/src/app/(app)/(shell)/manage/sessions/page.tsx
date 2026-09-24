@@ -22,7 +22,7 @@ import {
   type WorkspaceTeacher,
 } from "@/lib/class-sessions";
 import { api, fieldErrors } from "@/lib/api";
-import { localDateTimeToIso } from "@/lib/labels";
+import { localDateTimeToIso, counted, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
@@ -442,7 +442,7 @@ export default function ManageSessionsPage() {
               </Alert>
             ) : (
               <Alert tone="success" title="تمّ التوليد">
-                أُنشئت <bdi>{result.created.length}</bdi> حصة.
+                أُنشئت {counted(result.created.length, NOUNS.sessions)}.
               </Alert>
             )}
 

@@ -6,6 +6,7 @@ import { SeatBadge } from "@/components/sessions/SeatBadge";
 import { SessionOwners } from "@/components/sessions/SessionOwners";
 import type { ClassSession } from "@/lib/class-sessions";
 import { formatSessionClock, formatSessionTime } from "@/lib/session-format";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * One session in a list.
@@ -91,7 +92,7 @@ export function SessionCard({
           {time === "clock"
             ? formatSessionClock(session.starts_at, session.timezone)
             : formatSessionTime(session.starts_at, session.timezone)}{" "}
-          · <bdi>{session.duration_minutes}</bdi> دقيقة
+          · {counted(session.duration_minutes, NOUNS.minutes)}
         </span>
       </p>
 

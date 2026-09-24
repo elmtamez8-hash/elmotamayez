@@ -20,7 +20,7 @@ import {
   type AssignmentFilterOptions,
 } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
-import { formatDateTime } from "@/lib/labels";
+import { formatDateTime, counted, NOUNS } from "@/lib/labels";
 
 /**
  * The student's homework.
@@ -199,7 +199,7 @@ export default function AssignmentsPage() {
                 <span>{group.title}</span>
                 <span aria-hidden className="h-px flex-1 bg-line" />
                 <span className="text-xs font-normal">
-                  <bdi>{group.rows.length}</bdi> واجب
+                  {counted(group.rows.length, NOUNS.assignments)}
                 </span>
               </h3>
 

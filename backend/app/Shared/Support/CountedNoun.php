@@ -32,6 +32,23 @@ use NumberFormatter;
 final class CountedNoun
 {
     /**
+     * «حصة» كمفعولٍ به — «تحتاج حصتين» لا «تحتاج حصتان».
+     *
+     * ⛔ **وكانت «تحتاج 1 حصة على الأقل»** على الإنتاج (٢٠٢٦-٠٩-٢٤): رقمٌ لاتينيٌّ
+     * قبلَ اسمٍ لم يُوافِقْه في أيِّ بِنية. والمثنّى هنا منصوبٌ لأنّ الجملةَ تطلبُ
+     * مفعولاً؛ مثنّى مرفوعٌ («حصتان») يُقرَأُ فاعلاً لا شيئاً يُحتاجُ إليه.
+     *
+     * @var array{one: string, two: string, few: string, many: string, other: string}
+     */
+    public const SESSIONS_OBJECT = [
+        'one' => 'حصة واحدة',
+        'two' => 'حصتين',
+        'few' => 'حصص',
+        'many' => 'حصة',
+        'other' => 'حصة',
+    ];
+
+    /**
      * @param  array{one: string, two: string, few: string, many: string, other: string, zero?: string}  $forms
      */
     public static function of(int $count, array $forms): string

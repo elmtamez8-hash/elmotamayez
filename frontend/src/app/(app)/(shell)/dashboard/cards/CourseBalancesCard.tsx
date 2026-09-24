@@ -7,6 +7,7 @@ import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { CreditsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { counted } from "@/lib/labels";
 
 /**
  * رصيدُ الطالبِ — سطرٌ لكلِّ كورس، والمحجوبُ أوّلاً بسببِه.
@@ -69,7 +70,7 @@ export function CourseBalancesCard() {
                 {/* العددُ من الخادم: الأرضيّةُ الفعليّةُ تعتمدُ على السقفِ ونمطِ
                     الفوترةِ ونافذةِ الاختباراتِ وموافقةٍ سارية، ولا شيءَ من ذلك
                     في هذه الحمولة. */}
-                محجوب — يلزم شراء <bdi>{arabicNumber(balance.credits_needed)}</bdi> حصّة لاستئناف
+                محجوب — يلزم شراء {counted(balance.credits_needed, { one: "حصّة واحدة", two: "حصّتين", few: "حصص", many: "حصّة", other: "حصّة" })} لاستئناف
                 الحجز.
               </p>
             )}
