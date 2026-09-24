@@ -274,6 +274,17 @@ export type CourseDetail = {
    */
   free_enrollment: boolean;
   /**
+   * Whether anything on this page can be bought right now — a joinable group,
+   * or the private invitation above (owner decision 2026-09-24: the platform
+   * sells through those two doors and nothing else).
+   *
+   * ⚠️ THE SERVER'S ANSWER, READ AS IS. It is derived there from `is_joinable`
+   * and `private_subscription_available`, and a second derivation here is the
+   * two-spellings defect. False means the rail shows neither a price nor a
+   * button: a price over a course nobody can buy is a promise the doors refuse.
+   */
+  enrolment_open: boolean;
+  /**
    * The promo video's ID on the teacher's own channel (018 · FR-006).
    *
    * ⚠️ An ID, never a URL and never a ready-made embed address: the embed

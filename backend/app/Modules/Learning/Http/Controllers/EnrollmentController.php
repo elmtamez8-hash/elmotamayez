@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
@@ -371,6 +372,31 @@ class EnrollmentController extends Controller
         }
 
         /*
+        | ⛔ **الدرسُ المفتوحُ لكلِّ حسابٍ مسجَّلِ الدخول** (قرارُ المالكِ
+        | ٢٠٢٦-٠٩-٢٤). كانت الصفحةُ العامّةُ تكتبُ «مفتوح مجّاناً» على الدرسِ ولا
+        | طريقَ إليه: هذا البابُ يطلبُ تسجيلاً، و`IssuePlaybackGrant::mayWatch()`
+        | يمنحُ الفيديو نفسَه لأيِّ حسابٍ منذ ٠٣٢ — فالفيديو مسموحٌ والصفحةُ التي
+        | تُشغِّلُه مغلقة، وهو «بابانِ يختلفان» بالأدوارِ معكوسة.
+        |
+        | ⚠️ **وبما يسألُه `mayWatch()` بالضبط، سؤالاً سؤالاً**: التسجيلُ الصفّيُّ
+        | خارجٌ (يُفتَحُ بالمقعدِ لا بالوسم، وهناك يعودُ قبلَ سؤالِ الفتح) · ثمّ
+        | `LessonAudience` · ثمّ السلسلةُ منشورة · ثمّ `isOpen()`. والأخيرُ لا
+        | `is_free` وحدَه: الوسمانِ سؤالٌ واحدٌ منذ ٢٠٢٦-٠٩-٠٩، و`LessonGate`
+        | و`mayWatch()` و`free_with_account` كلُّها تقرؤه، فقراءةُ نصفِه هنا
+        | تهجئةٌ ثانية.
+        |
+        | ⚠️ **ولا تسجيلَ خلفَه**: `enrollment_uuid` فارغ، فالصفحةُ لا ترسمُ ضابطَ
+        | الإتمام، وبابُ الإتمامِ يطلبُ معرّفَ تسجيلٍ لا وجودَ له — فلا يُحسَبُ هذا
+        | الدرسُ في تقدّمِ أحدٍ ولا يُنشئُ تسجيلاً.
+        */
+        if ($lesson->class_session_id === null
+            && LessonAudience::hiddenFor($viewer, $lesson) === null
+            && $lesson->isVisibleChain()
+            && $lesson->isOpen()) {
+            return response()->json($this->lessonPayload($lesson, LessonAccess::allow()));
+        }
+
+        /*
         | ⚠️ **والرمزُ هو ما يصلُ إلى الشاشة، لا الجملة.** `userMessage()` يطرحُ
         | نصَّ كلِّ ٤٠٤ ويطبعُ «العنصر المطلوب غير موجود أو حُذف» — وهو حارسٌ
         | صحيحٌ (٤٠٤ الإطاريُّ إنجليزيٌّ ولا يصلحُ لشاشة) بثمنٍ خاطئ: قيلَ للمالكِ
@@ -397,7 +423,20 @@ class EnrollmentController extends Controller
         // query: the break-report door is addressed by (course, lesson), and a
         // lazy `$lesson->course` here would be one more SELECT on the one
         // endpoint that plays every lesson in the product.
-        $lesson->load(['section', 'chapter', 'attachments', 'course:id,uuid']);
+        //
+        // ⚠️ AND EVERY TENANT RELATION CARRIES THE BYPASS. A reader stamped on
+        // another teacher's workspace (`users.last_workspace_id`) resolves a
+        // context the scope then ANDs onto these reads: `course` came back null,
+        // so `course_uuid` was null and the page lost its curriculum rail and
+        // its break-report button — measured on the free-lesson door
+        // (`LessonFreeForAnyAccountTest`), and true of an enrolled stamped
+        // student before it. `attachments` is unscoped at the relation already.
+        $lesson->load([
+            'section' => fn ($query) => $query->withoutWorkspaceScope(),
+            'chapter' => fn ($query) => $query->withoutWorkspaceScope(),
+            'attachments',
+            'course' => fn ($query) => $query->withoutWorkspaceScope()->select('id', 'uuid'),
+        ]);
 
         // A draft or archived item answers 404, not a payload with a reason.
         //

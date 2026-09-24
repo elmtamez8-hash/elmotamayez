@@ -163,9 +163,9 @@ export default function SettingsPage() {
       </Card>
 
       {/* Renders nothing for an account with no teacher profile, so it is
-          mounted unconditionally — a `platform_role === "teacher"` check here
-          would be a second answer to a question the API already answers, and the
-          two would disagree the first time a role changed. */}
+          mounted unconditionally. It decides for itself whom to ask: a learner
+          is never asked (the 403 it used to take on every student's settings
+          page), and everybody else gets the API's own answer. */}
       <PublicProfileUrlCard />
 
       {/*

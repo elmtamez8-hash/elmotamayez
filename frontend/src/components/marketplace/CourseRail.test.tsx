@@ -57,7 +57,9 @@ function curriculum(overrides: Partial<Curriculum["course"]> = {}): Curriculum {
   };
 }
 
-async function renderRail(isFull = false) {
+type Sale = { enrolmentOpen?: boolean; privateSubscriptionAvailable?: boolean; joinableGroup?: boolean };
+
+async function renderRail(isFull = false, sale: Sale = {}) {
   await act(async () => {
     render(
       <CourseOwnershipProvider courseUuid="c-1">
@@ -66,6 +68,9 @@ async function renderRail(isFull = false) {
           currency="QAR"
           courseUuid="c-1"
           isFull={isFull}
+          enrolmentOpen={sale.enrolmentOpen ?? true}
+          privateSubscriptionAvailable={sale.privateSubscriptionAvailable ?? true}
+          joinableGroup={sale.joinableGroup ?? false}
           teacher={{
             uuid: "t-1",
             slug: "sami-teacher",
@@ -106,7 +111,7 @@ describe("CourseRail", () => {
     expect(hrefs).toContain("/enrollments/c-1");
 
     // ولا يُدعى إلى شراءِ ما يملكُه.
-    expect(screen.queryByText("سجّل في الكورس")).toBeNull();
+    expect(screen.queryByText("اشترك بحصص خاصة")).toBeNull();
   });
 
   it("says «ابدأ الكورس» before the first item and «تابع» after it", async () => {
@@ -143,7 +148,7 @@ describe("CourseRail", () => {
 
     await renderRail();
 
-    expect(screen.getByText("سجّل في الكورس")).toBeTruthy();
+    expect(screen.getByText("اشترك بحصص خاصة")).toBeTruthy();
     expect(screen.queryByText("أنت مسجّل في هذا الكورس")).toBeNull();
 
     // ⚠️ ولا جملةَ خطأٍ: لم يضغطْ أحدٌ شيئاً، والصفحةُ العامّةُ هي الجوابُ الصحيح.
@@ -184,7 +189,7 @@ describe("CourseRail", () => {
   it("withholds the way in when the course is full, and says why", async () => {
     await renderRail(true);
 
-    expect(screen.queryByRole("link", { name: "سجّل في الكورس" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
     expect(screen.getByText("اكتملت مجموعات هذا الكورس")).toBeTruthy();
     expect(screen.getByText(/تبويب «المجموعات المتاحة»/)).toBeTruthy();
   });
@@ -193,7 +198,85 @@ describe("CourseRail", () => {
     // ⚠️ الحارسُ في الاتّجاهِ الآخر: شرطٌ مقلوبٌ يُخفي الزرَّ عن كلِّ كورس.
     await renderRail(false);
 
-    expect(screen.getByRole("link", { name: "سجّل في الكورس" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "اشترك بحصص خاصة" })).toBeTruthy();
     expect(screen.queryByText("اكتملت مجموعات هذا الكورس")).toBeNull();
+  });
+
+  /*
+  | ⛔ بلاغُ ٢٠٢٦-٠٩-٢٤: الزرُّ كانَ `/signup/student` لكلِّ من ليسَ مالكاً، فطالبٌ
+  | داخلٌ بحسابِه يُرَدُّ من صفحةِ التسجيلِ إلى الرئيسيّة.
+  */
+  it("sends a signed-in learner straight to the subscription screen", async () => {
+    mockUser = { uuid: "u-2", platform_role: "student" };
+
+    await renderRail();
+
+    expect(
+      screen.getByRole("link", { name: "اشترك بحصص خاصة" }).getAttribute("href"),
+    ).toBe("/subscribe?course=c-1");
+  });
+
+  it("sends a visitor to sign up with the way back to the same choice", async () => {
+    await renderRail();
+
+    const href = screen.getByRole("link", { name: "اشترك بحصص خاصة" }).getAttribute("href");
+
+    expect(href).toBe(`/signup/student?next=${encodeURIComponent("/subscribe?course=c-1")}`);
+  });
+
+  it("draws no way in while the session is being restored", async () => {
+    // A link drawn on the first paint is the visitor's — pressed by a signed-in
+    // student in that instant, it is the signup bounce this replaced.
+    mockLoading = true;
+
+    await renderRail();
+
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  it("offers a teacher nothing to buy", async () => {
+    mockUser = { uuid: "t-9", platform_role: "teacher" };
+
+    await renderRail();
+
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  it("points at the groups when a group is the only way in, and builds no dead link", async () => {
+    mockUser = { uuid: "u-2", platform_role: "student" };
+
+    await renderRail(false, { privateSubscriptionAvailable: false, joinableGroup: true });
+
+    expect(screen.getByText("اختر مجموعتك")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  /*
+  | ⛔ قرارُ المالكِ ٢٠٢٦-٠٩-٢٤: كورسٌ بلا مجموعةٍ ولا باقةٍ كانَ يعرضُ السعرَ
+  | وزرَّ الشراءِ فوقَ لا شيء. والتوكيدُ على غيابِ السعرِ والزرِّ معاً، لا على
+  | وجودِ الجملةِ وحدَها.
+  */
+  it("shows neither a price nor a button on a course nothing is sold on", async () => {
+    mockUser = { uuid: "u-2", platform_role: "student" };
+
+    await renderRail(false, {
+      enrolmentOpen: false,
+      privateSubscriptionAvailable: false,
+      joinableGroup: false,
+    });
+
+    expect(screen.getByText("لم يفتح المدرّس الاشتراك بعد")).toBeTruthy();
+    expect(screen.queryByText(/499/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  it("shows the price to a learner on a course that is on sale", async () => {
+    // The guard in the other direction: an inverted condition hides every price.
+    mockUser = { uuid: "u-2", platform_role: "student" };
+
+    await renderRail();
+
+    expect(screen.getByText(/499/)).toBeTruthy();
+    expect(screen.queryByText("لم يفتح المدرّس الاشتراك بعد")).toBeNull();
   });
 });

@@ -185,6 +185,25 @@ class PublicMarketplaceController extends Controller
         $payload['is_full'] = $action->isFull($course);
         // «سجّل مجاناً» — the enrol door's own predicate, never `price === 0`.
         $payload['free_enrollment'] = $action->freeEnrollment($course);
+        /*
+        | Whether ANYTHING on this page can be bought right now — the two doors
+        | the platform sells through and nothing else (owner decision, 2026-09-24):
+        | a joinable group, or the private-hours invitation.
+        |
+        | ⛔ READ FROM THE TWO ANSWERS ABOVE, NEVER RE-ASKED. `is_joinable` is the
+        | directory's own verdict per group (a group nobody can be sold a place
+        | in is already dropped by `priceReaches()`), and
+        | `private_subscription_available` is the predicate the private-session
+        | invitation is drawn from. A third derivation here would agree with them
+        | today and disagree at the first rule added to either — and then the
+        | rail says «open» over a groups tab and a private tab that both say no.
+        |
+        | Without it a course priced at 25 with no group and no plan showed the
+        | price and «سجّل في الكورس», a button nothing behind it could honour.
+        */
+        $payload['enrolment_open'] = collect($payload['cohorts'])->contains(
+            static fn (array $cohort): bool => $cohort['is_joinable'] === true,
+        ) || $payload['private_subscription_available'];
 
         return response()->json(['data' => $payload]);
     }

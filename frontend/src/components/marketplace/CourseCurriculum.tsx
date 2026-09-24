@@ -20,6 +20,7 @@ import {
   SparkIcon,
 } from "@/components/icons";
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
+import { useAuth } from "@/lib/auth-context";
 import { counted, lessonTypeLabel } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
 import type { CurriculumSection } from "@/lib/public-api";
@@ -105,6 +106,7 @@ export function CourseCurriculum({
   courseSlug?: string;
 }) {
   const ownership = useCourseOwnership();
+  const { user, loading } = useAuth();
 
   if (ownership.state === "owner") {
     return <CurriculumTree sections={ownership.data.sections} />;
@@ -161,6 +163,25 @@ export function CourseCurriculum({
                     */
                     const freeWithAccount = !openable && item.free_with_account === true;
 
+                    /*
+                      ⛔ «مفتوح مجّاناً» صارَ طريقاً (قرارُ المالكِ ٢٠٢٦-٠٩-٢٤:
+                      أيُّ حسابٍ مسجَّلِ الدخولِ يفتحُ الدرسَ المفتوح). الخادمُ
+                      يُرسِلُ `uuid` معه الآن — إلّا على عنصرٍ ضيّقَ المدرّسُ
+                      جمهورَه، فيبقى مُعلَناً بلا رابط — والرابطُ يُبنى من
+                      وجودِه لا من شرطٍ يُعادُ هنا.
+
+                      الداخلُ يذهبُ إلى `/learn` مباشرةً، والزائرُ إلى الدخولِ
+                      ومعه `next` يُعيدُه إلى الدرسِ نفسِه. وأثناءَ استعادةِ
+                      الجلسةِ لا رابط: رابطُ الزائرِ المرسومُ في تلك اللحظةِ
+                      يُرسِلُ صاحبَ الحسابِ إلى صفحةِ دخولٍ لا حاجةَ له بها.
+                    */
+                    const freeHref =
+                      freeWithAccount && item.uuid !== undefined && !loading
+                        ? user !== null
+                          ? `/learn/${item.uuid}`
+                          : `/login?next=${encodeURIComponent(`/learn/${item.uuid}`)}`
+                        : null;
+
                     const kind = KINDS[item.kind] ?? FALLBACK;
                     const length = duration(item.duration_seconds);
 
@@ -208,19 +229,12 @@ export function CourseCurriculum({
                             ⛔ «مفتوح مجّاناً» لا «مجّانيّة بحساب»، والفرقُ ليس
                             صياغة.
 
-                            الصفُّ هنا **لا رابطَ له ولن يكونَ له واحدٌ ولو
-                            سجّلَ القارئُ دخولَه**: `CourseOwnership` يسألُ
-                            `/courses/{uuid}/curriculum`، وهي تردُّ ٤٠٣ على
-                            متعلّمٍ غيرِ مسجَّلٍ في الكورس، فيسقطُ إلى
-                            `visitor` ويرى هذه الشجرةَ نفسَها. فجملةٌ تَعِدُ
-                            بأنّ الحسابَ يفتحُه طريقٌ مسدودٌ يقطعُه القارئُ
-                            إلى نهايتِه — وهي عائلةُ الروابطِ الميّتةِ التي
-                            كتبَت ٠٣٢ ثلاثَ فقراتٍ لتجنّبَها، واصلةً في صورةِ
-                            جملةٍ بدلَ `<a>`.
-
-                            وهذه تقولُ ما هو صحيحٌ وكافٍ لقرارِ الشراء: المدرّسُ
-                            فتحَ هذا الدرس. ولا تَعِدُ بشيءٍ تُسلِّمُه هذه
-                            الصفحة.
+                            الصفُّ رابطٌ الآن إلى `/learn/{uuid}` (أو إلى الدخولِ
+                            ثمّ إليه) — `freeHref` أعلاه. كانَ بلا رابطٍ لأنّ
+                            البابَ الوحيدَ الذي يعرضُ الدرسَ طلبَ تسجيلاً،
+                            فكانت الجملةُ وعداً يقطعُه القارئُ إلى طريقٍ مسدود؛
+                            والبابُ يفتحُه اليومَ لأيِّ حسابٍ بالشرطِ نفسِه الذي
+                            يفتحُ به الفيديو.
                           */
                           <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-soft px-2 py-1 text-xs font-bold text-primary-ink">
                             <span aria-hidden="true">
@@ -244,6 +258,13 @@ export function CourseCurriculum({
                         {openable ? (
                           <Link
                             href={`/courses/${courseSlug}/lessons/${item.uuid}`}
+                            className="flex items-center gap-3 px-5 py-3 transition hover:bg-primary-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                          >
+                            {body}
+                          </Link>
+                        ) : freeHref !== null ? (
+                          <Link
+                            href={freeHref}
                             className="flex items-center gap-3 px-5 py-3 transition hover:bg-primary-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           >
                             {body}

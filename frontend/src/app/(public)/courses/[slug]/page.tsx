@@ -428,6 +428,11 @@ export default async function CoursePage({
               courseUuid={course.uuid}
               isFull={course.is_full}
               freeEnrollment={course.free_enrollment}
+              enrolmentOpen={course.enrolment_open}
+              privateSubscriptionAvailable={course.private_subscription_available}
+              // Each group's `is_joinable` is the server's verdict per row; this
+              // asks whether any row carries it, and restates no rule.
+              joinableGroup={course.cohorts.some((cohort) => cohort.is_joinable)}
               teacher={course.teacher}
             />
           </div>

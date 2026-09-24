@@ -49,6 +49,9 @@ function rail(freeEnrollment: boolean) {
       courseUuid="c-1"
       isFull={false}
       freeEnrollment={freeEnrollment}
+      enrolmentOpen
+      privateSubscriptionAvailable
+      joinableGroup={false}
       teacher={teacher}
     />,
   );
@@ -87,6 +90,6 @@ describe("the free course", () => {
     rail(false);
 
     expect(screen.queryByText("سجّل مجاناً")).toBeNull();
-    expect(screen.getByText("سجّل في الكورس")).toBeTruthy();
+    expect(screen.getByText("اشترك بحصص خاصة")).toBeTruthy();
   });
 });

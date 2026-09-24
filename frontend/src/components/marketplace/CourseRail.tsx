@@ -18,7 +18,7 @@ import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { isLearner, useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
 
@@ -38,6 +38,9 @@ export function CourseRail({
   courseUuid,
   isFull,
   freeEnrollment = false,
+  enrolmentOpen,
+  privateSubscriptionAvailable,
+  joinableGroup,
   teacher,
 }: {
   priceMinor: number | null;
@@ -47,6 +50,12 @@ export function CourseRail({
   isFull: boolean;
   /** حكمُ الخادم (`free_enrollment`)، ولا يُشتَقُّ من السعر. */
   freeEnrollment?: boolean;
+  /** حكمُ الخادم (`enrolment_open`) — {@see VisitorRail}. */
+  enrolmentOpen: boolean;
+  /** حكمُ الخادم (`private_subscription_available`). */
+  privateSubscriptionAvailable: boolean;
+  /** أنّ مجموعةً واحدةً على الأقلّ حكمَ لها الخادمُ `is_joinable`. */
+  joinableGroup: boolean;
   teacher: CourseDetail["teacher"];
 }) {
   const ownership = useCourseOwnership();
@@ -61,6 +70,9 @@ export function CourseRail({
           currency={currency}
           isFull={isFull}
           freeEnrollment={freeEnrollment}
+          enrolmentOpen={enrolmentOpen}
+          privateSubscriptionAvailable={privateSubscriptionAvailable}
+          joinableGroup={joinableGroup}
           courseUuid={courseUuid}
         />
       )}
@@ -139,20 +151,45 @@ const PROMISES = [
  * الاستعلامَ في `useEffect` بمُعتمَداتٍ ثابتة، فتغييرُ العنوانِ وحدَه لا يُبدِّلُ
  * التبويب. فالعمودُ يقولُ الحقيقةَ ويدلُّ على موضعِ الفعل، ولا يَعِدُ بنقرةٍ لا
  * تقع.
+ *
+ * ⛔ **ولا سعرَ ولا زرَّ على كورسٍ لا يبيعُه شيء** (قرارُ المالكِ ٢٠٢٦-٠٩-٢٤).
+ * المنصّةُ تبيعُ من بابَينِ لا ثالثَ لهما: مجموعةٌ تقبلُ الانضمام، أو دعوةُ
+ * الحصصِ الخاصّة. كورسٌ بلا أيٍّ منهما كانَ يعرضُ «٢٥ US$» و«سجّل في الكورس»
+ * فوقَ لا شيء — قِيسَ على الإنتاج. `enrolmentOpen` حكمُ الخادمِ مشتقٌّ هناك من
+ * الحكمَينِ نفسَيهما، ويُقرَأُ هنا كما هو.
+ *
+ * ⚠️ **والزرُّ يعرفُ القارئ** (بلاغُ ٢٠٢٦-٠٩-٢٤): كانَ رابطاً إلى
+ * `/signup/student` لكلِّ من ليسَ مالكاً، فطالبٌ داخلٌ بحسابِه يُرَدُّ من صفحةِ
+ * التسجيلِ إلى الرئيسيّة، وزائرٌ يُنشئُ حسابَه يفقدُ الكورسَ الذي جاءَ لأجلِه.
+ * الداخلُ يذهبُ إلى `/subscribe` مباشرةً، والزائرُ إلى التسجيلِ ومعه `next`
+ * يُعيدُه إلى الاختيارِ نفسِه — و`StudentSignupForm` يمرِّرُه على `safeNext()`.
  */
 function VisitorRail({
   priceMinor,
   currency,
   isFull,
   freeEnrollment,
+  enrolmentOpen,
+  privateSubscriptionAvailable,
+  joinableGroup,
   courseUuid,
 }: {
   priceMinor: number | null;
   currency: string | null;
   isFull: boolean;
   freeEnrollment: boolean;
+  enrolmentOpen: boolean;
+  privateSubscriptionAvailable: boolean;
+  joinableGroup: boolean;
   courseUuid: string;
 }) {
+  /*
+    ⚠️ The closed state wins over everything but «full» and «free»: «full» has
+    its own sentence and its own door (the waitlist), and a free course is
+    entered without buying anything, so neither is «nobody opened it».
+  */
+  const closed = !isFull && !freeEnrollment && !enrolmentOpen;
+
   return (
     <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm">
       {/*
@@ -161,8 +198,11 @@ function VisitorRail({
         signed-out visitor included — and a copy of that condition here is a
         second spelling that drifts at the first edit to either. It renders
         nothing at all when the answer is no, so there is no wrapper to guard.
+
+        ⚠️ Except the one question it cannot ask: whether anything is on sale.
+        A price over a course nobody can buy reads as an offer.
       */}
-      <CoursePrice priceMinor={priceMinor} currency={currency} size="rail" />
+      {!closed && <CoursePrice priceMinor={priceMinor} currency={currency} size="rail" />}
 
       {isFull ? (
         <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
@@ -173,13 +213,20 @@ function VisitorRail({
         </p>
       ) : freeEnrollment ? (
         <FreeEnrollButton courseUuid={courseUuid} />
+      ) : closed ? (
+        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
+          <b className="font-extrabold text-primary-ink">لم يفتح المدرّس الاشتراك بعد</b>
+          <span className="text-ink-muted">
+            لا مجموعة ولا باقة متاحة لهذا الكورس الآن. تابع صفحة المدرّس لتعرف حين يفتح
+            الاشتراك.
+          </span>
+        </p>
       ) : (
-        <Link
-          href="/signup/student"
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          سجّل في الكورس
-        </Link>
+        <SubscribeWays
+          courseUuid={courseUuid}
+          privateSubscriptionAvailable={privateSubscriptionAvailable}
+          joinableGroup={joinableGroup}
+        />
       )}
 
       <ul className="flex flex-col gap-3">
@@ -193,6 +240,60 @@ function VisitorRail({
         ))}
       </ul>
     </aside>
+  );
+}
+
+/**
+ * The ways in, for a course something IS sold on.
+ *
+ * ⚠️ A GROUP IS JOINED FROM ITS OWN CARD, NOT FROM HERE. The group's
+ * «اشترك» button lives in the groups tab and carries the group's uuid; a
+ * rail button cannot know which group the reader wants, and a link to
+ * `?tab=groups` is dead from this page (the docblock above says why). So the
+ * rail says where the action is.
+ *
+ * ⚠️ AND NOTHING IS DRAWN WHILE THE SESSION IS BEING RESTORED. `useAuth`
+ * starts every page with `user === null`, so the link drawn then is the
+ * visitor's — a signed-in student pressing it in that instant is bounced off
+ * the signup page, which is the defect this component replaced.
+ */
+function SubscribeWays({
+  courseUuid,
+  privateSubscriptionAvailable,
+  joinableGroup,
+}: {
+  courseUuid: string;
+  privateSubscriptionAvailable: boolean;
+  joinableGroup: boolean;
+}) {
+  const { user, loading } = useAuth();
+
+  const subscribe = `/subscribe?course=${encodeURIComponent(courseUuid)}`;
+  // A teacher or staff account buys nothing here — the door refuses them.
+  const mayBuy = user === null || isLearner(user);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {joinableGroup && (
+        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
+          <b className="font-extrabold text-primary-ink">اختر مجموعتك</b>
+          <span className="text-ink-muted">
+            من تبويب «المجموعات المتاحة» — اضغط «اشترك» تحت المجموعة التي تناسب مواعيدك.
+          </span>
+        </p>
+      )}
+
+      {privateSubscriptionAvailable && !loading && mayBuy && (
+        <Link
+          href={
+            user === null ? `/signup/student?next=${encodeURIComponent(subscribe)}` : subscribe
+          }
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          اشترك بحصص خاصة
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -303,7 +404,12 @@ function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
 
   if (user?.platform_role !== "student") {
     return (
-      <Link href="/signup/student" className={className}>
+      // `next` brings a new account back to this course (the uuid 308s to the
+      // slug), rather than dropping them on a home page with the course lost.
+      <Link
+        href={`/signup/student?next=${encodeURIComponent(`/courses/${courseUuid}`)}`}
+        className={className}
+      >
         سجّل مجاناً
       </Link>
     );

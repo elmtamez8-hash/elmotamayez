@@ -191,6 +191,13 @@ final class PublicFieldAllowlist
         | what the groups list shows.
         */
         'free_enrollment',
+        /*
+        | Whether anything on the page can be bought now — a joinable group or the
+        | private invitation. Derived from the two fields above, so it says
+        | nothing they do not already say; what it removes is a price and a
+        | button shown over a course nobody can buy.
+        */
+        'enrolment_open',
     ];
 
     /*
@@ -262,6 +269,11 @@ final class PublicFieldAllowlist
     |
     | ولا يُسرِّبُ شيئاً لم يكنْ معلَناً: الاسمُ والنوعُ والمدّةُ كلُّها منشورةٌ
     | في الصفِّ نفسِه بالفعل، وهذا يضيفُ إليها قراراً اتّخذَه المدرّسُ ليُعلَن.
+    |
+    | ⛔ **و«بلا `uuid`» نُقِضَ بقرارِ المالكِ ٢٠٢٦-٠٩-٢٤**: الدرسُ المفتوحُ لكلِّ
+    | حسابٍ مسجَّل، فالصفُّ يحملُ معرّفَه ليُبنى منه رابطٌ إلى `/learn`. ولا
+    | يُسلِّمُ زائراً شيئاً: البابانِ اللذانِ يقبلانِه خلفَ تسجيلِ الدخول،
+    | ويقولانِ «نعم» بالشرطِ نفسِه (`mayWatch()` وفرعُ الدرسِ المفتوح).
     */
     /** @var list<string> */
     public const CURRICULUM_ITEM = ['title', 'kind', 'duration_seconds', 'uuid', 'is_open', 'free_with_account'];

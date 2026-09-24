@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
+import { isLearner, useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -33,6 +34,13 @@ type Profile = {
  * guardian, an admin. The check is the API's answer, not the user's
  * `platform_role`: the role says what someone signed up as, the profile says
  * whether a public page exists to rename.
+ *
+ * ⛔ AND A LEARNER IS NEVER ASKED AT ALL (reported 2026-09-24). «The API's
+ * answer» meant every student and guardian opening /settings fired
+ * `GET /teacher/profile` and took a 403 in the network log, on a page working
+ * correctly for them. `isLearner` is the one spelling of «student or guardian»
+ * the rest of the product reads; the API still answers for everyone else, so an
+ * academy account whose role says nothing is not refused a card it may own.
  */
 export function PublicProfileUrlCard() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -41,8 +49,14 @@ export function PublicProfileUrlCard() {
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const { user, loading } = useAuth();
+  // Not asked until the session is known: `user` is null on the first paint
+  // for everybody, and a learner is not asked at all.
+  const mayOwnProfile = !loading && user !== null && !isLearner(user);
 
   useEffect(() => {
+    if (!mayOwnProfile) return;
+
     let active = true;
 
     api
@@ -52,7 +66,7 @@ export function PublicProfileUrlCard() {
         setProfile(data);
         setSlug(data.slug ?? "");
       })
-      // Swallowed on purpose. A student opening /settings gets a 403 here, and
+      // Swallowed on purpose. An account with no profile gets a 403 here, and
       // the card simply does not appear — an error banner about a teacher
       // profile would be noise on a page that is working correctly for them.
       .catch(() => {});
@@ -60,7 +74,7 @@ export function PublicProfileUrlCard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [mayOwnProfile]);
 
   if (profile === null) return null;
 
