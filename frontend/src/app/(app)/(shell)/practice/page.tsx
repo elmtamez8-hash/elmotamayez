@@ -17,6 +17,7 @@ import { difficultyLabel, DIFFICULTIES, type Difficulty } from "@/lib/bank";
 import { userMessage } from "@/lib/errors";
 import { mistakes } from "@/lib/mistakes";
 import { practice, type PracticeFilterOptions, type PracticePaper } from "@/lib/practice";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * The student builds their own paper.
@@ -161,7 +162,7 @@ export default function PracticePage() {
         */}
         {paper.delivered_count < paper.requested_count && (
           <Alert tone="info" title="الورقة أقصر ممّا طلبت">
-            طلبت <bdi>{paper.requested_count}</bdi> سؤالاً، وما يطابق اختيارك في بنك مدرّسك{" "}
+            طلبت {counted(paper.requested_count, { ...NOUNS.questions, two: "سؤالين" })}، وما يطابق اختيارك في بنك مدرّسك{" "}
             <bdi>{paper.delivered_count}</bdi>. وسّع الفكرة أو الصعوبة لورقةٍ أطول.
           </Alert>
         )}

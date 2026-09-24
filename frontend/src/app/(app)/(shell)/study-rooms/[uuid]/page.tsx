@@ -16,6 +16,8 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ApiError } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { studyRooms, type StudyRoomQuestion, type StudyRoomView } from "@/lib/study-rooms";
+import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Inside one study room (FR-014 · FR-015).
@@ -135,7 +137,7 @@ export default function StudyRoomPage() {
         title={room.concept?.name ?? "غرفة مذاكرة"}
         description={
           <>
-            مع {room.host.name} · <bdi>{room.question_count}</bdi> أسئلة
+            مع {room.host.name} · {counted(room.question_count, NOUNS.questions)}
           </>
         }
         actions={
@@ -160,7 +162,7 @@ export default function StudyRoomPage() {
         {room.state === "closed" ? (
           <EmptyState
             title="انتهت الغرفة"
-            description={`نتيجتك ${room.score ?? 0} من ${room.question_count} سؤالاً.`}
+            description={`نتيجتك ${arabicNumber(room.score ?? 0)} من ${counted(room.question_count, { ...NOUNS.questions, two: "سؤالين" })}.`}
           />
         ) : next === undefined ? (
           <EmptyState

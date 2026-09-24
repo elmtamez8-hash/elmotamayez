@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
-import { TONE_CLASSES } from "@/lib/labels";
+import { TONE_CLASSES, counted, NOUNS } from "@/lib/labels";
 import { practice, type PracticePaper, type PracticeResult } from "@/lib/practice";
 
 /**
@@ -150,7 +150,7 @@ export function PracticeRunner({
             out loud. Silent, it reads as a number the student typed for nothing. */}
         {paper.delivered_count < paper.requested_count && (
           <p className="mt-1 text-sm text-ink-muted">
-            طلبت <bdi>{paper.requested_count}</bdi> سؤالاً، والمتاح لك الآن{" "}
+            طلبت {counted(paper.requested_count, { ...NOUNS.questions, two: "سؤالين" })}، والمتاح لك الآن{" "}
             <bdi>{paper.delivered_count}</bdi>.
           </p>
         )}

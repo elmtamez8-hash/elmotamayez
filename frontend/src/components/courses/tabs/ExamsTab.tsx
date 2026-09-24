@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import type { CourseExam } from "@/lib/course-hub";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * This course's papers, with the reader's own record on each (US2 · FR-017).
@@ -65,9 +66,7 @@ export function ExamsTab({ exams }: { exams: CourseExam[] }) {
             </div>
 
             <div className="mb-3 flex flex-wrap gap-2">
-              <Badge>
-                <bdi>{exam.duration_minutes}</bdi>&nbsp;دقيقة
-              </Badge>
+              <Badge>{counted(exam.duration_minutes, NOUNS.minutes)}</Badge>
               <Badge>
                 النجاح&nbsp;<bdi>{exam.passing_score}%</bdi>
               </Badge>
@@ -79,7 +78,13 @@ export function ExamsTab({ exams }: { exams: CourseExam[] }) {
                 : sat ? (
                     <>
                       أفضل نتيجة <bdi>{mine.best_score ?? 0}%</bdi> من{" "}
-                      <bdi>{mine.count}</bdi> محاولة
+                      {counted(mine.count, {
+                        one: "محاولة واحدة",
+                        two: "محاولتين",
+                        few: "محاولات",
+                        many: "محاولة",
+                        other: "محاولة",
+                      })}
                     </>
                   ) : (
                     "لم تجرِّبه بعد."

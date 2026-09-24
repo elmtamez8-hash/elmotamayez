@@ -12,7 +12,7 @@ import {
 import Link from "next/link";
 import { api, errorMessage } from "@/lib/api";
 import type { Order } from "@/lib/types";
-import { TONE_CLASSES, counted, formatDate, formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
+import { TONE_CLASSES, counted, formatDate, formatMinorMoney, statusLabel, statusTone, NOUNS } from "@/lib/labels";
 import { planShape, SESSION_TYPE_LABELS } from "@/lib/plans";
 import { StatusBadge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -416,7 +416,7 @@ export default function OrdersPage() {
           {o.review_sla_hours !== null && o.has_receipt && (
             <span className="flex items-center gap-1 text-xs text-ink-muted">
               <ClockIcon className="h-3.5 w-3.5" />
-              تُراجَع خلال {o.review_sla_hours} ساعة
+              تُراجَع خلال {counted(o.review_sla_hours, { ...NOUNS.hours, two: "ساعتين" })}
             </span>
           )}
           {/* ⚠️ THE REASON WAS ON THE PAYLOAD AND ON NO SCREEN. `rejection_reason`

@@ -13,7 +13,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { billing, type BillingSettings } from "@/lib/billing";
 
-import { arabicNumber } from "@/lib/numerals";
+import { counted, NOUNS } from "@/lib/labels";
 /**
  * How this academy collects — switched here, never by shipping code (FR-011).
  *
@@ -211,7 +211,7 @@ export default function BillingSettingsPage() {
           <div>
             <dt className="text-ink-muted">ما تسمح به الدورة</dt>
             <dd className="font-medium text-ink">
-              <bdi>{arabicNumber(settings.cadence_allows_credits)}</bdi> حصة
+              {counted(settings.cadence_allows_credits, NOUNS.sessions)}
             </dd>
             <dd className="mt-1 text-xs text-ink-muted">
               {settings.allows_deferral

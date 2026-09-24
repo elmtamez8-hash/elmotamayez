@@ -9,6 +9,7 @@ use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Marketplace\Models\Review;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Support\CountedNoun;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -55,7 +56,10 @@ final class ReviewEligibility
         // lessons and one who gives up on the form.
         $reason = $attended >= $required
             ? null
-            : sprintf('لا يمكن التقييم قبل حضور %d حصص. حضرت %d حتى الآن.', $required, $attended);
+            : 'لا يمكن التقييم قبل حضور '.CountedNoun::of($required, CountedNoun::SESSIONS_OBJECT)
+                .($attended === 0
+                    ? '. لم تحضر أي حصة بعد.'
+                    : '. حضرت '.CountedNoun::of($attended, CountedNoun::SESSIONS_OBJECT).' حتى الآن.');
 
         return [
             'eligible' => $reason === null,

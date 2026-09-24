@@ -25,7 +25,7 @@ import {
 } from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { timezoneLabel } from "@/lib/labels";
+import { timezoneLabel, counted, NOUNS } from "@/lib/labels";
 import { formatSessionTime } from "@/lib/session-format";
 
 /**
@@ -155,7 +155,7 @@ export default function ManageSessionPage({
           {formatSessionTime(session.starts_at, session.timezone)}
         </p>
         <p className="mb-4 text-sm text-ink-muted">
-          المدة <bdi>{session.duration_minutes}</bdi> دقيقة · المنطقة الزمنية{" "}
+          المدة {counted(session.duration_minutes, NOUNS.minutes)} · المنطقة الزمنية{" "}
           <bdi>{timezoneLabel(session.timezone)}</bdi>
         </p>
 

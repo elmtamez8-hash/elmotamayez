@@ -32,6 +32,7 @@ function session(uuid: string): ClassSession {
     title: "حصة المعادلات",
     starts_at: "2026-10-01T10:00:00Z",
     ends_at: "2026-10-01T11:00:00Z",
+    duration_minutes: 60,
     seats: { total: 6, taken: 3, available: 3 },
   } as ClassSession;
 }

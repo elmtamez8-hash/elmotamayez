@@ -1,6 +1,18 @@
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { adminNav, allowedNav, mainNav, navLabel, platformNav, quickAccessFor } from "./panel-nav";
+import {
+  adminNav,
+  allowedNav,
+  DEFAULT_PAGE_TITLE,
+  mainNav,
+  navLabel,
+  pageTitleFor,
+  platformNav,
+  quickAccessFor,
+} from "./panel-nav";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -296,5 +308,55 @@ describe("the platform panel is reachable from the product", () => {
     const item = platformNav.find((entry) => entry.href === "/admin");
 
     expect(item?.external).toBe(true);
+  });
+});
+
+/*
+| The top bar's title — measured on production 2026-09-24: «لوحة التحكم» over a
+| group's page and a session room, and «لوحة التصحيح» over «أوزان التقدير»,
+| because `/manage/grading-schemes` starts with `/manage/grading`.
+*/
+describe("pageTitleFor", () => {
+  it.each([
+    ["/manage/grading-schemes", "أوزان التقدير"],
+    ["/manage/grading", "لوحة التصحيح"],
+    ["/manage/grading/abc", "لوحة التصحيح"],
+    ["/manage/cohorts/abc", "المجموعة"],
+    ["/sessions/abc", "الحصّة"],
+    ["/sessions/abc/room", "غرفة الحصّة"],
+    ["/settings/privacy", "خصوصيّتي"],
+    ["/dashboard", "لوحة التحكم"],
+  ])("%s → %s", (path, title) => {
+    expect(pageTitleFor(path)).toBe(title);
+  });
+
+  it("gives every screen in the panel a title of its own", () => {
+    // A new screen with no menu entry and no detail title falls back to «لوحة
+    // التحكم», naming a page the reader is not on. Walk every page file so the
+    // next one is named here rather than on production.
+    const shell = join(process.cwd(), "src", "app", "(app)", "(shell)");
+    const routes: string[] = [];
+
+    const walk = (dir: string, prefix: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          const segment = /^\(.*\)$/.test(entry.name)
+            ? ""
+            : `/${entry.name.replace(/^\[.*\]$/, "sample")}`;
+          walk(join(dir, entry.name), prefix + segment);
+        } else if (entry.name === "page.tsx") {
+          routes.push(prefix === "" ? "/" : prefix);
+        }
+      }
+    };
+
+    walk(shell, "");
+
+    const untitled = routes.filter(
+      (route) => route !== "/dashboard" && pageTitleFor(route) === DEFAULT_PAGE_TITLE,
+    );
+
+    expect(routes.length).toBeGreaterThan(50);
+    expect(untitled).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatMinorMoney, statusLabel, statusTone } from "@/lib/labels";
+import { formatMinorMoney, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * ⚠️ ONE REQUEST FOR THE WHOLE SET, AND THE FILTERS ARE BUILT FROM IT.
@@ -157,7 +158,7 @@ export default function ManageCoursesPage() {
         description={
           loading
             ? "أنشئ كورساتك وحرّرها وانشرها."
-            : `${courses.length} كورساً · أنشئها وحرّرها وانشرها.`
+            : `${counted(courses.length, NOUNS.courses)} · أنشئها وحرّرها وانشرها.`
         }
         actions={
           <Button href="/manage/courses/new" iconStart={<SparkIcon className="h-4 w-4" />}>
@@ -169,7 +170,7 @@ export default function ManageCoursesPage() {
       {error && <Alert tone="danger" title={error} />}
 
       {total > courses.length && (
-        <Alert tone="warning" title={`تُعرض أول ${courses.length} كورساً من ${total}.`}>
+        <Alert tone="warning" title={`تُعرض أول ${counted(courses.length, NOUNS.courses)} من ${arabicNumber(total)}.`}>
           ابحث بالاسم للوصول إلى البقية.
         </Alert>
       )}
@@ -317,7 +318,7 @@ export default function ManageCoursesPage() {
                               join. */}
                           {cohort.seats_left !== null && (
                             <span className="text-ink-muted">
-                              {cohort.seats_left} مقعداً متاحاً
+                              {counted(cohort.seats_left, NOUNS.seatsAvailable)}
                             </span>
                           )}
                         </div>
@@ -330,7 +331,7 @@ export default function ManageCoursesPage() {
                     ))}
                     {(course.cohorts ?? []).length > 3 && (
                       <li className="text-xs text-ink-muted">
-                        و{(course.cohorts ?? []).length - 3} مجموعة أخرى.
+                        و{counted((course.cohorts ?? []).length - 3, { one: "مجموعة أخرى", two: "مجموعتان أخريان", few: "مجموعات أخرى", many: "مجموعة أخرى", other: "مجموعة أخرى" })}.
                       </li>
                     )}
                   </ul>

@@ -9,6 +9,7 @@ import { arabicNumber } from "@/lib/numerals";
 import { formatSessionClock, formatSessionDay } from "@/lib/session-format";
 import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { counted, NOUNS } from "@/lib/labels";
 
 /** «يبدأ بعد ساعتين و١٥ دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها. */
 function untilLabel(seconds: number): string {
@@ -16,9 +17,9 @@ function untilLabel(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
 
   if (hours > 0) return `يبدأ بعد ${arabicNumber(hours)} س و${arabicNumber(minutes)} د`;
-  if (minutes > 0) return `يبدأ بعد ${arabicNumber(minutes)} دقيقة`;
+  if (minutes > 0) return `يبدأ بعد ${counted(minutes, { ...NOUNS.minutes, two: "دقيقتين" })}`;
 
-  return `يبدأ بعد ${arabicNumber(seconds)} ثانية`;
+  return `يبدأ بعد ${counted(seconds, { ...NOUNS.seconds, two: "ثانيتين" })}`;
 }
 
 /**

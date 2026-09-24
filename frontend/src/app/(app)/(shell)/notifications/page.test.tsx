@@ -255,3 +255,22 @@ describe("NotificationsPage", () => {
     expect(await screen.findByText("نوع جديد")).toBeTruthy();
   });
 });
+
+/*
+| «لديك ١ إشعاراً غير مقروء» — production, 2026-09-24. The `many` band printed
+| for one, because the count was a template literal.
+*/
+describe("the unread count in the heading", () => {
+  it.each([
+    [1, "لديك إشعار واحد غير مقروء"],
+    [2, "لديك إشعاران غير مقروءين"],
+    [3, "لديك ٣ إشعارات غير مقروءة"],
+    [11, "لديك ١١ إشعاراً غير مقروء"],
+  ])("%i", async (unread, sentence) => {
+    list.mockResolvedValue(page({ meta: { unread_count: unread } }));
+
+    render(<NotificationsPage />);
+
+    expect(await screen.findByText(sentence)).toBeTruthy();
+  });
+});

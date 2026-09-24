@@ -679,6 +679,55 @@ export function navLabel(href: string, user: User | null): string | undefined {
 }
 
 /**
+ * Screens that sit under no menu entry of their own — a detail page, a room —
+ * named for the top bar. Checked BEFORE the menu, because each is more specific
+ * than any entry it happens to sit beneath (`/practice/adaptive` is not «درّب
+ * نفسك», it is the adaptive run).
+ */
+const DETAIL_TITLES: { pattern: RegExp; title: string }[] = [
+  { pattern: /^\/sessions\/[^/]+\/room(\/|$)/, title: "غرفة الحصّة" },
+  { pattern: /^\/sessions\/[^/]+(\/|$)/, title: "الحصّة" },
+  { pattern: /^\/manage\/cohorts\/[^/]+(\/|$)/, title: "المجموعة" },
+  { pattern: /^\/manage\/students\/[^/]+\/reviews(\/|$)/, title: "التقييم الدوري" },
+  { pattern: /^\/manage\/freeze(\/|$)/, title: "فترات التجميد" },
+  { pattern: /^\/learn\/[^/]+(\/|$)/, title: "الدرس" },
+  { pattern: /^\/study-rooms(\/|$)/, title: "غرف المذاكرة" },
+  { pattern: /^\/subscribe(\/|$)/, title: "الاشتراك" },
+  { pattern: /^\/exams\/new(\/|$)/, title: "اختبار جديد" },
+  { pattern: /^\/exams\/[^/]+\/manage(\/|$)/, title: "إدارة الاختبارات" },
+  { pattern: /^\/practice\/adaptive(\/|$)/, title: "تدريب تكيّفي" },
+];
+
+/** The fallback, and the title of `/dashboard` itself. */
+export const DEFAULT_PAGE_TITLE = "لوحة التحكم";
+
+/**
+ * The top bar's title for a path.
+ *
+ * ⚠️ IT WAS `allNav.find((i) => pathname.startsWith(i.href))`, AND THAT IS TWO
+ * DEFECTS (measured on production 2026-09-24). No segment boundary, first match
+ * wins: `/manage/grading-schemes` starts with `/manage/grading`, which comes
+ * first in the menu, so «أوزان التقدير» was titled «لوحة التصحيح». And a screen
+ * under no entry at all — a group, a session room — fell through to «لوحة
+ * التحكم», which names a page the reader is not on. So: a detail title first,
+ * then the LONGEST menu entry that matches on a segment boundary, and the
+ * fallback only after both. The menu is read through {@link allowedNav} first so
+ * a label that differs by audience reads as the reader's own.
+ */
+export function pageTitleFor(pathname: string, user: User | null = null): string {
+  const detail = DETAIL_TITLES.find((entry) => entry.pattern.test(pathname));
+
+  if (detail !== undefined) return detail.title;
+
+  const longest = (items: NavItem[]) =>
+    items
+      .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+      .sort((a, b) => b.href.length - a.href.length)[0]?.label;
+
+  return longest(allowedNav(allNav, user)) ?? longest(allNav) ?? DEFAULT_PAGE_TITLE;
+}
+
+/**
  * الوصولُ السريعُ في قائمةِ الحساب — طلبُ ٢٠٢٦-٠٩-٠٦: «المنيو بيتغير حسب هو طالب
  * او مدرس او ادمن او ولي امر».
  *

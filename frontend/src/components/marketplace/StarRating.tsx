@@ -1,5 +1,6 @@
 import { StarIcon } from "@/components/icons";
 import { arabicDecimal, arabicNumber } from "@/lib/numerals";
+import { counted } from "@/lib/labels";
 /**
  * Star rating with a text equivalent.
  *
@@ -81,7 +82,7 @@ export function StarRating({
       )}
       <span className="sr-only">
         {`التقييم ${arabicDecimal(value)} من ٥`}
-        {count !== undefined ? ` بناءً على ${arabicNumber(count)} تقييماً` : ""}
+        {count !== undefined ? ` بناءً على ${counted(count, { one: "تقييم واحد", two: "تقييمين", few: "تقييمات", many: "تقييماً", other: "تقييم" })}` : ""}
       </span>
     </span>
   );

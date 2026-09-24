@@ -12,6 +12,7 @@ use App\Shared\Contracts\AccountStanding;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\UnlockDirectory;
+use App\Shared\Support\CountedNoun;
 
 /**
  * What "an eligible student" means, spelled out.
@@ -97,7 +98,7 @@ class BookingEligibility
 
         $needed = $money['credits_needed'];
 
-        return "رصيدك في هذا الكورس لا يكفي لحجز حصة جديدة. تحتاج {$needed} حصة على الأقل، وتُشترى من صفحة الأرصدة.";
+        return 'رصيدك في هذا الكورس لا يكفي لحجز حصة جديدة. تحتاج '.CountedNoun::of($needed, CountedNoun::SESSIONS_OBJECT).' على الأقل، وتُشترى من صفحة الأرصدة.';
     }
 
     /**
@@ -195,7 +196,9 @@ class BookingEligibility
 
         $back = (date_create_immutable($held['first_release_at']) ?: null)?->format('Y-m-d H:i');
 
-        return "رصيدك محجوزٌ لحصصٍ أخرى ({$held['held']} حصة). أوّل ما يعود منه بعد انتهاء حصة {$back}، أو اشترِ رصيداً من صفحة الأرصدة.";
+        $heldCount = CountedNoun::of((int) $held['held'], ['one' => 'حصة واحدة', 'two' => 'حصتان', 'few' => 'حصص', 'many' => 'حصة', 'other' => 'حصة']);
+
+        return "رصيدك محجوزٌ لحصصٍ أخرى ({$heldCount}). أوّل ما يعود منه بعد انتهاء حصة {$back}، أو اشترِ رصيداً من صفحة الأرصدة.";
     }
 
     public function maySit(ClassSession $session, User $student): bool
