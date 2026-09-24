@@ -33,6 +33,22 @@ const ANCHORS: Record<string, string> = {
   "#private": "private",
 };
 
+/**
+ * The event a control ELSEWHERE on the page sends to open one of these tabs.
+ *
+ * ⚠️ AN EVENT, NOT A PROP OR A LINK. The course page is a server component, so
+ * it cannot hand the rail a callback into this strip; and both links are dead
+ * from the same page — `?tab=` is read once by `useTabParam`, and the hash once
+ * on arrival (the docblock above says why). So «اختر مجموعتك» on the rail used
+ * to be text telling the reader where to click. This is the one door between
+ * the two, and `openCourseTab()` is its one spelling.
+ */
+export const OPEN_COURSE_TAB_EVENT = "course-tabs:open";
+
+export function openCourseTab(key: string): void {
+  window.dispatchEvent(new CustomEvent<string>(OPEN_COURSE_TAB_EVENT, { detail: key }));
+}
+
 export function CourseTabs({
   about,
   groups,
@@ -75,8 +91,25 @@ export function CourseTabs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const section = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const wanted = (event as CustomEvent<string>).detail;
+      if (!tabs.some((tab) => tab.key === wanted)) return;
+
+      select(wanted);
+      // The rail sits beside the strip on a wide screen and far above it on a
+      // phone — the reader has to be taken to what just opened.
+      section.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    };
+
+    window.addEventListener(OPEN_COURSE_TAB_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_COURSE_TAB_EVENT, onOpen);
+  }, [tabs, select]);
+
   return (
-    <section className="flex flex-col gap-5">
+    <section ref={section} className="flex scroll-mt-24 flex-col gap-5">
       <Tabs tabs={tabs} active={active} onChange={select} label="تفاصيل الكورس" />
 
       {about !== null && (

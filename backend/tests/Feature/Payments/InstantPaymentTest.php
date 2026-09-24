@@ -111,7 +111,7 @@ it('captures, mints and notifies from one signed callback', function (): void {
     expect(Notification::query()
         ->where('recipient_user_id', $this->student->getKey())
         ->where('type', NotificationType::PaymentConfirmed->value)
-        ->exists())->toBeTrue();
+        ->value('action_url'))->toBe('/billing');
 });
 
 it('stores the callback with its tenant resolved from the order, never from the body', function (): void {

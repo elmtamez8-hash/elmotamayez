@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { auth, setToken, setSessionUuid, clearToken, type SignedIn } from "@/lib/api";
 import { twoFactor } from "@/lib/two-factor";
+import { teachesOnPlatform as teachesOnPlatformCheck } from "@/lib/teaches-on-platform";
 import type { User } from "@/lib/types";
 
 /**
@@ -110,7 +111,26 @@ export { teachesOnPlatform } from "@/lib/teaches-on-platform";
  * destination.
  */
 export function homePathFor(user: User): string {
-  return isLearner(user) ? "/teachers" : "/dashboard";
+  return belongsOnLearnerSide(user) ? "/teachers" : "/dashboard";
+}
+
+/**
+ * Which half of the product this person lands in — asked by the two paths below.
+ *
+ * ⚠️ NOT `isLearner()` alone. `platform_role` is null for dozens of accounts,
+ * students a teacher or a seeder created among them, and «not a learner» sent
+ * each of those to `/dashboard`, which resolves a workspace they are not in. So
+ * TEACHING decides first, through the same pivot-role predicate the purchase
+ * doors use (`teachesOnPlatform`); a guardian stays on the learner side whatever
+ * else they are, as before; and an account with no role, teaching nowhere, is a
+ * learner unless it is platform staff — whose screens live behind `/dashboard`.
+ */
+function belongsOnLearnerSide(user: User): boolean {
+  if (user.platform_role === "parent") return true;
+  if (teachesOnPlatformCheck(user)) return false;
+  if (user.platform_role === "student") return true;
+
+  return user.platform_role === null && !user.is_super_admin && !user.may_access_admin_panel;
 }
 
 /**
@@ -123,7 +143,7 @@ export function homePathFor(user: User): string {
  * resolves a workspace and greets them with an error, so theirs is `/enrollments`.
  */
 export function panelPathFor(user: User): string {
-  return isLearner(user) ? "/enrollments" : "/dashboard";
+  return belongsOnLearnerSide(user) ? "/enrollments" : "/dashboard";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

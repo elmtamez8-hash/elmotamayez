@@ -126,6 +126,12 @@ it('warns the student once, and only once, inside the notice window', function (
         ->count())->toBe(1)
         ->and($subscription->refresh()->expiring_notified_at)->not->toBeNull();
 
+    // «جدّده قبلها» carries its door.
+    expect(Notification::query()
+        ->where('recipient_user_id', $this->buyer->getKey())
+        ->where('type', NotificationType::SubscriptionExpiring->value)
+        ->value('action_url'))->toBe('/plans');
+
     PlatformSettings::flush();
 });
 

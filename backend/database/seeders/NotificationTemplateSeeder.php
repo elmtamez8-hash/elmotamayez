@@ -155,6 +155,12 @@ class NotificationTemplateSeeder extends Seeder
      * than rendering a gap (FR-037) — so the list is exactly what the body reads,
      * not everything the caller happens to pass.
      *
+     * ⚠️ AND IN THE ORDER THE BODY FIRST READS THEM — not the title. WhatsApp
+     * sends `variables` as the body's numbered parameters, in this order, so a
+     * list that follows the title put the months where the credits belong
+     * (`credit_balance_dormant`, fixed 2026-09-24 with two siblings).
+     * `TemplateVariableOrderTest` fails the build over the next one.
+     *
      * @return array<string, array{0: string, 1: string, 2: list<string>}>
      */
     private function templates(): array
@@ -163,7 +169,7 @@ class NotificationTemplateSeeder extends Seeder
             NotificationType::SessionReport->value => [
                 'تقرير حصة {{ title }}',
                 'حالة {{ student_name }} في حصة «{{ title }}»: {{ status }}، مدة الحضور {{ minutes }} دقيقة. {{ note }}',
-                ['title', 'student_name', 'status', 'minutes', 'note'],
+                ['student_name', 'title', 'status', 'minutes', 'note'],
             ],
             // Worded for both endings a booked seat can have — called off by the
             // teacher, or suspended by a freeze. "لن تُعقد" is true of each; a
@@ -254,7 +260,7 @@ class NotificationTemplateSeeder extends Seeder
             NotificationType::CreditBalanceDormant->value => [
                 'لديك رصيد غير مستخدَم في {{ course }}',
                 'لم تستخدم رصيدك في «{{ course }}» منذ {{ months }} شهراً، وما زالت لديك {{ credits }} حصة. الرصيد لا ينتهي، ويمكنك استخدامه في أي وقت أو طلب استرداده.',
-                ['course', 'credits', 'months'],
+                ['course', 'months', 'credits'],
             ],
             /*
             | Spec 008. Written as a summary rather than "your import is done",
@@ -532,7 +538,7 @@ class NotificationTemplateSeeder extends Seeder
             NotificationType::PeriodicReviewPublished->value => [
                 'تقييم {{ student_name }} الدوري',
                 'نشر {{ teacher_name }} تقييماً دورياً لـ{{ student_name }} عن الفترة من {{ period_start }} إلى {{ period_end }}. افتح التقييم لقراءته.',
-                ['student_name', 'teacher_name', 'period_start', 'period_end'],
+                ['teacher_name', 'student_name', 'period_start', 'period_end'],
             ],
             /*
             | The teacher's announcement (010 · FR-042 … FR-044).
@@ -781,7 +787,7 @@ class NotificationTemplateSeeder extends Seeder
             NotificationType::CertificateIssued->value => [
                 'صدرت شهادتك',
                 'مبارك {{ name }}! صدرت شهادتك رقم {{ certificate_number }} عن «{{ course_title }}».',
-                ['name', 'certificate_number'],
+                ['name', 'certificate_number', 'course_title'],
             ],
             NotificationType::CertificateRegenerated->value => [
                 'أُعيد إصدار شهادتك',

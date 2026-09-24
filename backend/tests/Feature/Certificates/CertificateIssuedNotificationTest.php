@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Certificates\Events\CertificateIssued;
 use App\Modules\Certificates\Models\Certificate;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\LessonType;
@@ -12,7 +13,10 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
+use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -76,4 +80,27 @@ it('tells the student their certificate was issued when they finish the course',
     // The course title is a required template variable: a relation that resolved
     // null would have sent '' and the renderer would have dropped the message.
     expect((string) $row->body)->toContain((string) $course->title);
+});
+
+it('says nothing — and logs why — about a certificate whose course is gone', function (): void {
+    /*
+    | The body reads «عن «{{ course_title }}»». Before, a certificate with no
+    | course went out as «عن «»» — a sentence naming nothing. Now the listener
+    | refuses and leaves a line naming the certificate, so the silence is findable.
+    */
+    $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
+
+    $certificate = (new Certificate)->forceFill(['id' => 424242, 'course_id' => null]);
+    $certificate->setRelation('student', $student);
+
+    Log::spy();
+
+    app(NotifyStudentCertificateIssued::class)->handle(new CertificateIssued($certificate));
+
+    expect(Notification::query()->where('recipient_user_id', $student->getKey())->count())->toBe(0);
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context): bool => str_contains($message, 'certificate_issued')
+            && $context['certificate_id'] === 424242)
+        ->once();
 });

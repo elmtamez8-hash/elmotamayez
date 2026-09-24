@@ -51,6 +51,8 @@ class TerminateOtherSessions extends Action
             recipient: $user,
             type: NotificationType::SecurityAlert,
             variables: ['name' => $user->name, 'event' => $event],
+            // Where the reader can see every signed-in device and end one.
+            actionUrl: '/settings/security',
         ));
     }
 }

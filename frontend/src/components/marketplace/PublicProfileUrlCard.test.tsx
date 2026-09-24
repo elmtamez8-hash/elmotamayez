@@ -71,10 +71,28 @@ describe("PublicProfileUrlCard", () => {
 
   it("still asks for a teacher", async () => {
     // The guard in the other direction: an inverted condition hides every card.
-    mockUser = { uuid: "t-1", platform_role: "teacher" };
+    mockUser = { uuid: "t-1", platform_role: "teacher", workspaces: [{ uuid: "w-1", name: "أكاديمية" }] };
 
     await mount();
 
     expect(get).toHaveBeenCalledWith("/teacher/profile");
+  });
+
+  it("asks for an academy account whose role says nothing, because it teaches", async () => {
+    mockUser = { uuid: "t-2", platform_role: null, workspaces: [{ uuid: "w-2", name: "أكاديمية" }] };
+
+    await mount();
+
+    expect(get).toHaveBeenCalledWith("/teacher/profile");
+  });
+
+  it("never asks for a role-less student who teaches nowhere", async () => {
+    // ⚠️ `platform_role` is null for students a teacher or a seeder created, and
+    // «not a learner» asked on their behalf. Teaching is what decides.
+    mockUser = { uuid: "s-3", platform_role: null, workspaces: [] };
+
+    await mount();
+
+    expect(get).not.toHaveBeenCalled();
   });
 });

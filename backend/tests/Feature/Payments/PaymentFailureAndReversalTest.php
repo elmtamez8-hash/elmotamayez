@@ -6,7 +6,10 @@ use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\InitiatePayment;
 use App\Modules\Payments\Actions\ReversePayment;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Modules\Payments\Events\PaymentFailed;
+use App\Modules\Payments\Listeners\NotifyPaymentOutcome;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Providers\PaymentProviderRegistry;
@@ -78,7 +81,7 @@ it('leaves the debt standing and tells the student why', function (): void {
     expect(Notification::query()
         ->where('recipient_user_id', $this->student->getKey())
         ->where('type', NotificationType::PaymentFailed->value)
-        ->exists())->toBeTrue();
+        ->value('action_url'))->toBe('/orders');
 });
 
 it('never walks a failure forward to captured on its own', function (): void {
@@ -138,7 +141,28 @@ it('tells the payer their payment was taken back', function (): void {
     expect(Notification::query()
         ->where('recipient_user_id', $this->student->getKey())
         ->where('type', NotificationType::PaymentReversed->value)
-        ->exists())->toBeTrue();
+        ->value('action_url'))->toBe('/orders');
+});
+
+it('tells the payer of an order with no course that their payment failed', function (): void {
+    /*
+    | A store or subscription order carries no course, and the template REQUIRES
+    | `course`. `course->title ?? ''` sent an empty string, the renderer refused the
+    | whole message, and the payer was never told. The kind's own label stands in.
+    */
+    $this->order->forceFill(['kind' => OrderKind::Store, 'course_id' => null])->save();
+
+    app(NotifyPaymentOutcome::class)->handleFailed(
+        new PaymentFailed($this->order->fresh(), $this->transaction, 'رفض البنك العملية.'),
+    );
+
+    $row = Notification::query()
+        ->where('recipient_user_id', $this->student->getKey())
+        ->where('type', NotificationType::PaymentFailed->value)
+        ->firstOrFail();
+
+    expect((string) $row->body)->toContain(OrderKind::Store->label())
+        ->and($row->action_url)->toBe('/orders');
 });
 
 it('refuses to reverse anything that was never captured', function (): void {
