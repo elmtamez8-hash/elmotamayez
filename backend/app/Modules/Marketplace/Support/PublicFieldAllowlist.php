@@ -431,8 +431,17 @@ final class PublicFieldAllowlist
     | to either party. A third surface that wants this field makes the decision
     | again, out loud, rather than inheriting it from this list.
     */
+    /*
+    | `uuid` — the review's own identifier, and the only thing a visitor's
+    | «إبلاغ» can post (`POST /reviews/{uuid}/report`). It names the review and
+    | nobody behind it: `ReportReview` resolves visible rows only, so a hidden
+    | review's uuid answers the same 404 as one that never existed. Sent by the
+    | teacher's own reviews tab; the home carousel does not report and does not
+    | send it.
+    */
     /** @var list<string> */
     public const REVIEW = [
+        'uuid',
         'student_display_name',
         'student_avatar_url',
         'rating',

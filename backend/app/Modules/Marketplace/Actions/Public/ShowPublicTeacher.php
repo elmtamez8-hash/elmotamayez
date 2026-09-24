@@ -102,6 +102,9 @@ class ShowPublicTeacher extends Action
                 $avatar = $review->student?->studentProfile?->avatar_path;
 
                 return [
+                    // What «إبلاغ» posts to `/reviews/{uuid}/report`. Without it
+                    // the report route existed and nothing could reach it.
+                    'uuid' => (string) $review->uuid,
                     'student_display_name' => $review->studentDisplayName(),
                     // Published here and nowhere else — see the note on
                     // PublicFieldAllowlist::REVIEW for what that costs and who
