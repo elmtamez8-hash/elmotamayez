@@ -63,6 +63,11 @@ function anonymisedSessionCount(User $user): int
 }
 
 beforeEach(function (): void {
+    // One clock for the whole case. The fixture and the tie below each read
+    // now(); a second between them made the tie land on a THIRD row and moved
+    // the cap boundary (CI flaked three times on 2026-09-24).
+    $this->freezeTime();
+
     $this->subject = User::factory()->create();
 });
 
