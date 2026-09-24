@@ -20,7 +20,9 @@ class MarkLessonComplete extends Action
         $enrollment->loadMissing('course');
 
         return DB::transaction(function () use ($enrollment, $lessonId): LessonProgress {
-            $progress = LessonProgress::firstOrCreate(
+            // Unscoped for the stamped student (see `Enrollment::progress()`): a
+            // scoped lookup misses the existing row and tries to create a second.
+            $progress = LessonProgress::query()->withoutWorkspaceScope()->firstOrCreate(
                 [
                     'workspace_id' => $enrollment->workspace_id,
                     'enrollment_id' => $enrollment->getKey(),

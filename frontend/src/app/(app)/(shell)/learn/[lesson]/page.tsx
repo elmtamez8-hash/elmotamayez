@@ -24,6 +24,7 @@ import { isAssignmentReference, type LessonReference } from "@/lib/courses";
 import { userMessage } from "@/lib/errors";
 import { media, type PlaybackGrant } from "@/lib/media";
 import { curriculum, neighboursOf, type Curriculum } from "@/lib/curriculum";
+import { formatDateTime } from "@/lib/labels";
 import { formatSessionTime } from "@/lib/session-format";
 
 interface StudentLesson {
@@ -468,12 +469,27 @@ export default function LearnLessonPage({
           detail !== null &&
           detail.type === "assignment" &&
           detail.reference !== null &&
-          isAssignmentReference(detail.reference) && (
+          isAssignmentReference(detail.reference) &&
+          (enrollmentUuid !== null ? (
             <AssignmentSlot
               reference={detail.reference}
               onSubmitted={() => void refreshCompletion()}
             />
-          )}
+          ) : (
+            // The author's view: no enrolment behind the page, so nothing to
+            // hand in — a «سلّم» here would put the teacher's own text in their
+            // marking queue. What the item asks, and where it is marked.
+            <Card>
+              <p className="mb-3 text-sm text-ink-muted">
+                من <bdi>{detail.reference.points}</bdi> درجة
+                {detail.reference.due_at !== null &&
+                  ` · يُسلَّم قبل ${formatDateTime(detail.reference.due_at)}`}
+              </p>
+              <Button href="/manage/assignments" variant="secondary" size="sm">
+                واجباتي
+              </Button>
+            </Card>
+          ))}
 
         {open &&
           detail !== null &&

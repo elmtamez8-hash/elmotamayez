@@ -526,7 +526,7 @@ describe("an assignment item", () => {
     my_submission: null,
   };
 
-  function answerAssignment(isCompleted = false) {
+  function answerAssignment(isCompleted = false, enrollmentUuid: string | null = "e-1") {
     const lessonPayload = {
       lesson: {
         ...ARTICLE,
@@ -542,7 +542,7 @@ describe("an assignment item", () => {
       blocked_reason: null,
       blocked_message: null,
       blocked_by_title: null,
-      enrollment_uuid: "e-1",
+      enrollment_uuid: enrollmentUuid,
     };
 
     get.mockImplementation((path: string) => {
@@ -587,6 +587,16 @@ describe("an assignment item", () => {
       expect(get).toHaveBeenCalledWith("/learn/lessons/l-1");
     });
     expect(await screen.findByText("✓ اكتمل هذا العنصر.")).toBeDefined();
+  });
+
+  it("offers the AUTHOR no hand-in — nothing of theirs belongs in the marking queue", async () => {
+    answerAssignment(false, null);
+
+    await open();
+
+    expect(await screen.findByRole("link", { name: "واجباتي" })).toBeDefined();
+    expect(screen.queryByLabelText("إجابتك")).toBeNull();
+    expect(get).not.toHaveBeenCalledWith("/assignments/hw-1");
   });
 
   it("says why the homework could not be read instead of leaving the slot blank", async () => {

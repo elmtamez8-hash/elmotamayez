@@ -126,7 +126,10 @@ function actAsAssignmentStudent(User $student): void
 
 function assignmentItemCompleted(Enrollment $enrollment, Lesson $item): bool
 {
+    // Unscoped: the reader may be signed in as a stamped student whose context
+    // is another workspace, and the question is about the row, not the reader.
     return LessonProgress::query()
+        ->withoutWorkspaceScope()
         ->where('enrollment_id', $enrollment->getKey())
         ->where('lesson_id', $item->getKey())
         ->where('status', 'completed')
@@ -294,10 +297,18 @@ it('shows the student what the item asks, and offers no self-complete button', f
 |--------------------------------------------------------------------------
 */
 
-it('finishes the course on the HAND-IN — the item is what reaches 100%', function (): void {
+it('finishes the course on the HAND-IN — the item is what reaches 100%', function (bool $stamped): void {
     Event::fake([CourseCompleted::class]);
 
     $fx = assignmentLessonCourse();
+
+    if ($stamped) {
+        // The hand-in runs the whole chain — listener, `MarkLessonComplete`,
+        // the denominator read — inside THIS student's request, which is where
+        // a scoped relation read answers an empty course for a stamped student.
+        [$elsewhere] = $this->createWorkspaceWithOwner();
+        $fx['student']->forceFill(['last_workspace_id' => $elsewhere->getKey()])->save();
+    }
 
     app(MarkLessonComplete::class)->handle($fx['enrollment'], (int) $fx['article']->getKey());
 
@@ -314,7 +325,10 @@ it('finishes the course on the HAND-IN — the item is what reaches 100%', funct
         ->and($fx['enrollment']->status)->toBe('completed');
 
     Event::assertDispatched(CourseCompleted::class);
-});
+})->with([
+    'self-registered (null context)' => false,
+    'stamped with another workspace' => true,
+]);
 
 it('completes the item once, however many times the work is handed in', function (): void {
     $fx = assignmentLessonCourse();
@@ -477,4 +491,29 @@ it('hides homework whose item is narrowed to another group, at all three homewor
         ->assertStatus(422);
 
     expect(Submission::query()->withoutWorkspaceScope()->where('assignment_id', $fx['assignment']->getKey())->count())->toBe(0);
+});
+
+/*
+| Found by the stamped hand-in case above, and not specific to homework: inside a
+| stamped student's own request `Enrollment::progress()` ran under another
+| workspace's scope, so ANY completion at a second teacher rewrote the percentage
+| from rows it could not see. The article is the plainest door onto it.
+*/
+it('moves a STAMPED student\'s percentage when they complete an article themselves', function (): void {
+    $fx = assignmentLessonCourse();
+
+    // Drop the homework item so the article alone is the course.
+    DB::table('lessons')->where('id', $fx['item']->getKey())->delete();
+
+    [$elsewhere] = $this->createWorkspaceWithOwner();
+    $fx['student']->forceFill(['last_workspace_id' => $elsewhere->getKey()])->save();
+
+    actAsAssignmentStudent($fx['student']);
+
+    $this->postJson("/api/v1/enrollments/{$fx['enrollment']->uuid}/lessons/{$fx['article']->uuid}/complete")
+        ->assertOk()
+        ->assertJsonPath('status', 'completed');
+
+    expect((float) $fx['enrollment']->refresh()->progress_pct)->toBe(100.0)
+        ->and($fx['enrollment']->status)->toBe('completed');
 });
