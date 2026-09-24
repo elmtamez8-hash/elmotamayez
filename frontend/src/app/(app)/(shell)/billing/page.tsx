@@ -40,7 +40,8 @@ export default function BillingPage() {
    * them is `/billing/purchase`, which already asks which child. So a guardian
    * gets those two ways out and none of the student's sections.
    */
-  if (user !== null && dashboardAudience(user) === "guardian") {
+  // The shell layout renders nothing until `user` is known, so it is never null here.
+  if (dashboardAudience(user) === "guardian") {
     return (
       <div className="space-y-8">
         <PageHeader
