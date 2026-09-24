@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use App\Modules\Assessments\Models\Question;
+use App\Modules\Courses\Models\Course;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,5 +57,24 @@ return [
     'meilisearch' => [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
+
+        /*
+        | Every attribute a `->where()` names must be declared here, or
+        | Meilisearch answers 400 «Attribute `workspace_id` is not filterable»
+        | and the search is a 500. The suite runs `SCOUT_DRIVER=null`, so no
+        | test sees it — production did (2026-09-24: every bank and course
+        | search). Applied by the `sync_search_index_settings` migration; a
+        | change here needs another one.
+        */
+        'index-settings' => [
+            Question::class => [
+                'filterableAttributes' => ['workspace_id', 'concept_id', 'lesson_id', 'difficulty', 'bloom_level', 'is_active'],
+                'sortableAttributes' => ['id'],
+            ],
+            Course::class => [
+                'filterableAttributes' => ['workspace_id', 'status', 'is_publicly_listed'],
+                'sortableAttributes' => ['id'],
+            ],
+        ],
     ],
 ];
