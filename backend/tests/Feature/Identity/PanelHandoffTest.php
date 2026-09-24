@@ -159,3 +159,36 @@ it('still bounds one account pressing it in a loop', function (): void {
 
     $this->postJson('/api/v1/auth/panel-ticket')->assertStatus(429);
 });
+
+/*
+| ⚠️ A DESTINATION INSIDE THE PANEL, NAMED AT MINT AND NEVER AT ENTER. The bell's
+| «a receipt is waiting» lands on that order's page rather than the panel's front
+| door — and the GET link still carries nothing but the ticket, so nobody can
+| craft one that sends a staff member elsewhere.
+*/
+it('lands on a path inside the panel when one was asked for at mint', function (): void {
+    Sanctum::actingAs(panelAdmin());
+
+    $url = $this->postJson('/api/v1/auth/panel-ticket', ['to' => '/admin/orders/abc-123/edit'])->json('url');
+
+    $this->app['auth']->forgetGuards();
+
+    $this->get($url)->assertRedirect('/admin/orders/abc-123/edit');
+});
+
+it('ignores a destination outside the panel and lands on its front page', function (string $to): void {
+    Sanctum::actingAs(panelAdmin());
+
+    $url = $this->postJson('/api/v1/auth/panel-ticket', ['to' => $to])->json('url');
+
+    $this->app['auth']->forgetGuards();
+
+    $this->get($url)->assertRedirect(config('filament.path', 'admin'));
+})->with([
+    'another host' => 'https://evil.example/admin',
+    'protocol-relative' => '//evil.example/admin',
+    'outside the panel' => '/dashboard',
+    'a prefix lookalike' => '/administrator',
+    'climbing out' => '/admin/../dashboard',
+    'a query' => '/admin/orders?next=https://evil.example',
+]);

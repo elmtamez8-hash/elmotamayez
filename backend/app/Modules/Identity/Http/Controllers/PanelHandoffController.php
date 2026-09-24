@@ -77,7 +77,10 @@ class PanelHandoffController extends Controller
         // وجودَ لها هنا.
         $ticket = Str::random(64);
 
-        Cache::put(self::PREFIX.$ticket, $user->getKey(), self::TTL);
+        Cache::put(self::PREFIX.$ticket, [
+            'user' => $user->getKey(),
+            'to' => $this->destination($request->input('to')),
+        ], self::TTL);
 
         activity()
             ->causedBy($user)
@@ -117,7 +120,9 @@ class PanelHandoffController extends Controller
      */
     public function enter(Request $request, string $ticket): RedirectResponse
     {
-        $userId = Cache::pull(self::PREFIX.$ticket);
+        $held = Cache::pull(self::PREFIX.$ticket);
+        $userId = is_array($held) ? ($held['user'] ?? null) : null;
+        $to = is_array($held) && is_string($held['to'] ?? null) ? $held['to'] : null;
 
         /*
         | `whereKey(...)->first()` لا `find()`: الثانيةُ تقبلُ مصفوفةً فيتّسعُ
@@ -153,6 +158,40 @@ class PanelHandoffController extends Controller
             ->event('panel_handoff_used')
             ->log('دخل لوحة الإدارة عبر جسر الواجهة');
 
-        return redirect()->to(config('filament.path', 'admin'));
+        return redirect()->to($to ?? config('filament.path', 'admin'));
+    }
+
+    /**
+     * Where inside the panel the ticket lands — a notification's «افتح الطلب»
+     * rather than the panel's front page.
+     *
+     * ⚠️ READ AT MINT, NEVER AT ENTER, and that is what keeps the rule above
+     * true. `mint` is a POST carrying the caller's own Sanctum token, so nobody
+     * can make somebody else ask for it; the GET link that spends the ticket still
+     * carries nothing but the ticket. A `next` on THAT link is the phishing tool
+     * the docblock above refuses to build.
+     *
+     * ⚠️ AND IT IS A PATH UNDER THE PANEL OR NOTHING. No scheme, no host, no
+     * `//` (a protocol-relative URL is another host), no `..`, no query: an
+     * allowlist of characters rather than a blocklist of tricks. Anything else is
+     * dropped in silence and the ticket lands on the panel root, as it always did.
+     */
+    private function destination(mixed $to): ?string
+    {
+        if (! is_string($to)) {
+            return null;
+        }
+
+        $panel = '/'.trim((string) config('filament.path', 'admin'), '/');
+
+        if ($to !== $panel && ! str_starts_with($to, $panel.'/')) {
+            return null;
+        }
+
+        if (str_contains($to, '//') || str_contains($to, '..') || preg_match('#^/[A-Za-z0-9/_-]*$#', $to) !== 1) {
+            return null;
+        }
+
+        return $to;
     }
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
 import { categoryIcon, categoryTone } from "@/components/notifications/categoryIcons";
+import { NotificationLink } from "@/components/notifications/NotificationLink";
 import { Button } from "@/components/ui/Button";
 import type { NotificationItem } from "@/lib/notifications";
 
@@ -80,13 +79,13 @@ export function NotificationRow({
   return (
     <div className="relative isolate">
       {item.action_url !== null ? (
-        <Link
+        <NotificationLink
           href={item.action_url}
-          onClick={() => unread && onRead(item.uuid)}
+          onNavigate={() => unread && onRead(item.uuid)}
           className={`${shell} bg-surface-raised transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
         >
           {body}
-        </Link>
+        </NotificationLink>
       ) : (
         // No destination: a plain row, not a link to nowhere.
         <div className={`${shell} bg-surface-raised`}>{body}</div>

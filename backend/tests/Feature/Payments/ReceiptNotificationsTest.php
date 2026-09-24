@@ -149,13 +149,14 @@ it('tells the finance officer a receipt is waiting, and nobody else', function (
     $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
     $admin = User::factory()->create(['is_super_admin' => true]);
 
-    receiptNoticeUpload(receiptNoticeOrder(OrderKind::Store, withCourse: false), $this->student);
+    $order = receiptNoticeUpload(receiptNoticeOrder(OrderKind::Store, withCourse: false), $this->student);
 
     $notices = receiptNoticesFor($officer, NotificationType::ReceiptAwaitingReview);
 
     expect($notices)->toHaveCount(1)
         ->and($notices->first()->body)->toContain($this->student->name)
-        ->and($notices->first()->action_url)->toBe('/orders')
+        // The panel page that carries approve/refuse — `/orders` no longer does.
+        ->and($notices->first()->action_url)->toBe('/admin/orders/'.$order->uuid.'/edit')
         // A finance officer exists, so the platform operator is not pinged too.
         ->and(receiptNoticesFor($admin, NotificationType::ReceiptAwaitingReview))->toHaveCount(0)
         // And the payer is not told about their own upload.

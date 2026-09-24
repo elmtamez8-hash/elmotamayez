@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Listeners;
 
+use App\Filament\Resources\OrderResource;
 use App\Models\User;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
@@ -65,7 +66,16 @@ class NotifyReceiptAwaitingReview implements ShouldHandleEventsAfterCommit, Shou
                     'payer' => $payer->name !== '' ? $payer->name : $payer->email,
                     'order' => is_string($what) && $what !== '' ? $what : $order->kind->label(),
                 ],
-                actionUrl: '/orders',
+                /*
+                | ⚠️ THE ORDER'S OWN PAGE IN `/admin`, NOT `/orders`. The
+                | approve and refuse buttons left the frontend list when the
+                | decision moved to the panel, so `/orders` sent the officer to a
+                | screen with nothing to press. The edit page carries both as
+                | header actions. Relative, because the bell reaches it through
+                | the panel handoff (`openAdminPanel(to)`), which accepts a path
+                | under the panel and nothing else.
+                */
+                actionUrl: OrderResource::getUrl('edit', ['record' => $order], isAbsolute: false, panel: 'admin'),
                 sourceType: Order::class,
                 sourceId: (int) $order->getKey(),
             ));

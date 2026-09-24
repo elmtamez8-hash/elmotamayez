@@ -2,6 +2,8 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { isPanelUrl } from "@/components/notifications/NotificationLink";
+
 /*
 | ⚠️ EVERY PLACE A NOTIFICATION CAN SEND SOMEBODY MUST BE A PLACE THAT EXISTS.
 |
@@ -70,7 +72,9 @@ function matches(route: string, path: string): boolean {
  * because that is what the reader's browser actually receives.
  */
 const DESTINATIONS: Array<{ path: string; from: string }> = [
-  { path: "/dashboard", from: "several listeners" },
+  // Also every GUARDIAN copy of a student notification, as `?student={uuid}`
+  // (`GuardianActionUrl`) — the query is not part of the route.
+  { path: "/dashboard", from: "several listeners · GuardianActionUrl" },
   { path: "/schedule", from: "IngestSessionRecordingJob (seat holders)" },
   { path: "/billing", from: "Payments listeners" },
   { path: "/progress", from: "Gamification listeners" },
@@ -115,10 +119,20 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
    * parcel update and a refund notice were each a 404 to whoever pressed them.
    */
   { path: "/store", from: "FulfilStorePurchase · AdvanceShipment · NotifyPaymentOutcome (store)" },
-  // The receipt path: a refused receipt is re-uploaded on the SAME order, and the
-  // officer's «a receipt is waiting» lands on the list that shows it.
-  { path: "/orders", from: "NotifyPaymentOutcome (rejected) · NotifyReceiptAwaitingReview" },
+  // The receipt path: a refused receipt is re-uploaded on the SAME order.
+  // (The officer's «a receipt is waiting» used to land here too, on a list whose
+  // approve/refuse buttons had moved to the panel — see PANEL_DESTINATIONS.)
+  { path: "/orders", from: "NotifyPaymentOutcome (rejected)" },
 ];
+
+/*
+ * ⚠️ `/admin/...` CANNOT GO IN THE LIST ABOVE, AND THAT IS NOT AN OVERSIGHT. The
+ * panel is Laravel, not a route of this tree, so the route-tree check would fail
+ * it — correctly, because a plain `<Link>` to it IS a dead end here.
+ * `NotificationLink` routes these through the panel handoff instead; this
+ * asserts it recognises the one the backend sends.
+ */
+const PANEL_DESTINATIONS = [{ path: "/admin/orders/o1p2q3r4/edit", from: "NotifyReceiptAwaitingReview" }];
 
 describe("notification destinations", () => {
   const known = routes(APP);
@@ -132,6 +146,11 @@ describe("notification destinations", () => {
 
   it.each(DESTINATIONS)("$path resolves to a page ($from)", ({ path }) => {
     expect(known.some((route) => matches(route, path))).toBe(true);
+  });
+
+  it.each(PANEL_DESTINATIONS)("$path goes through the panel handoff ($from)", ({ path }) => {
+    expect(known.some((route) => matches(route, path))).toBe(false);
+    expect(isPanelUrl(path)).toBe(true);
   });
 
   /*
