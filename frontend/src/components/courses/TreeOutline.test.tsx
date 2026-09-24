@@ -15,6 +15,7 @@ import type { CourseTree } from "@/lib/courses";
 const TREE: CourseTree = {
   uuid: "c-1",
   title: "الفيزياء",
+  status: "published",
   is_sequential: false,
   structure_version: 1,
   sections: [
