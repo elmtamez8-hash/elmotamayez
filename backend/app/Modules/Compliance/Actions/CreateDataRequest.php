@@ -9,6 +9,9 @@ use App\Modules\Compliance\Enums\DataRequestStatus;
 use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Models\DataRequest;
 use App\Modules\Compliance\Support\ComplianceSettings;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Support\GuardianPermission;
@@ -32,7 +35,10 @@ use Illuminate\Support\Str;
  */
 class CreateDataRequest extends Action
 {
-    public function __construct(private readonly GuardianDirectory $guardians) {}
+    public function __construct(
+        private readonly GuardianDirectory $guardians,
+        private readonly DispatchNotification $notifications,
+    ) {}
 
     public function handle(User $requester, string $subjectUuid, DataRequestType $type): DataRequest
     {
@@ -98,7 +104,7 @@ class CreateDataRequest extends Action
         | rejected: it makes a null, a foreign key and an out-of-range value look
         | like a second tap.
         */
-        DataRequest::query()->insertOrIgnore([
+        $written = DataRequest::query()->insertOrIgnore([
             'uuid' => (string) Str::uuid(),
             'subject_user_id' => $subject->getKey(),
             'requested_by_user_id' => $requester->getKey(),
@@ -117,7 +123,37 @@ class CreateDataRequest extends Action
             throw new DomainException('تعذَّر فتحُ الطلب. حاوِلْ مرّةً أخرى.');
         }
 
+        // Only when THIS call opened the row. A second tap reads the request
+        // already open, and a second receipt would announce as new something
+        // received a minute ago.
+        if ($written > 0) {
+            $this->acknowledge($requester, $subject, $request);
+        }
+
         return $request;
+    }
+
+    /**
+     * The receipt (spec 013 · US4 §1), to whoever asked.
+     *
+     * ⚠️ THIS TYPE HAD A LABEL, A TEMPLATE AND A SPEC ROW, AND NOTHING SENT IT.
+     * The template is worded to the requester — «we received your request … and
+     * will tell you when it completes» — which is also who holds the download
+     * once it does. A guardian asking about their child hears it; the child is
+     * not sent a receipt for a request they never made.
+     */
+    private function acknowledge(User $requester, User $subject, DataRequest $request): void
+    {
+        $this->notifications->handle(new NotificationRequest(
+            recipient: $requester,
+            type: NotificationType::DataRequestCreated,
+            variables: [
+                'student_name' => $subject->name,
+                'request_type' => $request->type->label(),
+                'due_date' => $request->due_at->format('Y-m-d'),
+            ],
+            actionUrl: '/settings/privacy',
+        ));
     }
 
     private function refuse(): never

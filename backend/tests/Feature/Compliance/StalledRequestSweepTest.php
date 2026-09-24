@@ -70,7 +70,9 @@ it('returns a stalled request to pending and sends it again', function (): void 
 });
 
 it('leaves a request that is merely slow alone', function (): void {
-    Queue::fake();
+    // The fulfilment job alone: opening the request now sends its receipt
+    // (`data_request_created`), whose delivery job is not what this measures.
+    Queue::fake([FulfilDataRequestJob::class]);
 
     $request = stalledRequestFor($this->subject, 1);
 
@@ -155,7 +157,9 @@ it('leaves a failed export where the sweep can find it', function (): void {
  * document.
  */
 it('accepts an erasure request and starts nothing', function (): void {
-    Queue::fake();
+    // Nothing that FULFILS it. The receipt the request now sends is a delivery,
+    // not a start, and a bare fake would count it as one.
+    Queue::fake([FulfilDataRequestJob::class]);
     Sanctum::actingAs($this->subject);
 
     $this->postJson('/api/v1/privacy/requests', [
