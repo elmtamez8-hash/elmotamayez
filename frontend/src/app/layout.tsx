@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { StaleChunkRecovery } from "@/components/app/StaleChunkRecovery";
 import { AuthProvider } from "@/lib/auth-context";
 import { PlatformProvider } from "@/lib/platform-context";
 import { platformIdentity, platformName } from "@/lib/platform";
@@ -94,6 +95,8 @@ export default async function RootLayout({
           header that still said "sign in" and offered no way into the product
           they had just been admitted to.
         */}
+        {/* A tab that outlived a deploy reloads once instead of breaking — `lib/stale-chunk.ts`. */}
+        <StaleChunkRecovery />
         <PlatformProvider name={identity.name} supportWhatsapp={identity.supportWhatsapp}>
           <AuthProvider>{children}</AuthProvider>
         </PlatformProvider>
