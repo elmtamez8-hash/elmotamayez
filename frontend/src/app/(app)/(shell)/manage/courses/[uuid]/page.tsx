@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { formatMinorMoney, lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
-import { Badge } from "@/components/ui/Badge";
+import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -91,6 +91,10 @@ export default function CourseDetailPage({
         <h2 className="mb-2 text-3xl font-bold text-ink">{course.title}</h2>
         <p className="mb-4 max-w-2xl text-ink-muted">{course.description}</p>
         <div className="flex flex-wrap items-center gap-3">
+          {/* Whether students can see the course at all. Without it a teacher
+              who published every item read the tree as live while the course
+              itself was still a draft. */}
+          <StatusBadge status={course.status} />
           {course.is_free ? (
             <Badge tone="success">مجاني</Badge>
           ) : (

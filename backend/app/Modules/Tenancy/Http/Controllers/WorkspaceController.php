@@ -124,7 +124,7 @@ class WorkspaceController extends Controller
         $this->authorize('manageMembers', $workspace);
 
         if ($workspace->isOwnedBy($member)) {
-            return response()->json(['message' => 'The workspace owner cannot be removed.'], 422);
+            return response()->json(['message' => 'لا يمكن إزالة صاحب مساحة العمل.'], 422);
         }
 
         $action->handle($workspace, $member);

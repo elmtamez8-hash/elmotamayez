@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/ui/Modal";
 import { NumberField, TextField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -24,7 +25,15 @@ import {
 } from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { timezoneLabel } from "@/lib/labels";
 import { formatSessionTime } from "@/lib/session-format";
+
+/**
+ * Statuses with no room to enter, whatever `room_closed` says. Cancelling never
+ * stamps `room_closed_at`, so the button survived a cancel and led the teacher
+ * to a refusal worded for a student.
+ */
+const ROOMLESS = new Set(["cancelled", "completed", "interrupted", "suspended"]);
 
 /** One session: its seats, its room, and — once it has run — its register. */
 export default function ManageSessionPage({
@@ -40,6 +49,7 @@ export default function ManageSessionPage({
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [askingCancel, setAskingCancel] = useState(false);
   const [edit, setEdit] = useState({ title: "", seats: "" });
   const [saving, setSaving] = useState(false);
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
@@ -72,6 +82,7 @@ export default function ManageSessionPage({
       setError(userMessage(err));
     } finally {
       setCancelling(false);
+      setAskingCancel(false);
     }
   };
 
@@ -145,7 +156,7 @@ export default function ManageSessionPage({
         </p>
         <p className="mb-4 text-sm text-ink-muted">
           المدة <bdi>{session.duration_minutes}</bdi> دقيقة · المنطقة الزمنية{" "}
-          <bdi>{session.timezone}</bdi>
+          <bdi>{timezoneLabel(session.timezone)}</bdi>
         </p>
 
         <div className="flex flex-wrap gap-3">
@@ -153,16 +164,30 @@ export default function ManageSessionPage({
               is no nav entry for it, because a room without a session is not a
               place. And a closed room is not one either: the door was still
               offered after the broadcast ended, and answered «تعذّر الدخول». */}
-          {!session.room_closed && (
+          {!session.room_closed && !ROOMLESS.has(session.status) && (
             <Button href={`/sessions/${session.uuid}/room`}>دخول الغرفة</Button>
           )}
 
           {session.status === "scheduled" && (
-            <Button onClick={cancel} loading={cancelling} variant="danger">
+            <Button onClick={() => setAskingCancel(true)} variant="danger">
               إلغاء الحصة
             </Button>
           )}
         </div>
+
+        {/* A window, not one press: a cancel cannot be taken back and tells
+            every seat holder at once. Asked while nothing else is happening,
+            so a `Modal` rather than `ConfirmButton` (CLAUDE.md). */}
+        <Modal
+          open={askingCancel}
+          title="إلغاء الحصة"
+          message="لا يمكن التراجع عن الإلغاء، وسيصل إشعار به إلى كل من حجز مقعداً في هذه الحصة."
+          confirmLabel="ألغِ الحصة"
+          tone="danger"
+          busy={cancelling}
+          onConfirm={() => void cancel()}
+          onCancel={() => setAskingCancel(false)}
+        />
       </Card>
 
       {session.status === "scheduled" && (

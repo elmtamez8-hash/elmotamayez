@@ -294,6 +294,26 @@ export function certificateReasonLabel(reason: string): string {
   );
 }
 
+/**
+ * Arabic for an IANA timezone name. `Asia/Qatar` was printed raw on the
+ * teacher's session page. The fallback is the name itself: a zone nobody has
+ * translated yet is still correct, and a blank would hide it.
+ */
+export function timezoneLabel(timezone: string): string {
+  return (
+    {
+      "Asia/Qatar": "توقيت قطر",
+      "Asia/Riyadh": "توقيت السعودية",
+      "Asia/Dubai": "توقيت الإمارات",
+      "Asia/Kuwait": "توقيت الكويت",
+      "Asia/Bahrain": "توقيت البحرين",
+      "Asia/Muscat": "توقيت عُمان",
+      "Africa/Cairo": "توقيت مصر",
+      UTC: "التوقيت العالمي",
+    }[timezone] ?? timezone
+  );
+}
+
 export function roleLabel(role: string, label?: string | null): string {
   return label ?? role;
 }

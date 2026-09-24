@@ -62,7 +62,18 @@ vi.mock("@/components/courses/TreeOutline", () => ({
 }));
 
 vi.mock("@/components/courses/LessonEditor", () => ({ LessonEditor: () => null }));
-vi.mock("@/components/courses/PublishImpactDialog", () => ({ PublishImpactDialog: () => null }));
+// Reduced to its confirm press: the question here is what the page says AFTER.
+vi.mock("@/components/courses/PublishImpactDialog", () => ({
+  PublishImpactDialog: ({
+    onConfirm,
+  }: {
+    onConfirm: (preview: { structure_version: number; items: unknown[] }) => void;
+  }) => (
+    <button type="button" onClick={() => onConfirm({ structure_version: 3, items: [] })}>
+      أكّد-النشر
+    </button>
+  ),
+}));
 
 const { default: CourseContentPage } = await import("./page");
 
@@ -72,6 +83,7 @@ const { default: CourseContentPage } = await import("./page");
  * single merged sentence pass.
  */
 const TREE = {
+  status: "published",
   structure_version: 3,
   sections: [
     {
@@ -93,8 +105,8 @@ const TREE = {
   ],
 };
 
-async function openPage() {
-  tree.mockResolvedValue(TREE);
+async function openPage(courseStatus = "published") {
+  tree.mockResolvedValue({ ...TREE, status: courseStatus });
 
   await act(async () => {
     render(<CourseContentPage params={Promise.resolve({ uuid: "course-1" })} />);
@@ -216,5 +228,67 @@ describe("adding an item", () => {
       // teacher can start writing immediately.
       type: "article",
     });
+  });
+});
+
+describe("Enter in the new-item window", () => {
+  it("submits, as the section and chapter inputs already do", async () => {
+    createLesson.mockResolvedValue(TREE);
+
+    await openPage();
+
+    fireEvent.click(screen.getByText("أضِف-عنصراً"));
+    const field = screen.getByLabelText("عنوان العنصر الجديد");
+    fireEvent.change(field, { target: { value: "مقدّمة" } });
+
+    await act(async () => {
+      fireEvent.submit(field.closest("form") as HTMLFormElement);
+    });
+
+    expect(createLesson).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses an empty title on Enter", async () => {
+    await openPage();
+
+    fireEvent.click(screen.getByText("أضِف-عنصراً"));
+    fireEvent.submit(
+      screen.getByLabelText("عنوان العنصر الجديد").closest("form") as HTMLFormElement,
+    );
+
+    expect(createLesson).not.toHaveBeenCalled();
+    expect(screen.getByText("اكتب عنواناً للعنصر أولاً.")).toBeTruthy();
+  });
+});
+
+describe("the message after «نشر كل المسودّات»", () => {
+  /*
+  | ⛔ It said «صارت مرئية لطلابك الآن» while the COURSE itself was still a
+  | draft — so no student could see anything, and the teacher was told they could.
+  */
+  async function publishAll(courseStatus: string) {
+    await openPage(courseStatus);
+
+    fireEvent.click(screen.getByRole("button", { name: "نشر كل المسودّات" }));
+    await act(async () => {
+      fireEvent.click(screen.getByText("أكّد-النشر"));
+    });
+  }
+
+  it("says the course is still a draft when it is", async () => {
+    await publishAll("draft");
+
+    expect(
+      screen.getByText(
+        "نُشرت المسودّات، لكن الكورس نفسه ما زال مسودّة — انشره من «تعديل الكورس» ليراه طلابك.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("نُشرت المسودّات — صارت مرئية لطلابك الآن.")).toBeNull();
+  });
+
+  it("says students can see it when the course is published", async () => {
+    await publishAll("published");
+
+    expect(screen.getByText("نُشرت المسودّات — صارت مرئية لطلابك الآن.")).toBeTruthy();
   });
 });

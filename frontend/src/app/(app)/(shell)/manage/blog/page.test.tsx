@@ -100,6 +100,25 @@ describe("ManageBlogPage", () => {
     expect(screen.queryByRole("button", { name: "احذف" })).toBeNull();
   });
 
+  it("asks before deleting, and deletes nothing on the first press", async () => {
+    // Deleting takes the article off the public blog with no restore on any
+    // screen — one press used to do it.
+    blog.remove.mockResolvedValue(undefined);
+
+    render(<ManageBlogPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "عدّل" }));
+    await userEvent.click(screen.getByRole("button", { name: "احذف" }));
+
+    expect(screen.getByText("سيختفي المقال من مدوّنتك العامّة ولا يمكن استرجاعه من هنا.")).toBeTruthy();
+    expect(blog.remove).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "احذف المقال" }));
+
+    await waitFor(() => expect(blog.remove).toHaveBeenCalledTimes(1));
+    expect(blog.remove).toHaveBeenCalledWith("a-1");
+  });
+
   it("sends null for an untouched optional field, never an empty string", async () => {
     /*
      * ⚠️ `nullable|url` و`nullable|date` لا تقبلانِ `""`. إرسالُ السلسلةِ الفارغةِ

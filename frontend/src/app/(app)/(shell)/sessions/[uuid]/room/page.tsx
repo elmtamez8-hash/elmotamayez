@@ -62,6 +62,11 @@ export default function SessionRoomPage({
   // Not the same thing as `ended`: that one is «you just closed it», this one is
   // «it was already closed before you got here», and it survives a refresh.
   const [closed, setClosed] = useState(false);
+  // Cancelled is a third answer: `CancelClassSession` never stamps
+  // `room_closed_at`, so without this the host of a cancelled lesson read the
+  // student sentence «تأكّد من حجز مقعدك». The status is not an entitlement
+  // fact — every seat holder already sees it on their card.
+  const [cancelledSession, setCancelledSession] = useState(false);
   // The window is open and the HOST has not opened the room yet. The join
   // refusal is uniform (FR-015) and reads «تأكّد من حجز مقعدك» — a dead end for
   // a student who is simply early. So we say so, and knock again.
@@ -111,6 +116,10 @@ export default function SessionRoomPage({
           .show(uuid)
           .then((result) => {
             if (cancelled) return;
+            if (result.status === "cancelled") {
+              setCancelledSession(true);
+              return;
+            }
             if (result.room_closed) setClosed(true);
             // Self-terminating: once the window shuts `join_open` goes false
             // and the ordinary refusal takes over.
@@ -175,7 +184,13 @@ export default function SessionRoomPage({
 
       {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
 
-      {error !== "" && closed && (
+      {error !== "" && cancelledSession && (
+        <Alert tone="info" title="هذه الحصة ملغاة">
+          أُلغيت هذه الحصة، فلا غرفة لها.
+        </Alert>
+      )}
+
+      {error !== "" && closed && !cancelledSession && (
         <Alert tone="info" title="انتهت هذه الحصة">
           أُغلقت غرفة البثّ، فلا دخول إليها. إن كان لها تسجيل فسيظهر درساً في الكورس.
           <div className="mt-3">
@@ -195,7 +210,7 @@ export default function SessionRoomPage({
         </Alert>
       )}
 
-      {error !== "" && !closed && !waiting && (
+      {error !== "" && !closed && !waiting && !cancelledSession && (
         <>
           <Alert tone="danger" title="تعذّر الدخول">
             {error}

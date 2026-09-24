@@ -102,6 +102,10 @@ class CourseTreeResource extends JsonResource
             'uuid' => $this->uuid,
             'title' => $this->title,
             'is_sequential' => $this->is_sequential,
+            // The COURSE's own status. Publishing every draft item inside a
+            // draft course still leaves students seeing nothing, and the editor
+            // told the teacher «صارت مرئية لطلابك الآن» over exactly that.
+            'status' => $this->status,
             'structure_version' => $this->structure_version,
             'sections' => $this->sections->map(
                 fn (Section $section): array => $this->section($section),
