@@ -378,6 +378,15 @@ enum NotificationType: string
     case SessionRescheduleRejected = 'session_reschedule_rejected';
 
     /*
+    | A postponement nobody answered before its moment passed. Its own type for
+    | the reason the refusal is: the rejection template demands
+    | `{{ decision_reason }}`, and there is no decision to quote — nobody decided.
+    | Student only, like the ask and the refusal: nothing moved, so there is
+    | nothing a guardian needs to hear.
+    */
+    case SessionRescheduleExpired = 'session_reschedule_expired';
+
+    /*
     | The store (011 · US1). Two, and the second is the one that is easy to
     | leave out.
     |
@@ -576,6 +585,7 @@ enum NotificationType: string
             self::SessionRescheduleRequested => 'طلب تأجيل حصة',
             self::SessionRescheduled => 'تغيير موعد حصة',
             self::SessionRescheduleRejected => 'رفض تأجيل حصة',
+            self::SessionRescheduleExpired => 'انتهاء مهلة طلب تأجيل',
             self::ShipmentStatusChanged => 'تحديث شحنة',
             self::StorePurchaseUnavailable => 'طلب متجر غير متاح',
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',

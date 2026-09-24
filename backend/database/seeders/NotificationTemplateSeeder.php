@@ -404,6 +404,14 @@ class NotificationTemplateSeeder extends Seeder
                 'بقي موعد «{{ title }}» كما هو في {{ from_time }}. السبب: {{ decision_reason }}',
                 ['title', 'from_time', 'decision_reason'],
             ],
+            // Nobody answered before the proposed hour (or the lesson itself)
+            // arrived. It says the lesson did NOT move — the one fact a student
+            // who asked and heard nothing is least sure of.
+            NotificationType::SessionRescheduleExpired->value => [
+                'انتهت مهلة طلب تأجيل «{{ title }}»',
+                'لم يصل ردّ على طلبك تأجيل «{{ title }}» قبل موعده، فانتهت مهلة الطلب. بقي موعد الحصة كما هو في {{ from_time }}.',
+                ['title', 'from_time'],
+            ],
             NotificationType::AssignmentSubmitted->value => [
                 'تسليم جديد في «{{ assignment_title }}»',
                 'سلّم {{ student_name }} واجب «{{ assignment_title }}». افتح اللوحة لتصحيحه.',

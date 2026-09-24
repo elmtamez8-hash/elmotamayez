@@ -24,6 +24,7 @@ use App\Modules\LiveSessions\Events\PrivateSessionDecided;
 use App\Modules\LiveSessions\Events\PrivateSessionExpired;
 use App\Modules\LiveSessions\Events\PrivateSessionRequested;
 use App\Modules\LiveSessions\Events\SessionRescheduleDecided;
+use App\Modules\LiveSessions\Events\SessionRescheduleExpired;
 use App\Modules\LiveSessions\Events\SessionRescheduleRequested;
 use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Events\TeacherChangesRequested;
@@ -47,6 +48,7 @@ use App\Modules\Notifications\Listeners\NotifyStudentGradingPending;
 use App\Modules\Notifications\Listeners\NotifyStudentLevelUp;
 use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentPrivateSessionExpired;
+use App\Modules\Notifications\Listeners\NotifyStudentSessionRescheduleExpired;
 use App\Modules\Notifications\Listeners\NotifyStudentSubmissionGraded;
 use App\Modules\Notifications\Listeners\NotifyStudentTransferRequestDropped;
 use App\Modules\Notifications\Listeners\NotifyTeacherApproved;
@@ -189,6 +191,7 @@ class NotificationsServiceProvider extends Module
 
         Event::listen(SessionRescheduleRequested::class, NotifyTeacherSessionRescheduleRequested::class);
         Event::listen(SessionRescheduleDecided::class, NotifySessionRescheduleDecided::class);
+        Event::listen(SessionRescheduleExpired::class, NotifyStudentSessionRescheduleExpired::class);
         Event::listen(SubmissionGraded::class, NotifyStudentSubmissionGraded::class);
 
         /*

@@ -321,9 +321,23 @@ export const billing = {
    * Agreeing to owe (FR-048). The whole list on both verbs, so the screen
    * re-renders from the response of the signature instead of asking again.
    */
-  consents: () => api.get<{ data: ConsentState[] }>("/billing/consents"),
-  accept: (document: ConsentState["document"]) =>
-    api.post<{ data: ConsentState[] }>("/billing/consents", { document }),
+  /*
+   * `studentUuid` is a GUARDIAN reading or signing for a child. The server
+   * resolves the child inside the guardian's own list under the payments
+   * permission and answers the deferred-payment terms alone; a refusal is one
+   * 403 whatever the reason. Omitted — never sent empty — when the reader is
+   * signing for themselves, because absent is what «me» means on this route.
+   */
+  consents: (studentUuid?: string) =>
+    api.get<{ data: ConsentState[] }>(
+      "/billing/consents"
+      + (studentUuid === undefined ? "" : `?student=${encodeURIComponent(studentUuid)}`),
+    ),
+  accept: (document: ConsentState["document"], studentUuid?: string) =>
+    api.post<{ data: ConsentState[] }>("/billing/consents", {
+      document,
+      ...(studentUuid === undefined ? {} : { student: studentUuid }),
+    }),
   /*
    * An empty list is a real answer, not an error: a course whose teacher has no
    * approved rate cannot be priced, and one that has stopped delivering sessions

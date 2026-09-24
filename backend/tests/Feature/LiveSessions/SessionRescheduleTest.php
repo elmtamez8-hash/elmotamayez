@@ -351,6 +351,56 @@ it('expires an unanswered request at its moment and frees the lesson to be asked
     askToMove($fixture, CarbonImmutable::instance($fixture['saturday']->starts_at)->addDay())->assertCreated();
 });
 
+/*
+| ⚠️ AN EXPIRY USED TO TELL NOBODY — the student found «منتهٍ» on their timetable
+| or did not find it. The sweep now sends ONE notice to the asker, behind the
+| settle that won, and a second pass over the same row says nothing.
+*/
+it('tells the asker once when their request expires, and says nothing on a second sweep', function (): void {
+    $fixture = rescheduleFixture();
+
+    $target = CarbonImmutable::instance($fixture['saturday']->starts_at)->subDay()->setTime(15, 0);
+    askToMove($fixture, $target)->assertCreated();
+
+    $expiryNotices = fn () => Notification::query()
+        ->where('type', NotificationType::SessionRescheduleExpired->value)
+        ->get();
+
+    // Still pending: no notice before its moment.
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+    expect($expiryNotices())->toHaveCount(0);
+
+    $this->travelTo($target->addMinute());
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+
+    $notices = $expiryNotices();
+
+    // Exactly one, to the asker alone — the classmates hold the same seat and
+    // were never in this conversation.
+    expect($notices)->toHaveCount(1)
+        ->and((int) $notices->first()->recipient_user_id)->toBe((int) $fixture['students'][0]->getKey())
+        ->and($notices->first()->action_url)->toBe('/schedule');
+
+    // A second sweep over the already-expired row matches nothing and says nothing.
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+
+    expect($expiryNotices())->toHaveCount(1);
+});
+
+it('sends no expiry notice when the teacher answered first', function (): void {
+    $fixture = rescheduleFixture();
+
+    askToMove($fixture)->assertCreated();
+    decideMove($fixture, approve: false, reason: 'الأحد عندي مجموعة أخرى.')->assertOk();
+
+    // Past every deadline the request could have had.
+    $this->travelTo(CarbonImmutable::instance($fixture['saturday']->starts_at)->addHour());
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+
+    expect(Notification::query()->where('type', NotificationType::SessionRescheduleExpired->value)->count())
+        ->toBe(0);
+});
+
 it('lets a new ask through without waiting for the sweep when the old one is overdue', function (): void {
     $fixture = rescheduleFixture();
 
