@@ -28,3 +28,11 @@ it('declares every attribute the search engine is asked to filter on', function 
 
     expect(array_values(array_diff(array_unique($m[1]), $declared)))->toBe([]);
 })->with('engine filters');
+
+it('lets Scout read each searchable model index name from outside the model', function (): void {
+    // A protected override of the trait's public method is a BadMethodCallException
+    // on every search — which course search was until 2026-09-24.
+    foreach ([Question::class, Course::class] as $model) {
+        expect((new ReflectionMethod($model, 'searchableAs'))->isPublic())->toBeTrue();
+    }
+});
