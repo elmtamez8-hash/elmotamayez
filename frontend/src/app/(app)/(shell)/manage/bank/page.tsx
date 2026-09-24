@@ -10,6 +10,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { QuestionBankIcon } from "@/components/icons";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
+import { ConceptManager } from "@/components/bank/ConceptManager";
+import { useAuth } from "@/lib/auth-context";
+import { can, P } from "@/lib/permissions";
 import {
   BLOOM_LEVELS,
   DIFFICULTIES,
@@ -34,6 +37,7 @@ import {
  * engine paid to return and this page throws away.
  */
 export default function BankPage() {
+  const { user } = useAuth();
   const [questions, setQuestions] = useState<BankQuestion[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,6 +212,16 @@ export default function BankPage() {
         emptyAction={<Button href="/manage/bank/import">استيراد من ملف</Button>}
         onRetry={() => load({ q, concept, difficulty, bloom, active: showDisabled ? "0" : "1" })}
       />
+
+      {/* A rename is `questions.manage` at the door (ConceptPolicy::update). */}
+      {can(user, P.questionsManage) && (
+        <ConceptManager
+          concepts={concepts}
+          onRenamed={(renamed) =>
+            setConcepts((current) => current.map((row) => (row.uuid === renamed.uuid ? renamed : row)))
+          }
+        />
+      )}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   CertificateIcon,
   ChevronEndIcon,
   ChevronStartIcon,
+  ClockIcon,
   CloseIcon,
   CoursesIcon,
   DocumentIcon,
@@ -246,6 +247,15 @@ export const mainNav: NavItem[] = [
   // the product tells the teacher it is there. A link with no number is one they
   // remember to open on the days they were already going to.
   { href: "/manage/grading", label: "لوحة التصحيح", Icon: GradingIcon, permission: P.gradingPerform, badge: "grading" },
+  // Extra time and extra days for one student (FR-053). Beside the board because
+  // it changes what the board is marking against — and its own entry, never a
+  // tab there: the board is gated on `grading.perform`, this on its own name.
+  {
+    href: "/manage/accommodations",
+    label: "ترتيبات خاصة",
+    Icon: ClockIcon,
+    permission: P.accommodationsManage,
+  },
   // ⚠️ TWO ENTRIES FOR HOMEWORK, NOT ONE (T160). "واجباتي" is what a student
   // owes; "الواجبات" is what a teacher set and has to mark. One shared link
   // whose meaning flipped with the reader's permission is the shape that made a

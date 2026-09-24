@@ -62,6 +62,9 @@ export interface GradingPaper {
 
 type Meta = { total: number; current_page: number; last_page: number };
 
+/** The queue's meta carries the workspace setting too — an empty queue has no row to read it off. */
+type QueueMeta = Meta & { anonymous: boolean };
+
 /** What the grader is submitting for one answer. */
 export interface MarkInput {
   criterion_id?: number | null;
@@ -71,7 +74,7 @@ export interface MarkInput {
 
 export const grading = {
   queue: (page = 1, perPage = 20) =>
-    api.get<{ data: GradingQueueRow[]; meta: Meta }>(
+    api.get<{ data: GradingQueueRow[]; meta: QueueMeta }>(
       `/manage/grading/queue?page=${page}&per_page=${perPage}`,
     ),
 
@@ -86,4 +89,12 @@ export const grading = {
   // answer when the student asks.
   revise: (answerUuid: string, marks: MarkInput[], reason: string) =>
     api.patch<{ data: GradingAnswer }>(`/manage/grading/answers/${answerUuid}`, { marks, reason }),
+
+  /**
+   * Hide student names on the board for the whole workspace (FR-033). Needs
+   * `settings.update` — the owner's, not every grader's. Turning it OFF is
+   * audited server-side, which is why the screen asks before sending `false`.
+   */
+  setAnonymous: (anonymous: boolean) =>
+    api.patch<{ data: { anonymous: boolean } }>("/manage/grading/settings", { anonymous }),
 };

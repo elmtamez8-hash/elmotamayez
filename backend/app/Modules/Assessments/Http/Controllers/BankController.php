@@ -68,7 +68,7 @@ class BankController extends Controller
         $this->authorize('view', $question);
 
         return response()->json([
-            'data' => BankQuestionResource::make($question->loadMissing(self::EAGER)->loadCount('examItems')),
+            'data' => BankQuestionResource::make($question->loadMissing([...self::EAGER, 'rubricCriteria'])->loadCount('examItems')),
         ]);
     }
 
