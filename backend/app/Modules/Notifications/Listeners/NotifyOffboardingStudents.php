@@ -62,7 +62,15 @@ class NotifyOffboardingStudents
         Enrollment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $offboarding->workspace_id)
-            ->where('status', 'active')
+            /*
+            | ⚠️ EVERY STATUS THAT STILL OPENS THE COURSE, NOT `active` ALONE. A
+            | `completed` enrolment keeps full access (teachers publish
+            | incrementally, so «completed» means «caught up so far») — and the
+            | teacher leaving ends exactly that access. Asking `active` alone told
+            | the student who had finished every lesson so far nothing, while
+            | the next lesson they were waiting for would never come.
+            */
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->orderBy('id')
             ->chunkById(self::BATCH, function ($enrollments) use (&$seen, $teacher, $noticeEnds): void {
                 $ids = [];
