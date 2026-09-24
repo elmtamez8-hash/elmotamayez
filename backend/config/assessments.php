@@ -20,6 +20,17 @@ return [
     'min_sample_size' => 5,
 
     /*
+    | The academic warning (`academic_warning`, owner decision 2026-09-24).
+    |
+    | How many GRADED, non-practice exams in a row a student must fail in ONE
+    | course before they and their guardians are warned. Zero switches the
+    | warning off. The fallback only — the live value is the
+    | `assessments.academic_warning_consecutive_fails` row in
+    | `platform_settings`, edited from the panel.
+    */
+    'academic_warning_consecutive_fails' => 2,
+
+    /*
     | The adaptive path (spec 012 · FR-007). Four numbers an operator tunes from
     | the panel; the live values are `platform_settings` rows and these are the
     | fallback for a database with nothing seeded — never a second source.

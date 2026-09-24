@@ -73,7 +73,7 @@ class SendAbsenceAlerts implements ShouldHandleEventsAfterCommit, ShouldQueue
     {
         // Re-read: the event is not `SerializesModels`, and a queued listener
         // would otherwise judge the attributes as they stood at dispatch.
-        $session = ClassSession::query()->withoutWorkspaceScope()->find($event->session->getKey());
+        $session = ClassSession::query()->withoutWorkspaceScope()->whereKey($event->session->getKey())->first();
 
         if ($session === null || $session->delivered_at === null) {
             return;

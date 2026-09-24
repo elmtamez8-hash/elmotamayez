@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Assessments;
 
+use App\Modules\Assessments\Events\ExamFailed;
+use App\Modules\Assessments\Listeners\WarnOnConsecutiveFailures;
 use App\Modules\Assessments\Models\Accommodation;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Assignment;
@@ -22,6 +24,7 @@ use App\Modules\Assessments\Support\EloquentUnlockDirectory;
 use App\Shared\Contracts\StudentGradeDirectory;
 use App\Shared\Contracts\UnlockDirectory;
 use App\Shared\Modules\Module;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 
 class AssessmentsServiceProvider extends Module
@@ -75,5 +78,10 @@ class AssessmentsServiceProvider extends Module
         Gate::policy(Assignment::class, AssignmentPolicy::class);
         Gate::policy(Submission::class, SubmissionPolicy::class);
         Gate::policy(Accommodation::class, AccommodationPolicy::class);
+
+        // The academic warning (2026-09-24): N graded failures in a row in one
+        // course. The listener reads the streak as of the failing attempt and
+        // claims it, so a re-finalized paper cannot warn twice.
+        Event::listen(ExamFailed::class, WarnOnConsecutiveFailures::class);
     }
 }

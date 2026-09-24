@@ -238,6 +238,9 @@ final class PlatformSettings
         // rate is withheld rather than stated (FR-013) — editable, because a
         // threshold that only moves with a release never moves.
         'assessments.min_sample_size' => 'assessments.min_sample_size',
+        // How many graded exams in a row, in one course, a student fails before
+        // the academic warning goes out (2026-09-24). Zero switches it off.
+        'assessments.academic_warning_consecutive_fails' => 'assessments.academic_warning_consecutive_fails',
         /*
         | The adaptive path (spec 012 · FR-007 — «the thresholds must be
         | adjustable without a deploy»). Four rows, and each one is a judgement
