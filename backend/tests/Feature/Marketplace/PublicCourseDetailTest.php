@@ -6,7 +6,9 @@ use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Models\Section;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
@@ -225,10 +227,18 @@ it('publishes no identifier for an OPEN uploaded video — the case the tree mus
     $video = collect($items)->firstWhere('kind', 'video');
 
     // ⛔ A tree that advertised with `isOpen()` would make this row clickable
-    // and the door would answer the 404 that means «no such thing» — a
-    // permanently dead link, with neither the visitor nor the teacher given a
-    // reason.
-    expect($video)->not->toHaveKey('uuid')
+    // for a VISITOR and the public door would answer the 404 that means «no
+    // such thing» — so `is_open` stays absent.
+    //
+    // ⚠️ The uuid is PRESENT since the owner's decision of 2026-09-24 («open to
+    // any signed-in account»): it builds a link to `/learn/{uuid}`, which sits
+    // behind sign-in and opens this lesson for anybody holding an account
+    // (`LessonFreeForAnyAccountTest`). This line said `not->toHaveKey('uuid')`
+    // until then, and the row it guarded was a promise with no way to it.
+    $lessonUuid = Lesson::query()->withoutWorkspaceScope()
+        ->where('course_id', $course->getKey())->where('type', 'video')->value('uuid');
+
+    expect($video['uuid'] ?? null)->toBe($lessonUuid)
         ->and($video)->not->toHaveKey('is_open')
         /*
         | ⛔ **ويُعلَنُ مع ذلك، وهذا هو النصفُ الذي كانَ ناقصاً.**
@@ -240,6 +250,43 @@ it('publishes no identifier for an OPEN uploaded video — the case the tree mus
         | البياناتِ لا بشرطٍ يُعادُ في الواجهة.
         */
         ->and($video['free_with_account'])->toBeTrue();
+});
+
+it('announces a free lesson narrowed to one group, and builds it no link', function (): void {
+    /*
+    | `LessonAudience` refuses such an item to everybody outside the group, so a
+    | uuid here is a link the door answers 404 for — to nearly every reader of
+    | this page. It stays announced; it gets no way in.
+    */
+    [$course, $workspace] = publicCourseFixture();
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($course, $workspace): void {
+        $video = Lesson::query()->where('course_id', $course->getKey())->where('type', 'video')->firstOrFail();
+        $video->forceFill(['is_free' => true])->save();
+
+        $cohort = Cohort::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'course_id' => $course->getKey(),
+            'created_by' => $course->created_by,
+        ]);
+
+        LessonCohortScope::create([
+            'workspace_id' => $workspace->getKey(),
+            'lesson_id' => $video->getKey(),
+            'cohort_id' => $cohort->getKey(),
+        ]);
+    });
+
+    $this->asGuest();
+
+    $video = collect(
+        $this->getJson("/api/v1/marketplace/courses/{$course->uuid}")
+            ->assertOk()
+            ->json('data.curriculum.0.chapters.0.items'),
+    )->firstWhere('kind', 'video');
+
+    expect($video['free_with_account'] ?? null)->toBeTrue()
+        ->and($video)->not->toHaveKey('uuid');
 });
 
 it('advertises nothing for a lesson its teacher never opened', function (): void {

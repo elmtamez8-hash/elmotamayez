@@ -1,8 +1,22 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CourseCurriculum } from "./CourseCurriculum";
 import type { CurriculumItem, CurriculumSection } from "@/lib/public-api";
+import type { User } from "@/lib/types";
+
+let mockUser: Partial<User> | null = null;
+let mockLoading = false;
+
+vi.mock("@/lib/auth-context", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth-context")>()),
+  useAuth: () => ({ user: mockUser, loading: mockLoading }),
+}));
+
+beforeEach(() => {
+  mockUser = null;
+  mockLoading = false;
+});
 
 /*
 | المنهجُ كما يقرؤُه الزائر: كلُّ عنصرٍ بنوعِه وحالتِه، قبلَ أن يضغطَ شيئاً.
@@ -82,15 +96,17 @@ describe("CourseCurriculum", () => {
     expect(within(links[0]).getByText("مجّانيّة")).toBeTruthy();
   });
 
-  it("says a lesson is free when the teacher opened it, without promising a click", () => {
+  it("says a lesson is free when the teacher opened it, and links nothing it has no uuid for", () => {
     /*
       ⛔ العطلُ الذي كُتبَ هذا لأجلِه: فيديو مرفوعٌ وسمَه المدرّسُ «متاح بلا
       تسجيل» كانَ يُرسَمُ «بعد التسجيل» — أي أنّ الوسمَ له قارئٌ عندَ منحِ
       التشغيلِ ولا قارئَ على الصفحةِ التي تبيعُ الكورس.
 
-      والصفُّ **لا يصيرُ رابطاً**: الخادمُ لا يُرسِلُ `uuid` معَ هذا المفتاح،
-      فشكلُ البيانات — لا شرطٌ يُعادُ هنا — هو ما يمنعُ بناءَه.
+      والصفُّ بلا `uuid` **لا يصيرُ رابطاً** — وهو شكلُ العنصرِ الذي ضيّقَ
+      المدرّسُ جمهورَه: شكلُ البيانات، لا شرطٌ يُعادُ هنا، هو ما يمنعُ بناءَه.
     */
+    mockUser = { uuid: "u-1", platform_role: "student" };
+
     render(
       <CourseCurriculum
         sections={tree([
@@ -102,6 +118,60 @@ describe("CourseCurriculum", () => {
 
     expect(screen.getByText("مفتوح مجّاناً")).toBeTruthy();
     expect(screen.queryByText("بعد التسجيل")).toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+  });
+
+  /*
+  | ⛔ قرارُ المالكِ ٢٠٢٦-٠٩-٢٤: الدرسُ المفتوحُ لأيِّ حسابٍ مسجَّل، فصارت
+  | «مفتوح مجّاناً» طريقاً بعدَ أن كانت جملةً بلا طريق.
+  */
+  it("links a free lesson to the player for somebody signed in", () => {
+    mockUser = { uuid: "u-1", platform_role: "student" };
+
+    render(
+      <CourseCurriculum
+        sections={tree([
+          item({ title: "Unit one", kind: "video", uuid: "l-free", free_with_account: true }),
+        ])}
+        courseSlug="authoring-showcase"
+      />,
+    );
+
+    const link = screen.getByRole("link");
+
+    expect(link.getAttribute("href")).toBe("/learn/l-free");
+    expect(within(link).getByText("مفتوح مجّاناً")).toBeTruthy();
+  });
+
+  it("sends a visitor to sign in first, and back to the same lesson", () => {
+    render(
+      <CourseCurriculum
+        sections={tree([
+          item({ title: "Unit one", kind: "video", uuid: "l-free", free_with_account: true }),
+        ])}
+        courseSlug="authoring-showcase"
+      />,
+    );
+
+    expect(screen.getByRole("link").getAttribute("href")).toBe(
+      `/login?next=${encodeURIComponent("/learn/l-free")}`,
+    );
+  });
+
+  it("builds no free-lesson link while the session is being restored", () => {
+    // Drawn now it would be the visitor's link, and send an account holder to a
+    // sign-in page they do not need.
+    mockLoading = true;
+
+    render(
+      <CourseCurriculum
+        sections={tree([
+          item({ title: "Unit one", kind: "video", uuid: "l-free", free_with_account: true }),
+        ])}
+        courseSlug="authoring-showcase"
+      />,
+    );
+
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 

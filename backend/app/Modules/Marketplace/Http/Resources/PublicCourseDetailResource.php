@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Http\Resources;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -138,6 +139,8 @@ class PublicCourseDetailResource extends JsonResource
         /** @var Collection<int, Lesson> $lessons */
         $lessons = $this->getRelationValue('curriculumLessons') ?? collect();
 
+        $narrowed = $this->narrowedLessonIds($lessons);
+
         $sections = [];
 
         foreach ($lessons->groupBy(fn (Lesson $lesson): int => (int) $lesson->section_id) as $inSection) {
@@ -200,7 +203,26 @@ class PublicCourseDetailResource extends JsonResource
                         | و`isOpen()` هي `is_free || is_preview`. مفتاحٌ باسمِ
                         | العمودِ يحملُ معنىً أوسعَ منه تهجئةٌ ثانيةٌ تختلفُ عن
                         | الأولى عندَ أوّلِ قارئ.
+                        |
+                        | ⛔ **ومعه `uuid` الآن — وهذا نقضٌ مقصودٌ للفقرةِ أعلاه**
+                        | (قرارُ المالكِ ٢٠٢٦-٠٩-٢٤: «مفتوحٌ لكلِّ حسابٍ مسجَّل»).
+                        | الجملةُ كانت طريقاً مسدوداً يقطعُه القارئُ إلى نهايتِه:
+                        | تَعِدُ بأنّ الحسابَ يفتحُ الدرسَ ولا رابطَ إليه. والمعرّفُ
+                        | لا يفتحُ شيئاً لزائر — نقطةُ التشغيلِ و`/learn/lessons`
+                        | خلفَ `auth:sanctum` — ويفتحُ لمن دخلَ ما قرّرَ المالكُ أن
+                        | يُفتَحَ له بالضبط، من البابَينِ معاً (`mayWatch()` وفرعُ
+                        | الدرسِ المفتوحِ في `showLessonForViewer()`).
+                        | و`is_open` يبقى غائباً: هو «يُقرَأُ بلا حساب».
+                        |
+                        | ⚠️ **إلّا على عنصرٍ ضيّقَ المدرّسُ جمهورَه** (مجموعةٌ
+                        | بعينِها، أو إفراجٌ بحصّة): `LessonAudience` يُخفيه عن
+                        | كلِّ من ليسَ من ذلكَ الجمهور، فرابطٌ إليه هنا ميّتٌ لكلِّ
+                        | قارئٍ لهذه الصفحةِ تقريباً. يبقى مُعلَناً بلا رابط.
                         */
+                        if (! isset($narrowed[(int) $lesson->getKey()])) {
+                            $item['uuid'] = (string) $lesson->uuid;
+                        }
+
                         $item['free_with_account'] = true;
                     }
 
@@ -220,5 +242,52 @@ class PublicCourseDetailResource extends JsonResource
         }
 
         return $sections;
+    }
+
+    /**
+     * The open items whose teacher narrowed their audience — a group, or a
+     * release tied to a session — keyed by id.
+     *
+     * ⚠️ ONE query for the whole tree, and none at all when no row could need
+     * it: this Resource renders the anonymous, uncached course page, and a
+     * per-row read here is an N+1 by construction.
+     *
+     * The two axes are the ones `LessonAudience` asks; the release axis is a
+     * column already loaded, the group axis is `lesson_cohort_scopes`.
+     *
+     * @param  Collection<int, Lesson>  $lessons
+     * @return array<int, true>
+     */
+    private function narrowedLessonIds(Collection $lessons): array
+    {
+        $candidates = $lessons->filter(
+            static fn (Lesson $lesson): bool => $lesson->isOpen() && ! $lesson->isPubliclyReadable(),
+        );
+
+        if ($candidates->isEmpty()) {
+            return [];
+        }
+
+        $narrowed = [];
+
+        foreach ($candidates as $lesson) {
+            if ($lesson->release_session_id !== null) {
+                $narrowed[(int) $lesson->getKey()] = true;
+            }
+        }
+
+        foreach (LessonCohortScope::query()
+            // Tenant-owned, read on a public page: for a signed-in reader from
+            // another workspace the scope would AND their own workspace here and
+            // find nothing, publishing a link the door then refuses.
+            ->withoutWorkspaceScope()
+            ->whereIn('lesson_id', $candidates->map(
+                static fn (Lesson $lesson): int => (int) $lesson->getKey(),
+            )->values()->all())
+            ->pluck('lesson_id') as $lessonId) {
+            $narrowed[(int) $lessonId] = true;
+        }
+
+        return $narrowed;
     }
 }
