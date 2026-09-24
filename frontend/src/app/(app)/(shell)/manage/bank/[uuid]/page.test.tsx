@@ -15,6 +15,8 @@ vi.mock("@/lib/bank", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/components/bank/QuestionForm", () => ({ QuestionForm: () => null }));
+vi.mock("@/components/bank/RubricEditor", () => ({ RubricEditor: () => <p>محرّر المعايير</p> }));
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: { permissions: ["questions.manage"] } }) }));
 
 const { default: EditBankQuestionPage } = await import("./page");
 
@@ -50,5 +52,21 @@ describe("deleting a bank question", () => {
 
     expect(remove).toHaveBeenCalledTimes(1);
     expect(remove).toHaveBeenCalledWith("q-1");
+  });
+});
+
+describe("the rubric editor", () => {
+  it("appears on an essay question", async () => {
+    question.mockResolvedValue({ data: { uuid: "q-1", type: "essay", usage_count: 0, is_active: true } });
+    await openPage();
+
+    expect(screen.getByText("محرّر المعايير")).toBeTruthy();
+  });
+
+  it("does not appear on a machine-marked question", async () => {
+    question.mockResolvedValue({ data: { uuid: "q-1", type: "mcq", usage_count: 0, is_active: true } });
+    await openPage();
+
+    expect(screen.queryByText("محرّر المعايير")).toBeNull();
   });
 });

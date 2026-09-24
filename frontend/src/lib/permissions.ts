@@ -45,6 +45,14 @@ export const P = {
    */
   analyticsCrossTeacher: "analytics.cross_teacher.view",
   gradingPerform: "grading.perform",
+  // Extra time / extra days for one student (FR-053). Teacher-level; an
+  // assistant holds neither this nor the balances list its picker reads.
+  accommodationsManage: "accommodations.manage",
+  // Workspace settings — the anonymous-grading toggle. TENANT OWNER only: a
+  // plain teacher grades under the setting and cannot flip it.
+  settingsUpdate: "settings.update",
+  certificatesRegenerate: "certificates.regenerate",
+  questionsManage: "questions.manage",
   assignmentsManage: "assignments.manage",
   // ⚠️ UNDERSCORE, NOT A DOT. `Permissions::UNLOCK_RULES_MANAGE` is
   // `unlock_rules.manage`; this string said `unlock.rules.manage` from the day

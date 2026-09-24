@@ -87,6 +87,10 @@ class GradingController extends Controller
                 'total' => $page->total(),
                 'current_page' => $page->currentPage(),
                 'last_page' => $page->lastPage(),
+                // The workspace setting itself, not read off a row: an empty
+                // queue has no row to carry it, and the toggle on the board
+                // must still say which way it currently stands.
+                'anonymous' => $anonymous,
             ],
         ]);
     }

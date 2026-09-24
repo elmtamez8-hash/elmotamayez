@@ -9,15 +9,19 @@ import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { QuestionBankIcon } from "@/components/icons";
 import { QuestionForm } from "@/components/bank/QuestionForm";
+import { RubricEditor } from "@/components/bank/RubricEditor";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { bank, type BankQuestion } from "@/lib/bank";
 import { counted } from "@/lib/labels";
+import { useAuth } from "@/lib/auth-context";
+import { can, P } from "@/lib/permissions";
 
 export default function EditBankQuestionPage({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
 
   const [question, setQuestion] = useState<BankQuestion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +116,9 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
       {outcome !== "" && <Alert tone="info" title="عُطِّل ولم يُحذف">{outcome}</Alert>}
 
       <QuestionForm question={question} />
+
+      {/* Essays only: a machine-marked question has no one to apply a scheme. */}
+      {question.type === "essay" && can(user, P.questionsManage) && <RubricEditor question={question} />}
     </div>
   );
 }
