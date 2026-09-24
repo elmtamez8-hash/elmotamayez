@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { safeNext } from "@/lib/safe-next";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
@@ -15,10 +14,17 @@ import { PasswordField, TextField } from "@/components/ui/Field";
 
 /**
  * ⚠️ THE THREE SLIDES ARE THE THREE ROLES, AND EACH ONE CARRIES ITS OWN ROUTE.
- * This screen creates a ROLE-LESS account — the invitation and academy-founder
- * door — so a visitor who landed here as a student, a parent or a teacher is on
- * the wrong page, and the panel is where that is said without an error. It is the
+ * This screen creates a STAFF account from a workspace invitation — nothing else
+ * — so a visitor who landed here as a student, a parent or a teacher is on the
+ * wrong page, and the panel is where that is said without an error. It is the
  * same fix as `/signup`, reached from the screen people actually arrive on.
+ *
+ * ⛔ INVITATION-ONLY SINCE 2026-09-24 (owner decision). `POST /auth/register`
+ * refuses a request with no invitation, so without `?invitation=` this page
+ * shows no form at all: a form the server will refuse is an error message
+ * waiting to be typed. It used to be the academy founder's door too; spec 025 ·
+ * FR-026 closed that, and what stayed open was a role-less account with no date
+ * of birth and no guardian gate for anyone who typed the URL.
  */
 const REGISTER_SLIDES: AuthSlide[] = [
   {
@@ -48,11 +54,14 @@ function RegisterForm() {
   const invitation = searchParams.get("invitation");
   const next = searchParams.get("next");
 
+  // The invitation is bound to this address, so a prefilled one is locked: an
+  // edited email is refused by the server («أُرسلت هذه الدعوة إلى …»).
+  const invitedEmail = searchParams.get("email");
+
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
-    // The invitation is bound to this address, so don't let it drift.
-    email: searchParams.get("email") ?? "",
+    email: invitedEmail ?? "",
     password: "",
     password_confirmation: "",
   });
@@ -72,33 +81,53 @@ function RegisterForm() {
     try {
       await register({ ...form, invitation: invitation ?? undefined });
 
-      if (invitation) {
-        // Sign the new account in and drop it back on the invitation to accept.
-        await login(form.email, form.password);
-        router.push(`/invitations/${invitation}`);
-        return;
-      }
-
-      /*
-       * ⚠️ THE INTENT SURVIVES THE SECOND HOP (027 · FR-005). A new account is
-       * NOT signed in here — it is sent to `/login` — so a `next` that stopped
-       * at this screen would be dropped by the very path FR-005 names out loud:
-       * «بعدَ التسجيلِ الجديدِ كما بعدَ الدخول». It is re-attached rather than
-       * acted on, and `/login` runs it through `safeNext()` at the redirect.
-       */
-      const carried = safeNext(next, "");
-
-      router.push(
-        carried === "" ? "/login" : `/login?next=${encodeURIComponent(carried)}`,
-      );
+      // Sign the new account in and drop it back on the invitation to accept.
+      await login(form.email, form.password);
+      router.push(`/invitations/${invitation}`);
     } catch (err: unknown) {
       const found = fieldErrors(err);
+      // `invitation` has no field on this form, so its error goes on top.
+      if (found.invitation) setError(found.invitation);
       if (Object.keys(found).length > 0) setFields(found);
       else setError(userMessage(err));
     } finally {
       setLoading(false);
     }
   };
+
+  if (!invitation) {
+    return (
+      <AuthShell
+        subtitle="أنشئ حسابك"
+        image="/marketplace/auth-register.webp"
+        slides={REGISTER_SLIDES}
+      >
+        <div className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8">
+          <Alert tone="info" title="هذه الصفحة لمن وصلته دعوة">
+            يُنشأ الحساب هنا من رابط دعوةٍ وصلك على بريدك من أكاديمية أو مدرّس. إن كنت طالباً
+            أو وليّ أمر أو مدرّساً فسجّل من صفحة التسجيل، ففيها ما يحتاجه حسابك.
+          </Alert>
+
+          <Button
+            href={next === null ? "/signup" : `/signup?next=${encodeURIComponent(next)}`}
+            fullWidth
+          >
+            اذهب إلى صفحة التسجيل
+          </Button>
+
+          <p className="text-center text-sm text-ink-muted">
+            لديك حساب بالفعل؟{" "}
+            <Link
+              href="/login"
+              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              سجّل الدخول
+            </Link>
+          </p>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
@@ -141,6 +170,8 @@ function RegisterForm() {
           error={fields.email}
           placeholder="you@example.com"
           autoComplete="email"
+          hint={invitedEmail ? "البريد الذي وصلته الدعوة." : undefined}
+          disabled={invitedEmail !== null}
           required
         />
 
@@ -170,36 +201,10 @@ function RegisterForm() {
           أنشئ الحساب
         </Button>
 
-        {!invitation && (
-          /*
-           * ⚠️ This door creates a role-less account: it is the academy
-           * founder's path (register, then create a workspace), and it asks
-           * for none of what a student's account needs — a date of birth
-           * above all, which `RegisterStudent` turns into the guardian gate.
-           * Sending the other three roles to their own signup is what keeps
-           * that gate on one implementation.
-           */
-          <p className="text-center text-sm text-ink-muted">
-            تسجّل بصفة{" "}
-            <Link href="/signup/student" className="rounded text-primary-ink underline underline-offset-4">
-              طالب
-            </Link>{" "}
-            أو{" "}
-            <Link href="/signup/parent" className="rounded text-primary-ink underline underline-offset-4">
-              وليّ أمر
-            </Link>{" "}
-            أو{" "}
-            <Link href="/signup/teacher" className="rounded text-primary-ink underline underline-offset-4">
-              مدرّس
-            </Link>
-            ؟ لكلٍّ صفحته.
-          </p>
-        )}
-
         <p className="text-center text-sm text-ink-muted">
           لديك حساب بالفعل؟{" "}
           <Link
-            href={invitation ? `/login?invitation=${invitation}` : "/login"}
+            href={`/login?invitation=${invitation}`}
             className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             سجّل الدخول

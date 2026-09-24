@@ -14,23 +14,21 @@ class RegisterAccountData extends DataTransferObject
         public readonly string $email,
         public readonly string $password,
         /*
-        | Optional, and deliberately so: an academy founder registers with nothing
-        | in hand. See RegisterAccount's docblock.
+        | Required: this door is invitation-only (owner decision 2026-09-24).
+        | See RegisterAccount's docblock.
         */
-        public readonly ?string $invitationToken = null,
+        public readonly string $invitationToken,
     ) {}
 
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
-        $token = $data['invitation'] ?? null;
-
         return new self(
             firstName: (string) $data['first_name'],
             lastName: (string) ($data['last_name'] ?? ''),
             email: (string) $data['email'],
             password: (string) $data['password'],
-            invitationToken: $token === null || $token === '' ? null : (string) $token,
+            invitationToken: (string) ($data['invitation'] ?? ''),
         );
     }
 }

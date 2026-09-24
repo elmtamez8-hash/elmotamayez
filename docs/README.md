@@ -111,6 +111,7 @@ Authenticated:
 | Method | Path | Guard |
 |---|---|---|
 | POST | `/auth/register/student` · `/auth/register/parent` · `/auth/register/teacher/step-1` | Public, `throttle:10,1` + `idempotent` |
+| POST | `/auth/register` | Public, `throttle:registration` + `idempotent` — **invitation-only** since 2026-09-24: a pending, unexpired, staff-role `invitation` token addressed to the registering email is REQUIRED, else 422. Students, guardians and teachers sign up under `/signup/*` |
 | GET/PUT | `/teacher/application`, `/teacher/application/step-2..4` | Applicant's own token |
 | POST | `/teacher/application/submit` | Applicant, `idempotent` |
 | GET | `/teacher/profile` | The signed-in teacher's own slug; `slug: null` when no listing exists yet |
@@ -384,7 +385,8 @@ A code may be spent on all THREE purchase paths, because a coupon's scope covers
 | `GET` | `/referrals` | the inviter, their own |
 
 `referral_code` is an optional field on both register doors (`POST /auth/register`
-and `POST /auth/register/student`).
+and `POST /auth/register/student`). ⚠️ No frontend form sends it yet, and no
+referral URL exists — the code is shown on `/referrals` to be typed by hand.
 
 - **Neither table carries `BelongsToWorkspace`, and adding it would duplicate one
   person per teacher.** A code belongs to a HUMAN: one person, one code, for
@@ -984,7 +986,8 @@ must be approved before any of the others.
 
 `users.platform_role` (`student` · `teacher` · `parent`, nullable) marks accounts
 created through the marketplace signup paths. They belong to **no** workspace and
-hold **no** spatie role — `/register` remains the academy path and is unaffected.
+hold **no** spatie role. `/register` is no longer an academy path (spec 025 closed
+it): since 2026-09-24 it accepts only a workspace staff invitation.
 
 ## Development Setup
 
