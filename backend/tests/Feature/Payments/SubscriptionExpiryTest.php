@@ -24,6 +24,11 @@ use Illuminate\Support\Facades\DB;
 | FR-027 — the month runs out, access stops, and the student was warned (T096).
 */
 beforeEach(function (): void {
+    // Noon UTC is the same calendar day in Doha, where the job counts days.
+    // Without it CarbonImmutable::today() (UTC) is «yesterday» in Doha between
+    // 21:00 and 24:00 UTC and the fixtures land a day off (CI flaked, 2026-09-24).
+    $this->travelTo(now()->utc()->setTime(12, 0));
+
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
