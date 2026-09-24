@@ -70,7 +70,11 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // `Schedule` consent. Their siblings (a transfer request and its answers, a
     // private-session ask, refusal or expiry) stay off: a conversation between
     // child and teacher about a lesson that has not moved.
-    expect($onWhatsApp)->toHaveCount(30);
+    // 30 → 31 the same day: `enrollment_created` (owner decision). Measured on
+    // production, a linked student's enrolment told the student alone — the
+    // purchase becoming access, which the guardian heard half of through the
+    // receipt. It rides the `Payments` consent beside `subscription_activated`.
+    expect($onWhatsApp)->toHaveCount(31);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

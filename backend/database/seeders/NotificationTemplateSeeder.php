@@ -779,9 +779,15 @@ class NotificationTemplateSeeder extends Seeder
                 'نُفِّذ صرف بمبلغ {{ amount }} بمرجع {{ reference }}. يظهر في سجلّ صرفك.',
                 ['amount', 'reference'],
             ],
+            /*
+             * Third person since 2026-09-24, when the type started reaching
+             * guardians: one body serves every recipient, and «مرحباً أحمد، تم
+             * تسجيلك» on a parent's phone addresses the parent as the child.
+             * Existing rows: `2026_09_24_000700_reword_enrollment_created_for_guardians`.
+             */
             NotificationType::EnrollmentCreated->value => [
-                'تم تسجيلك في كورس',
-                'مرحباً {{ name }}، تم تسجيلك في «{{ course_title }}». يمكنك البدء الآن.',
+                'تسجيل جديد في كورس',
+                'تم تسجيل {{ name }} في «{{ course_title }}»، ويمكن البدء الآن.',
                 ['name', 'course_title'],
             ],
             NotificationType::CertificateIssued->value => [

@@ -285,7 +285,10 @@ it('tells every guardian-facing type apart', function (): void {
     // 26 → 28 the same day: `cohort_assigned` and `private_session_accepted`,
     // both a decided change to the child's timetable on the `Schedule` consent.
     // The transfer family and the other private-session steps stay off.
-    expect($guardianTypes)->toHaveCount(28);
+    // 28 → 29 the same day: `enrollment_created` (owner decision) — the child
+    // joining a course, on the `Payments` consent the purchase already uses.
+    // Nothing on the timetable moved, so not `Schedule`.
+    expect($guardianTypes)->toHaveCount(29);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

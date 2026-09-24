@@ -85,7 +85,19 @@ it('applies the type defaults when the user never chose', function (): void {
 
     send($user, NotificationType::EnrollmentCreated);
 
-    expect(NotificationDelivery::query()->sole()->channel)->toBe(NotificationChannel::InApp->value);
+    // Measured against the type's own defaults rather than a literal: since
+    // 2026-09-24 `enrollment_created` reaches guardians and so defaults to
+    // WhatsApp as well, and the claim here is «the defaults», not «in-app».
+    $defaults = array_map(
+        static fn (NotificationChannel $channel): string => $channel->value,
+        NotificationType::EnrollmentCreated->defaultChannels(),
+    );
+    sort($defaults);
+
+    $channels = NotificationDelivery::query()->pluck('channel')->sort()->values()->all();
+
+    expect($channels)->toBe($defaults)
+        ->and($channels)->toContain(NotificationChannel::InApp->value);
 });
 
 // SC-013 — a mandatory type cannot be silenced. Not "warns", not "defaults back

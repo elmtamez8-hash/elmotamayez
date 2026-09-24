@@ -828,7 +828,12 @@ enum NotificationType: string
             // A decided change to the child's timetable — the family's day moves
             // with it, the same fact SessionRescheduled carries.
             self::CohortAssigned,
-            self::PrivateSessionAccepted => true,
+            self::PrivateSessionAccepted,
+            // 2026-09-24 (owner decision). The child joining a course is the
+            // moment a purchase becomes access — and a guardian who heard about
+            // a purchase but never about the course it bought is told half of
+            // one fact. Measured on production: the student alone was told.
+            self::EnrollmentCreated => true,
             default => false,
         };
     }
@@ -891,7 +896,18 @@ enum NotificationType: string
             self::StorePurchaseUnavailable,
             self::SubscriptionActivated,
             self::SessionPlanActivated,
-            self::WaitlistInvited => GuardianPermission::Payments,
+            self::WaitlistInvited,
+            // The payments consent, NOT schedule: nothing on the timetable moved
+            // (a cohort placement is its own type, on `Schedule`), while an
+            // enrolment is exactly what `subscription_activated` and
+            // `receipt_approved` already announce on this consent — the purchase
+            // turning into access. And for a COURSE order it is the only word
+            // there is: `receipt_approved` deliberately stays silent there,
+            // leaving the enrolment notice as the outcome (see
+            // ReceiptNotificationsTest). A free or teacher-granted enrolment is
+            // the same fact at price zero, and one consent per fact is the rule
+            // this method keeps.
+            self::EnrollmentCreated => GuardianPermission::Payments,
             default => null,
         };
     }

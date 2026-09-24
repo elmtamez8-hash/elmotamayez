@@ -43,7 +43,7 @@ it('applies an edited template to the next message without a deploy', function (
         ->and($notifications[1]->body)->toStartWith('أهلاً')
         // And the archive keeps the wording it was sent with — editing a template
         // must not rewrite history.
-        ->and($notifications[0]->body)->toStartWith('مرحباً');
+        ->and($notifications[0]->body)->toStartWith('تم تسجيل');
 });
 
 // FR-037, first half.
