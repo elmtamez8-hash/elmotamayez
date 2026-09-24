@@ -67,7 +67,7 @@ function SubscribeScreen() {
   /** أبناءُ هذا الوصيِّ الذين له عليهم صلاحيّةُ الدفعِ ولهم حسابٌ فعلاً. */
   const [children, setChildren] = useState<GuardianRelation[]>([]);
   const [studentUuid, setStudentUuid] = useState("");
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "error" | "no-course">("loading");
   const [problem, setProblem] = useState<string | null>(null);
 
   const [planUuid, setPlanUuid] = useState("");
@@ -95,9 +95,15 @@ function SubscribeScreen() {
   const problemRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
+    /*
+     * ⚠️ NOT AN ERROR, AND IT USED TO SAY ONE (reported 2026-09-24): «تعذّر
+     * تحميل البيانات» over «لا كورس في هذا الرابط» told somebody who opened
+     * /subscribe from a menu or a bookmark that something had broken, with a
+     * retry button that could only fail again. Nothing broke — a subscription
+     * starts on a course page, and the page says so and points there.
+     */
     if (courseUuid === "") {
-      setState("error");
-      setProblem("لا كورس في هذا الرابط. افتحْ صفحة الكورس واضغطْ زرّ الاشتراك.");
+      setState("no-course");
 
       return;
     }
@@ -206,6 +212,22 @@ function SubscribeScreen() {
   };
 
   if (state === "loading") return <RowsSkeleton />;
+
+  if (state === "no-course") {
+    return (
+      <Card>
+        <EmptyState
+          title="اختر كورساً أولاً"
+          description="الاشتراك يبدأ من صفحة الكورس: افتح الكورس الذي تريده واضغط زرّ الاشتراك."
+          action={
+            <Button href="/courses" variant="secondary">
+              تصفّح الكورسات
+            </Button>
+          }
+        />
+      </Card>
+    );
+  }
 
   if (state === "error") {
     return <ErrorState description={problem ?? undefined} onRetry={() => void load()} />;

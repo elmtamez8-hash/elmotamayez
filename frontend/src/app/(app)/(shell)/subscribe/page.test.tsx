@@ -30,8 +30,11 @@ vi.mock("@/lib/notifications", () => ({
   family: { list: () => listRelations() },
 }));
 
+/* العنوانُ الذي فُتِحَت به الصفحة — يُبدَّلُ في حالةِ «بلا كورس» وحدَها. */
+let mockSearch = "course=course-uuid&cohort=cohort-uuid";
+
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams("course=course-uuid&cohort=cohort-uuid"),
+  useSearchParams: () => new URLSearchParams(mockSearch),
 }));
 
 /** الباقةُ بالشهر — الشكلُ الذي شحنَه ٠٢٧، وهو افتراضُ كلِّ حالةٍ أدناه. */
@@ -380,5 +383,35 @@ describe("what the screen asks the server for", () => {
     expect(plansAsked).toHaveLength(1);
     // الكورسُ · نوعُ الحصّةِ · والمجموعةُ — الثالثُ هو ما أضافَه ٠٣٦.
     expect(plansAsked[0]).toEqual(["course-uuid", "group", "cohort-uuid"]);
+  });
+});
+
+/*
+| ⛔ بلاغُ ٢٠٢٦-٠٩-٢٤: `/subscribe` بلا `?course=` كانت تقولُ «تعذّر تحميل
+| البيانات» — خطأٌ لم يقعْ، وزرُّ «إعادة المحاولة» لا يُصلِحُ شيئاً. الصفحةُ
+| تقولُ من أين يبدأُ الاشتراكُ وتدلُّ عليه.
+*/
+describe("the subscription screen opened with no course", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockUser = { platform_role: "student" };
+    mockSearch = "";
+  });
+
+  afterEach(() => {
+    mockSearch = "course=course-uuid&cohort=cohort-uuid";
+  });
+
+  it("points to the courses instead of reporting a failure", async () => {
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    expect(await screen.findByText("اختر كورساً أولاً")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "تصفّح الكورسات" }).getAttribute("href")).toBe(
+      "/courses",
+    );
+    expect(screen.queryByText(/تعذّر/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /إعادة المحاولة/ })).toBeNull();
   });
 });
