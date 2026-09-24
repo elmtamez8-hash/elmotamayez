@@ -104,3 +104,67 @@ describe("StudentSignupForm — a minor awaiting consent", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+/*
+| Spec 011 · FR-018 — the «كود الإحالة» field. Until it existed no screen sent
+| `referral_code`, so not one referral had ever been captured.
+*/
+describe("StudentSignupForm — the referral code", () => {
+  function submit(container: HTMLElement) {
+    fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+  }
+
+  it("prefills the field from the invitation link's code", () => {
+    render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} referralCode="FRIEND23" />);
+
+    expect((screen.getByLabelText("كود الإحالة (اختياري)") as HTMLInputElement).value).toBe("FRIEND23");
+  });
+
+  it("sends the code when the field is filled, upper-cased", () => {
+    registerStudent.mockReset();
+    registerStudent.mockReturnValueOnce(new Promise(() => {}));
+
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+
+    fireEvent.change(screen.getByLabelText("كود الإحالة (اختياري)"), { target: { value: " friend23 " } });
+    submit(container);
+
+    expect(registerStudent).toHaveBeenCalledTimes(1);
+    expect(registerStudent.mock.calls[0][0].referral_code).toBe("FRIEND23");
+  });
+
+  it("leaves the key out entirely when the field is empty", () => {
+    registerStudent.mockReset();
+    registerStudent.mockReturnValueOnce(new Promise(() => {}));
+
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+
+    submit(container);
+
+    expect(registerStudent).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(registerStudent.mock.calls[0][0])).not.toContain("referral_code");
+  });
+
+  it("shows a 422 on the code under the field itself, not in the banner", async () => {
+    const { ApiError } = await import("@/lib/api");
+    const sentence = "لم نجد هذا الكود. تأكّد منه، أو امسح الخانة وأكمل التسجيل بدونه.";
+
+    registerStudent.mockReset();
+    registerStudent.mockRejectedValueOnce(
+      new ApiError("invalid", 422, { message: "invalid", errors: { referral_code: [sentence] } }),
+    );
+
+    const { container } = render(
+      <StudentSignupForm schoolYears={YEARS} regions={REGIONS} referralCode="NOSUCH99" />,
+    );
+
+    submit(container);
+
+    const message = await screen.findByText(sentence);
+
+    expect(message.id).toBe("referral_code-error");
+    expect(screen.getByLabelText("كود الإحالة (اختياري)").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});

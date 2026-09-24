@@ -23,6 +23,13 @@ use Illuminate\Database\QueryException;
  * possibly do. Nothing is owed until somebody subscribes, so attaching nothing
  * costs nothing.
  *
+ * ⚠️ THE STUDENT SIGNUP FORM REFUSES AN UNKNOWN CODE BEFORE THIS RUNS.
+ * `RegisterStudentRequest` answers a 422 under the «كود الإحالة» field, where
+ * the person can fix it or clear it — a silent drop there left the friend
+ * uncredited while the newcomer believed they had been referred. This Action
+ * stays lenient for every caller with no form in front of it (the generic
+ * register door, seeders, tests); a lookup miss here is still not an error.
+ *
  * ⚠️ NOTHING IS PAID HERE EITHER (FR-019 · SC-006). A `pending` row is a claim,
  * not a reward: the points are awarded when the invited person actually
  * subscribes, by {@see CompleteReferral}. Paying

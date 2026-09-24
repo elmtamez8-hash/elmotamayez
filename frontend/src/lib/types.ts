@@ -33,6 +33,12 @@ export interface StudentRegistration {
    */
   date_of_birth: string;
   guardian_contact?: string;
+  /*
+   * Spec 011 · FR-018 — who invited them. Sent only when filled: the API
+   * answers an unknown code with a 422 under this field, so an empty string
+   * would be a code to look up rather than an absent one.
+   */
+  referral_code?: string;
 }
 
 export interface ParentRegistration {

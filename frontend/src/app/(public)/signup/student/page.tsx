@@ -3,6 +3,7 @@ import Link from "next/link";
 import { publicApi } from "@/lib/public-api";
 import { StudentSignupForm } from "@/components/marketplace/StudentSignupForm";
 import { platformName } from "@/lib/platform";
+import { sanitiseReferralCode } from "@/lib/referral-link";
 
 export async function generateMetadata(): Promise<Metadata> {
   const name = await platformName();
@@ -13,14 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-type Search = { teacher?: string; trial?: string; next?: string };
+type Search = { teacher?: string; trial?: string; next?: string; ref?: string };
 
 export default async function StudentSignupPage({
   searchParams,
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { teacher, trial, next } = await searchParams;
+  const { teacher, trial, next, ref } = await searchParams;
 
   // Fetched on the server so the year list is in the HTML: the form is useless
   // without it, and a client fetch would leave a blank select on a slow
@@ -65,6 +66,8 @@ export default async function StudentSignupPage({
         regions={regions}
         teacherUuid={teacher}
         next={next}
+        // Spec 011 · FR-018 — an invitation link lands here as `?ref=CODE`.
+        referralCode={sanitiseReferralCode(ref)}
       />
     </div>
   );

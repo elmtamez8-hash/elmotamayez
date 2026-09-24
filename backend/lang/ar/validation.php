@@ -242,6 +242,7 @@ return [
         'school_year_slug' => 'الصف الدراسي',
         'student_school_year_slug' => 'الصف الدراسي',
         'region_slug' => 'المنطقة',
+        'referral_code' => 'كود الإحالة',
         'metric_keys' => 'المؤشّرات',
         'cadence' => 'دورية الإرسال',
         'grade_levels' => 'المراحل الدراسية',

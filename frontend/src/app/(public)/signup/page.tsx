@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AcademicCapIcon, UserPlusIcon, UsersIcon } from "@/components/icons";
 import { platformName } from "@/lib/platform";
+import { sanitiseReferralCode } from "@/lib/referral-link";
 
 export async function generateMetadata(): Promise<Metadata> {
   const name = await platformName();
@@ -46,7 +47,21 @@ const ROLES = [
   },
 ] as const;
 
-export default function SignupChooserPage() {
+export default async function SignupChooserPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  /*
+   * Spec 011 · FR-018 — an invitation link that lands HERE rather than on the
+   * student form (a shortened link, a friend who trimmed the path) must not lose
+   * its code on the way. Only the student door takes one: guardians and teachers
+   * are not referred, so their links stay bare.
+   */
+  const ref = sanitiseReferralCode((await searchParams).ref);
+  const hrefFor = (href: string) =>
+    ref !== "" && href === "/signup/student" ? `${href}?ref=${encodeURIComponent(ref)}` : href;
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
       <div className="mb-8 text-center">
@@ -58,7 +73,7 @@ export default function SignupChooserPage() {
         {ROLES.map(({ href, label, blurb, Icon }) => (
           <li key={href}>
             <Link
-              href={href}
+              href={hrefFor(href)}
               className="flex items-center gap-4 rounded-3xl border border-line bg-surface-raised p-6 transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <span className="rounded-2xl bg-primary-soft p-3 text-primary-ink">
