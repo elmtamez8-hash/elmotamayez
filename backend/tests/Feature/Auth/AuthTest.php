@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Actions\RegisterAccount;
+use App\Modules\Identity\Data\RegisterAccountData;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Tenancy\Models\Invitation;
@@ -45,11 +47,12 @@ describe('registration', function (): void {
     | bypassed by a flaw in it, it was simply never reached, because
     | `RegisterStudent` is the only writer that computes it.
     |
-    | ⚠️ AND THE FIX IS THE MIDDLEWARE, NOT AN INVITATION REQUIREMENT. This door
-    | serves two people — an academy founder with nothing in hand, and an invitee
-    | with a token — so a required token closes the founder's only path. It was
-    | required for one commit and `AcademySignupUnchangedTest` caught it. The
-    | token is a CLAIM, checked when it is made; the rate limit is the guard.
+    | ⛔ AND SINCE 2026-09-24 THE INVITATION IS REQUIRED TOO (owner decision).
+    | It was optional for one reason — the academy founder, who registered with
+    | nothing in hand — and spec 025 · FR-026 abolished new founders, so the
+    | optionality served nobody and left `/register` a side door around the
+    | guardian gate. The middleware stays; the token is now a condition as well
+    | as a claim.
     */
 
     it('registers the account an invitation was addressed to', function (): void {
@@ -73,24 +76,55 @@ describe('registration', function (): void {
     });
 
     /*
-    | ⚠️ AND IT MUST STAY OPEN WITHOUT ONE. An earlier version of this fix made
-    | the invitation required, which closed the academy founder's only door —
-    | `AcademySignupUnchangedTest` caught it, and this case is the reminder here
-    | so the next reader does not re-tighten it. Null is the correct platform
-    | role: founding a workspace is a workspace role, granted a request later.
+    | ⛔ INVERTED ON 2026-09-24. This case used to assert the founder's door stayed
+    | open with no invitation; spec 025 closed the founder path one request later,
+    | so what stayed open was only a role-less account for anyone who typed the
+    | URL. The row COUNT is the assertion — a 422 over a written row is a refusal
+    | on paper only.
     */
-    it('still registers an academy founder with no invitation and no platform role', function (): void {
+    it('refuses a registration with no invitation, and writes no row', function (): void {
+        $before = User::query()->count();
+
         $this->postJson('/api/v1/auth/register', [
             'first_name' => 'Jane',
             'email' => 'founder@academy.test',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-        ])->assertCreated();
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['invitation'])
+            ->assertJsonPath('errors.invitation.0', __('validation.custom.invitation.required'));
 
-        $user = User::where('email', 'founder@academy.test')->firstOrFail();
+        expect(User::query()->count())->toBe($before);
+    });
 
-        expect($user->platform_role)->toBeNull()
-            ->and($user->status)->toBe(UserStatus::Active->value);
+    it('refuses an empty invitation the same way', function (): void {
+        $before = User::query()->count();
+
+        $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Jane',
+            'email' => 'founder@academy.test',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'invitation' => '',
+        ])->assertStatus(422)->assertJsonValidationErrors(['invitation']);
+
+        expect(User::query()->count())->toBe($before);
+    });
+
+    /*
+    | The Action refuses on its own too: a seeder or a panel reaching it with no
+    | form in front cannot mint a role-less account with an empty token.
+    */
+    it('refuses an empty token at the Action as well as at the request', function (): void {
+        $before = User::query()->count();
+
+        expect(fn () => app(RegisterAccount::class)->handle(RegisterAccountData::fromArray([
+            'first_name' => 'Jane',
+            'email' => 'founder@academy.test',
+            'password' => 'password123',
+        ])))->toThrow(DomainException::class);
+
+        expect(User::query()->count())->toBe($before);
     });
 
     it('refuses an invitation addressed to somebody else', function (): void {
@@ -174,7 +208,7 @@ describe('registration', function (): void {
     it('validates required fields', function (): void {
         $this->postJson('/api/v1/auth/register', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['first_name', 'email', 'password']);
+            ->assertJsonValidationErrors(['first_name', 'email', 'password', 'invitation']);
     });
 
     it('prevents duplicate email registration', function (): void {

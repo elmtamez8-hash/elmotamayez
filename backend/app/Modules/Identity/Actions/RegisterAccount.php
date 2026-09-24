@@ -15,7 +15,7 @@ use DomainException;
 use Illuminate\Auth\Events\Registered;
 
 /**
- * The plain account door: an academy founder, or somebody a workspace invited.
+ * The invitation door: somebody a workspace invited onto its staff.
  *
  * ⚠️ IT CARRIED NO MIDDLEWARE AT ALL UNTIL 2026-08-29. `POST /auth/register` had
  * no rate limit and no idempotency key — the one unthrottled account-minting
@@ -23,13 +23,15 @@ use Illuminate\Auth\Events\Registered;
  * money on account creation (a referral reward), which is what turns an
  * unthrottled mint into a free one.
  *
- * ⚠️ AND IT SERVES TWO PEOPLE, WHICH IS WHY THE INVITATION IS OPTIONAL. An
- * academy founder registers with nothing in hand and creates a workspace
- * afterwards — `AcademySignupUnchangedTest` calls that «the only way an academy
- * gets onto the platform», and an earlier version of this fix required a token
- * and closed it. An invitee arrives from `/invitations/{token}` with one. The
- * token is not the guard on this door; it is a claim that has to be checked when
- * it is made.
+ * ⛔ AND IT IS INVITATION-ONLY SINCE 2026-09-24 (owner decision). The token used
+ * to be optional for one reason: an academy founder registered with nothing in
+ * hand and created a workspace afterwards. Spec 025 · FR-026 abolished that path
+ * (`POST /workspaces` needs a platform permission — `AcademySignupUnchangedTest`),
+ * so the optionality served nobody and left only a side door: anyone typing
+ * `/register` got an account with no role, no date of birth and no guardian gate,
+ * and could buy courses. The token is REQUIRED here as well as in the request, so
+ * a seeder or panel reaching this Action with no form behind it is refused too —
+ * an empty token resolves to no invitation and is refused below.
  *
  * ⚠️ WHAT THIS DOOR IS NOT is the student signup. `RegisterStudent` is the only
  * writer that computes the guardian-consent gate for minors (spec 013 · FR-009):
@@ -50,9 +52,7 @@ class RegisterAccount extends Action
 
     public function handle(RegisterAccountData $data): User
     {
-        $invitation = $data->invitationToken === null
-            ? null
-            : $this->resolveInvitation($data->invitationToken, $data->email);
+        $this->resolveInvitation($data->invitationToken, $data->email);
 
         $user = new User;
 
@@ -60,16 +60,9 @@ class RegisterAccount extends Action
         | forceFill, not fill: `platform_role` and `status` are guarded precisely
         | so a request payload can never choose them.
         |
-        | ⚠️ NULL USED TO MEAN «ACADEMY FOUNDER», AND THERE ARE NO NEW FOUNDERS.
-        | The platform enum is three-valued — student · teacher · parent — and
-        | somebody who founded a workspace was none of them; owning one was a
-        | WORKSPACE role granted by `CreateWorkspace` a request later. Spec 025 ·
-        | FR-007 closes that later request (`POST /workspaces` now needs a platform
-        | permission), and FR-026 records the closure as a decision: the platform
-        | has teachers under it and no academy layer above them. So this branch
-        | still produces null, correctly — the value is «not one of the three» —
-        | but the account it produces has no path to a workspace except a platform
-        | administrator creating one from `/admin` (FR-009).
+        | ⚠️ NULL USED TO MEAN «ACADEMY FOUNDER», AND THERE ARE NO NEW FOUNDERS
+        | (spec 025 · FR-026) — which is why this door stopped producing null
+        | on 2026-09-24: every account it creates now carries an invitation.
         |
         | An invited staff member does get `Teacher`: an assistant sits on the
         | teacher side of every question that reads this column (`ReadLeaderboard`
@@ -88,7 +81,7 @@ class RegisterAccount extends Action
             'last_name' => $data->lastName,
             'email' => $data->email,
             'password' => $data->password,
-            'platform_role' => $invitation === null ? null : PlatformRole::Teacher,
+            'platform_role' => PlatformRole::Teacher,
             'status' => UserStatus::Active->value,
         ])->save();
 
@@ -109,7 +102,7 @@ class RegisterAccount extends Action
             ->where('token', $token)
             ->first();
 
-        if ($invitation === null) {
+        if ($token === '' || $invitation === null) {
             throw new DomainException('هذه الدعوة غير صالحة.');
         }
 

@@ -23,14 +23,17 @@ class RegisterRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
 
             /*
-            | ⚠️ OPTIONAL, and that is a decision rather than a leftover: an
-            | academy founder registers with nothing in hand, and
-            | `AcademySignupUnchangedTest` calls that «the only way an academy
-            | gets onto the platform». When a token IS sent it is a claim, and
-            | the Action checks it (pending · unexpired · addressed to this
-            | email · a staff role).
+            | ⛔ REQUIRED since 2026-09-24 (owner decision). It was optional for
+            | ONE reason — an academy founder registered with nothing in hand —
+            | and spec 025 · FR-026 abolished new founders, so the optionality
+            | served nobody and left a side door: anyone typing `/register` got
+            | an account with no role, no date of birth and no guardian gate,
+            | and could buy courses. Students, guardians and teachers each have
+            | their own signup under `/signup/*`. The token is still CHECKED in
+            | the Action (pending · unexpired · addressed to this email · a
+            | staff role); this rule only says one must be presented.
             */
-            'invitation' => ['nullable', 'string', 'max:255'],
+            'invitation' => ['required', 'string', 'max:255'],
 
             /*
             | ⚠️ SHAPE ONLY, AND NO `exists:` RULE. An unknown code must not fail

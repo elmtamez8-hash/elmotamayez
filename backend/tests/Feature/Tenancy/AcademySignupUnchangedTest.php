@@ -24,21 +24,26 @@ use Laravel\Sanctum\Sanctum;
  * deleted regression net leaves nobody able to tell, two specs from now, whether
  * the closure was a decision or an accident.
  */
-it('still registers an account with no platform role', function (): void {
-    // Unchanged and deliberately so: registration itself is untouched. What used
-    // to follow it is what closed.
+/*
+| ⛔ INVERTED A SECOND TIME — owner decision 2026-09-24. This case kept asserting
+| that the bare registration still minted a role-less account, «registration
+| itself is untouched». With the workspace step closed above, that account served
+| no founder and was only a side door around the student signup's guardian gate,
+| so `POST /auth/register` now requires a workspace invitation.
+*/
+it('no longer registers an account with no invitation, and writes no row', function (): void {
+    $before = User::query()->count();
+
     $this->postJson('/api/v1/auth/register', [
         'first_name' => 'Jane',
         'last_name' => 'Doe',
         'email' => 'owner@academy.test',
         'password' => 'password123',
         'password_confirmation' => 'password123',
-    ])->assertCreated();
+    ])->assertStatus(422)->assertJsonValidationErrors(['invitation']);
 
-    $user = User::where('email', 'owner@academy.test')->sole();
-
-    expect($user->platform_role)->toBeNull()
-        ->and($user->workspaces()->count())->toBe(0);
+    expect(User::query()->count())->toBe($before)
+        ->and(User::where('email', 'owner@academy.test')->exists())->toBeFalse();
 });
 
 it('refuses to create a workspace for the registrant, and writes no row', function (): void {
