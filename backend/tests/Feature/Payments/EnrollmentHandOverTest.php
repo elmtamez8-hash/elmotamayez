@@ -110,6 +110,43 @@ it('never puts an outright enrolment on a subscription timer', function (): void
         ->expires_at->toBeNull();
 });
 
+/*
+| ⛔ OWNER'S DECISION, 2026-09-24: a monthly subscriber who buys an HOURS plan
+| keeps the month's expiry. Handed over, the row became `session_plan` with its
+| order and `expires_at` gone, and `SubscriptionAccess::close()` — which finds a
+| row by `(order_id, source = subscription)` — could no longer close it: a month
+| of access became access for ever, bought with a handful of hours.
+*/
+it('keeps a live subscription\'s expiry when the student buys an hours plan over it', function (): void {
+    $subscription = handOverBuy();
+    $expiresAt = handOverEnrollment()->expires_at;
+
+    expect($expiresAt)->not->toBeNull();
+
+    app(EnrollStudent::class)->handle($this->course, $this->buyer, 'session_plan');
+
+    expect(handOverEnrollment())
+        ->source->toBe('subscription')
+        ->order_id->toBe((int) $subscription->order_id)
+        ->and(handOverEnrollment()->expires_at?->toIso8601String())->toBe($expiresAt->toIso8601String());
+
+    handOverExpire($subscription);
+
+    // And the month's end still closes it.
+    expect(handOverEnrollment()->status)->toBe('expired');
+});
+
+it('lets an hours plan open a course whose subscription has already lapsed', function (): void {
+    handOverExpire(handOverBuy());
+
+    app(EnrollStudent::class)->handle($this->course, $this->buyer, 'session_plan');
+
+    // Nothing left to protect: the same row a first-time buyer of the plan gets.
+    expect(handOverEnrollment())
+        ->source->toBe('session_plan')
+        ->status->toBe('active');
+});
+
 it('treats a completed enrolment as enrolled at every door', function (): void {
     handOverBuy();
     handOverEnrollment()->forceFill(['status' => 'completed'])->save();

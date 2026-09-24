@@ -1,6 +1,6 @@
 "use client";
 
-import { isLearner, useAuth } from "@/lib/auth-context";
+import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { formatMinorMoney } from "@/lib/labels";
 
 /**
@@ -16,9 +16,14 @@ import { formatMinorMoney } from "@/lib/labels";
  * visible without an account is a price visible to every teacher on the
  * platform in one private window.
  *
- * ⚠️ `isLearner` AND NOT A PERMISSION. A guardian holds zero permissions exactly
- * as a student does — a permission-shaped predicate cannot tell a guardian from
- * staff, and would hide the price from the person most likely to be paying it.
+ * ⚠️ NOT A PERMISSION. A guardian holds zero permissions exactly as a student
+ * does — a permission-shaped predicate cannot tell a guardian from staff, and
+ * would hide the price from the person most likely to be paying it.
+ *
+ * ⚠️ AND NOT `isLearner` ANY MORE, which read `platform_role` — null for
+ * thirty-seven accounts, students among them, so a real buyer saw a buy button
+ * with no price above it. `teachesOnPlatform` is the one predicate the purchase
+ * doors refuse on, so the price is shown to exactly the people the door lets buy.
  *
  * ⚠️ THIS IS A DISPLAY RULE, NOT A GUARD, AND SAYING SO IS THE POINT. The course
  * detail page is a SERVER component fed by the public marketplace endpoint, which
@@ -51,7 +56,9 @@ export function CoursePrice({
 }) {
   const { user } = useAuth();
 
-  if (priceMinor === null || currency === null || !isLearner(user)) return null;
+  if (priceMinor === null || currency === null || user === null || teachesOnPlatform(user)) {
+    return null;
+  }
 
   return (
     <p className={SIZES[size]}>

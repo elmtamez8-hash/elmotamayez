@@ -25,8 +25,14 @@ beforeEach(() => {
   mockUser = null;
 });
 
+/** A teacher always holds a workplace (spec 025: the workspace is born with the account). */
+const TEACHES = [{ uuid: "w-1", name: "أكاديمية" }];
+
 function priceFor(role: User["platform_role"] | undefined) {
-  mockUser = role === undefined ? null : { uuid: "u-1", platform_role: role };
+  mockUser =
+    role === undefined
+      ? null
+      : { uuid: "u-1", platform_role: role, workspaces: role === "teacher" ? TEACHES : [] };
 
   render(<CoursePrice priceMinor={49900} currency="QAR" />);
 
@@ -48,6 +54,12 @@ describe("who sees a course price", () => {
     expect(priceFor("teacher")).toBeNull();
   });
 
+  it("shows it to a student whose platform_role was never written", () => {
+    // Thirty-seven accounts carry a null role — among them students a teacher
+    // added to a workspace. `isLearner()` answered no for every one of them.
+    expect(priceFor(null)).not.toBeNull();
+  });
+
   it("hides it from a signed-out visitor", () => {
     // Otherwise every teacher on the platform reads it in one private window,
     // and the rule above buys nothing at all.
@@ -62,7 +74,7 @@ describe("who sees a course price", () => {
     expect(screen.getByText("مجاني")).toBeTruthy();
 
     unmount();
-    mockUser = { uuid: "u-1", platform_role: "teacher" };
+    mockUser = { uuid: "u-1", platform_role: "teacher", workspaces: TEACHES };
 
     render(<CoursePrice priceMinor={0} currency="QAR" />);
 

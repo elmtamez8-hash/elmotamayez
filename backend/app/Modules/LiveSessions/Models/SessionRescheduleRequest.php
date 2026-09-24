@@ -30,6 +30,14 @@ class SessionRescheduleRequest extends BaseModel
 
     public const REJECTED = 'rejected';
 
+    /**
+     * Nobody answered before the moment it was about passed — the proposed hour
+     * or the lesson's own start, whichever came first. Settled by
+     * `ExpireSessionRescheduleRequestsJob`; it frees `srr_pending_unique` so the
+     * lesson can be asked about again.
+     */
+    public const EXPIRED = 'expired';
+
     /*
     | ⚠️ `status` AND `pending_slot` ARE NOT FILLABLE. Both are written inside the
     | one statement that settles the request — the `captured_order_id` idiom.
@@ -86,5 +94,28 @@ class SessionRescheduleRequest extends BaseModel
     public function scopePending(Builder $query): Builder
     {
         return $query->where('status', self::PENDING);
+    }
+
+    /**
+     * Pending, and past the moment it is about: min(to_starts_at, from_starts_at).
+     *
+     * ⚠️ ONE SPELLING FOR BOTH READERS — the sweep and the ask. A request whose
+     * proposed hour has gone holds `srr_pending_unique` and so refuses every new
+     * ask about the same lesson with «هناك طلب قائم», about a request nobody can
+     * approve any more. The OR is GROUPED: ungrouped it would OR at the top level
+     * and match settled rows too.
+     *
+     * @param  Builder<SessionRescheduleRequest>  $query
+     * @return Builder<SessionRescheduleRequest>
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        $now = now();
+
+        return $query
+            ->where('status', self::PENDING)
+            ->where(fn (Builder $q) => $q
+                ->where('to_starts_at', '<=', $now)
+                ->orWhere('from_starts_at', '<=', $now));
     }
 }

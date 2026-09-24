@@ -147,3 +147,33 @@ it('skips the read entirely for a student, who is a member of nothing', function
     expect($response->json('workspaces'))->toBe([])
         ->and($cost)->toBeGreaterThan(0);
 });
+
+/*
+| ⛔ A `student` PIVOT ROW IS NOT A WORKPLACE (2026-09-24). A teacher or a seeder
+| can put a student INTO a workspace, and `platform_role` is null for thirty-seven
+| accounts — so the skip above misses them, and the list came back non-empty. The
+| frontend reads a non-empty list as «teaches» and hid every purchase button from
+| that student. Same predicate as `User::teachesOnPlatform()`: the pivot ROLE.
+*/
+it('never lists a membership held as a student, whatever platform_role says', function (): void {
+    [$studiesAt] = $this->createWorkspaceWithOwner(['name' => 'حيث يدرس']);
+    [$teachesAt] = $this->createWorkspaceWithOwner(['name' => 'حيث يدرّس']);
+
+    $person = User::factory()->create(['platform_role' => null]);
+    $this->addWorkspaceMember($studiesAt, 'student', $person);
+    // `last_workspace_id` is guarded — only `forceFill` stamps it.
+    $person->forceFill(['last_workspace_id' => $studiesAt->getKey()])->save();
+
+    Sanctum::actingAs($person);
+
+    expect($this->getJson('/api/v1/auth/me')->assertOk()->json('workspaces'))->toBe([])
+        ->and($person->teachesOnPlatform())->toBeFalse();
+
+    // The mirror: the same person also teaching somewhere is listed THERE only.
+    $this->addWorkspaceMember($teachesAt, 'teacher', $person);
+    $this->asGuest();
+    Sanctum::actingAs($person->refresh());
+
+    expect(collect($this->getJson('/api/v1/auth/me')->assertOk()->json('workspaces'))->pluck('name')->all())
+        ->toBe(['حيث يدرّس']);
+});

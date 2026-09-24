@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { classSessions } from "@/lib/class-sessions";
 import { ApiError, auth } from "@/lib/api";
+import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import { errorCode, userMessage } from "@/lib/errors";
 import { privateSessions } from "@/lib/private-sessions";
 import type { AvailabilityItem } from "@/lib/public-api";
@@ -166,7 +167,7 @@ export function PrivateSessionRequestForm({
     void auth
       .me()
       .then((user) => {
-        if (user.workspaces.length > 0) setTeaches(true);
+        if (teachesOnPlatform(user)) setTeaches(true);
       })
       // A reader we cannot classify is treated as a student: the server refuses
       // a teacher at the door anyway, so the cost of guessing wrong here is one

@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\LiveSessions\Support\PendingRescheduleRequest;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -92,6 +93,23 @@ class DecideSessionRescheduleRequest extends Action
 
         if ($session === null) {
             throw new DomainException('الحصة المطلوب تأجيلها لم تعد موجودة.');
+        }
+
+        /*
+        | ⚠️ BOTH CLOCKS ARE ASKED AT THE MOMENT OF THE MOVE, NOT AT THE ASK.
+        | `RequestSessionReschedule` refused a past target and a started lesson
+        | when the student asked — but the teacher may answer days later, and a
+        | request sitting in the queue does not stay true: approving a Sunday
+        | that has already gone moves the lesson into the past, where nobody can
+        | attend it and the seat is charged as missed. Refused BEFORE anything is
+        | written, and the request stays pending for the expiry sweep to close.
+        */
+        if (CarbonImmutable::instance($session->starts_at)->isPast()) {
+            throw new DomainException('بدأ موعد الحصة الأصلي بالفعل، فلم يعد تأجيلها ممكناً.');
+        }
+
+        if (CarbonImmutable::instance($request->to_starts_at)->isPast()) {
+            throw new DomainException('الموعد المقترح للتأجيل قد مضى. اطلب من الطالب اقتراح موعد جديد.');
         }
 
         /*

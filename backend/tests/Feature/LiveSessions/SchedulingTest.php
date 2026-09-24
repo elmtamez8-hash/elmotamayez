@@ -16,6 +16,8 @@ use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function (): void {
@@ -225,4 +227,104 @@ it('lets a session be edited without reading it as a clash with itself', functio
     $updated = app(UpdateClassSession::class)->handle($session, ['title' => 'العنوان الجديد']);
 
     expect($updated->title)->toBe('العنوان الجديد');
+});
+
+/*
+| ⛔ THE CLASH CHECK WAS A READ FOLLOWED BY A WRITE (2026-09-24), and two accepts
+| of two students' private requests for one hour both found it free.
+|
+| ⚠️ A SEQUENTIAL «schedule it twice» TEST IS GREEN AGAINST A BUILD WITH NO CLAIM:
+| the second call's `exists()` already sees the first row. The window is between
+| the overlap question and the insert, and it is opened single-threaded by
+| running the OTHER writer from inside that very query — a `DB::listen` on the
+| outer call's `exists` over `class_sessions`. That IS the other worker winning
+| in exactly that instant, no threads and no sleeps.
+|
+| ⚠️ The other writer's row is rolled back WITH the loser, because the window sits
+| inside the loser's transaction on one test connection — so what is asserted is
+| the refusal and «never two», not that the winner's row survives. Delete the
+| claim in `SessionClash` and both calls land: no exception, two rooms.
+*/
+function scheduleRaceWinnerInsideTheWindow(Closure $winner): void
+{
+    $raced = false;
+
+    DB::listen(function (QueryExecuted $query) use (&$raced, $winner): void {
+        if ($raced
+            || ! str_starts_with(strtolower($query->sql), 'select exists')
+            || ! str_contains($query->sql, '"class_sessions"')) {
+            return;
+        }
+
+        $raced = true;
+        $winner();
+    });
+}
+
+it('refuses the second of two schedules that both found the hour free', function (): void {
+    $at = CarbonImmutable::now()->addDays(2)->startOfHour();
+
+    scheduleRaceWinnerInsideTheWindow(fn () => app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, $at),
+        $this->owner,
+    ));
+
+    expect(fn () => app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, $at->addMinutes(30)),
+        $this->owner,
+    ))->toThrow(DomainException::class, 'تغيّر جدول المدرّس في هذه اللحظة من جهة أخرى. أعد المحاولة.');
+
+    expect(ClassSession::query()->withoutWorkspaceScope()
+        ->where('teacher_profile_id', $this->teacher->getKey())->count())->toBeLessThan(2);
+});
+
+it('refuses the second of two moves that both found the hour free', function (): void {
+    $at = CarbonImmutable::now()->addDays(2)->startOfHour();
+
+    $first = app(ScheduleClassSession::class)->handle(scheduleData($this->teacher, $at), $this->owner);
+    $second = app(ScheduleClassSession::class)->handle(scheduleData($this->teacher, $at->addHours(2)), $this->owner);
+    $target = $at->addHours(5);
+
+    // A reschedule approval and a teacher's edit, landing on one hour at once.
+    scheduleRaceWinnerInsideTheWindow(fn () => app(UpdateClassSession::class)->handle($first, [
+        'starts_at' => $target->toIso8601String(),
+    ]));
+
+    expect(fn () => app(UpdateClassSession::class)->handle($second, [
+        'starts_at' => $target->toIso8601String(),
+    ]))->toThrow(DomainException::class);
+
+    expect(ClassSession::query()->withoutWorkspaceScope()
+        ->where('teacher_profile_id', $this->teacher->getKey())
+        ->where('starts_at', $target)
+        ->count())->toBeLessThan(2);
+});
+
+/*
+| ⛔ THE CLASH IS ABOUT A PERSON, AND THE SCOPE MADE IT ABOUT A WORKSPACE. A
+| teacher can be scheduled from more than one workspace (`SchedulableTeachers`),
+| and the scoped read ANDed the writer's own workspace onto the question — so the
+| other workspace's Saturday was invisible to the one being written on top of it.
+| One workspace in the fixture can never see this.
+*/
+it('sees the same teacher\'s session in another workspace as a clash', function (): void {
+    [$elsewhere] = $this->createWorkspaceWithOwner();
+    $at = CarbonImmutable::now()->addDays(2)->startOfHour();
+
+    ClassSession::factory()->create([
+        'workspace_id' => $elsewhere->getKey(),
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'course_id' => Course::factory()->create(['workspace_id' => $elsewhere->getKey()])->getKey(),
+        'starts_at' => $at,
+        'ends_at' => $at->addHour(),
+        'duration_minutes' => 60,
+    ]);
+
+    // The writer stands in THIS workspace; the other session is not in it.
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    expect(fn () => app(ScheduleClassSession::class)->handle(
+        scheduleData($this->teacher, $at->addMinutes(30)),
+        $this->owner,
+    ))->toThrow(DomainException::class, 'لديك حصة أخرى في هذا الوقت.');
 });

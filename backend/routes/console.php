@@ -17,6 +17,7 @@ use App\Modules\Identity\Jobs\EnforceAuthSessionCapJob;
 use App\Modules\Identity\Jobs\TransferDataOwnershipJob;
 use App\Modules\LiveSessions\Jobs\CloseStaleSessionsJob;
 use App\Modules\LiveSessions\Jobs\ExpirePrivateSessionRequestsJob;
+use App\Modules\LiveSessions\Jobs\ExpireSessionRescheduleRequestsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Jobs\SendSessionRemindersJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
@@ -115,6 +116,17 @@ Schedule::job(new CloseStaleSessionsJob, 'maintenance')->hourlyAt(20);
 | defect.
 */
 Schedule::job(new ExpirePrivateSessionRequestsJob)->everyTenMinutes();
+
+/*
+| A reschedule request nobody answered stops holding its lesson (049).
+|
+| Every ten minutes, beside its sibling above: the deadline is the proposed hour
+| or the lesson's own start, whichever comes first, so a nightly pass would leave
+| a lesson un-askable about for most of a day after its Sunday went. The cost is
+| one query over a table that holds only live requests. The guard against two
+| copies is `RunsAlone` ON the job, never `->withoutOverlapping()` here.
+*/
+Schedule::job(new ExpireSessionRescheduleRequestsJob)->everyTenMinutes();
 
 /*
 | «حصّتك تبدأ بعد ساعة» (052).
