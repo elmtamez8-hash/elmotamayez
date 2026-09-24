@@ -363,3 +363,28 @@ function bookingFor(ClassSession $session, ?User $student = null): SessionBookin
 
     return $row;
 }
+
+/*
+| The last paid day ends at midnight IN DOHA, not at midnight UTC.
+|
+| ⛔ `< windowEnd + 1 day` was taken at UTC midnight, three hours after the
+| platform's day had ended — so a lesson at 00:30 on the morning after the last
+| paid day was claimed as if it were still inside the subscription. The pair of
+| sessions straddles the only hour where the two readings disagree: 20:30Z is
+| 23:30 on the last day in Doha (inside), 21:30Z is 00:30 the next day (outside).
+*/
+it('ends the seat window at the platform timezone midnight, not at UTC midnight', function (): void {
+    $lastDay = CarbonImmutable::now()->utc()->addDays(10)->startOfDay();
+    $this->windowEnd = $lastDay;
+
+    $inside = cohortSessionAt($lastDay->setTime(20, 30));
+    $outside = cohortSessionAt($lastDay->setTime(21, 30));
+
+    claimSeatsForStudent();
+
+    expect(bookingFor($inside)->status)->toBe(BookingStatus::Booked)
+        ->and(SessionBooking::query()->withoutWorkspaceScope()
+            ->where('class_session_id', $outside->getKey())
+            ->where('student_user_id', $this->student->getKey())
+            ->exists())->toBeFalse();
+});

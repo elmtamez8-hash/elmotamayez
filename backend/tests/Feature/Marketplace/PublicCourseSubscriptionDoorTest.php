@@ -7,6 +7,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\DB;
 
@@ -338,4 +339,18 @@ it('is not opened by a group plan with no group to join with it', function (): v
     ]);
 
     expect(doorPayload($this->course)['enrolment_open'])->toBeFalse();
+});
+
+/*
+| The minimum notice for a private hour travels with the page.
+|
+| ⚠️ THE PICKER COUNTS FROM IT. Without it the form offers the next declared
+| slot even when it starts in ten minutes, and `RequestPrivateSession` refuses it
+| as too soon — the pressed-then-refused shape FR-015أ forbids. It is the
+| operator's number, read through the same class the door refuses with.
+*/
+it('carries the private-hour minimum notice the request door enforces', function (): void {
+    PlatformSettings::set('sessions.min_lead_minutes', 180);
+
+    expect(doorPayload($this->course)['private_session_min_lead_minutes'])->toBe(180);
 });

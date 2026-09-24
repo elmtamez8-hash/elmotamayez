@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationType;
@@ -218,4 +219,27 @@ it('revokes a relation without deleting its history', function (): void {
 
     expect(ParentStudentRelation::query()->count())->toBe(1)
         ->and($relation->fresh()->revoked_at)->not->toBeNull();
+});
+
+/*
+| The guardian's first sign-in goes through `StartAuthSession` like any other.
+|
+| ⛔ A BARE `createToken()` MINTED A TOKEN WITH NO SESSION AND NO DEVICE BEHIND
+| IT — so the device limit and the new-device alert skipped every guardian's
+| first sign-in, and the client had no `session_uuid` to ask why it was later
+| signed out. The row, not only the response: a key in the body is equally true
+| of a controller that invented one.
+*/
+it('opens a real sign-in session for the new guardian', function (): void {
+    $response = $this->postJson('/api/v1/auth/register/parent', parentPayload())
+        ->assertStatus(201)
+        ->assertJsonStructure(['user', 'token', 'session_uuid']);
+
+    $parent = User::query()->where('email', 'mona@example.com')->firstOrFail();
+
+    $session = AuthSession::query()->where('user_id', $parent->getKey())->first();
+
+    expect($session)->not->toBeNull()
+        ->and((string) $session->uuid)->toBe($response->json('session_uuid'))
+        ->and($session->device_id)->not->toBeNull();
 });

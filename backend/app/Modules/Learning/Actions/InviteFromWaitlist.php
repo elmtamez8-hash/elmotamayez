@@ -61,7 +61,7 @@ class InviteFromWaitlist extends Action
         | الصالحةَ للإسنادِ وحدَها، لكنّ قائمةً مُرشَّحةً تُشكِّلُ طلباً واحداً لا
         | الذي بعدَه — ومجموعةٌ أُرشِفَت بينَ الرسمِ والضغطِ تُرسِلُ دعوةً إلى
         | غرفةٍ انتهت. وهي قاعدةُ «يُسأَلُ مرّتَين» التي يكتبُها
-        | {@see \App\Shared\Contracts\CohortDirectory::isStructurallyJoinable()}.
+        | {@see \App\Shared\Contracts\CohortDirectory::isAssignable()}.
         */
         if (! $cohort->isAssignable()) {
             return 0;

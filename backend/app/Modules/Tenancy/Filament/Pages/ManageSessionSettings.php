@@ -90,6 +90,7 @@ class ManageSessionSettings extends Page
             'cancellation_window_minutes' => ['key' => 'sessions.cancellation_window_minutes', 'cast' => 'int'],
             'private_request_ttl_hours' => ['key' => 'sessions.private_request_ttl_hours', 'cast' => 'int'],
             'private_request_max_pending' => ['key' => 'sessions.private_request_max_pending', 'cast' => 'int'],
+            'min_lead_minutes' => ['key' => 'sessions.min_lead_minutes', 'cast' => 'int'],
             'report_delay_minutes' => ['key' => 'sessions.report_delay_minutes', 'cast' => 'int'],
             'recording_failure_alert_threshold' => ['key' => 'sessions.recording_failure_alert_threshold', 'cast' => 'int'],
             'recording_failure_alert_window_hours' => ['key' => 'sessions.recording_failure_alert_window_hours', 'cast' => 'int'],
@@ -142,6 +143,7 @@ class ManageSessionSettings extends Page
             'cancellation_window_minutes' => $settings->cancellationWindowMinutes(),
             'private_request_ttl_hours' => $settings->privateRequestTtlHours(),
             'private_request_max_pending' => $settings->privateRequestMaxPending(),
+            'min_lead_minutes' => $settings->minLeadMinutes(),
             'report_delay_minutes' => $settings->reportDelayMinutes(),
             'recording_failure_alert_threshold' => $settings->recordingFailureAlertThreshold(),
             'recording_failure_alert_window_hours' => $settings->recordingFailureAlertWindowHours(),
@@ -286,6 +288,10 @@ class ManageSessionSettings extends Page
                                 ->label('أقصى طلبات معلّقة لطالب واحد عند مدرّس واحد')
                                 ->helperText('الطلبُ لا يحجز مقعداً ولا يُحرّك رصيداً — وهذا ما يجعله رخيصاً بما يكفي لإغراق جدولٍ كامل.')
                                 ->numeric()->minValue(1)->maxValue(50)->required(),
+                            TextInput::make('min_lead_minutes')
+                                ->label('أقلّ مهلة قبل موعد الحصة المطلوبة (دقائق)')
+                                ->helperText('لا يُطلَب موعدٌ خاصّ ولا يُقترَح تأجيلٌ إلى وقتٍ أقربَ من هذا، ولا تعرضه صفحة الكورس.')
+                                ->numeric()->minValue(0)->maxValue(10080)->required(),
                         ]),
 
                     Section::make('التقارير والتسجيل')

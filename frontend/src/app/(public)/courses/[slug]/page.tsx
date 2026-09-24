@@ -391,6 +391,7 @@ export default async function CoursePage({
                     courseUuid={course.uuid}
                     availability={availability}
                     minutes={course.private_session_minutes}
+                    leadMinutes={course.private_session_min_lead_minutes}
                     subscriptionAvailable={course.private_subscription_available}
                   />
                 ) : (

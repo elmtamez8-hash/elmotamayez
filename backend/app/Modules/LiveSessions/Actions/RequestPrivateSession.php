@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Events\PrivateSessionRequested;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Support\BookingEligibility;
+use App\Modules\LiveSessions\Support\LeadTime;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Shared\Actions\Action;
@@ -44,6 +45,7 @@ class RequestPrivateSession extends Action
         private readonly EnrollmentDirectory $enrollments,
         private readonly BookingEligibility $eligibility,
         private readonly SessionSettings $settings,
+        private readonly LeadTime $lead,
     ) {}
 
     public function handle(Course $course, User $student, CarbonImmutable $startsAt): PrivateSessionRequest
@@ -58,6 +60,15 @@ class RequestPrivateSession extends Action
 
         if ($startsAt->isPast()) {
             throw new DomainException('لا يمكن طلب موعد قد مضى.');
+        }
+
+        // Too soon is not the past: an hour one minute away is one no teacher
+        // can answer and prepare for. The course page offers nothing inside
+        // this window, so reaching it means a hand-built request.
+        $tooSoon = $this->lead->refusalFor($startsAt);
+
+        if ($tooSoon !== null) {
+            throw new DomainException($tooSoon);
         }
 
         $teacherProfileId = $this->teacherProfileId($course);

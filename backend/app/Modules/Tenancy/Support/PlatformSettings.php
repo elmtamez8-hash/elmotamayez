@@ -127,6 +127,9 @@ final class PlatformSettings
         // outstanding with one teacher.
         'sessions.private_request_ttl_hours' => 'sessions.private_request_ttl_hours',
         'sessions.private_request_max_pending' => 'sessions.private_request_max_pending',
+        // The earliest a lesson may be asked for, in minutes from now — a
+        // private request and a proposed reschedule alike.
+        'sessions.min_lead_minutes' => 'sessions.min_lead_minutes',
         /*
         | ⚠️ ADDED LATE — the fourth instance of this in the map, after the two
         | store keys and the two billing ones. All four are read through

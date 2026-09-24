@@ -78,6 +78,7 @@ const course: CourseDetail = {
   curriculum: [],
   cohorts: [],
   private_session_minutes: null,
+  private_session_min_lead_minutes: 120,
   private_subscription_available: false,
   promo_video_id: null,
 };

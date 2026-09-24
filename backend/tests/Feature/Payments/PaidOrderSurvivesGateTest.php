@@ -24,9 +24,10 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 | switching the plan off in the meantime must not turn that into a refusal at the
 | officer's desk, leaving somebody holding a payment and no group. The decision
 | about price was taken at purchase. What is still genuinely open at approval is
-| whether the room is open and has a chair — which is why `ApproveOrder` asks
-| `isStructurallyJoinable()` and the «structurally» in that name is the exemption
-| written where it is read.
+| whether the room still exists and has a chair — which is why `ApproveOrder`
+| asks `isAssignable()` (not archived, not full) and never the price. A teacher
+| CLOSING the group while the transfer clears is the same lag and gets the same
+| answer: the student chose an open group and paid.
 |
 | ⚠️ THE ORDER KIND IS A CONDITION OF THE FIXTURE, NOT A DETAIL. A COURSE order
 | leaves through the enrolment arm and never reaches the cohort branch at all —
@@ -120,4 +121,70 @@ it('refuses the same group to a student walking up to it', function (): void {
         ->postJson('/api/v1/cohorts/'.$this->cohort->uuid.'/join')
         ->assertStatus(422)
         ->assertJsonPath('code', 'cohort_not_listed');
+});
+
+/*
+| The door closed between payment and approval — the reported case. The student
+| chose an OPEN group; a teacher closing it while the transfer was clearing left
+| the order pending for ever under «لم تعد هذه المجموعة متاحة», while
+| `ActivateSubscription` already joins with `requireOpen: false` for exactly this.
+*/
+it('approves a paid subscription order after the teacher CLOSES the group', function (): void {
+    $order = app(PurchaseSubscription::class)->handle(
+        $this->student,
+        (string) $this->plan->uuid,
+        'cohort',
+        (string) $this->cohort->uuid,
+    );
+
+    $this->cohort->forceFill(['status' => Cohort::CLOSED])->save();
+
+    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+
+    $membership = CohortMembership::query()
+        ->withoutWorkspaceScope()
+        ->where('student_user_id', $this->student->getKey())
+        ->whereNull('closed_at')
+        ->first();
+
+    expect($order->refresh()->status)->toBe('approved')
+        ->and($membership)->not->toBeNull()
+        ->and((int) $membership->cohort_id)->toBe((int) $this->cohort->getKey());
+});
+
+it('still refuses the approval when the group was archived', function (): void {
+    $order = app(PurchaseSubscription::class)->handle(
+        $this->student,
+        (string) $this->plan->uuid,
+        'cohort',
+        (string) $this->cohort->uuid,
+    );
+
+    $this->cohort->forceFill(['status' => Cohort::ARCHIVED])->save();
+
+    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->officer))
+        ->toThrow(DomainException::class, 'لم تعد هذه المجموعة متاحة');
+
+    expect($order->refresh()->status)->not->toBe('approved');
+});
+
+it('still refuses the approval when the group filled up', function (): void {
+    $order = app(PurchaseSubscription::class)->handle(
+        $this->student,
+        (string) $this->plan->uuid,
+        'cohort',
+        (string) $this->cohort->uuid,
+    );
+
+    // Closed AND full: the close alone is forgiven, the missing chair is not.
+    $this->cohort->forceFill([
+        'status' => Cohort::CLOSED,
+        'capacity' => 1,
+        'members_count' => 1,
+    ])->save();
+
+    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->officer))
+        ->toThrow(DomainException::class, 'لم تعد هذه المجموعة متاحة');
+
+    expect($order->refresh()->status)->not->toBe('approved');
 });

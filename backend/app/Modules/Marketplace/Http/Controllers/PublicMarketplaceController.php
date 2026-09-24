@@ -176,6 +176,9 @@ class PublicMarketplaceController extends Controller
         // from another module's directory, and a Resource asking one would ask
         // once per row.
         $payload['private_subscription_available'] = $action->privateSubscriptionAvailable($course);
+        // The minimum notice for a private hour — the picker counts from it, so
+        // it offers no slot the request door would refuse as too soon.
+        $payload['private_session_min_lead_minutes'] = $action->privateSessionLeadMinutes();
         /*
         | ٠٣٤ · FR-023 — اكتملَ الكورسُ فلا زرَّ شراء، وزرُّ الدَّورِ مكانَه.
         | والقرارُ يُرسَلُ من الخادمِ ولا يُشتَقُّ في TypeScript: اشتقاقُ
