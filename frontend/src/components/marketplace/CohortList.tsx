@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/Button";
 import { WaitlistButton } from "@/components/courses/WaitlistButton";
 import {
+  CohortSubscribeButton,
   MyCohortBadge,
   MyCohortLink,
   MyCohortProvider,
@@ -166,13 +166,8 @@ export function CohortList({
               // beside «اشترك في هذه المجموعة» is an invitation to buy a place
               // they hold, which the server refuses after a payment screen.
               <UnlessMyCohort cohortUuid={cohort.uuid}>
-                <Button
-                  href={`/subscribe?course=${encodeURIComponent(courseUuid)}&cohort=${encodeURIComponent(cohort.uuid)}`}
-                  size="sm"
-                  fullWidth
-                >
-                  اشترك في هذه المجموعة
-                </Button>
+                {/* A visitor signs up first and comes back to this group (#175). */}
+                <CohortSubscribeButton courseUuid={courseUuid} cohortUuid={cohort.uuid} />
               </UnlessMyCohort>
             )}
 

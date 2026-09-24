@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Events\SessionRescheduleRequested;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
+use App\Modules\LiveSessions\Support\PendingRescheduleRequest;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use Carbon\CarbonImmutable;
@@ -76,6 +77,24 @@ class RequestSessionReschedule extends Action
             // reasoning in `RequestTransfer`.
             throw new DomainException('هذا هو موعد الحصة الحالي.');
         }
+
+        /*
+        | ⚠️ AN OVERDUE REQUEST IS SETTLED HERE BEFORE IT CAN REFUSE THIS ONE.
+        | Its proposed hour has gone, so it can never be approved — yet it still
+        | holds `srr_pending_unique`, and between two passes of the expiry sweep
+        | it would answer this student «هناك طلب قائم» about a request nobody can
+        | act on. Same conditional settle the sweep uses; the loser matches nothing.
+        */
+        SessionRescheduleRequest::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->overdue()
+            ->get()
+            ->each(fn (SessionRescheduleRequest $stale): bool => PendingRescheduleRequest::settle(
+                $stale,
+                SessionRescheduleRequest::EXPIRED,
+                null,
+            ));
 
         try {
             $request = SessionRescheduleRequest::query()->create([

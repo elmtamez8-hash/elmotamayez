@@ -235,11 +235,33 @@ describe("CourseRail", () => {
   });
 
   it("offers a teacher nothing to buy", async () => {
-    mockUser = { uuid: "t-9", platform_role: "teacher" };
+    // A teacher is someone with a workplace — the pivot role the purchase doors
+    // refuse on, delivered as `workspaces` (spec 025: born with the account).
+    mockUser = {
+      uuid: "t-9",
+      platform_role: "teacher",
+      workspaces: [{ uuid: "w-9", name: "أكاديمية" }],
+    };
 
     await renderRail();
 
     expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+  });
+
+  /*
+  | ⛔ `platform_role` IS NULL FOR THIRTY-SEVEN ACCOUNTS, students a teacher added
+  | to a workspace among them. `isLearner()` answered «no» for every one, so a
+  | real buyer saw no way in at all. The server sends `workspaces` without the
+  | `student` pivot rows, so that student's list is empty — and empty is «buys».
+  */
+  it("offers a stamped student with no platform_role the way in", async () => {
+    mockUser = { uuid: "s-7", platform_role: null, workspaces: [] };
+
+    await renderRail();
+
+    expect(
+      screen.getByRole("link", { name: "اشترك بحصص خاصة" }).getAttribute("href"),
+    ).toBe("/subscribe?course=c-1");
   });
 
   it("points at the groups when a group is the only way in, and builds no dead link", async () => {

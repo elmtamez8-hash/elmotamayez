@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Support\SessionClash;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Edits a scheduled session.
@@ -73,6 +74,9 @@ class UpdateClassSession extends Action
             $this->assertSeatsNotBelowBooked($session, (int) $attributes['seats_total']);
         }
 
+        /** @var array{0: CarbonImmutable, 1: CarbonImmutable}|null $window */
+        $window = null;
+
         if (isset($attributes['starts_at']) || isset($attributes['duration_minutes'])) {
             $startsAt = isset($attributes['starts_at'])
                 ? CarbonImmutable::parse((string) $attributes['starts_at'])->utc()
@@ -82,6 +86,7 @@ class UpdateClassSession extends Action
             $attributes['starts_at'] = $startsAt;
             $attributes['ends_at'] = $startsAt->addMinutes($duration);
             $attributes['duration_minutes'] = $duration;
+            $window = [$startsAt, $startsAt->addMinutes($duration)];
 
             /*
             | ⚠️ THE TWO RULES SCHEDULING HAS ALWAYS ENFORCED, AND EDITING NEVER
@@ -92,17 +97,27 @@ class UpdateClassSession extends Action
             | group's, two rooms of students told to turn up to the same hour and
             | nothing anywhere saying so. One spelling now, in {@see SessionClash}.
             */
-            SessionClash::assertFree(
-                (int) $session->teacher_profile_id,
-                $startsAt,
-                $startsAt->addMinutes($duration),
-                (int) $session->getKey(),
-            );
-
             SessionClash::assertNotFrozen($startsAt);
         }
 
-        $session->fill($attributes)->save();
+        /*
+        | ⚠️ THE CLAIM AND THE SAVE ARE ONE TRANSACTION. The overlap check is a
+        | claim on the teacher's calendar, and its row lock is what keeps a second
+        | move (two reschedule approvals, a teacher's edit racing one) from landing
+        | on the same hour before this row commits.
+        */
+        DB::transaction(function () use ($session, $attributes, $window): void {
+            if ($window !== null) {
+                SessionClash::assertFree(
+                    (int) $session->teacher_profile_id,
+                    $window[0],
+                    $window[1],
+                    (int) $session->getKey(),
+                );
+            }
+
+            $session->fill($attributes)->save();
+        });
 
         /*
         | ⚠️ A NEW TIME IS OWED A NEW REMINDER. The mark says «this seat was

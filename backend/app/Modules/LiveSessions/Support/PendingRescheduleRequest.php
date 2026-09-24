@@ -29,7 +29,7 @@ final class PendingRescheduleRequest
     public static function settle(
         SessionRescheduleRequest $request,
         string $status,
-        User $decider,
+        ?User $decider,
         ?string $reason = null,
     ): bool {
         return SessionRescheduleRequest::query()
@@ -40,7 +40,9 @@ final class PendingRescheduleRequest
             ->where('status', SessionRescheduleRequest::PENDING)
             ->update([
                 'status' => $status,
-                'decided_by' => $decider->getKey(),
+                // Null when nobody decided — the expiry sweep settles a request
+                // whose moment passed without an answer.
+                'decided_by' => $decider?->getKey(),
                 'decided_at' => now(),
                 'decision_reason' => $reason,
                 // The row's own id: unique by construction, so every settled row

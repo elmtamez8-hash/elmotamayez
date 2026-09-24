@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import { Button } from "@/components/ui/Button";
 import { auth, hasAuthToken } from "@/lib/api";
+import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import { cohorts } from "@/lib/cohorts";
 import { TONE_CLASSES } from "@/lib/labels";
 
@@ -51,6 +52,43 @@ const MyCohortContext = createContext<string | null>(null);
  */
 const ViewerTeachesContext = createContext(false);
 
+/**
+ * Whether this reader holds a session at all — which decides where «اشترك» goes.
+ *
+ * ⛔ `/subscribe` lives behind the app shell, so a visitor sent there straight
+ * was bounced to `/login` — the wrong door for somebody with no account, and the
+ * group they chose was gone by the time they came back. #175 decided the route
+ * for the course rail: a visitor goes to `/signup/student?next=…` carrying the
+ * same choice. This is that decision on the group cards.
+ *
+ * `false` until the effect runs, so the server-rendered link is the visitor's —
+ * the only answer the server can give without a session, and the right one for
+ * a crawler.
+ */
+const SignedInContext = createContext(false);
+
+/** «اشترك في هذه المجموعة», pointed at the right door for the reader. */
+export function CohortSubscribeButton({
+  courseUuid,
+  cohortUuid,
+}: {
+  courseUuid: string;
+  cohortUuid: string;
+}) {
+  const signedIn = useContext(SignedInContext);
+  const subscribe = `/subscribe?course=${encodeURIComponent(courseUuid)}&cohort=${encodeURIComponent(cohortUuid)}`;
+
+  return (
+    <Button
+      href={signedIn ? subscribe : `/signup/student?next=${encodeURIComponent(subscribe)}`}
+      size="sm"
+      fullWidth
+    >
+      اشترك في هذه المجموعة
+    </Button>
+  );
+}
+
 export function MyCohortProvider({
   courseUuid,
   children,
@@ -60,6 +98,7 @@ export function MyCohortProvider({
 }) {
   const [mine, setMine] = useState<string | null>(null);
   const [teaches, setTeaches] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     /*
@@ -68,6 +107,8 @@ export function MyCohortProvider({
       would put an `/auth/me` request on every crawlable page in the product.
     */
     if (!hasAuthToken()) return;
+
+    setSignedIn(true);
 
     let alive = true;
 
@@ -97,7 +138,7 @@ export function MyCohortProvider({
     auth
       .me()
       .then((user) => {
-        if (alive) setTeaches(user.workspaces.length > 0);
+        if (alive) setTeaches(teachesOnPlatform(user));
       })
       .catch(() => undefined);
 
@@ -108,7 +149,9 @@ export function MyCohortProvider({
 
   return (
     <MyCohortContext.Provider value={mine}>
-      <ViewerTeachesContext.Provider value={teaches}>{children}</ViewerTeachesContext.Provider>
+      <ViewerTeachesContext.Provider value={teaches}>
+        <SignedInContext.Provider value={signedIn}>{children}</SignedInContext.Provider>
+      </ViewerTeachesContext.Provider>
     </MyCohortContext.Provider>
   );
 }

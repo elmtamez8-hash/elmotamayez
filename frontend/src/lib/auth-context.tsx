@@ -98,6 +98,9 @@ export function isLearner(user: User | null): boolean {
   return user?.platform_role === "student" || user?.platform_role === "parent";
 }
 
+/** «Does this account teach here?» — see the module for why it is not `isLearner`. */
+export { teachesOnPlatform } from "@/lib/teaches-on-platform";
+
 /**
  * Where a user belongs after signing in (FR-012).
  *

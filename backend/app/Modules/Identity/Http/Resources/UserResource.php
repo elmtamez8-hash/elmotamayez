@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Identity\Actions\SaveAccountPhoto;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -167,6 +168,17 @@ class UserResource extends JsonResource
         }
 
         return $this->resource->workspaces()
+            /*
+            | ⚠️ A `student` PIVOT ROW IS NOT A PLACE THIS PERSON WORKS. A teacher,
+            | an invitation or a seeder can put a student INTO a workspace (six
+            | such rows measured live), and `platform_role` is null for thirty-
+            | seven accounts, so the skip above does not catch them. Returned
+            | here, the frontend read «has workspaces» as «teaches» and hid every
+            | purchase button from a real student. Same predicate, in the same
+            | negative form, as `User::teachesOnPlatform()` — the server's own
+            | «a teacher never buys» guard — so the screen and the door agree.
+            */
+            ->wherePivot('role', '!=', Roles::STUDENT)
             ->get(['workspaces.uuid', 'workspaces.name'])
             ->map(fn ($workspace): array => [
                 'uuid' => (string) $workspace->uuid,

@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Actions\CancelClassSession;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -151,6 +152,78 @@ it('refuses a second cancellation with a sentence rather than a 500', function (
     $this->deleteJson('/api/v1/bookings/'.$booking->uuid)
         ->assertStatus(409)
         ->assertJsonPath('message', 'هذا الحجز ملغى بالفعل.');
+});
+
+/*
+| ⛔ TWO CANCELLATIONS OF ONE SEAT BOTH READ `booked` AND BOTH WROTE (2026-09-24):
+| `seats_taken` fell twice for one seat — a place handed to somebody the session
+| had no room for — and the credit hold was released twice.
+|
+| ⚠️ A SEQUENTIAL «cancel it twice» TEST CANNOT SEE THIS: the second call reads a
+| fresh model whose status is already cancelled and stops at the advisory check.
+| The window is between that check and the write, and `$booking->classSession`
+| is the read that sits in it — so a `retrieved` hook on the session performs the
+| other cancellation from inside it. Two seat holders, because with one the
+| `seats_taken > 0` floor hides the second decrement.
+*/
+it('frees a seat once when two cancellations of it race', function (): void {
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $classmate = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $classmate);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+    app(BookSeat::class)->handle($session, $classmate);
+
+    expect($session->refresh()->seats_taken)->toBe(2);
+
+    $raced = false;
+
+    ClassSession::retrieved(function () use (&$raced, $booking): void {
+        if ($raced) {
+            return;
+        }
+
+        $raced = true;
+
+        // The other tab wins in exactly this instant.
+        app(CancelBooking::class)->handle(SessionBooking::query()->withoutWorkspaceScope()->findOrFail($booking->getKey()));
+    });
+
+    expect(fn () => app(CancelBooking::class)->handle($booking))
+        ->toThrow(DomainException::class, 'هذا الحجز ملغى بالفعل.');
+
+    // Freed once: the classmate still holds the other seat.
+    expect($session->refresh()->seats_taken)->toBe(1);
+});
+
+it('lets a system release that lost the race to a cancellation touch nothing', function (): void {
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addDays(5),
+        'ends_at' => CarbonImmutable::now()->addDays(5)->addHour(),
+    ]);
+
+    $classmate = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $classmate);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+    app(BookSeat::class)->handle($session, $classmate);
+
+    // The sweep read the seat as booked; the student cancelled underneath it.
+    $stale = $booking->fresh();
+    app(CancelBooking::class)->handle($booking);
+
+    $released = app(CancelBooking::class)->release($stale, 'lapsed');
+
+    expect($released->status)->toBe(BookingStatus::CancelledInWindow)
+        ->and($session->refresh()->seats_taken)->toBe(1);
 });
 
 it('refuses to book a cancelled session', function (): void {

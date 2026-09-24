@@ -18,6 +18,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Puts one session on the calendar.
@@ -49,8 +50,30 @@ class ScheduleClassSession extends Action
         $this->assertTypeMatchesSeats($data);
         $this->assertGroupSessionHasItsGroup($data);
         $course = $this->requireCourse($data);
-        $this->assertNoOverlap($data);
         $this->assertNotFrozen($data);
+
+        /*
+        | ⚠️ THE OVERLAP CHECK AND THE INSERT ARE ONE TRANSACTION, because the
+        | check is a CLAIM on the teacher's calendar ({@see SessionClash}) and its
+        | row lock is what keeps a second writer out until this row commits.
+        */
+        $session = DB::transaction(fn (): ClassSession => $this->createClaimed($data, $course, $actor));
+
+        // Fired at the cancellation deadline, so the billable seat count is
+        // settled at the moment it stops being able to change (FR-059) — or at
+        // the session's start when that deadline is already behind us, which is
+        // 027 · FR-039ب. `billableSeatsFreezeAt()` carries the reason.
+        FreezeBillableSeatsJob::dispatch((int) $session->getKey(), $session->starts_at->getTimestamp())
+            ->delay($session->billableSeatsFreezeAt());
+
+        SessionScheduled::dispatch($session);
+
+        return $session;
+    }
+
+    private function createClaimed(ScheduleSessionData $data, Course $course, User $actor): ClassSession
+    {
+        $this->assertNoOverlap($data);
 
         $session = ClassSession::query()->create([
             'teacher_profile_id' => $data->teacherProfileId,
@@ -87,15 +110,6 @@ class ScheduleClassSession extends Action
             */
             $session->forceFill(['cohort_id' => $data->cohortId])->save();
         }
-
-        // Fired at the cancellation deadline, so the billable seat count is
-        // settled at the moment it stops being able to change (FR-059) — or at
-        // the session's start when that deadline is already behind us, which is
-        // 027 · FR-039ب. `billableSeatsFreezeAt()` carries the reason.
-        FreezeBillableSeatsJob::dispatch((int) $session->getKey(), $session->starts_at->getTimestamp())
-            ->delay($session->billableSeatsFreezeAt());
-
-        SessionScheduled::dispatch($session);
 
         return $session;
     }

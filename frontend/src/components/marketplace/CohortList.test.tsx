@@ -170,8 +170,12 @@ describe("CohortList", () => {
 
     const link = screen.getByRole("link", { name: "اشترك في هذه المجموعة" });
 
+    // A visitor (no session here) signs up first and is brought back to the same
+    // group (#175) — `/subscribe` is behind the shell and would bounce them to
+    // `/login`. The signed-in half is in `MyCohort.test.tsx`, where the session
+    // can be mocked.
     expect(link.getAttribute("href")).toBe(
-      `/subscribe?course=${COURSE}&cohort=${base.uuid}`,
+      `/signup/student?next=${encodeURIComponent(`/subscribe?course=${COURSE}&cohort=${base.uuid}`)}`,
     );
   });
 

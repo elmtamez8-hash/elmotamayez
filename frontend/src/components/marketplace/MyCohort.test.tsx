@@ -1,7 +1,13 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MyCohortBadge, MyCohortLink, MyCohortProvider, UnlessMyCohort } from "./MyCohort";
+import {
+  CohortSubscribeButton,
+  MyCohortBadge,
+  MyCohortLink,
+  MyCohortProvider,
+  UnlessMyCohort,
+} from "./MyCohort";
 
 const hasAuthToken = vi.fn();
 const forCourse = vi.fn();
@@ -147,5 +153,41 @@ describe("MyCohort", () => {
     // «you are in none of these» is what an unmarked list already says.
     expect(screen.queryByText("مجموعتك")).toBeNull();
     expect(screen.getByTestId("mine").textContent).toContain("اشترك في هذه المجموعة");
+  });
+});
+
+/*
+| #175 decided where a visitor goes from a buy button: signup first, carrying the
+| choice in `next`. `/subscribe` is behind the app shell, so a visitor sent there
+| straight was bounced to `/login` and the chosen group was lost. Both halves are
+| asserted — a button that always pointed at signup would pass the visitor case
+| and bounce every signed-in student off the signup page instead.
+*/
+describe("CohortSubscribeButton", () => {
+  async function button() {
+    await act(async () => {
+      render(
+        <MyCohortProvider courseUuid="course-1">
+          <CohortSubscribeButton courseUuid="course-1" cohortUuid={THEIRS} />
+        </MyCohortProvider>,
+      );
+    });
+
+    return screen.getByRole("link", { name: "اشترك في هذه المجموعة" }).getAttribute("href");
+  }
+
+  const SUBSCRIBE = `/subscribe?course=course-1&cohort=${THEIRS}`;
+
+  it("sends a visitor to sign up with the way back to the same group", async () => {
+    hasAuthToken.mockReturnValue(false);
+
+    expect(await button()).toBe(`/signup/student?next=${encodeURIComponent(SUBSCRIBE)}`);
+  });
+
+  it("sends a signed-in reader straight to the subscription screen", async () => {
+    hasAuthToken.mockReturnValue(true);
+    forCourse.mockResolvedValue({ membership: null });
+
+    expect(await button()).toBe(SUBSCRIBE);
   });
 });

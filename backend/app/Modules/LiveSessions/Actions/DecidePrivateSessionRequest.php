@@ -83,6 +83,18 @@ class DecidePrivateSessionRequest extends Action
 
     private function accept(PrivateSessionRequest $request, User $decider): PrivateSessionRequest
     {
+        /*
+        | ⚠️ AN HOUR THAT HAS GONE CANNOT BE GRANTED. The request is valid when
+        | the student sends it and stops being valid at `starts_at`, whatever its
+        | own expiry says — accepting then would schedule a lesson in the past,
+        | take a seat out of the student's balance for it, and mark them absent
+        | from an hour nobody could attend. Refused before anything is written;
+        | the sweep closes the request as expired.
+        */
+        if (CarbonImmutable::instance($request->starts_at)->isPast()) {
+            throw new DomainException('موعد هذا الطلب قد مضى، فلا يمكن قبوله. يستطيع الطالب طلب موعد جديد.');
+        }
+
         $course = Course::query()->withoutWorkspaceScope()->find($request->course_id);
         $student = $request->student;
 
