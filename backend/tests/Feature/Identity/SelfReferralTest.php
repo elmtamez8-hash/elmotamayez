@@ -79,6 +79,11 @@ it('never fails a registration over a code, whatever the code is', function (): 
     | feature could do — so an unknown code attaches nothing and says nothing.
     | Nothing is owed until somebody subscribes, so attaching nothing costs
     | nothing.
+    |
+    | ⚠️ THIS IS THE ACTION, NOT THE STUDENT DOOR. `/auth/register/student`
+    | now refuses an unknown code with a 422 under its visible «كود الإحالة»
+    | field (where the person can fix or clear it) — `ReferralSignupFieldTest`.
+    | The Action itself stays lenient for every caller with no form.
     */
     $newcomer = User::factory()->create();
 
