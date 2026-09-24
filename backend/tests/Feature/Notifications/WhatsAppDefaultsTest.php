@@ -55,7 +55,12 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // guardians for the identical reason. It carries its
     // `requiredGuardianPermission()` in the same edit: one without the other
     // picks up the channel, is billed, and reaches no guardian at all.
-    expect($onWhatsApp)->toHaveCount(28);
+    // 28 → 27 on 2026-09-24: `payment_reminder` DELETED. Declared in 003 ahead
+    // of spec 006 and never sent — 006 shipped the balance ladder
+    // (`credit_balance_critical` · `access_withheld`) instead, both of which
+    // are still counted here. A type nothing produces is a guardian-targeting
+    // promise with a paid channel attached and nobody keeping it.
+    expect($onWhatsApp)->toHaveCount(27);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

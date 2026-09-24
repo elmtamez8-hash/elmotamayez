@@ -14,9 +14,12 @@ use App\Shared\Support\GuardianPermission;
  * at analysis time. What editors need to change is the *wording*, and that lives
  * in message_templates.
  *
- * The five guardian-facing types have no producer yet; theirs arrive with specs
- * 005, 006 and 008. Defining them now is what makes those phases add a listener
- * instead of an architecture.
+ * Every case has a producer and a behavioural test —
+ * `EveryNotificationTypeIsTestedTest` fails the build over one that does not.
+ * `payment_reminder`, declared here in 003 ahead of spec 006, was DELETED on
+ * 2026-09-24: 006 shipped the balance ladder (`credit_balance_low` ·
+ * `credit_balance_critical` · `access_withheld`) instead, and a case nothing
+ * sends is a promise nobody keeps.
  */
 enum NotificationType: string
 {
@@ -28,7 +31,6 @@ enum NotificationType: string
     case TeacherApplicationChangesRequested = 'teacher_application_changes_requested';
     case SecurityAlert = 'security_alert';
     case AttendanceAlert = 'attendance_alert';
-    case PaymentReminder = 'payment_reminder';
     case AppointmentReminder = 'appointment_reminder';
     case ExamResult = 'exam_result';
     case AcademicWarning = 'academic_warning';
@@ -501,7 +503,6 @@ enum NotificationType: string
             self::TeacherApplicationChangesRequested => 'طلب تعديلات على الطلب',
             self::SecurityAlert => 'تنبيه أمني',
             self::AttendanceAlert => 'تنبيه حضور',
-            self::PaymentReminder => 'تذكير دفع',
             self::PaymentConfirmed => 'تأكيد دفع',
             self::PaymentFailed => 'فشل دفع',
             self::ReceiptApproved => 'اعتماد إيصال',
@@ -664,7 +665,7 @@ enum NotificationType: string
     public function isMandatory(): bool
     {
         return match ($this) {
-            self::SecurityAlert, self::PaymentReminder => true,
+            self::SecurityAlert => true,
             // FR-035 — hard financial consequence. Being withheld, and being let
             // back in, are facts about what the account can DO right now; a
             // preference that hid them would leave someone locked out with no
@@ -743,7 +744,6 @@ enum NotificationType: string
     {
         return match ($this) {
             self::AttendanceAlert,
-            self::PaymentReminder,
             self::AppointmentReminder,
             self::ExamResult,
             self::AcademicWarning,
@@ -820,7 +820,6 @@ enum NotificationType: string
     {
         return match ($this) {
             self::AttendanceAlert => GuardianPermission::Attendance,
-            self::PaymentReminder => GuardianPermission::Payments,
             self::AppointmentReminder => GuardianPermission::Schedule,
             self::ExamResult => GuardianPermission::Results,
             // The same consent as an exam result, because it is the same fact

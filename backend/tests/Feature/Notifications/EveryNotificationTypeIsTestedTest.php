@@ -42,7 +42,6 @@ function everyTypeReservedExceptions(): array
 {
     return [
         NotificationType::AttendanceAlert->value => 'Declared in 003 for spec 005; 005 shipped `session_report` (which rides the same `Attendance` guardian permission) and never wired this one. Used only as a dispatcher fixture.',
-        NotificationType::PaymentReminder->value => 'Declared in 003 for spec 006; the balance ladder shipped as `credit_balance_low`/`credit_balance_critical`/`access_withheld` instead. Used only as a dispatcher fixture.',
         NotificationType::AcademicWarning->value => 'Declared in 003 for spec 008; 008 shipped no academic-warning producer. No test references it at all.',
     ];
 }

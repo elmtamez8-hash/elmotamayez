@@ -808,18 +808,15 @@ class NotificationTemplateSeeder extends Seeder
                 'مرحباً {{ name }}، {{ event }} إن لم يكن هذا أنت فغيّر كلمة مرورك فوراً.',
                 ['name', 'event'],
             ],
-            // The five guardian-facing types below have no producer yet; theirs
-            // arrive with specs 005, 006 and 008. Their templates ship now so
-            // those phases add a listener and nothing else.
+            // The guardian-facing types below were declared in 003 ahead of
+            // their producers. `payment_reminder` never got one and was deleted
+            // (2026-09-24); the others each have one now, and
+            // `EveryNotificationTypeIsTestedTest` fails the build over a type
+            // that has none.
             NotificationType::AttendanceAlert->value => [
                 'تنبيه حضور',
                 'لم يحضر {{ student_name }} حصّة {{ session_title }} بتاريخ {{ session_date }}.',
                 ['student_name', 'session_title', 'session_date'],
-            ],
-            NotificationType::PaymentReminder->value => [
-                'تذكير بمستحقّ',
-                'على حساب {{ student_name }} مستحقّ بقيمة {{ amount }}. يرجى السداد لمواصلة الحصص.',
-                ['student_name', 'amount'],
             ],
             NotificationType::AppointmentReminder->value => [
                 'تذكير بموعد حصّة',
