@@ -19,6 +19,7 @@ import {
   allNav,
   allowedNav,
   mainNav,
+  pageTitleFor,
   platformNav,
   quickAccessFor,
   type NavItem,
@@ -526,7 +527,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
             </button>
 
             <h1 className="truncate text-lg font-semibold text-ink">
-              {allNav.find((i) => pathname.startsWith(i.href))?.label ?? "لوحة التحكم"}
+              {pageTitleFor(pathname, user)}
             </h1>
           </div>
           <div className="flex items-center gap-1">

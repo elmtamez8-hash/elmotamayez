@@ -791,7 +791,7 @@ class NotificationTemplateSeeder extends Seeder
             ],
             NotificationType::CertificateRegenerated->value => [
                 'أُعيد إصدار شهادتك',
-                'تم إعادة إصدار شهادتك رقم {{ certificate_number }}. النسخة السابقة لم تعد سارية.',
+                'حُدِّثت شهادتك رقم {{ certificate_number }}. رمز التحقّق منها وتاريخ منحها لم يتغيّرا، والرابط الذي شاركته يعمل كما كان.',
                 ['certificate_number'],
             ],
             NotificationType::TeacherApplicationApproved->value => [

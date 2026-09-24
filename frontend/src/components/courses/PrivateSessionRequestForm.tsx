@@ -11,6 +11,7 @@ import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import { errorCode, userMessage } from "@/lib/errors";
 import { privateSessions } from "@/lib/private-sessions";
 import type { AvailabilityItem } from "@/lib/public-api";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * «أريد حصّة خاصّة» — the student picks an hour the teacher already declared.
@@ -283,7 +284,7 @@ export function PrivateSessionRequestForm({
     // rather than as an answer.
     return (
       <Alert tone="info" title="لا مواعيد معلَنة">
-        لم يعلن المدرّس مواعيد تتّسع لحصة بطول {length} دقيقة. تابع صفحته لتعرف حين
+        لم يعلن المدرّس مواعيد تتّسع لحصة بطول {counted(length, { ...NOUNS.minutes, two: "دقيقتين" })}. تابع صفحته لتعرف حين
         يفتح موعداً.
       </Alert>
     );
@@ -317,7 +318,7 @@ export function PrivateSessionRequestForm({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-ink-muted">
-        مدة الحصة الخاصة في هذا الكورس {length} دقيقة، يحدّدها المدرّس. اختر موعداً
+        مدة الحصة الخاصة في هذا الكورس {counted(length, NOUNS.minutes)}، يحدّدها المدرّس. اختر موعداً
         من مواعيده المعلَنة.
       </p>
 

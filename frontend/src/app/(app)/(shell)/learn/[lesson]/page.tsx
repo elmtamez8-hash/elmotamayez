@@ -24,8 +24,9 @@ import { isAssignmentReference, type LessonReference } from "@/lib/courses";
 import { userMessage } from "@/lib/errors";
 import { media, type PlaybackGrant } from "@/lib/media";
 import { curriculum, neighboursOf, type Curriculum } from "@/lib/curriculum";
-import { formatDateTime } from "@/lib/labels";
+import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 import { formatSessionTime } from "@/lib/session-format";
+import { arabicNumber } from "@/lib/numerals";
 
 interface StudentLesson {
   uuid: string;
@@ -450,7 +451,7 @@ export default function LearnLessonPage({
             <Card>
               <p className="mb-3 text-sm text-ink-muted">
                 {"passing_score" in detail.reference &&
-                  `النجاح من ${detail.reference.passing_score}٪ · ${detail.reference.duration_minutes} دقيقة`}
+                  `النجاح من ${arabicNumber(detail.reference.passing_score)}٪ · ${counted(detail.reference.duration_minutes, NOUNS.minutes)}`}
                 {detail.exam_gate === "pass" &&
                   " · لا يُفتح ما بعده حتى تجتازه"}
               </p>
@@ -481,7 +482,7 @@ export default function LearnLessonPage({
             // marking queue. What the item asks, and where it is marked.
             <Card>
               <p className="mb-3 text-sm text-ink-muted">
-                من <bdi>{detail.reference.points}</bdi> درجة
+                من {counted(detail.reference.points, { ...NOUNS.points, two: "درجتين" })}
                 {detail.reference.due_at !== null &&
                   ` · يُسلَّم قبل ${formatDateTime(detail.reference.due_at)}`}
               </p>

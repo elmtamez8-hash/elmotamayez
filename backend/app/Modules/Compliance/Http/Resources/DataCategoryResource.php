@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Compliance\Http\Resources;
 
 use App\Modules\Compliance\Models\DataCategory;
+use App\Shared\Support\CountedNoun;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -67,9 +68,9 @@ class DataCategoryResource extends JsonResource
         if ($days % 365 === 0) {
             $years = intdiv($days, 365);
 
-            return $years === 1 ? 'سنة واحدة' : "{$years} سنوات";
+            return CountedNoun::of($years, ['one' => 'سنة واحدة', 'two' => 'سنتان', 'few' => 'سنوات', 'many' => 'سنة', 'other' => 'سنة']);
         }
 
-        return "{$days} يوماً";
+        return CountedNoun::of($days, ['one' => 'يوم واحد', 'two' => 'يومان', 'few' => 'أيام', 'many' => 'يوماً', 'other' => 'يوم']);
     }
 }

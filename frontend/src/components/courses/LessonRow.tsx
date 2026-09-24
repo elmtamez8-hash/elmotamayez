@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CheckIcon, ChevronStartIcon, ClockIcon, LockIcon } from "@/components/icons";
 import { lockMessage, type CurriculumLesson } from "@/lib/curriculum";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * One item of the curriculum.
@@ -22,7 +23,7 @@ import { lockMessage, type CurriculumLesson } from "@/lib/curriculum";
  */
 
 function minutes(seconds: number): string {
-  return seconds > 0 ? `${Math.max(1, Math.round(seconds / 60))} دقيقة` : "";
+  return seconds > 0 ? counted(Math.max(1, Math.round(seconds / 60)), NOUNS.minutes) : "";
 }
 
 /** The mark and the word beside it, per state. */

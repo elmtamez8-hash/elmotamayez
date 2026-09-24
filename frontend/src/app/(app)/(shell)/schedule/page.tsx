@@ -13,6 +13,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { classSessions, type ClassSession, type SessionBooking } from "@/lib/class-sessions";
 import { formatSessionDay, sessionDayKey } from "@/lib/session-format";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * The student's timetable, across every teacher they study with.
@@ -128,7 +129,7 @@ export default function SchedulePage() {
                         cards' own. */}
                     <span aria-hidden className="h-px flex-1 bg-line" />
                     <span className="text-xs font-normal">
-                      <bdi>{day.rows.length}</bdi> حصة
+                      {counted(day.rows.length, NOUNS.sessions)}
                     </span>
                   </h3>
 

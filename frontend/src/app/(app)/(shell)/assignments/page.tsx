@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { assignments, type Assignment, type AssignmentFilterOptions } from "@/lib/assignments";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * The student's homework.
@@ -189,7 +190,7 @@ export default function AssignmentsPage() {
                 <span>{group.title}</span>
                 <span aria-hidden className="h-px flex-1 bg-line" />
                 <span className="text-xs font-normal">
-                  <bdi>{group.rows.length}</bdi> واجب
+                  {counted(group.rows.length, NOUNS.assignments)}
                 </span>
               </h3>
 

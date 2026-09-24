@@ -18,11 +18,10 @@ import {
   type PurchasableCourse,
   type PurchaseBeneficiary,
 } from "@/lib/billing";
-import { formatMinorMoney } from "@/lib/labels";
+import { formatMinorMoney, counted, NOUNS } from "@/lib/labels";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CreditsIcon } from "@/components/icons";
 
-import { arabicNumber } from "@/lib/numerals";
 /**
  * Buying credits — for yourself, or for a child you are the guardian of.
  *
@@ -388,7 +387,7 @@ export default function PurchaseCreditsPage() {
                 <p className="mt-2 text-xs text-ink-muted">
                   {offer.validity_days === null
                     ? "لا تنتهي صلاحية الأرصدة."
-                    : `صالحة ${arabicNumber(offer.validity_days)} يوماً من الاعتماد.`}
+                    : `صالحة ${counted(offer.validity_days, { ...NOUNS.days, two: "يومين" })} من الاعتماد.`}
                 </p>
 
                 <div className="mt-4">

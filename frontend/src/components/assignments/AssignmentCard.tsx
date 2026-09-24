@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
 import { assignments, stateLabel, type Assignment } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
-import { formatDateTime } from "@/lib/labels";
+import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 
 /**
  * One piece of homework, with the hand-in beside it.
@@ -70,7 +70,7 @@ export function AssignmentCard({
           )}
 
           <p className="mt-1 text-sm text-ink-muted">
-            من <bdi>{assignment.points}</bdi> درجة
+            من {counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}
             {assignment.due_at !== null && <> · يُسلَّم قبل {formatDateTime(assignment.due_at)}</>}
           </p>
         </div>

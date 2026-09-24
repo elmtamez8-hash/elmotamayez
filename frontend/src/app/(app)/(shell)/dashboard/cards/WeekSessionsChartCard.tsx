@@ -11,6 +11,7 @@ import { sessionDayKey } from "@/lib/session-format";
 import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readTeacherSessions, teacherSessionsAudience } from "./TeacherSessionsCard";
+import { counted, NOUNS } from "@/lib/labels";
 
 const DAYS = 7;
 
@@ -152,7 +153,7 @@ export function WeekSessionsChartCard() {
               onBlur={() => setHovered(null)}
               onClick={() => setPinned((current) => (current === day.key ? null : day.key))}
               aria-pressed={pinned === day.key}
-              aria-label={`${weekdayLabel(day.key, zone)} ${dateLabel(day.key, zone)} — ${arabicNumber(day.sessions.length)} حصة`}
+              aria-label={`${weekdayLabel(day.key, zone)} ${dateLabel(day.key, zone)} — ${counted(day.sessions.length, NOUNS.sessions)}`}
               className={`flex h-full w-full flex-col items-center justify-end gap-1 rounded-lg p-1 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                 shownKey === day.key ? "bg-primary-soft" : ""
               }`}

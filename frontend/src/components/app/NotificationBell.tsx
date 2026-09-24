@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { BellIcon } from "@/components/icons";
 import { useAuth } from "@/lib/auth-context";
 import { listen } from "@/lib/echo";
+import { counted, UNREAD_NOTIFICATIONS } from "@/lib/labels";
 import { NOTIFICATIONS_CHANGED, notifications } from "@/lib/notifications";
 
 import { arabicNumber } from "@/lib/numerals";
@@ -93,7 +94,7 @@ export function NotificationBell() {
     };
   }, [user?.uuid]);
 
-  const label = count > 0 ? `الإشعارات، ${count} غير مقروء` : "الإشعارات";
+  const label = count > 0 ? `الإشعارات، ${counted(count, UNREAD_NOTIFICATIONS)}` : "الإشعارات";
 
   return (
     <Link

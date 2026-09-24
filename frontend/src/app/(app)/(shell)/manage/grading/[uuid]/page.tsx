@@ -14,7 +14,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
 import { grading, type GradingAnswer, type GradingPaper, type MarkInput } from "@/lib/grading";
-import { formatDateTime } from "@/lib/labels";
+import { formatDateTime, counted, NOUNS } from "@/lib/labels";
 
 /**
  * One paper, marked.
@@ -71,7 +71,7 @@ export default function GradePaperPage() {
               المصحَّح آلياً: <bdi>{Math.round(paper.auto_score)}</bdi>٪ ·{" "}
               {outstanding > 0 ? (
                 <span>
-                  يتبقّى <bdi>{outstanding}</bdi> سؤالاً
+                  يتبقّى {counted(outstanding, NOUNS.questions)}
                 </span>
               ) : (
                 <span>اكتمل التصحيح</span>

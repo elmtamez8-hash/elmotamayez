@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import type { Exam } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -67,19 +69,18 @@ export default function ExamsPage() {
               <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{exam.description}</p>
 
               <div className="mb-4 flex flex-wrap gap-2">
+                {/*
+                  Each count goes through `counted()`: «2 سؤالاً» and «3 محاولات»
+                  beside «30 دقيقة» shipped on this card, each wrong in its own
+                  band (2026-09-24).
+                */}
+                <Badge>{counted(exam.duration_minutes, NOUNS.minutes)}</Badge>
                 <Badge>
-                  <bdi>{exam.duration_minutes}</bdi>&nbsp;دقيقة
+                  النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}٪</bdi>
                 </Badge>
-                <Badge>
-                  النجاح&nbsp;<bdi>{exam.passing_score}%</bdi>
-                </Badge>
-                <Badge>
-                  <bdi>{exam.max_attempts}</bdi>&nbsp;محاولات
-                </Badge>
+                <Badge>{counted(exam.max_attempts, NOUNS.attempts)}</Badge>
                 {exam.questions_count !== undefined && (
-                  <Badge>
-                    <bdi>{exam.questions_count}</bdi>&nbsp;سؤالاً
-                  </Badge>
+                  <Badge>{counted(exam.questions_count, NOUNS.questions)}</Badge>
                 )}
               </div>
 

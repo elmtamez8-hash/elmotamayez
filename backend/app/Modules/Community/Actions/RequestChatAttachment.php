@@ -14,6 +14,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
 use App\Modules\Media\Support\MediaProviderResolver;
 use App\Shared\Actions\Action;
+use App\Shared\Support\CountedNoun;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
@@ -139,10 +140,10 @@ class RequestChatAttachment extends Action
         $maxSeconds = MediaLimits::maxVoiceNoteSeconds();
 
         if ($durationSeconds > $maxSeconds) {
-            throw new DomainException(sprintf(
-                'مدة الرسالة الصوتية تتجاوز الحد المسموح (%d دقائق كحدّ أقصى).',
-                intdiv($maxSeconds, 60),
-            ));
+            throw new DomainException(
+                'مدة الرسالة الصوتية تتجاوز الحد المسموح ('
+                .CountedNoun::of(intdiv($maxSeconds, 60), MediaLimits::MINUTES).' كحدّ أقصى).',
+            );
         }
     }
 }

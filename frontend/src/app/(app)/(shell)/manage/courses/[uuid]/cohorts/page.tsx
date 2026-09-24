@@ -35,7 +35,8 @@ import {
   type CohortTransferRequest,
 } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/labels";
+import { formatDate, counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The teacher's groups: the runs, who is in each, what happened to them, the
@@ -272,20 +273,20 @@ export default function ManageCohortsPage({
             <p className="text-sm text-ink-muted">
               {openGroups.length === 0 ? (
                 <>
-                  <bdi>{hidden.meta.total_hidden}</bdi> حصة في هذا الكورس بلا مجموعة. تظهر لطلابك
+                  {counted(hidden.meta.total_hidden, NOUNS.sessions)} في هذا الكورس بلا مجموعة. تظهر لطلابك
                   الآن، وستُحجب عنهم فور إنشاء أوّل مجموعة — أنشئها من النموذج أدناه ثم أسنِدها
                   إليها.
                 </>
               ) : (
                 <>
-                  <bdi>{hidden.meta.total_hidden}</bdi> حصة في هذا الكورس بلا مجموعة، فهي محجوبة عن
+                  {counted(hidden.meta.total_hidden, NOUNS.sessions)} في هذا الكورس بلا مجموعة، فهي محجوبة عن
                   جداول الطلاب حتى تُسنِدها.
                 </>
               )}
               {hidden.meta.already_held > 0 && (
                 <>
                   {" "}
-                  منها <bdi>{hidden.meta.already_held}</bdi> حصة انعقدت بالفعل ولا يمكن إسنادها —
+                  منها {counted(hidden.meta.already_held, NOUNS.sessions)} انعقدت بالفعل ولا يمكن إسنادها —
                   الإسناد بعد الوقوع يصنّف الحصّة ولا يعيد توزيع حقوقها.
                 </>
               )}
@@ -322,7 +323,7 @@ export default function ManageCohortsPage({
                     )
                   }
                 >
-                  أسنِد <bdi>{picked.length}</bdi> حصة
+                  أسنِد {counted(picked.length, { ...NOUNS.sessions, two: "حصتين", zero: "الحصص" })}
                 </Button>
 
                 <Button
@@ -746,7 +747,7 @@ function SeatBar({
   if (capacity === null) {
     return (
       <p className="mt-3 text-xs text-ink-muted">
-        <bdi>{members}</bdi> طالب · بلا حدّ للسعة
+        {counted(members, NOUNS.students)} · بلا حدّ للسعة
       </p>
     );
   }
@@ -770,7 +771,7 @@ function SeatBar({
       <div
         className="h-1.5 overflow-hidden rounded-full bg-primary-soft"
         role="img"
-        aria-label={`${members} من ${capacity} مقعداً مشغولة`}
+        aria-label={`المقاعد المشغولة ${arabicNumber(members)} من ${arabicNumber(capacity)}`}
       >
         <div
           className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"

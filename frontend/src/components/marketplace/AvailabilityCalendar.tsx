@@ -11,6 +11,7 @@ import {
   WeekIcon,
 } from "@/components/icons";
 import { toLocalSlot } from "@/lib/availability";
+import { counted, NOUNS } from "@/lib/labels";
 import type { AvailabilityItem } from "@/lib/public-api";
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -65,29 +66,23 @@ export function formatDuration(minutes: number): string {
    * an English-shaped `n === 1 ? … : …` always gets wrong, and it is exactly the
    * band a weekly total lands in.
    */
+  //
+  // ⚠️ And the bands are `counted()`'s, not a ladder written here: this used to
+  // be `hours <= 10`, the private half-rule CLAUDE.md names — right for hours,
+  // and absent altogether for the minutes beside it («5 دقيقة»).
   const hoursLabel =
-    hours === 0
-      ? ""
-      : hours === 1
-        ? "ساعة"
-        : hours === 2
-          ? "ساعتان"
-          : hours <= 10
-            ? `${hours} ساعات`
-            : `${hours} ساعة`;
+    hours === 0 ? "" : counted(hours, { ...NOUNS.hours, one: "ساعة" });
+  const minutesLabel = (value: number) => counted(value, { ...NOUNS.minutes, one: "دقيقة" });
 
-  if (rest === 0) return hoursLabel || `${minutes} دقيقة`;
+  if (rest === 0) return hoursLabel || minutesLabel(minutes);
   if (rest === 30) return hoursLabel ? `${hoursLabel} ونصف` : "نصف ساعة";
 
-  return hoursLabel ? `${hoursLabel} و${rest} دقيقة` : `${rest} دقيقة`;
+  return hoursLabel ? `${hoursLabel} و${minutesLabel(rest)}` : minutesLabel(rest);
 }
 
-/** The same four bands as `formatDuration`, for days. A week never reaches 11. */
+/** The same bands as `formatDuration`, for days. */
 export function formatDays(days: number): string {
-  if (days === 1) return "يوم واحد";
-  if (days === 2) return "يومان";
-
-  return `${days} أيام`;
+  return counted(days, NOUNS.days);
 }
 
 export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
