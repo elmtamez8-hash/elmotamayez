@@ -163,13 +163,13 @@ it('hides the control for an exam while still saying what completes it', functio
         ->assertJsonPath('lesson.may_self_complete', false);
 });
 
-it('lets an ASSIGNMENT be declared done, because nothing else ever will', function (): void {
+it('refuses to let an ASSIGNMENT be declared done — the hand-in completes it', function (): void {
     /*
-    | ⚠️ خروجٌ مقصودٌ عن التماثلِ المرتَّب: `assignment` و`exam` كلاهما
-    | FAMILY_REFERENCE، لكنّ `AssignmentSubmitted` له مستمِعٌ واحدٌ يُرسِلُ إشعاراً
-    | ولا شيءَ في الشجرةِ يُتِمُّ عنصرَ واجب. فضمُّه إلى الرفضِ يجعلُه غيرَ قابلٍ
-    | للإتمامِ **أبداً** — وهو العطبُ الذي يُبقي كلَّ طالبٍ دونَ ١٠٠٪ ويمنعُ كلَّ
-    | شهادة، أي أسوأُ ما يسجّلُه هذا المستودعُ، مصنوعاً بإصلاحِ ما هو أهون.
+    | ⚠️ كانَ هذا الاختبارُ يقولُ العكس، وكانَ محقّاً وقتَها: لم يكنْ في الشجرةِ
+    | ما يُتِمُّ عنصرَ واجب، فرفضُ الإعلانِ اليدويِّ كانَ يجعلُه غيرَ قابلٍ
+    | للإتمامِ أبداً. الآن يكتبُه `CompleteAssignmentLessonOnSubmission` عندَ
+    | التسليمِ الفعليّ (و`…AlreadySubmitted` لمن سلَّمَ قبلَ وضعِه في الشجرة) —
+    | فزرٌّ هنا هو «أنجزتُ واجبي» بلا تسليمِ شيء، كزرِّ الاختبارِ تماماً.
     */
     $sibling = Lesson::query()->where('course_id', $this->course->id)->orderBy('order')->firstOrFail();
 
@@ -186,6 +186,8 @@ it('lets an ASSIGNMENT be declared done, because nothing else ever will', functi
     ]);
 
     $this->postJson("/api/v1/enrollments/{$this->enrollment->uuid}/lessons/{$assignment->uuid}/complete")
-        ->assertOk()
-        ->assertJsonPath('status', 'completed');
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'NOT_SELF_COMPLETABLE');
+
+    expect(LessonProgress::query()->where('lesson_id', $assignment->getKey())->count())->toBe(0);
 });

@@ -18,6 +18,7 @@ use App\Modules\Assessments\Http\Resources\AssignmentResource;
 use App\Modules\Assessments\Http\Resources\SubmissionResource;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
+use App\Modules\Assessments\Support\AssignmentAudience;
 use App\Modules\Assessments\Support\AssignmentFilterOptions;
 use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Learning\Models\Cohort;
@@ -117,6 +118,15 @@ class AssignmentController extends Controller
              */
             StudentScope::forReader($query, $user, $enrollments);
 
+            /*
+            | ⛔ «Who is this for, and when does it appear» — asked of the ITEM
+            | that places the homework, through `LessonAudience`, as the exam
+            | index asks it. The row is dropped, never described: «this is for
+            | another group» tells a student something exists that they had no
+            | way to know about.
+            */
+            $query->whereNotIn('id', AssignmentAudience::hiddenIdsFor($user, $enrollments->activeCourseIdsFor($user)));
+
             // Published only, and the reader's own row attached — one eager load
             // rather than a submission lookup per card.
             // ⚠️ `submissions.media` AND NOT JUST `submissions`. The Resource
@@ -172,6 +182,11 @@ class AssignmentController extends Controller
         $this->authorize('view', $assignment);
 
         $user = $this->currentUser($request);
+
+        // The id is a door like the list: 404 rather than 403, because that a
+        // homework exists at this uuid is itself the news (the exam `show` rule).
+        // `LessonAudience` exempts the author itself.
+        abort_if(AssignmentAudience::hides($user, $assignment), 404);
 
         if (! $user->can(Permissions::ASSIGNMENTS_MANAGE)) {
             $assignment->load(['submissions' => fn ($q) => $q->withoutGlobalScope(WorkspaceScope::class)->where('student_user_id', $user->getKey())->with('media')]);

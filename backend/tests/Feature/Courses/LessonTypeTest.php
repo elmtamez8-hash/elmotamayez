@@ -74,7 +74,7 @@ it('creates every implemented type through the API as a draft', function (): voi
             // Refused by name, not generically: "assignments arrive with the
             // question bank" is an answer a teacher can act on.
             $response->assertStatus(422);
-            expect($response->json('message'))->toContain('لا يُربَط بالمنهج');
+            expect($response->json('message'))->toContain('غير متاح بعد');
 
             continue;
         }

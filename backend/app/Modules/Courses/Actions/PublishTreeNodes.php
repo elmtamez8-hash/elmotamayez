@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Actions;
 
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\AssignmentItemOpened;
 use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
@@ -74,6 +75,14 @@ class PublishTreeNodes extends Action
                 && $status === ContentStatus::Published
                 && $node->type === LessonType::Exam->value) {
                 event(new ExamItemOpened($node));
+            }
+
+            // And homework handed in before the item existed — the same fact
+            // for the other type completed by evidence (AssignmentItemOpened).
+            if ($node instanceof Lesson
+                && $status === ContentStatus::Published
+                && $node->type === LessonType::Assignment->value) {
+                event(new AssignmentItemOpened($node));
             }
         }
 

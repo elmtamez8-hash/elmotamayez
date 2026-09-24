@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Actions;
 
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\DTOs\LessonData;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Events\AssignmentItemOpened;
 use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Courses\Models\Chapter;
@@ -214,6 +216,15 @@ class ManageLessons extends Action
             event(new ExamItemOpened($lesson));
         }
 
+        // The homework twin of the line above: a published assignment item that
+        // now points at a different homework may point at one students have
+        // already handed in — see AssignmentItemOpened.
+        if ($type === LessonType::Assignment
+            && $lesson->status === ContentStatus::Published
+            && $lesson->wasChanged('reference_id')) {
+            event(new AssignmentItemOpened($lesson));
+        }
+
         // Two edits to a PUBLISHED item move the countable set, and neither is a
         // publish:
         //
@@ -401,6 +412,39 @@ class ManageLessons extends Action
             }
 
             return (int) $session->getKey();
+        }
+
+        if ($type === LessonType::Assignment) {
+            /*
+            | The same two conditions as the exam, for the same reasons: the
+            | workspace-scoped model plus THIS course is what says the homework
+            | belongs to the teacher asking (a uuid from another workspace or
+            | another course resolves to nothing), and a draft is refused because
+            | `SubmitAssignment` refuses it — an item over it is a door that opens
+            | onto nothing.
+            |
+            | ⚠️ A COURSE-LESS ASSIGNMENT («every student of mine») CANNOT BE
+            | PLACED, and that is correct rather than a gap: the item lives in one
+            | course's tree, and `ReferenceIntegrity` treats a target whose course
+            | differs from the item's as missing. Placing it would be an item no
+            | student reader ever counts.
+            */
+            $assignment = Assignment::query()
+                ->where('uuid', $data->referenceUuid)
+                ->where('course_id', $course->getKey())
+                ->first();
+
+            if ($assignment === null) {
+                throw new DomainException('الواجب المحدَّد غير موجود في هذا الكورس.');
+            }
+
+            if (! $assignment->isPublished()) {
+                throw new DomainException(
+                    'انشر الواجب أولاً. عنصر يشير إلى واجب مسودّة يقف بطلابك أمام باب لا يُفتح.',
+                );
+            }
+
+            return (int) $assignment->getKey();
         }
 
         return null;

@@ -1496,9 +1496,18 @@ door and the `uuid`/`is_open` keys on an open embed item in the public tree are 
 mean «open to everyone» — a declared amendment to 023 · FR-005/SC-004, narrowed to the one
 kind of item that has no media asset behind its identifier.
 
-`assignment` is declared and **not implemented** — spec 008 owns the entity. It is refused
-by name in the Action and shown disabled with its reason in the editor: hiding it would be
-silent about the plan, offering it would be a choice that saves and then does nothing.
+`assignment` is placed like `exam`: `reference_id` names a **published** homework of the
+**same course** (`ManageLessons::resolveReference()`; the picker reads
+`/courses/{course}/reference-targets` → `assignments`). It is completable and **not**
+self-completable — the item completes on the HAND-IN, written by
+`CompleteAssignmentLessonOnSubmission` (`AssignmentSubmitted`) and, for work handed in before
+the item was published, by `CompleteAssignmentLessonsAlreadySubmitted`
+(`AssignmentItemOpened`). Remove either listener and the registry flag must go back to
+`true`, or every assignment item is permanently incompletable. A homework pulled back to
+draft, deleted, or moved to another course is treated as missing by `ReferenceIntegrity`,
+so it leaves the denominator; `SaveAssignment` also refuses the move. Its audience is its
+item's audience (`AssignmentAudience` → `LessonAudience`) on the list, the single read and
+the hand-in.
 
 ### Progress, and the ways it used to break forever
 
