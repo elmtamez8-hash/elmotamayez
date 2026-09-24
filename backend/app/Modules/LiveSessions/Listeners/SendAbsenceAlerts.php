@@ -92,7 +92,7 @@ class SendAbsenceAlerts implements ShouldHandleEventsAfterCommit, ShouldQueue
                 ->where('status', AttendanceStatus::Absent->value)
                 ->whereNull('removed_at')
                 ->whereNull('absence_alerted_at')
-                ->whereNotIn('student_user_id', $excused === [] ? [0] : $excused)
+                ->whereNotIn('student_user_id', $excused)
                 ->with('student')
                 ->get();
 

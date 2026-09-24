@@ -65,6 +65,9 @@ class Attempt extends BaseModel
             'finalized_at' => 'datetime',
             'started_at' => 'datetime',
             'submitted_at' => 'datetime',
+            // Claimed by a conditional UPDATE in `WarnOnConsecutiveFailures`,
+            // never mass-assigned.
+            'academic_warning_at' => 'datetime',
         ];
     }
 
