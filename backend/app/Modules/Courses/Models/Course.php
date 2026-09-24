@@ -361,7 +361,7 @@ class Course extends BaseModel
         return $this->price_minor === 0;
     }
 
-    protected function searchableAs(): string
+    public function searchableAs(): string
     {
         return 'courses_index';
     }
