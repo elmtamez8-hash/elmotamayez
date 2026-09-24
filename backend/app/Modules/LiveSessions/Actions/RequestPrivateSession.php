@@ -174,6 +174,20 @@ class RequestPrivateSession extends Action
         $limit = $this->settings->privateRequestMaxPending();
         $now = now();
 
+        /*
+        | ⚠️ THE DEADLINE IS min(now + ttl, starts_at). A request for tomorrow at
+        | six with a forty-eight-hour ttl used to wait until the day after the
+        | lesson — pending over an hour that had already gone, holding a slot of
+        | the student's ceiling and offering the teacher an «accept» that could
+        | only schedule a lesson in the past. The sweep now closes it at the
+        | lesson's own start at the latest.
+        */
+        $expiresAt = $now->copy()->addHours($this->settings->privateRequestTtlHours());
+
+        if ($startsAt->lessThan($expiresAt)) {
+            $expiresAt = $startsAt->utc()->toMutable();
+        }
+
         try {
             $written = DB::affectingStatement(
                 'INSERT INTO private_session_requests
@@ -189,7 +203,7 @@ class RequestPrivateSession extends Action
                 [
                     $course->workspace_id, $uuid, $course->getKey(), $student->getKey(), $teacherProfileId,
                     $startsAt->utc()->format('Y-m-d H:i:s'), $minutes, PrivateSessionRequest::PENDING,
-                    $now->copy()->addHours($this->settings->privateRequestTtlHours())->format('Y-m-d H:i:s'),
+                    $expiresAt->utc()->format('Y-m-d H:i:s'),
                     $now->format('Y-m-d H:i:s'), $now->format('Y-m-d H:i:s'),
                     $student->getKey(), $teacherProfileId, PrivateSessionRequest::PENDING, $limit,
                 ],

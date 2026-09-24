@@ -18,7 +18,7 @@ import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
 import { api } from "@/lib/api";
-import { isLearner, useAuth } from "@/lib/auth-context";
+import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
 
@@ -269,8 +269,9 @@ function SubscribeWays({
   const { user, loading } = useAuth();
 
   const subscribe = `/subscribe?course=${encodeURIComponent(courseUuid)}`;
-  // A teacher or staff account buys nothing here — the door refuses them.
-  const mayBuy = user === null || isLearner(user);
+  // A teacher buys nothing here — the door refuses them. Asked through the one
+  // predicate the door reads, never `platform_role` (null for real students).
+  const mayBuy = !teachesOnPlatform(user);
 
   return (
     <div className="flex flex-col gap-3">

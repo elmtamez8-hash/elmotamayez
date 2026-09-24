@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\ScheduleClassSession;
 use App\Modules\LiveSessions\Data\ScheduleSessionData;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Jobs\ExpireSessionRescheduleRequestsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -293,4 +294,74 @@ it('keeps one teacher out of another workspace queue', function (): void {
 
     $this->postJson("/api/v1/manage/session-reschedule-requests/{$uuid}/decide", ['approve' => true])
         ->assertStatus(403);
+});
+
+/*
+| ⛔ A request sitting in the queue does not stay true (2026-09-24). The clocks
+| are asked when the teacher ANSWERS, not only when the student asks, and an
+| unanswered request stops holding its lesson once its moment has passed.
+*/
+it('refuses to approve a move to an hour that has already gone', function (): void {
+    $fixture = rescheduleFixture();
+
+    // The day BEFORE the lesson: future when asked, past when answered, while
+    // the lesson itself has not begun — so only the target clock can refuse.
+    $target = CarbonImmutable::instance($fixture['saturday']->starts_at)->subDay()->setTime(15, 0);
+    askToMove($fixture, $target)->assertCreated();
+
+    $this->travelTo($target->addMinute());
+
+    decideMove($fixture, approve: true)
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'الموعد المقترح للتأجيل قد مضى. اطلب من الطالب اقتراح موعد جديد.');
+
+    expect($fixture['saturday']->fresh()->starts_at->toIso8601String())
+        ->toBe($fixture['saturday']->starts_at->toIso8601String());
+});
+
+it('refuses to approve a move once the lesson itself has begun', function (): void {
+    $fixture = rescheduleFixture();
+
+    askToMove($fixture)->assertCreated();
+
+    $this->travelTo(CarbonImmutable::instance($fixture['saturday']->starts_at)->addMinutes(10));
+
+    decideMove($fixture, approve: true)
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'بدأ موعد الحصة الأصلي بالفعل، فلم يعد تأجيلها ممكناً.');
+});
+
+it('expires an unanswered request at its moment and frees the lesson to be asked about again', function (): void {
+    $fixture = rescheduleFixture();
+
+    $target = CarbonImmutable::instance($fixture['saturday']->starts_at)->subDay()->setTime(15, 0);
+    askToMove($fixture, $target)->assertCreated();
+
+    // Not yet: a request whose moment has not come is left alone.
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+    expect(SessionRescheduleRequest::query()->withoutWorkspaceScope()->sole()->status)->toBe('pending');
+
+    $this->travelTo($target->addMinute());
+    app(ExpireSessionRescheduleRequestsJob::class)->handle();
+
+    expect(SessionRescheduleRequest::query()->withoutWorkspaceScope()->sole()->status)
+        ->toBe(SessionRescheduleRequest::EXPIRED);
+
+    // `srr_pending_unique` is free again: a fresh ask about the same lesson lands.
+    askToMove($fixture, CarbonImmutable::instance($fixture['saturday']->starts_at)->addDay())->assertCreated();
+});
+
+it('lets a new ask through without waiting for the sweep when the old one is overdue', function (): void {
+    $fixture = rescheduleFixture();
+
+    $target = CarbonImmutable::instance($fixture['saturday']->starts_at)->subDay()->setTime(15, 0);
+    askToMove($fixture, $target)->assertCreated();
+
+    $this->travelTo($target->addMinute());
+
+    // No sweep has run: the overdue request is settled by the ask itself.
+    askToMove($fixture, CarbonImmutable::instance($fixture['saturday']->starts_at)->addDay())->assertCreated();
+
+    expect(SessionRescheduleRequest::query()->withoutWorkspaceScope()->pluck('status')->sort()->values()->all())
+        ->toBe([SessionRescheduleRequest::EXPIRED, SessionRescheduleRequest::PENDING]);
 });

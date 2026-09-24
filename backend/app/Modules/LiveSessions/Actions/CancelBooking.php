@@ -46,12 +46,21 @@ class CancelBooking extends Action
         $inWindow = now()->lessThan($session->cancellationDeadline());
 
         DB::transaction(function () use ($booking, $session, $reason, $inWindow): void {
-            $booking->forceFill([
+            $claimed = $this->claim($booking, [
                 'status' => $inWindow ? BookingStatus::CancelledInWindow : BookingStatus::CancelledLate,
                 'is_billable' => ! $inWindow,
                 'cancelled_at' => now(),
                 'cancellation_reason' => $reason,
-            ])->save();
+            ]);
+
+            if (! $claimed) {
+                // Somebody else — a second tab, the system's release — moved this
+                // seat between our read above and this write. Thrown from INSIDE
+                // so nothing below runs: a second decrement would hand out a seat
+                // that was never freed, and a second release would free a credit
+                // the late-cancellation charge is still owed.
+                throw new DomainException('هذا الحجز ملغى بالفعل.');
+            }
 
             if ($inWindow) {
                 ClassSession::query()->withoutWorkspaceScope()
@@ -110,12 +119,18 @@ class CancelBooking extends Action
         }
 
         DB::transaction(function () use ($booking, $reason): void {
-            $booking->forceFill([
+            $claimed = $this->claim($booking, [
                 'status' => BookingStatus::Released,
                 'is_billable' => false,
                 'cancelled_at' => now(),
                 'cancellation_reason' => $reason,
-            ])->save();
+            ]);
+
+            if (! $claimed) {
+                // Not an error, for the reason at the top: the seat was already
+                // given up by somebody else, which is the outcome asked for.
+                return;
+            }
 
             ClassSession::query()->withoutWorkspaceScope()
                 ->whereKey($booking->class_session_id)
@@ -133,5 +148,33 @@ class CancelBooking extends Action
         });
 
         return $booking->refresh();
+    }
+
+    /**
+     * Moves the seat off `booked` in ONE statement, and says whether it did.
+     *
+     * ⚠️ THE STATUS CHECK ABOVE READS THE IN-MEMORY MODEL, SO IT IS ADVISORY.
+     * Two cancellations (a double tap, two tabs, the student and a system
+     * release) both read `booked`, both wrote, and both decremented
+     * `seats_taken` — one seat freed twice, handed to somebody the session had
+     * no room for — and both released the credit hold. `WHERE status = booked`
+     * makes the write the check: exactly one caller moves the row, and only that
+     * caller touches the seat count or the credit. Never `lockForUpdate()`, a
+     * no-op on SQLite.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    private function claim(SessionBooking $booking, array $values): bool
+    {
+        $claimed = SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($booking->getKey())
+            ->where('status', BookingStatus::Booked->value)
+            ->update(array_map(
+                static fn (mixed $value): mixed => $value instanceof BookingStatus ? $value->value : $value,
+                $values,
+            ));
+
+        return $claimed === 1;
     }
 }

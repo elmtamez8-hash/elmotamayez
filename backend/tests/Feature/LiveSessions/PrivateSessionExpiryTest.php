@@ -129,3 +129,53 @@ it('ends every live request when the teacher leaves the platform', function (): 
     expect($request->refresh()->status)->toBe(PrivateSessionRequest::EXPIRED);
     expect(expiredNotices($fx))->toBe(1);
 });
+
+/*
+| ⛔ A REQUEST FOR TOMORROW WAITED UNTIL THE DAY AFTER THE LESSON (2026-09-24).
+| `expires_at` was `now + ttl` alone, so a request sent three hours before its
+| hour stayed pending for two days — over an hour that had gone, holding a place
+| under the student's ceiling. The deadline is min(now + ttl, starts_at).
+*/
+it('never lets a request outlive the hour it asks for', function (): void {
+    $fx = privateSessionFixture();
+
+    $this->travelTo($fx['startsAt']->subHours(3));
+
+    $request = pendingPrivateRequest($fx);
+
+    expect($request->expires_at->toIso8601String())->toBe($fx['startsAt']->toIso8601String());
+
+    $this->travelTo($fx['startsAt']->addMinute());
+    app(ExpirePrivateSessionRequestsJob::class)->handle();
+
+    expect($request->refresh()->status)->toBe(PrivateSessionRequest::EXPIRED);
+});
+
+it('keeps the ordinary deadline for a request well ahead of its hour', function (): void {
+    $fx = privateSessionFixture();
+
+    // The fixture's hour is next week: the ttl comes first and is the deadline.
+    $request = pendingPrivateRequest($fx);
+
+    expect($request->expires_at->lessThan($fx['startsAt']))->toBeTrue();
+});
+
+it('refuses to accept a request whose hour has already gone', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    $request = pendingPrivateRequest($fx);
+
+    // The sweep has not reached it yet: the decision must refuse on its own.
+    $this->travelTo($fx['startsAt']->addMinutes(5));
+
+    $this->setCurrentWorkspace($fx['workspace'], $fx['owner']);
+    Sanctum::actingAs($fx['owner']);
+
+    $this->postJson("/api/v1/manage/private-session-requests/{$request->uuid}/decide", ['accept' => true])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'موعد هذا الطلب قد مضى، فلا يمكن قبوله. يستطيع الطالب طلب موعد جديد.');
+
+    expect(ClassSession::query()->withoutWorkspaceScope()->count())->toBe(0)
+        ->and($request->refresh()->status)->toBe(PrivateSessionRequest::PENDING);
+});

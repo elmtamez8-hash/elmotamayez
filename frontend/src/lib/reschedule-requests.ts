@@ -14,7 +14,8 @@ import { api } from "./api";
  * send renders a blank with no error anywhere.
  */
 
-export type RescheduleStatus = "pending" | "approved" | "rejected";
+// `expired`: nobody answered before the proposed hour or the lesson itself came.
+export type RescheduleStatus = "pending" | "approved" | "rejected" | "expired";
 
 export interface RescheduleRequest {
   uuid: string;

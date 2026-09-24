@@ -96,6 +96,21 @@ class EnrollStudent extends Action
             return $enrollment;
         }
 
+        /*
+        | ⛔ AN HOURS PLAN NEVER TAKES OVER A LIVE SUBSCRIPTION'S ROW (owner's
+        | decision, 2026-09-24). Handed over, the row became `session_plan` with
+        | its order id replaced and `expires_at` nulled — so the monthly
+        | subscription's end could no longer find it (`SubscriptionAccess::close()`
+        | matches `order_id` AND `source = subscription`), and a month of access
+        | became access for ever, bought with a handful of hours. The hours land
+        | in the credit ledger either way; what the student may OPEN stays on the
+        | subscription's timer. Once the subscription has lapsed the row is free
+        | to take, exactly as for a first-time buyer of that plan.
+        */
+        if (! $lapsed && $source === 'session_plan') {
+            return $enrollment;
+        }
+
         $enrollment->forceFill([
             'source' => $source,
             'order_id' => $orderId,
