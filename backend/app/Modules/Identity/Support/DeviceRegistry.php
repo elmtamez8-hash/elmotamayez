@@ -130,6 +130,8 @@ class DeviceRegistry
                         .$newSession->device->label
                         .')، وأُنهيت جلستك السابقة.',
                 ],
+                // Where the reader can see every signed-in device and end one.
+                actionUrl: '/settings/security',
             ));
         }
     }

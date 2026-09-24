@@ -35,6 +35,9 @@ class ReevaluateOnReversal implements ShouldHandleEventsAfterCommit, ShouldQueue
             recipient: $event->order->user,
             type: NotificationType::PaymentReversed,
             variables: ['reason' => $event->reason ?? 'نزاع على الدفعة.'],
+            // The order the reversal hit — its row carries the status the
+            // payer now needs to read.
+            actionUrl: '/orders',
             workspaceId: $event->order->workspace_id,
         ));
     }

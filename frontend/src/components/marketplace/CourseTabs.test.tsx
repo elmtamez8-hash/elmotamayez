@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { CourseTabs } from "./CourseTabs";
+import { CourseTabs, openCourseTab } from "./CourseTabs";
 
 /*
 | ثلاثةُ أقسامٍ في شريطٍ واحد — والرابطُ القادمُ من صفحةِ المدرّسِ يجبُ أن يصل.
@@ -78,6 +78,31 @@ describe("CourseTabs", () => {
 
     expect(screen.queryByRole("tab", { name: /عن الكورس/ })).toBeNull();
     expect(screen.getByText("مجموعة السبت")).toBeTruthy();
+  });
+
+  it("opens the groups tab when the rail asks for it, after arrival", () => {
+    /*
+      ⚠️ «اختر مجموعتك» on the rail sits on the same page, so neither `?tab=`
+      nor `#groups` can reach this strip once it has mounted — both are read on
+      arrival only. The event is the door between them.
+    */
+    renderTabs();
+    expect(screen.queryByText("مجموعة السبت")).toBeNull();
+
+    act(() => openCourseTab("groups"));
+
+    expect(screen.getByText("مجموعة السبت")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /المجموعات المتاحة/ }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("ignores a request for a tab it does not have", () => {
+    renderTabs();
+
+    act(() => openCourseTab("nonsense"));
+
+    expect(screen.getByText("وصفُ الكورس")).toBeTruthy();
   });
 
   it("prints no badge when the course has no groups", () => {

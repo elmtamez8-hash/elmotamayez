@@ -140,6 +140,10 @@ class ExpireSubscriptionsJob implements ShouldQueue
                 // before a deadline that has already been extended for them.
                 'ends_on' => CarbonImmutable::parse($subscription->effective_ends_on)->toDateString(),
             ],
+            // «جدّده قبلها» needs a door: `/plans` lists the student's own
+            // subscriptions beside what is on offer. The recipient is always the
+            // subscriber, and that screen is theirs whatever the plan covers.
+            actionUrl: '/plans',
             workspaceId: (int) $subscription->workspace_id,
         ));
     }

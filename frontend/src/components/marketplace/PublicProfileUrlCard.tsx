@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
-import { isLearner, useAuth } from "@/lib/auth-context";
+import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -38,9 +38,11 @@ type Profile = {
  * ⛔ AND A LEARNER IS NEVER ASKED AT ALL (reported 2026-09-24). «The API's
  * answer» meant every student and guardian opening /settings fired
  * `GET /teacher/profile` and took a 403 in the network log, on a page working
- * correctly for them. `isLearner` is the one spelling of «student or guardian»
- * the rest of the product reads; the API still answers for everyone else, so an
- * academy account whose role says nothing is not refused a card it may own.
+ * correctly for them. The question is «does this person teach», so it is asked
+ * with `teachesOnPlatform` — the pivot role, the same predicate the server's
+ * doors use — and not with `isLearner`, which reads `platform_role`: null for
+ * dozens of accounts, so a role-less student was still being asked. An academy
+ * account whose role says nothing still teaches somewhere, and still sees it.
  */
 export function PublicProfileUrlCard() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -51,8 +53,8 @@ export function PublicProfileUrlCard() {
   const [saving, setSaving] = useState(false);
   const { user, loading } = useAuth();
   // Not asked until the session is known: `user` is null on the first paint
-  // for everybody, and a learner is not asked at all.
-  const mayOwnProfile = !loading && user !== null && !isLearner(user);
+  // for everybody, and somebody who teaches nowhere is not asked at all.
+  const mayOwnProfile = !loading && teachesOnPlatform(user);
 
   useEffect(() => {
     if (!mayOwnProfile) return;

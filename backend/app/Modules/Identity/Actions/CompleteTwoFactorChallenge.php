@@ -98,6 +98,8 @@ class CompleteTwoFactorChallenge extends Action
                 'name' => $user->name,
                 'event' => 'استُخدم رمز استرداد لتسجيل الدخول إلى حسابك. المتبقّي: '.$remaining.'.',
             ],
+            // Where the reader can see every signed-in device and end one.
+            actionUrl: '/settings/security',
         ));
     }
 }

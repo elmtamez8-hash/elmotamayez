@@ -1,8 +1,9 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CourseOwnershipProvider } from "./CourseOwnership";
 import { CourseRail } from "./CourseRail";
+import { OPEN_COURSE_TAB_EVENT } from "./CourseTabs";
 import { ApiError } from "@/lib/api";
 import type { Curriculum } from "@/lib/curriculum";
 import type { User } from "@/lib/types";
@@ -269,8 +270,17 @@ describe("CourseRail", () => {
 
     await renderRail(false, { privateSubscriptionAvailable: false, joinableGroup: true });
 
-    expect(screen.getByText("اختر مجموعتك")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
+
+    // ⚠️ It OPENS the groups tab — it was text telling the reader where to click.
+    const opened: string[] = [];
+    const listen = (event: Event) => opened.push((event as CustomEvent<string>).detail);
+    window.addEventListener(OPEN_COURSE_TAB_EVENT, listen);
+
+    fireEvent.click(screen.getByRole("button", { name: /اختر مجموعتك/ }));
+
+    window.removeEventListener(OPEN_COURSE_TAB_EVENT, listen);
+    expect(opened).toEqual(["groups"]);
   });
 
   /*

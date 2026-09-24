@@ -18,7 +18,8 @@ import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
 import { api } from "@/lib/api";
-import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
+import { homePathFor, teachesOnPlatform, useAuth } from "@/lib/auth-context";
+import { openCourseTab } from "@/components/marketplace/CourseTabs";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
 
@@ -146,11 +147,11 @@ const PROMISES = [
  * إعادةُ اشتقاقِه هنا («مفتوحةٌ وغيرُ مكتمِلة») إملاءٌ ثانٍ لسؤالٍ واحد، وهو ما
  * جعلَ تسجيلاً مدفوعاً غيرَ قابلٍ للفتحِ في ٠١٨.
  *
- * ⚠️ **ولا زرَّ دَورٍ هنا ولا رابطَ إليه.** الزرُّ الحقيقيُّ في لافتةِ تبويبِ
- * المجموعات، ورابطٌ بـ`?tab=groups` **ميّتٌ من هذه الصفحة**: `useTabParam` يقرأُ
- * الاستعلامَ في `useEffect` بمُعتمَداتٍ ثابتة، فتغييرُ العنوانِ وحدَه لا يُبدِّلُ
- * التبويب. فالعمودُ يقولُ الحقيقةَ ويدلُّ على موضعِ الفعل، ولا يَعِدُ بنقرةٍ لا
- * تقع.
+ * ⚠️ **ولا زرَّ دَورٍ هنا.** الزرُّ الحقيقيُّ في لافتةِ تبويبِ المجموعات، ورابطٌ
+ * بـ`?tab=groups` **ميّتٌ من هذه الصفحة**: `useTabParam` يقرأُ الاستعلامَ في
+ * `useEffect` بمُعتمَداتٍ ثابتة، فتغييرُ العنوانِ وحدَه لا يُبدِّلُ التبويب. لذلك
+ * يفتحُ العمودُ التبويبَ بـ`openCourseTab()` — حدثٌ يستمعُ له `CourseTabs` — ولا
+ * يَعِدُ برابطٍ لا يقع.
  *
  * ⛔ **ولا سعرَ ولا زرَّ على كورسٍ لا يبيعُه شيء** (قرارُ المالكِ ٢٠٢٦-٠٩-٢٤).
  * المنصّةُ تبيعُ من بابَينِ لا ثالثَ لهما: مجموعةٌ تقبلُ الانضمام، أو دعوةُ
@@ -248,9 +249,10 @@ function VisitorRail({
  *
  * ⚠️ A GROUP IS JOINED FROM ITS OWN CARD, NOT FROM HERE. The group's
  * «اشترك» button lives in the groups tab and carries the group's uuid; a
- * rail button cannot know which group the reader wants, and a link to
- * `?tab=groups` is dead from this page (the docblock above says why). So the
- * rail says where the action is.
+ * rail button cannot know which group the reader wants. So «اختر مجموعتك»
+ * OPENS that tab — through `openCourseTab()`, because a link to `?tab=groups`
+ * or `#groups` is dead from this page (the docblock above says why). It was
+ * text pointing at the tab until 2026-09-24.
  *
  * ⚠️ AND NOTHING IS DRAWN WHILE THE SESSION IS BEING RESTORED. `useAuth`
  * starts every page with `user === null`, so the link drawn then is the
@@ -276,12 +278,21 @@ function SubscribeWays({
   return (
     <div className="flex flex-col gap-3">
       {joinableGroup && (
-        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
-          <b className="font-extrabold text-primary-ink">اختر مجموعتك</b>
+        <button
+          type="button"
+          onClick={() => openCourseTab("groups")}
+          className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-start text-sm text-ink transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <b className="flex items-center gap-1.5 font-extrabold text-primary-ink">
+            اختر مجموعتك
+            <span aria-hidden="true">
+              <ChevronStartIcon />
+            </span>
+          </b>
           <span className="text-ink-muted">
-            من تبويب «المجموعات المتاحة» — اضغط «اشترك» تحت المجموعة التي تناسب مواعيدك.
+            افتح «المجموعات المتاحة» واضغط «اشترك» تحت المجموعة التي تناسب مواعيدك.
           </span>
-        </p>
+        </button>
       )}
 
       {privateSubscriptionAvailable && !loading && mayBuy && (
@@ -391,11 +402,12 @@ function OwnerRail({
  * ⚠️ DRAWN ONLY ON THE SERVER'S `free_enrollment`, and the door refuses on the
  * same predicate (`courseRequiresPurchase()`), so a course sold by plan never
  * shows it. A guest is sent to sign up; a STUDENT enrols in place. A guardian is
- * not a student — pressing it would enrol the guardian — so they get the
- * ordinary link, and so does a teacher, whom the door refuses anyway.
+ * not a student — pressing it would enrol the guardian — and a teacher is refused
+ * by the door, so a signed-in account of either kind is sent to its own home
+ * (`homePathFor`) with a line saying why, never to the signup page.
  */
 function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -403,7 +415,28 @@ function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
   const className =
     "flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60";
 
-  if (user?.platform_role !== "student") {
+  // ⚠️ Nothing while the session is being restored — `user` starts null on
+  // every page, and the signup link drawn in that instant bounces a signed-in
+  // student off the signup page (the rule `SubscribeWays` already follows).
+  if (loading) return null;
+
+  // ⚠️ A signed-in teacher or guardian is NOT a visitor. Sending them to the
+  // signup page asked a person with an account to make a second one; the door
+  // would refuse to enrol them anyway, so the button says so and takes them home.
+  // Teaching is read from the pivot role (`teachesOnPlatform`), never from
+  // `platform_role` alone — that column is null for students a teacher created.
+  if (user !== null && (user.platform_role === "parent" || teachesOnPlatform(user))) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Link href={homePathFor(user)} className={className}>
+          العودة إلى صفحتك
+        </Link>
+        <p className="text-xs text-ink-muted">التسجيل في الكورسات لحسابات الطلاب.</p>
+      </div>
+    );
+  }
+
+  if (user === null) {
     return (
       // `next` brings a new account back to this course (the uuid 308s to the
       // slug), rather than dropping them on a home page with the course lost.
