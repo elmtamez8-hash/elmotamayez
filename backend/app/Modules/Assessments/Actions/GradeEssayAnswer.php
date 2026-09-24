@@ -39,7 +39,7 @@ class GradeEssayAnswer extends Action
     public function handle(Answer $answer, User $grader, array $marks): Answer
     {
         if (! $answer->requires_grading) {
-            throw new DomainException('This answer was marked by machine.');
+            throw new DomainException('هذه الإجابة صُحّحت آلياً ولا تحتاج تصحيحاً يدوياً.');
         }
 
         $ceiling = $this->marks->ceilingFor($answer);
@@ -51,7 +51,7 @@ class GradeEssayAnswer extends Action
         // found after the rows are already written, and an append-only table
         // cannot be rolled back by deleting from it.
         if (! $answer->claimForGrading((int) $grader->getKey())) {
-            throw new DomainException('Another grader has already marked this answer.');
+            throw new DomainException('صحّح مصحّحٌ آخر هذه الإجابة قبلك.');
         }
 
         return DB::transaction(function () use ($answer, $grader, $marks, $awarded, $ceiling): Answer {

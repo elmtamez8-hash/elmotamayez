@@ -107,6 +107,23 @@ it('rejects an order list naming something that is not a sibling', function (): 
     ])->assertStatus(422);
 });
 
+it('carries the course\'s own status on the tree, so the editor can say a draft course is unseen', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    [$course] = orderingTree($workspace->id, 1);
+
+    Sanctum::actingAs($owner);
+
+    $this->getJson("/api/v1/courses/{$course->uuid}/tree")
+        ->assertOk()
+        ->assertJsonPath('status', 'published');
+
+    $course->forceFill(['status' => 'draft'])->save();
+
+    $this->getJson("/api/v1/courses/{$course->uuid}/tree")
+        ->assertOk()
+        ->assertJsonPath('status', 'draft');
+});
+
 it('refuses a reorder computed against a stale tree', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     [$course, $chapter, $lessons] = orderingTree($workspace->id, 3);

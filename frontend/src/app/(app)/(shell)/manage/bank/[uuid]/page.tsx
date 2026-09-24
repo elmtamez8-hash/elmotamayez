@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { QuestionBankIcon } from "@/components/icons";
 import { QuestionForm } from "@/components/bank/QuestionForm";
@@ -22,6 +23,8 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [removing, setRemoving] = useState(false);
+  // An unused question is deleted for good on one press, so the press asks.
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState("");
 
@@ -64,6 +67,7 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
       setError(userMessage(err));
     } finally {
       setRemoving(false);
+      setAsking(false);
     }
   };
 
@@ -87,10 +91,21 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
               })} —التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`
         }
         actions={
-          <Button variant="danger" onClick={remove} disabled={removing}>
-            {removing ? "…" : "حذف أو تعطيل"}
+          <Button variant="danger" onClick={() => setAsking(true)} disabled={removing}>
+            حذف أو تعطيل
           </Button>
         }
+      />
+
+      <Modal
+        open={asking}
+        title="حذف السؤال"
+        message="إن لم يجلس عليه أيُّ طالب يُحذف نهائياً ولا يمكن استرجاعه، وإن جلس عليه طلابٌ يُعطَّل فقط ولا يُعرَض في الاختبارات الجديدة."
+        confirmLabel="احذف أو عطِّل"
+        tone="danger"
+        busy={removing}
+        onConfirm={() => void remove()}
+        onCancel={() => setAsking(false)}
       />
 
       {error !== "" && <Alert tone="danger" title="تعذّر التنفيذ">{error}</Alert>}

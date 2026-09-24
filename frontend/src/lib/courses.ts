@@ -102,6 +102,8 @@ export interface CourseTree {
   uuid: string;
   title: string;
   is_sequential: boolean;
+  /** The COURSE's own status — a published item inside a draft course is still unseen. */
+  status: string;
   structure_version: number;
   sections: TreeSection[];
 }
