@@ -112,6 +112,19 @@ class SessionSettings
         return (int) PlatformSettings::get('sessions.private_request_ttl_hours', 48);
     }
 
+    /**
+     * How far ahead a student must ask for a lesson — a private hour or a
+     * rescheduled one. Read by both Actions and sent to the course page, so the
+     * slots offered are the slots the server accepts.
+     */
+    public function minLeadMinutes(): int
+    {
+        return max(0, (int) PlatformSettings::get(
+            'sessions.min_lead_minutes',
+            (int) config('sessions.min_lead_minutes', 120),
+        ));
+    }
+
     /** How many requests one student may leave outstanding with one teacher (023 · FR-022أ). */
     public function privateRequestMaxPending(): int
     {

@@ -412,29 +412,6 @@ class EloquentCohortDirectory implements CohortDirectory
             ->all();
     }
 
-    public function isStructurallyJoinable(int $cohortId): bool
-    {
-        $cohort = Cohort::query()
-            ->withoutWorkspaceScope()
-            ->whereKey($cohortId)
-            ->first(['id', 'status', 'capacity', 'members_count']);
-
-        /*
-        | ⚠️ DELEGATED TO THE MODEL, NEVER RE-SPELLED. `Cohort::isStructurallyJoinable()`
-        | is `status === OPEN && ! isFull()`, and a second spelling of one question
-        | is how the card says yes and the door says no — the defect FR-002 exists
-        | over.
-        |
-        | ⛔ AND IT IS THE STRUCTURAL HALF ON PURPOSE (٠٣٦ · T050). Its one caller
-        | in the whole tree is `ApproveOrder`, where the money has ALREADY been
-        | taken: re-asking the price there would refuse an approval over a plan the
-        | teacher switched off after the transfer was made, which is FR-018
-        | inverted. The narrowing in ٠٣٦ therefore renamed this rather than letting
-        | it inherit the new condition silently.
-        */
-        return $cohort !== null && $cohort->isStructurallyJoinable();
-    }
-
     public function publicCohortsFor(int $courseId): array
     {
         $cohorts = Cohort::query()
@@ -499,7 +476,7 @@ class EloquentCohortDirectory implements CohortDirectory
                 /*
                 | ⚠️ THE SERVER'S ANSWER, NOT A CONDITION THE BROWSER REBUILDS
                 | (FR-002). Derived here from columns already selected, never by
-                | asking `isStructurallyJoinable(int)` once per row — this method feeds a
+                | asking the directory once per row — this method feeds a
                 | Resource, and a Resource runs once per row.
                 */
                 'is_joinable' => $cohort->isJoinable(),

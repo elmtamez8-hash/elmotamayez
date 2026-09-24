@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Events\SessionRescheduleRequested;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
+use App\Modules\LiveSessions\Support\LeadTime;
 use App\Modules\LiveSessions\Support\PendingRescheduleRequest;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionAttendanceDirectory;
@@ -41,6 +42,7 @@ class RequestSessionReschedule extends Action
 {
     public function __construct(
         private readonly SessionAttendanceDirectory $attendance,
+        private readonly LeadTime $lead,
     ) {}
 
     public function handle(
@@ -69,6 +71,14 @@ class RequestSessionReschedule extends Action
 
         if ($to->isPast()) {
             throw new DomainException('لا يمكن اقتراح موعد قد مضى.');
+        }
+
+        // The same lead a private request carries — one rule for «too soon»,
+        // asked of the proposed hour, never of the lesson being moved.
+        $tooSoon = $this->lead->refusalFor($to);
+
+        if ($tooSoon !== null) {
+            throw new DomainException($tooSoon);
         }
 
         if ($to->equalTo(CarbonImmutable::instance($session->starts_at))) {

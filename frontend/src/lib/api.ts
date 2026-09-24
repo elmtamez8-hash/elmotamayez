@@ -304,7 +304,13 @@ export const auth = {
       headers: { "Idempotency-Key": idempotencyKey },
     }),
   registerTeacher: (data: TeacherRegistration, idempotencyKey: string) =>
-    request<{ application: TeacherApplication; token: string | null }>(
+    request<{
+      application: TeacherApplication;
+      token: string | null;
+      // The sign-in session behind the token — kept so a later eviction can
+      // be explained (`/login?ended=…`), exactly as for a student's signup.
+      session_uuid: string | null;
+    }>(
       "/auth/register/teacher/step-1",
       {
         method: "POST",

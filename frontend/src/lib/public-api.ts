@@ -256,6 +256,12 @@ export type CourseDetail = {
    */
   private_session_minutes: number | null;
   /**
+   * The minimum notice for a private hour, in minutes from now — the same
+   * platform setting `RequestPrivateSession` refuses with. The slot picker counts
+   * from it, so it never offers an hour the server answers «too soon».
+   */
+  private_session_min_lead_minutes: number;
+  /**
    * Whether the private-subscription invitation may be drawn at all (027 · FR-003).
    *
    * ⚠️ THE SERVER ANSWERS THIS BECAUSE NOTHING HERE CAN. It is true only when

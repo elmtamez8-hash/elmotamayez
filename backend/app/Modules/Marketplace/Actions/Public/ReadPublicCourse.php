@@ -7,6 +7,7 @@ namespace App\Modules\Marketplace\Actions\Public;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Support\LeadTime;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
@@ -45,6 +46,7 @@ class ReadPublicCourse extends Action
         private readonly CohortDirectory $cohorts,
         private readonly CohortScheduleDirectory $schedules,
         private readonly SubscriptionDirectory $subscriptions,
+        private readonly LeadTime $lead,
     ) {}
 
     public function handle(string $key): ?Course
@@ -276,6 +278,19 @@ class ReadPublicCourse extends Action
      * The availability read is cheap and comes first: most courses have a plan
      * and the slots table is the smaller question.
      */
+    /**
+     * How far ahead a private hour may be asked for, in minutes.
+     *
+     * ⚠️ READ FROM THE SAME CLASS `RequestPrivateSession` REFUSES WITH. The slot
+     * picker starts counting from it, so the page never offers an hour the door
+     * then answers «اختر موعداً يبدأ بعد…». An operational NUMBER, not a price:
+     * it says nothing about any teacher and leaks nothing.
+     */
+    public function privateSessionLeadMinutes(): int
+    {
+        return $this->lead->minutes();
+    }
+
     public function privateSubscriptionAvailable(Course $course): bool
     {
         $teacherProfileId = $course->creator?->teacherProfile?->getKey();

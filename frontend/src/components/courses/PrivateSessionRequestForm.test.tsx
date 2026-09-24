@@ -123,6 +123,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -160,6 +161,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -197,6 +199,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        leadMinutes={0}
         subscriptionAvailable={false}
       />,
     );
@@ -214,6 +217,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -245,6 +249,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={90}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -262,6 +267,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={null}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -270,6 +276,40 @@ describe("PrivateSessionRequestForm", () => {
     // course» — read the other way the section would be invisible on every course
     // whose teacher never opened the field.
     expect(await screen.findByText(/٦٠ دقيقة|60 دقيقة/)).toBeTruthy();
+  });
+
+  it("offers no slot inside the minimum notice the server enforces", async () => {
+    enrolled();
+    request.mockResolvedValue({});
+
+    /*
+     | ⚠️ THE LEAD IS WIRED TO THE PICKER, NOT MERELY RECEIVED. Eight days is
+     | longer than the week in which the declared Tuesday always recurs, so with
+     | the prop dropped on the floor the FIRST slot offered is inside the notice
+     | — an hour `RequestPrivateSession` refuses as «too soon».
+     */
+    const lead = 8 * 24 * 60;
+    const before = Date.now();
+
+    render(
+      <PrivateSessionRequestForm
+        courseUuid="c-1"
+        availability={WINDOWS}
+        minutes={45}
+        leadMinutes={lead}
+        subscriptionAvailable
+      />,
+    );
+
+    const slot = (await screen.findAllByRole("button"))[0];
+    fireEvent.click(slot);
+    fireEvent.click(screen.getByRole("button", { name: "أرسل الطلب" }));
+
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+    const startsAt = new Date(request.mock.calls[0][1] as string).getTime();
+
+    expect(startsAt).toBeGreaterThanOrEqual(before + lead * 60_000);
   });
 
   it("puts the server's refusal on the screen as a sentence", async () => {
@@ -285,6 +325,7 @@ describe("PrivateSessionRequestForm", () => {
         courseUuid="c-1"
         availability={WINDOWS}
         minutes={45}
+        leadMinutes={0}
         subscriptionAvailable
       />,
     );
@@ -315,6 +356,7 @@ function renderForm() {
       courseUuid="c-1"
       availability={WINDOWS}
       minutes={45}
+      leadMinutes={0}
       subscriptionAvailable
     />,
   );

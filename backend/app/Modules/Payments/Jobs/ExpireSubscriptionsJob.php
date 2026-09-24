@@ -10,6 +10,7 @@ use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\SubscriptionAccess;
+use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Traits\RunsAlone;
 use Carbon\CarbonImmutable;
@@ -56,7 +57,10 @@ class ExpireSubscriptionsJob implements ShouldQueue
 
     public function handle(DispatchNotification $notifications): void
     {
-        $today = CarbonImmutable::today();
+        // The platform's today, the same one `ActivateSubscription` dates a
+        // subscription from — a sweep on UTC's today expired every row three
+        // hours after its last day had ended for the student reading it.
+        $today = app(SubscriptionDays::class)->today();
 
         $this->warn($today, $notifications);
         $this->expire($today);

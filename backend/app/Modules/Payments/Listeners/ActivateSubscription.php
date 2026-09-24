@@ -29,6 +29,7 @@ use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
 use App\Modules\Payments\Support\SubscriptionAccess;
+use App\Modules\Payments\Support\SubscriptionDays;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Support\CountedNoun;
@@ -120,6 +121,8 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         // 036 - the second shape: credits in 035's ledger, no subscription row.
         private readonly CreditAccounts $accounts,
         private readonly CreditLedger $ledger,
+        // The platform's calendar, never UTC's: see `SubscriptionDays`.
+        private readonly SubscriptionDays $days,
     ) {}
 
     public function handle(CarriesPaidOrder $event): void
@@ -240,7 +243,9 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         $this->openAccess(
             $order,
             $plan,
-            CarbonImmutable::parse($subscription->effective_ends_on)->endOfDay(),
+            // The last instant of the last paid day IN DOHA, stored as UTC —
+            // `->endOfDay()` on the bare date closed it at 03:00 the next morning.
+            $this->days->endOf(CarbonImmutable::parse($subscription->effective_ends_on)),
             'subscription',
         );
 
@@ -790,7 +795,12 @@ class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
         | the second. The question here is «what has not ended yet», not «what is
         | running today».
         */
-        $today = CarbonImmutable::today();
+        /*
+        | ⛔ THE PLATFORM'S TODAY, NOT UTC'S. Approved between midnight and 03:00
+        | in Doha, `CarbonImmutable::today()` answered yesterday — the first paid
+        | day had already ended before the student could open anything.
+        */
+        $today = $this->days->today();
 
         $runningEnd = Subscription::query()
             ->withoutWorkspaceScope()

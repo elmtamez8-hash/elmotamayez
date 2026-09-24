@@ -7,6 +7,7 @@ namespace App\Modules\Payments\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Payments\Enums\SubscriptionStatus;
+use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -123,8 +124,14 @@ class Subscription extends BaseModel
      */
     public function scopeLiveOn(Builder $query, DateTimeInterface $moment): Builder
     {
-        $today = CarbonImmutable::instance($moment)->toDateString();
-        $tomorrow = CarbonImmutable::instance($moment)->addDay()->toDateString();
+        /*
+        | ⚠️ THE MOMENT'S DAY IN THE PLATFORM'S TIMEZONE. A lesson at 01:00 in
+        | Doha is 22:00 UTC the evening before, and read in UTC it asked about the
+        | wrong day — a subscription starting that morning did not cover it.
+        */
+        $today = CarbonImmutable::parse(app(SubscriptionDays::class)->dateOf($moment));
+        $tomorrow = $today->addDay()->toDateString();
+        $today = $today->toDateString();
 
         return $query
             ->where('status', SubscriptionStatus::Active->value)
