@@ -172,23 +172,24 @@ describe("family page", () => {
 
     render(<FamilyPage />);
 
-    fireEvent.change(await screen.findByRole("textbox", { name: /اسم الطالب/ }), {
-      target: { value: "كريم" },
-    });
+    expect(await screen.findByRole("textbox", { name: /اسم الطالب/ })).toBeTruthy();
+
     fireEvent.change(screen.getByRole("textbox", { name: /رمز حساب الطالب/ }), {
       target: { value: "  9f1c2d3e-0000-4000-8000-000000000001 " },
     });
+
+    // With a code nothing else about the child is asked (owner, 2026-09-24).
+    expect(screen.queryByRole("textbox", { name: /اسم الطالب/ })).toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "إضافة" }));
 
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith(
-        "/family/relations",
-        expect.objectContaining({
-          student_name: "كريم",
-          student_uuid: "9f1c2d3e-0000-4000-8000-000000000001",
-        }),
-      ),
-    );
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post.mock.calls[0][0]).toBe("/family/relations");
+    expect(post.mock.calls[0][1]).toEqual({
+      student_uuid: "9f1c2d3e-0000-4000-8000-000000000001",
+      relation_type: "parent",
+      permissions: expect.any(Array),
+    });
     expect(await screen.findByText("أُرسل الطلب إلى حساب الطالب")).toBeTruthy();
   });
 
@@ -208,6 +209,47 @@ describe("family page", () => {
     // `""` would be refused by the server's uuid rule with a 422 nobody can act on.
     expect(post.mock.calls[0][1]).not.toHaveProperty("student_uuid");
     expect(screen.queryByText("أُرسل الطلب إلى حساب الطالب")).toBeNull();
+  });
+
+  /*
+   * ⚠️ A STUDENT WAS SHOWN THE GUARDIAN'S ADD-CHILD FORM — «اسم الطالب» and
+   * «يجده ابنك في صفحة…» about their own account. Which sections exist is
+   * decided by who is reading (`dashboardAudience`), not left to every viewer.
+   */
+  it("gives a student no add-child form, only their code and who follows them", async () => {
+    mockUser = { uuid: "s-123", platform_role: "student" };
+    get.mockResolvedValue({ data: [] });
+
+    render(<FamilyPage />);
+
+    expect(await screen.findByRole("heading", { name: "رمز ربط حسابي" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "من يتابعني" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "إضافة مرتبط" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /اسم الطالب/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /رمز حساب الطالب/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "المرتبطون" })).toBeNull();
+  });
+
+  it("gives a guardian the add-child form and no code of their own", async () => {
+    mockUser = { uuid: "p-1", platform_role: "parent" };
+    get.mockResolvedValue({ data: [] });
+
+    render(<FamilyPage />);
+
+    expect(await screen.findByRole("heading", { name: "إضافة مرتبط" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: /رمز حساب الطالب/ })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "رمز ربط حسابي" })).toBeNull();
+  });
+
+  it("heads a guardian's pending code-only request with a neutral sentence", async () => {
+    mockUser = { uuid: "p-1", platform_role: "parent" };
+    get.mockResolvedValue({
+      data: [relation({ viewer_side: "guardian", can_decide: false, student_name: "" })],
+    });
+
+    render(<FamilyPage />);
+
+    expect(await screen.findByText("طلب ربط بانتظار موافقة الطالب")).toBeTruthy();
   });
 
   it("shows a student the code their guardian needs, and nobody else", async () => {

@@ -76,6 +76,7 @@ class AcceptRelation extends Action
                 'status' => RelationStatus::Active->value,
                 'accepted_at' => now(),
                 'updated_at' => now(),
+                ...$this->detailsFromAccount($relation),
             ]);
 
         $relation->refresh();
@@ -100,6 +101,57 @@ class AcceptRelation extends Action
         $this->notifyRequester($actor, $relation);
 
         return $relation;
+    }
+
+    /**
+     * What the guardian was not asked for, read from the student's own account.
+     *
+     * A guardian who links a child by CODE types nothing else (owner decision,
+     * 2026-09-24), so `LinkGuardian` stores the row with an empty name and no age
+     * or year. This is the first moment reading the account on the guardian's
+     * behalf is safe — the student has just agreed to be followed — and it rides
+     * inside the claim, so only the winning accept writes it.
+     *
+     * ⚠️ THE STUDENT IS `$relation->student`, NEVER `$actor`: accept runs in both
+     * directions, and in `RegisterStudent::inviteGuardian`'s the actor IS the
+     * guardian. And it COALESCES rather than overwrites — a row that already
+     * carries a name (the invite direction, or a link made before this rule)
+     * keeps it.
+     *
+     * @return array<string, mixed>
+     */
+    private function detailsFromAccount(ParentStudentRelation $relation): array
+    {
+        if ($relation->student_user_id === null) {
+            return [];
+        }
+
+        $student = User::query()->with('studentProfile')->find($relation->student_user_id);
+
+        if ($student === null) {
+            return [];
+        }
+
+        $profile = $student->studentProfile;
+        $details = [];
+
+        if (trim((string) $relation->student_name) === '') {
+            $details['student_name'] = mb_substr($student->name, 0, 150);
+        }
+
+        if ($relation->student_age === null && $profile?->date_of_birth !== null) {
+            $details['student_age'] = $profile->date_of_birth->age;
+        }
+
+        if ($relation->student_school_year_slug === null && $relation->student_grade_level_slug === null) {
+            if ($profile?->school_year_slug !== null) {
+                $details['student_school_year_slug'] = $profile->school_year_slug;
+            } elseif ($profile?->grade_level_slug !== null) {
+                $details['student_grade_level_slug'] = $profile->grade_level_slug;
+            }
+        }
+
+        return $details;
     }
 
     /**

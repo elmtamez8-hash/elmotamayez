@@ -12,6 +12,9 @@ import { CreditsIcon, ListIcon, WalletIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { CardGridSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
+import { navLabel } from "@/lib/panel-nav";
 import { billing, type CreditBalance, type CreditTransaction } from "@/lib/billing";
 
 /**
@@ -25,6 +28,45 @@ import { billing, type CreditBalance, type CreditTransaction } from "@/lib/billi
  * exactly where a stack trace or a bare 500 would be most alarming.
  */
 export default function BillingPage() {
+  const { user } = useAuth();
+
+  /*
+   * ⚠️ A GUARDIAN REACHES THIS SCREEN FROM THE SIDEBAR, AND IT SPOKE TO THEM AS
+   * THE STUDENT — «رصيدي · حصصك المتبقّية عند كل معلّم» over an account that
+   * holds no credits, and a «أوافق على شروط…» card that would have recorded the
+   * GUARDIAN agreeing to owe for themselves (`GET/POST /billing/consents`
+   * without a `student` resolves the signer as the student). A child's balance
+   * lives on that child's own dashboard (`ChildBalanceCard`), and buying for
+   * them is `/billing/purchase`, which already asks which child. So a guardian
+   * gets those two ways out and none of the student's sections.
+   */
+  if (user !== null && dashboardAudience(user) === "guardian") {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          Icon={CreditsIcon}
+          title={navLabel("/billing", user) ?? "شراء حصص لأبنائي"}
+          description="رصيد كلّ ابن يظهر في لوحته، ومن هنا تشتري له حصصاً."
+        />
+
+        <EmptyState
+          title="رصيد أبنائك في لوحة كلّ ابن"
+          description="افتح لوحة ابنك لترى حصصه المتبقّية عند كل معلّم، أو اشترِ له حصصاً الآن."
+          action={
+            <Button variant="primary" href="/billing/purchase">
+              شراء حصص لابنك
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return <StudentBilling />;
+}
+
+/** The student's own balances, consents and ledger. */
+function StudentBilling() {
   const [balances, setBalances] = useState<CreditBalance[]>([]);
   const [entries, setEntries] = useState<CreditTransaction[]>([]);
   const [page, setPage] = useState(1);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, errorMessage, fieldErrors } from "@/lib/api";
 import type { ChildLink } from "@/lib/types";
+import { childLinkName } from "@/lib/notifications";
 import type { SchoolYearOption } from "@/lib/public-api";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Field";
@@ -42,6 +43,9 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
       .catch(() => setBanner("تعذّر تحميل قائمة الأبناء."));
   }, []);
 
+  // With a code nothing else about the child is asked (see `submit`).
+  const hasCode = form.code.trim() !== "";
+
   const set = (key: keyof typeof form, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -61,23 +65,34 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
        */
       const code = form.code.trim();
 
-      const created = await api.post<ChildLink>("/family/relations", {
-        student_name: form.name,
-        /*
-         * A child who already has an account: the code their own `/family`
-         * screen shows them. Without it the row is a name-only child that no
-         * report can ever be read for. Omitted — never `""` — when empty, since
-         * the server's `uuid` rule refuses an empty string.
-         */
-        ...(code === "" ? {} : { student_uuid: code }),
-        age: form.age === "" ? null : Number(form.age),
-        school_year_slug:
-          form.school_year_slug === "" ? null : form.school_year_slug,
+      // The guardian who adds a child at signup gets the full set; the account
+      // screen is where any of it is taken away again.
+      const common = {
         relation_type: "parent",
-        // The guardian who adds a child at signup gets the full set; the account
-        // screen is where any of it is taken away again.
         permissions: ["attendance", "payments", "schedule", "results", "academic_warnings"],
-      });
+      };
+
+      /*
+       * ⛔ A CHILD WHO ALREADY HAS AN ACCOUNT IS NAMED BY THE CODE ALONE (owner
+       * decision, 2026-09-24): no name, no age, no year. The server fills those
+       * from the child's own account when they accept — never before, so a
+       * pending request teaches the parent nothing about whoever the code
+       * belongs to. Without a code the row is a name-only child, and only then
+       * are the three fields asked. The code is omitted — never `""` — when
+       * empty, since the server's `uuid` rule refuses an empty string.
+       */
+      const created = await api.post<ChildLink>(
+        "/family/relations",
+        code !== ""
+          ? { student_uuid: code, ...common }
+          : {
+              student_name: form.name,
+              age: form.age === "" ? null : Number(form.age),
+              school_year_slug:
+                form.school_year_slug === "" ? null : form.school_year_slug,
+              ...common,
+            },
+      );
 
       setChildren((current) => [...current, created]);
       setForm({ name: "", age: "", school_year_slug: "", code: "" });
@@ -106,7 +121,9 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
                 key={child.uuid}
                 className="flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3"
               >
-                <span className="font-medium text-ink">{child.student_name}</span>
+                <span className="font-medium text-ink">
+                  {childLinkName(child.student_name, child.status)}
+                </span>
                 <span className="text-sm text-ink-muted">
                   {child.student_school_year_name ??
                     (child.student_age === null ? "—" : `${child.student_age} سنة`)}
@@ -127,6 +144,30 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
         )}
 
         <div>
+          <label htmlFor="child-code" className="mb-1 block text-sm font-medium text-ink">
+            رمز حساب الطالب — إن كان له حساب على المنصّة
+          </label>
+          <input
+            id="child-code"
+            value={form.code}
+            onChange={(e) => set("code", e.target.value)}
+            dir="ltr"
+            aria-invalid={errors.student_uuid ? true : undefined}
+            aria-describedby="child-code-hint"
+            className={FIELD_CLASS}
+          />
+          <p id="child-code-hint" className="mt-1 text-sm text-ink-muted">
+            يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق
+            عليه، ولا ترى شيئاً قبل موافقته.
+          </p>
+          {errors.student_uuid && (
+            <p className="mt-1 text-sm text-danger-ink">{errors.student_uuid}</p>
+          )}
+        </div>
+
+        {!hasCode && (
+          <>
+        <div>
           <label htmlFor="child-name" className="mb-1 block text-sm font-medium text-ink">
             اسم الطالب
           </label>
@@ -143,28 +184,6 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
             <p id="child-name-error" className="mt-1 text-sm text-danger-ink">
               {errors.student_name}
             </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="child-code" className="mb-1 block text-sm font-medium text-ink">
-            رمز حساب الطالب — إن كان له حساب على المنصّة
-          </label>
-          <input
-            id="child-code"
-            value={form.code}
-            onChange={(e) => set("code", e.target.value)}
-            dir="ltr"
-            aria-invalid={errors.student_uuid ? true : undefined}
-            aria-describedby="child-code-hint"
-            className={FIELD_CLASS}
-          />
-          <p id="child-code-hint" className="mt-1 text-sm text-ink-muted">
-            يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يصله طلبك ليوافق عليه، ولا ترى شيئاً
-            قبل موافقته.
-          </p>
-          {errors.student_uuid && (
-            <p className="mt-1 text-sm text-danger-ink">{errors.student_uuid}</p>
           )}
         </div>
 
@@ -209,6 +228,9 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
             )}
           </div>
         </div>
+
+          </>
+        )}
 
         <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ الإضافة…">
           إضافة الطفل

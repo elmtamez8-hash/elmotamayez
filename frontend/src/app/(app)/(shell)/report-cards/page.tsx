@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
 import { family, type GuardianRelation } from "@/lib/notifications";
 import { arabicDecimal } from "@/lib/numerals";
 import { cardPeriodLabel, reportCards, type ReportCard } from "@/lib/reviews";
@@ -29,7 +30,9 @@ import { cardPeriodLabel, reportCards, type ReportCard } from "@/lib/reviews";
  */
 export default function ReportCardsPage() {
   const { user } = useAuth();
-  const isGuardian = user?.platform_role === "parent";
+  // One spelling of «is this a guardian», shared with the sidebar, /family and
+  // /billing/purchase — never a second comparison against `platform_role`.
+  const isGuardian = dashboardAudience(user) === "guardian";
 
   const [rows, setRows] = useState<ReportCard[]>([]);
   const [children, setChildren] = useState<GuardianRelation[]>([]);
