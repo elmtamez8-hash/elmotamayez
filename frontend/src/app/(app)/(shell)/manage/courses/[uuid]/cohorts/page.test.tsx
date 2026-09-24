@@ -19,10 +19,15 @@ const unassignedSessions = vi.fn();
 const assignSessions = vi.fn();
 const members = vi.fn();
 const history = vi.fn();
+const update = vi.fn();
+const reject = vi.fn();
 
 vi.mock("@/lib/cohorts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/cohorts")>()),
   manageCohorts: {
+    update: (...args: unknown[]) => update(...args),
+    reject: (...args: unknown[]) => reject(...args),
+    approve: vi.fn(),
     list: (uuid: string) => list(uuid),
     transferRequests: (uuid: string) => transferRequests(uuid),
     unassignedSessions: (uuid: string) => unassignedSessions(uuid),
@@ -181,5 +186,62 @@ describe("the roster and the log", () => {
     const link = screen.getByRole("link", { name: "المجموعة الأولى" });
 
     expect(link.getAttribute("href")).toBe("/manage/cohorts/g-1");
+  });
+});
+
+/*
+| A refused write keeps what the teacher typed.
+|
+| The edit box closed and the rejection reason was cleared BEFORE the request
+| answered, so a 422 threw the words away with the request.
+*/
+describe("a refused write", () => {
+  it("keeps the edit box open with the new name", async () => {
+    list.mockResolvedValue({ data: [group] });
+    update.mockRejectedValue(new Error("refused"));
+
+    await open();
+
+    fireEvent.click(screen.getByRole("button", { name: "تعديل" }));
+    fireEvent.change(document.getElementById("edit-name-g-1")!, { target: { value: "مجموعة المساء" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "احفظ" }));
+    });
+
+    expect(update).toHaveBeenCalled();
+    expect((document.getElementById("edit-name-g-1") as HTMLInputElement).value).toBe("مجموعة المساء");
+  });
+
+  it("keeps the rejection reason when the rejection is refused", async () => {
+    list.mockResolvedValue({ data: [group] });
+    transferRequests.mockResolvedValue({
+      data: [
+        {
+          uuid: "tr-1",
+          status: "pending",
+          student_reason: null,
+          decision_reason: null,
+          decided_at: null,
+          created_at: "2026-09-20T10:00:00Z",
+          to_cohort: { uuid: "g-1", name: "المجموعة الأولى" },
+          from_cohort: { uuid: "g-2", name: "المجموعة الثانية" },
+          student: { uuid: "s-1", name: "سارة" },
+        },
+      ],
+    });
+    reject.mockRejectedValue(new Error("refused"));
+
+    await open();
+
+    fireEvent.click(screen.getByRole("button", { name: "ارفض" }));
+    fireEvent.change(screen.getByLabelText("سبب الرفض"), { target: { value: "المجموعة ممتلئة" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "أرسِل الرفض" }));
+    });
+
+    expect(reject).toHaveBeenCalledWith("tr-1", "المجموعة ممتلئة");
+    expect((screen.getByLabelText("سبب الرفض") as HTMLInputElement).value).toBe("المجموعة ممتلئة");
   });
 });

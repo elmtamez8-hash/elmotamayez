@@ -114,6 +114,20 @@ export function AttendanceSheet({
     }
   };
 
+  /*
+    What the box shows: the teacher's edit if they typed one, otherwise what the
+    server already holds. It used to start empty on every visit, so a save made
+    without retyping the old remark erased it. The rating is never sent from
+    here — the server leaves a field it was not given untouched.
+  */
+  const noteFor = (studentUuid: string): string => {
+    if (notes[studentUuid] !== undefined) return notes[studentUuid];
+
+    const row = rows.find((r) => r.student?.uuid === studentUuid);
+
+    return row?.feedback?.note ?? "";
+  };
+
   const saveNote = async (studentUuid: string) => {
     if (sessionUuid === undefined) return;
 
@@ -122,7 +136,7 @@ export function AttendanceSheet({
 
     try {
       await attendance.feedback(sessionUuid, [
-        { student_uuid: studentUuid, note: notes[studentUuid] ?? "" },
+        { student_uuid: studentUuid, note: noteFor(studentUuid) },
       ]);
       setSaved(studentUuid);
     } catch (err: unknown) {
@@ -196,7 +210,7 @@ export function AttendanceSheet({
               <FeedbackField
                 rowUuid={row.uuid}
                 studentUuid={row.student.uuid}
-                value={notes[row.student.uuid] ?? ""}
+                value={noteFor(row.student.uuid)}
                 onChange={(value, uuid) =>
                   setNotes((current) => ({ ...current, [uuid]: value }))
                 }

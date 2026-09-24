@@ -54,6 +54,9 @@ export function PurchaseDialog({
   const [quantity, setQuantity] = useState("1");
   const [discount, setDiscount] = useState<AppliedDiscount | null>(null);
   const [code, setCode] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  // Whether what is in the box went through «تطبيق» and was accepted.
+  const [draftApplied, setDraftApplied] = useState(false);
   const [address, setAddress] = useState<ShippingAddress>(EMPTY_ADDRESS);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string | null>(null);
@@ -87,6 +90,18 @@ export function PurchaseDialog({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+
+    /*
+     | ⚠️ A CODE TYPED AND NEVER APPLIED IS REFUSED HERE, NOT DROPPED. Only an
+     | APPLIED code reaches `code`, so the order used to go out without it and
+     | the buyer paid full price with the code still visible in the box.
+     */
+    if (draft.trim() !== "" && !draftApplied) {
+      setProblem("اضغط «تطبيق» على كود الخصم، أو امسحه، قبل تأكيد الطلب.");
+
+      return;
+    }
+
     setBusy(true);
     setErrors({});
     setProblem(null);
@@ -155,7 +170,9 @@ export function PurchaseDialog({
           onApplied={(applied, appliedCode) => {
             setDiscount(applied);
             setCode(appliedCode);
+            setDraftApplied(applied !== null);
           }}
+          onDraftChange={setDraft}
         />
 
         {off > 0 && (

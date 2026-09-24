@@ -42,7 +42,7 @@ export default function AssistantsPage() {
   const load = useCallback(() => {
     setState("loading");
 
-    Promise.all([assistants.list(), api.get<{ data: Course[] }>("/courses")])
+    Promise.all([assistants.list(), api.get<{ data: Course[] }>("/courses?per_page=200")])
       .then(([team, courseList]) => {
         setRows(team.data ?? []);
         setCourses(courseList.data ?? []);

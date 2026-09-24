@@ -7,7 +7,6 @@ import { api, errorMessage, fieldErrors } from "@/lib/api";
 import type { ChildLink } from "@/lib/types";
 import type { SchoolYearOption } from "@/lib/public-api";
 import { Button } from "@/components/ui/Button";
-import { NotificationPreferences } from "./NotificationPreferences";
 import { Select } from "@/components/ui/Field";
 
 const FIELD_CLASS =
@@ -216,7 +215,21 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
         </Button>
       </form>
 
-      <NotificationPreferences />
+      {/*
+        ⚠️ THE PREFERENCES BLOCK THAT LIVED HERE CALLED A ROUTE THAT NO LONGER
+        EXISTS (`/parent/notification-preferences`), and its own `if (!prefs)
+        return null` hid both the section and the 404 — so a parent was never
+        shown the choice at all. The account-wide screen is the one that works
+        (`GET|PUT /notifications/preferences`), so this points at it rather than
+        keeping a second, different editor for the same rows.
+      */}
+      <p className="text-sm text-ink-muted">
+        تختار ما يصلك من تنبيهات عن أطفالك — الحضور والدرجات والمدفوعات — من{" "}
+        <Link href="/settings/notifications" className="font-semibold text-primary-ink hover:underline">
+          إعدادات التنبيهات
+        </Link>
+        {" "}في أيّ وقت.
+      </p>
 
       <div className="flex flex-wrap justify-between gap-3 border-t border-line pt-6">
         <Link href="/teachers" className="text-sm font-semibold text-primary-ink hover:underline">

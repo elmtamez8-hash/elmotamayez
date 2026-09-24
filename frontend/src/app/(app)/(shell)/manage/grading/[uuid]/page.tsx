@@ -114,18 +114,35 @@ function AnswerCard({
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Keyed like `points`: which boxes were left empty on the last attempt to save.
+  const [blank, setBlank] = useState<Record<number, boolean>>({});
 
   const submit = async () => {
+    /*
+     | ⚠️ AN EMPTY BOX IS NOT A ZERO. `Number(points[id] ?? 0)` turned a criterion
+     | the grader had not reached yet into a zero on the student's paper — and
+     | the paper then read «مُصحَّح», so nothing invited a second look.
+     */
+    const keys = hasRubric ? answer.criteria.map((criterion) => criterion.id) : [0];
+    const empty = Object.fromEntries(
+      keys
+        .filter((key) => (points[key] ?? "").trim() === "" || !Number.isFinite(Number(points[key])))
+        .map((key) => [key, true]),
+    );
+
+    setBlank(empty);
+    if (Object.keys(empty).length > 0) return;
+
     setSaving(true);
     setError("");
 
     const marks: MarkInput[] = hasRubric
       ? answer.criteria.map((criterion) => ({
           criterion_id: criterion.id,
-          points: Number(points[criterion.id] ?? 0),
+          points: Number(points[criterion.id]),
           comment: comments[criterion.id] ?? null,
         }))
-      : [{ criterion_id: null, points: Number(points[0] ?? 0), comment: comments[0] ?? null }];
+      : [{ criterion_id: null, points: Number(points[0]), comment: comments[0] ?? null }];
 
     try {
       if (answer.is_graded) {
@@ -182,6 +199,7 @@ function AnswerCard({
                 label={`${criterion.label} (${criterion.max_points})`}
                 value={points[criterion.id] ?? ""}
                 onChange={(value) => setPoints((previous) => ({ ...previous, [criterion.id]: value }))}
+                error={blank[criterion.id] ? BLANK_MARK : undefined}
                 min={0}
                 max={criterion.max_points}
                 step={0.25}
@@ -202,6 +220,7 @@ function AnswerCard({
               label="الدرجة"
               value={points[0] ?? ""}
               onChange={(value) => setPoints((previous) => ({ ...previous, 0: value }))}
+              error={blank[0] ? BLANK_MARK : undefined}
               min={0}
               max={answer.points_possible}
               step={0.25}
@@ -245,6 +264,8 @@ function AnswerCard({
     </Card>
   );
 }
+
+const BLANK_MARK = "أدخل الدرجة قبل اعتمادها.";
 
 function initialPoints(answer: GradingAnswer): Record<number, string> {
   const values: Record<number, string> = {};

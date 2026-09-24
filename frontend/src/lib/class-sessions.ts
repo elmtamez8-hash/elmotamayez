@@ -277,6 +277,12 @@ export interface AttendanceRow {
   /** An independent fact that never moved the status (FR-021د). */
   recording_watched_at: string | null;
   student?: { uuid: string; name: string } | null;
+  /**
+   * The remark already written — sent only to a reader who may edit it. The
+   * register's note box starts from THIS, or a save from an empty box would
+   * overwrite what was there.
+   */
+  feedback?: { rating: number | null; note: string | null } | null;
 }
 
 export const attendance = {

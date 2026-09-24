@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CheckIcon, ExamIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { TextareaField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 
 interface AttemptResponse {
@@ -20,6 +21,11 @@ interface AttemptResponse {
     points: number;
     options: Array<{ id: number; content: string }>;
   }>;
+}
+
+/** An essay carries no options; the teacher marks it by hand after submission. */
+function isEssay(q: AttemptResponse["questions"][number]): boolean {
+  return q.type === "essay";
 }
 
 /** "درجة / درجتان / N درجات" — Arabic duals and plurals, not an English "s". */
@@ -40,6 +46,10 @@ export default function TakeExamPage({
 
   const [data, setData] = useState<AttemptResponse | null>(null);
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
+  // An essay is answered in WORDS, and it used to have nowhere to put them: the
+  // screen drew option buttons only, so an essay rendered as a question with no
+  // control under it and was always submitted blank.
+  const [texts, setTexts] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -86,10 +96,15 @@ export default function TakeExamPage({
     try {
       // Unanswered questions are submitted with an empty selection and graded
       // as zero — the exam total never shrinks to what was answered.
-      const payload = Object.entries(answers).map(([qId, optionIds]) => ({
-        question_id: parseInt(qId, 10),
-        selected_option_ids: optionIds,
-      }));
+      const payload = data.questions.map((q) =>
+        isEssay(q)
+          ? {
+              question_id: q.id,
+              selected_option_ids: [],
+              answer_text: (texts[q.id] ?? "").trim() === "" ? null : texts[q.id],
+            }
+          : { question_id: q.id, selected_option_ids: answers[q.id] ?? [] },
+      );
 
       const result = await api.post<{ uuid: string }>(
         `/attempts/${data.attempt.uuid}/submit`,
@@ -117,7 +132,9 @@ export default function TakeExamPage({
     );
   }
 
-  const answered = Object.values(answers).filter((a) => a.length > 0).length;
+  const answered = data.questions.filter((q) =>
+    isEssay(q) ? (texts[q.id] ?? "").trim() !== "" : (answers[q.id] ?? []).length > 0,
+  ).length;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -147,8 +164,18 @@ export default function TakeExamPage({
               </div>
             </div>
 
-            {/* A fieldset, not a bare div: the question text is the group's
-                label, which is how a screen reader ties the options to it. */}
+            {isEssay(q) ? (
+              <TextareaField
+                id={`essay-${q.id}`}
+                label="إجابتك"
+                rows={6}
+                value={texts[q.id] ?? ""}
+                onChange={(value) => setTexts((prev) => ({ ...prev, [q.id]: value }))}
+                hint="يصحّحها المدرّس بعد التسليم."
+              />
+            ) : (
+            /* A fieldset, not a bare div: the question text is the group's
+               label, which is how a screen reader ties the options to it. */
             <fieldset className="space-y-2">
               <legend className="sr-only">{q.content}</legend>
               {q.options.map((opt) => {
@@ -178,6 +205,7 @@ export default function TakeExamPage({
                 );
               })}
             </fieldset>
+            )}
           </Card>
         ))}
       </div>

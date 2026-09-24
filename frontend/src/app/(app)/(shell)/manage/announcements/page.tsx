@@ -64,7 +64,9 @@ export default function AnnouncementsPage() {
     // The two pickers. A failure here leaves the scope selector with an empty
     // list rather than breaking the page — a workspace-wide notice needs neither.
     api
-      .get<{ data: Array<{ uuid: string; title: string }> }>("/courses")
+      // The index pages at 15 by default — a picker needs the whole list, so
+      // ask for the controller's ceiling (200) or course 16 cannot be chosen.
+      .get<{ data: Array<{ uuid: string; title: string }> }>("/courses?per_page=200")
       .then((response) => setCourses(response.data ?? []))
       .catch(() => setCourses([]));
 
@@ -190,7 +192,14 @@ export default function AnnouncementsPage() {
                         act(() => announcements.update(announcement.uuid, input))
                       }
                       busy={busy}
-                      initial={{ body: announcement.body, scope: announcement.scope }}
+                      // `is_urgent` travels with the edit: left out, the form
+                      // started unticked and every correction to an urgent
+                      // notice quietly demoted it to a routine one.
+                      initial={{
+                        body: announcement.body,
+                        scope: announcement.scope,
+                        is_urgent: announcement.is_urgent,
+                      }}
                       scopeLocked
                     />
                     <div className="mt-2">

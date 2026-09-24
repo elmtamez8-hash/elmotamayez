@@ -60,17 +60,30 @@ class SubmitSessionFeedback extends Action
                 throw new DomainException('هذا الطالب لا يملك مقعداً في هذه الحصة.');
             }
 
+            /*
+             | ⚠️ ONLY THE FIELDS THE CALLER SENT ARE WRITTEN. `?? null` on a key
+             | that was never in the request turned «save the note» into «save
+             | the note AND erase the rating» — the register screen sends the
+             | note alone, so every save wiped a rating written earlier. An
+             | absent key means «leave it»; an explicit null still clears it.
+             */
+            $values = [
+                'workspace_id' => $session->workspace_id,
+                'created_by' => $author->getKey(),
+            ];
+
+            foreach (['rating', 'note'] as $field) {
+                if (array_key_exists($field, $entry)) {
+                    $values[$field] = $entry[$field];
+                }
+            }
+
             $feedback = ClassSessionFeedback::query()->updateOrCreate(
                 [
                     'class_session_id' => $session->getKey(),
                     'student_user_id' => $studentIdsByUuid[$uuid],
                 ],
-                [
-                    'workspace_id' => $session->workspace_id,
-                    'rating' => $entry['rating'] ?? null,
-                    'note' => $entry['note'] ?? null,
-                    'created_by' => $author->getKey(),
-                ],
+                $values,
             );
 
             $saved->push($feedback);

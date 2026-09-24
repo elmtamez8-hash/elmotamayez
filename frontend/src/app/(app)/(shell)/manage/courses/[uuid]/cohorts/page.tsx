@@ -138,19 +138,31 @@ export default function ManageCohortsPage({
 
   useEffect(load, [load]);
 
-  const run = (promise: Promise<unknown>) => {
+  /**
+   * Resolves `true` once the write landed, `false` when it was refused — so a
+   * form closes on success only. The edit box and the rejection reason used to
+   * be cleared BEFORE the answer came back, and a 422 threw away what the
+   * teacher had typed along with the request it was refused for.
+   */
+  const run = (promise: Promise<unknown>): Promise<boolean> => {
     setBusy(true);
     setError(null);
 
-    promise
+    return promise
       .then(() => {
         load();
         // Whatever the panels were showing describes the state before the write
         // — an approved transfer moves a student between two of these rosters.
         setMembers({});
         setHistory({});
+
+        return true;
       })
-      .catch((e: unknown) => setError(userMessage(e)))
+      .catch((e: unknown) => {
+        setError(userMessage(e));
+
+        return false;
+      })
       .finally(() => setBusy(false));
   };
 
@@ -409,8 +421,8 @@ export default function ManageCohortsPage({
                         loadingLabel="جارٍ الحفظ"
                         disabled={edit.name.trim() === ""}
                         onClick={() => {
-                          setEditing(null);
-                          run(
+                          // Closed on success only — see `run`.
+                          void run(
                             manageCohorts.update(group.uuid, {
                               name: edit.name.trim(),
                               /* An empty box is «no description», which is a
@@ -423,7 +435,9 @@ export default function ManageCohortsPage({
                                  zero is a group nobody may ever join. */
                               capacity: edit.capacity.trim() === "" ? null : Number(edit.capacity),
                             }),
-                          );
+                          ).then((saved) => {
+                            if (saved) setEditing(null);
+                          });
                         }}
                       >
                         احفظ
@@ -872,7 +886,7 @@ function RejectControl({
   onReject,
 }: {
   busy: boolean;
-  onReject: (reason: string) => void;
+  onReject: (reason: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -898,9 +912,14 @@ function RejectControl({
         loading={busy}
         loadingLabel="جارٍ"
         onClick={() => {
-          onReject(reason.trim());
-          setOpen(false);
-          setReason("");
+          // The reason stays in the box until the rejection is accepted: a
+          // refusal cleared it before, and the teacher retyped it from memory.
+          void onReject(reason.trim()).then((sent) => {
+            if (!sent) return;
+
+            setOpen(false);
+            setReason("");
+          });
         }}
       >
         أرسِل الرفض

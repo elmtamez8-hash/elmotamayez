@@ -119,7 +119,7 @@ export default function ManagePlansPage() {
         // in the lib, and inventing one here would be a second spelling of a
         // request three screens already send inline.
         api
-          .get<{ data: Array<{ uuid: string; title: string }> }>("/courses")
+          .get<{ data: Array<{ uuid: string; title: string }> }>("/courses?per_page=200")
           .catch(() => ({ data: [] })),
         /*
          * ⚠️ SWALLOWED ON PURPOSE, AND ONLY THIS ONE. The plans are the page; the
