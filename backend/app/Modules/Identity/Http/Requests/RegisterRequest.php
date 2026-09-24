@@ -39,6 +39,12 @@ class RegisterRequest extends FormRequest
             | do — so `AttachReferral` attaches nothing and says nothing. An
             | `exists:` rule would also be an oracle: a 422 for an unknown code
             | and a 201 for a real one enumerates who is on the platform.
+            |
+            | ⚠️ THE STUDENT DOOR ANSWERS DIFFERENTLY ON PURPOSE. `/signup/student`
+            | carries a visible «كود الإحالة» field, so `RegisterStudentRequest`
+            | refuses an unknown code with a 422 under it (see the reasons there).
+            | This door has no such field on any screen, so there is nobody to
+            | show a message to.
             */
             'referral_code' => ['nullable', 'string', 'max:12'],
         ];

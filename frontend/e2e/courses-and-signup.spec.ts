@@ -73,6 +73,16 @@ test.describe("student signup", () => {
     await expect(note).toBeVisible();
   });
 
+  test("prefills the referral code from an invitation link, via the chooser too", async ({ page }) => {
+    // Spec 011 · FR-018 — the link on /referrals is the only inbound road to
+    // this field; a link that lands on the chooser must not lose the code.
+    await page.goto("/signup?ref=ab-c23");
+    await page.getByRole("link", { name: /طالب/ }).first().click();
+
+    await expect(page).toHaveURL(/\/signup\/student\?ref=ABC23/);
+    await expect(page.getByLabel("كود الإحالة (اختياري)")).toHaveValue("ABC23");
+  });
+
   test("carries the booking intent through from a teacher profile", async ({ page }) => {
     await page.goto("/teachers");
     const href = await page.locator('a[href^="/teachers/"]').first().getAttribute("href");

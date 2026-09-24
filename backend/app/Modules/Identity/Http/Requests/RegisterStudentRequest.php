@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Http\Requests;
 
+use App\Modules\Identity\Models\ReferralCode;
 use App\Modules\Marketplace\Actions\Public\ListSchoolYears;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
@@ -16,6 +17,16 @@ class RegisterStudentRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $code = $this->input('referral_code');
+
+        if (is_string($code)) {
+            $normalised = ReferralCode::normalise($code);
+            $this->merge(['referral_code' => $normalised === '' ? null : $normalised]);
+        }
     }
 
     /** @return array<string, mixed> */
@@ -67,12 +78,23 @@ class RegisterStudentRequest extends FormRequest
             /*
             | Spec 011 · US3 — who invited them, if anybody.
             |
-            | ⚠️ SHAPE ONLY, AND NO `exists:` RULE. An unknown code must not fail
-            | a registration; `AttachReferral` attaches nothing and says nothing.
-            | An `exists:` rule would also be an oracle — a 422 for an unknown
-            | code and a 201 for a real one enumerates who is on the platform.
+            | ⚠️ AN UNKNOWN CODE IS A 422 ON THIS FIELD, AND THAT REVERSES THE
+            | ORIGINAL «attach nothing and say nothing». The form now carries the
+            | field (and prefills it from a `?ref=` link), so a silent drop is the
+            | hostile outcome: the friend is never credited and the newcomer
+            | believes they were. The field is optional, so the person the
+            | message stops can fix the code or clear it and carry on — nothing
+            | about the account itself is refused.
+            |
+            | The «oracle» worry that kept `exists` out does not survive
+            | measuring: a code is 8 characters over a 32-symbol alphabet
+            | (~10¹² values) behind `throttle:registration`, and a hit says only
+            | that SOME code exists, never whose. Normalised in
+            | `prepareForValidation()` first — MySQL's collation would match a
+            | lower-case code where SQLite does not, and the suite and production
+            | must agree on the same input.
             */
-            'referral_code' => ['nullable', 'string', 'max:12'],
+            'referral_code' => ['nullable', 'string', 'max:12', Rule::exists('referral_codes', 'code')],
             /*
             | Spec 013 — the age question, asked once at the door.
             |
@@ -117,6 +139,8 @@ class RegisterStudentRequest extends FormRequest
             'country.size' => 'اختر الدولة.',
             'school_year_slug.in' => 'اختر الصف الدراسي من القائمة.',
             'region_slug.in' => 'اختر المنطقة من القائمة.',
+            'referral_code.exists' => 'لم نجد هذا الكود. تأكّد منه، أو امسح الخانة وأكمل التسجيل بدونه.',
+            'referral_code.max' => 'كود الإحالة أطول من اللازم. تأكّد منه، أو امسح الخانة.',
             'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
             'date_of_birth.before' => 'أدخل تاريخ ميلادٍ صحيحاً.',
             'guardian_contact.required' => 'لأنّك دون الثامنة عشرة، أدخل رقم جوّال وليّ أمرك ليوافق على تفعيل حسابك.',

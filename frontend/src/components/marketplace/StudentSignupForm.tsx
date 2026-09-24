@@ -13,6 +13,7 @@ import type { SchoolYearOption, Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
 import { PasswordField, Select } from "@/components/ui/Field";
+import { REFERRAL_CODE_MAX, sanitiseReferralCode } from "@/lib/referral-link";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -48,6 +49,7 @@ export function StudentSignupForm({
   regions,
   teacherUuid,
   next,
+  referralCode = "",
 }: {
   schoolYears: SchoolYearOption[];
   regions: Taxonomy[];
@@ -60,6 +62,12 @@ export function StudentSignupForm({
    * the value came off the address bar.
    */
   next?: string;
+  /**
+   * Spec 011 · FR-018 — the code from an invitation link (`?ref=`), already
+   * sanitised by the page. It only PREFILLS: the visitor can edit or clear it,
+   * and the server is the one that decides whether it exists.
+   */
+  referralCode?: string;
 }) {
   const router = useRouter();
   const { adoptSession } = useAuth();
@@ -80,6 +88,7 @@ export function StudentSignupForm({
     region_slug: regions[0]?.slug ?? "",
     date_of_birth: "",
     guardian_contact: "",
+    referral_code: referralCode,
     terms_accepted: false,
   });
   const [dial, setDial] = useState(DEFAULT_COUNTRY.dial);
@@ -144,6 +153,9 @@ export function StudentSignupForm({
           // Sent only when there is one: an adult has no guardian to name, and
           // an empty string would fail the E.164 rule rather than be ignored.
           guardian_contact: form.guardian_contact === "" ? undefined : form.guardian_contact,
+          // Same rule: an empty field means «nobody invited me», not a code to
+          // look up — the API answers an unknown code 422.
+          referral_code: form.referral_code === "" ? undefined : form.referral_code,
         },
         idempotencyKey,
       );
@@ -359,6 +371,28 @@ export function StudentSignupForm({
           required
         />
       </div>
+
+      {/* Spec 011 · FR-018 — optional. Prefilled from an invitation link; an
+          unknown code comes back as a 422 under this field, where the visitor
+          can fix it or clear it and carry on. */}
+      <Field id="referral_code" label="كود الإحالة (اختياري)" error={errors.referral_code}>
+        <input
+          id="referral_code"
+          dir="ltr"
+          value={form.referral_code}
+          onChange={(e) => set("referral_code", sanitiseReferralCode(e.target.value))}
+          maxLength={REFERRAL_CODE_MAX}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          aria-invalid={errors.referral_code ? true : undefined}
+          aria-describedby={errors.referral_code ? "referral_code-hint referral_code-error" : "referral_code-hint"}
+          className={FIELD_CLASS}
+        />
+        <p id="referral_code-hint" className="mt-1 text-sm text-ink-muted">
+          إن دعاك صديق، اكتب الكود الذي أرسله لك. اتركه فارغاً إن لم يكن لديك كود.
+        </p>
+      </Field>
 
       {/* FR-064 */}
       <div className="rounded-xl border border-line p-4">

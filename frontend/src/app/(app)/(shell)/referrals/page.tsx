@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { ReferralIcon, UsersIcon } from "@/components/icons";
+import { ReferralIcon, UsersIcon, WhatsAppIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
+import { referralSignupLink, whatsAppShareHref } from "@/lib/referral-link";
 import { referrals, type Referral, type ReferralCode } from "@/lib/referrals";
 
 /**
@@ -41,7 +42,15 @@ export default function ReferralsPage() {
   const [rows, setRows] = useState<Referral[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
+  // Read in an effect, never during render: this page is prerendered, and
+  // `window` does not exist there — a mismatch between the server's blank and
+  // the client's origin is a hydration warning on every visit.
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -65,18 +74,20 @@ export default function ReferralsPage() {
     void load();
   }, [load]);
 
-  async function copy() {
+  const link = code === null || origin === "" ? "" : referralSignupLink(origin, code.code);
+
+  async function copy(what: "code" | "link") {
     if (code === null) return;
 
     try {
-      await navigator.clipboard.writeText(code.code);
-      setCopied(true);
+      await navigator.clipboard.writeText(what === "code" ? code.code : link);
+      setCopied(what);
     } catch {
       // ⚠️ NOT AN ERROR SCREEN. The clipboard is refused outside a secure
       // context and in some in-app browsers, and the code is on screen and
       // selectable either way — telling somebody their invitation failed
       // because a copy button did not work would be false.
-      setCopied(false);
+      setCopied(null);
     }
   }
 
@@ -88,7 +99,7 @@ export default function ReferralsPage() {
       <PageHeader
         Icon={ReferralIcon}
         title="دعوة صديق"
-        description="شارِكْ كودك مع من تعرف. حين يشترك صديقك اشتراكاً فعليّاً تُضاف نقاط لكما معاً."
+        description="شارِكْ رابط الدعوة أو كودك مع من تعرف. حين يشترك صديقك اشتراكاً فعليّاً تُضاف نقاط لكما معاً."
       />
 
       <Card>
@@ -100,15 +111,43 @@ export default function ReferralsPage() {
           </p>
 
           <div className="flex items-center gap-3">
-            <Button type="button" variant="secondary" onClick={() => void copy()}>
+            <Button type="button" variant="secondary" onClick={() => void copy("code")}>
               نسخ الكود
             </Button>
 
-            {copied && <span className="text-sm text-secondary-ink">نُسخ.</span>}
+            {copied === "code" && <span className="text-sm text-secondary-ink">نُسخ.</span>}
           </div>
 
+          {link !== "" && (
+            <div className="space-y-3 border-t border-line pt-3">
+              <p className="text-sm text-ink-muted">رابط الدعوة</p>
+
+              {/* Selectable text, so the link survives a refused clipboard. */}
+              <p className="break-all font-mono text-sm text-ink" dir="ltr">
+                {link}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" variant="secondary" onClick={() => void copy("link")}>
+                  انسخ الرابط
+                </Button>
+
+                <Button
+                  href={whatsAppShareHref(link)}
+                  external
+                  variant="secondary"
+                  iconStart={<WhatsAppIcon className="h-5 w-5" />}
+                >
+                  شارك عبر واتساب
+                </Button>
+
+                {copied === "link" && <span className="text-sm text-secondary-ink">نُسخ الرابط.</span>}
+              </div>
+            </div>
+          )}
+
           <Alert tone="info" title="متى تصل النقاط؟">
-            يكتب صديقك الكود عند إنشاء حسابه، ثمّ تُضاف النقاط لكما عندما يشترك اشتراكاً فعليّاً
+            أرسل الرابط لصديقك، أو يكتب الكود في خانة «كود الإحالة» عند التسجيل، ثمّ تُضاف النقاط لكما عندما يشترك اشتراكاً فعليّاً
             ويُعتمَد دفعُه — لا عند التسجيل وحدَه. وإن استُرِدّ الاشتراك تُسحَب النقاط.
           </Alert>
         </div>
@@ -122,7 +161,7 @@ export default function ReferralsPage() {
           </div>
 
           {rows.length === 0 ? (
-            <EmptyState title="لم تُرسِلْ دعوةً بعد" description="شارِكْ كودك أعلاه لتبدأ." />
+            <EmptyState title="لم تُرسِلْ دعوةً بعد" description="شارِكْ رابطك أو كودك أعلاه لتبدأ." />
           ) : (
             <ul className="divide-y divide-line">
               {rows.map((row) => (
