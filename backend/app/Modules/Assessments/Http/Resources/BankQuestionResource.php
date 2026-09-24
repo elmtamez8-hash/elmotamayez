@@ -47,6 +47,19 @@ class BankQuestionResource extends JsonResource
             'points' => $this->points,
             'explanation' => $this->explanation,
             'options' => QuestionOptionResource::collection($this->whenLoaded('options')),
+            // The mark scheme (FR-028), loaded on the single-question read only —
+            // the editor is the one reader, and the list has no use for it. An
+            // essay with no criteria answers an empty list, which is a state
+            // («graded as one number»), not a missing field.
+            'rubric_criteria' => $this->whenLoaded('rubricCriteria', fn (): array => $this->rubricCriteria
+                ->map(fn ($criterion): array => [
+                    'id' => (int) $criterion->getKey(),
+                    'label' => $criterion->label,
+                    'max_points' => (float) $criterion->max_points,
+                    'order' => (int) $criterion->order,
+                ])
+                ->values()
+                ->all()),
             // How many exams include it. The number a teacher checks before
             // rewriting a question, and the reason `withCount` is in the
             // controller's declared eager-load plan rather than counted per row.

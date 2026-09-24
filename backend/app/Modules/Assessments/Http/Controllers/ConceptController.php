@@ -49,9 +49,15 @@ class ConceptController extends Controller
 
     public function update(SaveConceptRequest $request, Concept $concept): JsonResponse
     {
+        /*
+        | ⚠️ `subject_id` IS WRITTEN ONLY WHEN IT WAS SENT. `subjectId()` answers
+        | null for an absent key, so a rename (`{name}` alone — which is all the
+        | bank screen sends) used to detach whatever subject the row carried.
+        | Absent means «unchanged»; an explicit null still clears it.
+        */
         $concept->update([
             'name' => $request->string('name')->toString(),
-            'subject_id' => $this->subjectId($request),
+            ...($request->has('subject_id') ? ['subject_id' => $this->subjectId($request)] : []),
         ]);
 
         return response()->json(['data' => ConceptResource::make($concept)]);

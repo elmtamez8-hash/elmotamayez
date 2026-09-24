@@ -4,9 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
+import { can, P } from "@/lib/permissions";
 import type { Certificate } from "@/lib/types";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CertificateIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
@@ -34,7 +39,15 @@ import { Table, type Column } from "@/components/ui/Table";
  * lies rather than one that is merely short.
  */
 export default function ManageCertificatesPage() {
+  const { user } = useAuth();
+  // `certificates.regenerate` at the door (CertificatePolicy::regenerate); the
+  // button is not offered to a reader the server would refuse.
+  const canRegenerate = can(user, P.certificatesRegenerate);
+
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [regenerating, setRegenerating] = useState<Certificate | null>(null);
+  const [regenerateBusy, setRegenerateBusy] = useState(false);
+  const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -58,6 +71,35 @@ export default function ManageCertificatesPage() {
   }, []);
 
   useEffect(() => load(1), [load]);
+
+  /*
+   | ⚠️ WHAT THIS DOES IS SMALLER THAN ITS NAME. The certificate is DRAWN live
+   | from the current design every time it is opened, so a changed design
+   | already reaches every certificate without this button. Regenerating keeps
+   | the number, the verification code and the issue date exactly as they were
+   | (the Action refuses to restamp the date — that would be forgery), records
+   | the act in the audit log and tells the student. The confirmation says so,
+   | rather than promising a new file.
+   */
+  const regenerate = async () => {
+    if (regenerating === null) return;
+
+    setRegenerateBusy(true);
+    setNotice(null);
+
+    try {
+      await api.post(`/certificates/${regenerating.uuid}/regenerate`);
+      setNotice({
+        tone: "success",
+        text: `أُعيد إصدار شهادة ${regenerating.student_name ?? "الطالب"} ووصله إشعار بذلك.`,
+      });
+    } catch (err: unknown) {
+      setNotice({ tone: "danger", text: userMessage(err) });
+    } finally {
+      setRegenerateBusy(false);
+      setRegenerating(null);
+    }
+  };
 
   const columns: Column<Certificate>[] = [
     {
@@ -85,12 +127,19 @@ export default function ManageCertificatesPage() {
       key: "verify",
       header: "الإجراء",
       render: (row) => (
-        <Link
-          href={`/certificates/verify/${row.verification_code}`}
-          className="text-primary-ink underline-offset-4 hover:underline"
-        >
-          تحقّق
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href={`/certificates/verify/${row.verification_code}`}
+            className="text-primary-ink underline-offset-4 hover:underline"
+          >
+            تحقّق
+          </Link>
+          {canRegenerate && (
+            <Button variant="ghost" size="sm" onClick={() => setRegenerating(row)}>
+              أعِد الإصدار <span className="sr-only">{`لشهادة ${row.student_name ?? row.certificate_number}`}</span>
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -112,6 +161,8 @@ export default function ManageCertificatesPage() {
           </Button>
         }
       />
+
+      {notice !== null && <Alert tone={notice.tone} title={notice.text} />}
 
       <Table
         columns={columns}
@@ -144,6 +195,16 @@ export default function ManageCertificatesPage() {
           </Button>
         </div>
       )}
+
+      <Modal
+        open={regenerating !== null}
+        title="إعادة إصدار الشهادة"
+        message={`يصل ${regenerating?.student_name ?? "الطالب"} إشعارٌ بأن شهادته أُعيد إصدارها بالتصميم الحالي. رقم الشهادة ورمز التحقّق وتاريخ الإصدار لا تتغيّر.`}
+        confirmLabel="أعِد الإصدار"
+        busy={regenerateBusy}
+        onConfirm={() => void regenerate()}
+        onCancel={() => setRegenerating(null)}
+      />
     </div>
   );
 }

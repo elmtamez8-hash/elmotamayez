@@ -36,7 +36,7 @@ class SaveRubric extends Action
     public function handle(Question $question, array $criteria): Collection
     {
         if (! $question->isEssay()) {
-            throw new DomainException('Only an essay question is graded against a rubric.');
+            throw new DomainException('معايير التصحيح للأسئلة المقالية وحدها.');
         }
 
         $total = 0.0;
@@ -45,14 +45,14 @@ class SaveRubric extends Action
             $points = (float) $criterion['max_points'];
 
             if ($points <= 0) {
-                throw new DomainException('A criterion must be worth something.');
+                throw new DomainException('كلّ معيارٍ يجب أن تكون له درجة أكبر من الصفر.');
             }
 
             $total += $points;
         }
 
         if ($total > (float) $question->points) {
-            throw new DomainException('The criteria add up to more than the question is worth.');
+            throw new DomainException('مجموع درجات المعايير أكبر من درجة السؤال.');
         }
 
         /*
@@ -65,7 +65,7 @@ class SaveRubric extends Action
         | ({@see ReviseGrade}); changing the scheme underneath one does not.
         */
         if ($this->alreadyGraded($question)) {
-            throw new DomainException('This question has already been graded against its current rubric.');
+            throw new DomainException('صُحِّحت إجاباتٌ على هذه المعايير من قبل، فلا يمكن تغييرها الآن.');
         }
 
         return DB::transaction(function () use ($question, $criteria): Collection {

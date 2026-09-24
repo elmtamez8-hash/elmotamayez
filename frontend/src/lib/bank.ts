@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { RubricCriterion } from "./grading";
 
 /**
  * The question bank: browsing it, editing it, and filling it from a file.
@@ -48,6 +49,9 @@ export interface BankQuestion {
   options?: QuestionOption[];
   /** How many exams include it — absent unless the caller asked for the count. */
   usage_count?: number;
+  /** The mark scheme (FR-028). Sent by the single-question read only; `[]` means
+   *  «graded as one number», absent means the caller did not load it. */
+  rubric_criteria?: (RubricCriterion & { order: number })[];
   created_at: string;
 }
 
@@ -148,6 +152,18 @@ export const bank = {
 
   createConcept: (name: string) =>
     api.post<{ data: Concept }>("/manage/bank/concepts", { name }),
+
+  /** A rename sends `name` alone — the server leaves the concept's subject as it was. */
+  renameConcept: (uuid: string, name: string) =>
+    api.patch<{ data: Concept }>(`/manage/bank/concepts/${uuid}`, { name }),
+
+  /**
+   * ⚠️ THE WHOLE SCHEME, EVERY TIME — `[]` clears it. The server checks the SUM
+   * against the question's points, and a partial edit cannot express a deletion.
+   * Refused once anyone has graded against the current scheme.
+   */
+  saveRubric: (questionUuid: string, criteria: { label: string; max_points: number; order: number }[]) =>
+    api.put<{ data: RubricCriterion[] }>(`/manage/bank/questions/${questionUuid}/rubric`, { criteria }),
 
   imports: () => api.get<Paginated<ImportReport>>("/manage/bank/imports"),
 

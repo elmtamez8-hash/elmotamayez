@@ -4,10 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ManageCertificatesPage from "./page";
 
 const get = vi.fn();
+const post = vi.fn();
+let mockUser: { permissions: string[] } = { permissions: ["certificates.view.all"] };
 
-vi.mock("@/lib/api", () => ({
-  api: { get: (path: string) => get(path) },
-}));
+vi.mock("@/lib/api", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+
+  return { ...actual, api: { get: (path: string) => get(path), post: (path: string) => post(path) } };
+});
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
 
 function row(index: number) {
   return {
@@ -23,6 +28,7 @@ function row(index: number) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { permissions: ["certificates.view.all"] };
 });
 
 describe("ManageCertificatesPage", () => {
@@ -81,5 +87,44 @@ describe("ManageCertificatesPage", () => {
     const link = screen.getByRole("link", { name: "تصميم الشهادة" });
 
     expect(link.getAttribute("href")).toBe("/manage/certificates/design");
+  });
+});
+
+describe("regenerating a certificate", () => {
+  /*
+    `POST /certificates/{uuid}/regenerate` had no caller. It is offered only to
+    a holder of `certificates.regenerate`, and it tells the student — so it asks
+    before it sends.
+  */
+  it("is not offered without the permission", async () => {
+    get.mockResolvedValue({ data: [row(1)], meta: { last_page: 1 } });
+
+    await act(async () => {
+      render(<ManageCertificatesPage />);
+    });
+
+    expect(screen.queryByRole("button", { name: /^أعِد الإصدار/ })).toBeNull();
+  });
+
+  it("asks first, then posts once for that certificate", async () => {
+    mockUser = { permissions: ["certificates.view.all", "certificates.regenerate"] };
+    get.mockResolvedValue({ data: [row(1)], meta: { last_page: 1 } });
+    post.mockResolvedValue({});
+
+    await act(async () => {
+      render(<ManageCertificatesPage />);
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: /^أعِد الإصدار/ })[0]);
+    expect(post).not.toHaveBeenCalled();
+
+    await act(async () => {
+      const buttons = screen.getAllByRole("button", { name: /^أعِد الإصدار/ });
+      fireEvent.click(buttons[buttons.length - 1]);
+    });
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith("/certificates/u1/regenerate");
+    expect(screen.getByText(/ووصله إشعار بذلك/)).toBeTruthy();
   });
 });
