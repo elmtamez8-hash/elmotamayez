@@ -11,7 +11,7 @@ import { DocumentViewer } from "@/components/player/DocumentViewer";
 import { EmbeddedVideo } from "@/components/player/EmbeddedVideo";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { SessionChat } from "@/components/community/SessionChat";
-import { BookIcon, CheckIcon, ChevronEndIcon, HistoryIcon } from "@/components/icons";
+import { AudioIcon, BookIcon, CheckIcon, ChevronEndIcon, HistoryIcon, PlayIcon } from "@/components/icons";
 import { LessonNav } from "@/components/learn/LessonNav";
 import { LessonRail } from "@/components/learn/LessonRail";
 import { Alert } from "@/components/ui/Alert";
@@ -165,10 +165,17 @@ export default function LearnLessonPage({
   // "تعذّرت المشاهدة — لا تملك صلاحية لهذا الإجراء" in red over content that had
   // loaded and was perfectly readable. Waiting one render costs nothing: the
   // detail fetch is already in flight when this runs.
-  const wantsPlayer =
-    blocked === null &&
-    detail !== null &&
-    (detail.type === "video" || detail.type === "audio");
+  const isMedia =
+    detail !== null && (detail.type === "video" || detail.type === "audio");
+
+  // And only when a file is attached: without one the server can only answer
+  // 403 («لا يوجد ملف»), which the screen would show as a refusal — a student
+  // told «لا تملك صلاحية» about a lesson they own, when the teacher simply has
+  // not uploaded it yet. `has_asset` is the server's own answer, so nothing is
+  // re-derived here.
+  const wantsPlayer = blocked === null && isMedia && detail.has_asset;
+
+  const awaitingMedia = blocked === null && isMedia && !detail.has_asset;
 
   useEffect(() => {
     let cancelled = false;
@@ -375,6 +382,26 @@ export default function LearnLessonPage({
           <Alert tone="danger" title="تعذّرت المشاهدة">
             {error}
           </Alert>
+        )}
+
+        {awaitingMedia && (
+          <Card>
+            <div className="flex flex-col items-center gap-3 py-8 text-center" role="status">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary-soft text-primary-ink">
+                {detail.type === "audio" ? (
+                  <AudioIcon className="h-7 w-7" />
+                ) : (
+                  <PlayIcon className="h-7 w-7" />
+                )}
+              </span>
+              <h3 className="text-base font-bold text-ink">
+                {detail.type === "audio" ? "لا يوجد تسجيل صوتي لهذا الدرس بعد" : "لا يوجد فيديو لهذا الدرس بعد"}
+              </h3>
+              <p className="max-w-sm text-sm leading-relaxed text-ink-muted">
+                لم يرفعه المدرّس حتى الآن. سيظهر هنا تلقائياً فور رفعه.
+              </p>
+            </div>
+          </Card>
         )}
 
         {grant !== null && wantsPlayer && (

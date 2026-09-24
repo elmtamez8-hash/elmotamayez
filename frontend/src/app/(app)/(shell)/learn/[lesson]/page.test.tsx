@@ -30,7 +30,11 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   api: { get: (path: string) => get(path), post: (path: string) => post(path) },
 }));
 
-vi.mock("@/lib/media", () => ({ media: { grant: vi.fn() } }));
+const requestPlayback = vi.fn();
+
+vi.mock("@/lib/media", () => ({
+  media: { grant: vi.fn(), requestPlayback: (uuid: string) => requestPlayback(uuid) },
+}));
 
 // نقاشُ الدرسِ يفتحُ مقبساً حيّاً، ولا شأنَ له بهذا القياس.
 vi.mock("@/components/community/SessionChat", () => ({ SessionChat: () => null }));
@@ -451,5 +455,33 @@ describe("moving between lessons", () => {
     const current = await screen.findByRole("link", { current: "page" });
 
     expect(current.getAttribute("href")).toBe("/learn/l-1");
+  });
+});
+
+/*
+| A video item with no file attached used to ask for a grant anyway, and the
+| server's «لا يوجد ملف» 403 reached the student as «تعذّرت المشاهدة — لا تملك
+| صلاحية لهذا الإجراء» about a lesson they own. `has_asset` is the server's
+| answer, so the screen asks for nothing and says the file is not up yet.
+*/
+describe("a media lesson with no file yet", () => {
+  it("says there is no video yet, and never asks for a grant", async () => {
+    answer({}, { type: "video", type_label: "فيديو", has_asset: false });
+
+    await open();
+
+    expect(await screen.findByText("لا يوجد فيديو لهذا الدرس بعد")).toBeTruthy();
+    expect(screen.queryByText("تعذّرت المشاهدة")).toBeNull();
+    expect(requestPlayback).not.toHaveBeenCalled();
+  });
+
+  it("still asks for the grant when the file is there", async () => {
+    requestPlayback.mockReturnValue(new Promise(() => {}));
+    answer({}, { type: "video", type_label: "فيديو", has_asset: true });
+
+    await open();
+
+    await waitFor(() => expect(requestPlayback).toHaveBeenCalledWith("l-1"));
+    expect(screen.queryByText("لا يوجد فيديو لهذا الدرس بعد")).toBeNull();
   });
 });
