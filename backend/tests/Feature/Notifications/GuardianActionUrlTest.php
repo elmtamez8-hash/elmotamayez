@@ -63,6 +63,15 @@ it('leaves a page that already serves a guardian as it is', function (): void {
     expect(guardianLinkFor($guardian, NotificationType::ExamResult))->toBe('/reviews');
 });
 
+it('names the child on a bare dashboard link, or the guardian lands on the first one', function (): void {
+    $student = User::factory()->create();
+    $guardian = guardianOf($student, [GuardianPermission::Results]);
+
+    guardianLinkNotify($student, NotificationType::ExamResult, '/dashboard');
+
+    expect(guardianLinkFor($guardian, NotificationType::ExamResult))->toBe('/dashboard?student='.$student->uuid);
+});
+
 it('gives the guardian no link where the student had none', function (): void {
     $student = User::factory()->create();
     $guardian = guardianOf($student, [GuardianPermission::Results]);

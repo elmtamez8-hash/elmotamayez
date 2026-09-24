@@ -26,15 +26,17 @@ use App\Models\User;
  *
  * ⚠️ EXCEPT WHERE THE ORIGINAL PAGE ALREADY SERVES A GUARDIAN. Those are named,
  * not derived: `/reviews` picks the child itself, `/store` is the buyer's own
- * purchases (and the guardian is usually the buyer), `/family` is the
- * relationship both sides see, and `/dashboard` is the destination anyway. A
- * page added to this list has to be one a guardian can actually use — the test
- * beside this class asserts the exam-result copy lands on one.
+ * purchases (and the guardian is usually the buyer), and `/family` is the
+ * relationship both sides see. `/dashboard` is deliberately NOT here: a bare one
+ * lands on the guardian's alphabetically-first child, so it too gains the
+ * `?student=` of the child the notification is about. A page added to this list
+ * has to be one a guardian can actually use — the test beside this class asserts
+ * the exam-result copy lands on one.
  */
 final class GuardianActionUrl
 {
     /** Paths whose page already answers a guardian correctly. */
-    private const GUARDIAN_SAFE = ['/dashboard', '/reviews', '/store', '/family'];
+    private const GUARDIAN_SAFE = ['/reviews', '/store', '/family'];
 
     public static function for(?string $url, User $student): ?string
     {

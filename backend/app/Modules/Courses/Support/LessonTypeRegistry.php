@@ -222,9 +222,9 @@ final class LessonTypeRegistry
      * Here rather than in each Action: `ManageLessons::create` and
      * `ChangeLessonType::handle` are two doors onto the same decision and each held
      * a byte-identical copy of the sentence. The registry owns `implemented`, so it
-     * owns what to say when the answer is false — "assignments arrive with the
-     * question bank" is an answer; "invalid type" sends the teacher to look for
-     * their own mistake.
+     * owns what to say when the answer is false — "an assignment is not linked
+     * into the curriculum yet; write it on the assignments page" is an answer;
+     * "invalid type" sends the teacher to look for their own mistake.
      *
      * @throws DomainException
      */
