@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+import { MessageStudentButton } from "@/components/community/MessageStudentButton";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -521,8 +522,11 @@ export default function ManageCohortPage({
                   className="flex items-center justify-between gap-3 text-sm"
                 >
                   <span className="truncate text-ink">{member.name}</span>
-                  <span className="shrink-0 text-xs text-ink-muted">
-                    انضمّ {formatDate(member.joined_at)}
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="text-xs text-ink-muted">
+                      انضمّ {formatDate(member.joined_at)}
+                    </span>
+                    <MessageStudentButton studentUuid={member.uuid} studentName={member.name} />
                   </span>
                 </li>
               ))}

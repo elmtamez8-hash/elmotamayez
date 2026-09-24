@@ -2,6 +2,7 @@ import type { TeacherDetail } from "@/lib/public-api";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ReviewForm } from "@/components/marketplace/ReviewForm";
+import { ReportReviewButton } from "@/components/marketplace/ReportReviewButton";
 
 import { arabicDecimal, arabicNumber } from "@/lib/numerals";
 const STARS = [5, 4, 3, 2, 1] as const;
@@ -92,9 +93,9 @@ export function ReviewsTab({
         </h2>
 
         <ul className="space-y-4">
-          {reviews.items.map((review, index) => (
+          {reviews.items.map((review) => (
             <li
-              key={`${review.student_display_name}-${review.created_at}-${index}`}
+              key={review.uuid}
               className="rounded-xl border border-line p-5"
             >
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -139,6 +140,10 @@ export function ReviewsTab({
               {review.comment && (
                 <p className="leading-relaxed text-ink-muted">{review.comment}</p>
               )}
+
+              {/* A client leaf: the tab stays server-rendered for crawlers, and
+                  only a signed-in reader is offered the control. */}
+              <ReportReviewButton reviewUuid={review.uuid} />
             </li>
           ))}
         </ul>

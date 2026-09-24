@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\PermissionRegistrar;
 
 describe('workspace creation', function (): void {
     /*
@@ -187,6 +189,33 @@ describe('member removal', function (): void {
 
         $this->deleteJson("/api/v1/workspaces/{$workspace->uuid}/members/{$studentB->uuid}")
             ->assertForbidden();
+    });
+
+    /*
+    | ⚠️ BOTH DIRECTIONS, because the defect was a permission read by nothing.
+    | Removal used to ask `members.invite`, so an assistant trusted to invite
+    | could remove, and the name the roles screen offers for removal delegated
+    | nothing. A deny-only case passes against either spelling.
+    */
+    it('asks members.remove, not members.invite, before removing', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        $this->setCurrentWorkspace($workspace, $owner);
+
+        $assistant->givePermissionTo(Permissions::MEMBERS_INVITE);
+        Sanctum::actingAs($assistant);
+
+        $this->deleteJson("/api/v1/workspaces/{$workspace->uuid}/members/{$student->uuid}")
+            ->assertForbidden();
+        expect($workspace->members()->where('user_id', $student->getKey())->exists())->toBeTrue();
+
+        $assistant->givePermissionTo(Permissions::MEMBERS_REMOVE);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $this->deleteJson("/api/v1/workspaces/{$workspace->uuid}/members/{$student->uuid}")
+            ->assertNoContent();
+        expect($workspace->members()->where('user_id', $student->getKey())->exists())->toBeFalse();
     });
 });
 

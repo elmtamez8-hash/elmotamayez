@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { TextField, SelectField } from "@/components/ui/Field";
 import { Table, type Column } from "@/components/ui/Table";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -137,6 +138,40 @@ export default function MembersPage() {
 
   const canChangeRoles = can(user, P.membersUpdate);
 
+  /*
+   * ⛔ `DELETE …/members/{member}` EXISTED AND NO SCREEN CALLED IT. Taking
+   * somebody off the team meant asking the platform to do it by hand.
+   *
+   * ⚠️ A WINDOW, NOT A TWO-PRESS ARM: nothing else is happening on this screen,
+   * and removal takes away everything the person could do here at once — the
+   * `Modal` case, not the live-lesson `ConfirmButton` case. Offered on
+   * `members.remove`, which is exactly what the door asks now, and never on the
+   * owner's row (`is_owner`, from the payload): the server answers 422 there and
+   * that refusal stays the guard, the button's absence only spares the question.
+   */
+  const canRemove = can(user, P.membersRemove);
+  const [removing, setRemoving] = useState<Member | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+
+  const confirmRemove = async () => {
+    if (!workspaceUuid || removing === null) return;
+
+    setRemoveBusy(true);
+    setRemoveError("");
+
+    try {
+      await api.delete(`/workspaces/${workspaceUuid}/members/${removing.uuid}`);
+      setRemoving(null);
+      load();
+    } catch (err: unknown) {
+      setRemoving(null);
+      setRemoveError(userMessage(err));
+    } finally {
+      setRemoveBusy(false);
+    }
+  };
+
   const columns: Column<Member>[] = [
     {
       key: "name",
@@ -180,6 +215,21 @@ export default function MembersPage() {
           <Badge tone="info">{roleLabel(m.role, m.role_label)}</Badge>
         ),
     },
+    ...(canRemove
+      ? [
+          {
+            key: "remove",
+            header: "إجراء",
+            render: (m: Member) =>
+              m.is_owner ? null : (
+                <Button size="sm" variant="ghost" onClick={() => setRemoving(m)}>
+                  إزالة
+                  {" "}<span className="sr-only">{m.name}</span>
+                </Button>
+              ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -265,6 +315,18 @@ export default function MembersPage() {
       )}
 
       {roleError !== "" && <Alert tone="danger" title={roleError} />}
+      {removeError !== "" && <Alert tone="danger" title={removeError} />}
+
+      <Modal
+        open={removing !== null}
+        title={removing === null ? "" : `إزالة ${removing.name} من فريقك؟`}
+        message="يفقد فوراً كلَّ ما كان يستطيع فعله هنا. ولإعادته تُرسَل له دعوةٌ جديدة."
+        confirmLabel="أزِله"
+        tone="danger"
+        busy={removeBusy}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoving(null)}
+      />
 
       <Table
         columns={columns}

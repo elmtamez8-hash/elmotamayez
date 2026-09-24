@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { MessageStudentButton } from "@/components/community/MessageStudentButton";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -32,7 +33,22 @@ function buildColumns(
   onEdit: ((row: StudentBalanceRow) => void) | null,
 ): Column<StudentBalanceRow>[] {
   return [
-  { key: "student", header: "الطالب", render: (row) => row.student_name },
+  /*
+  | «راسِل» beside the name: this is the screen a teacher reads to decide whom to
+  | remind about a balance, and the reminder is a message. A row can outlive the
+  | enrolment (balances do), and then the server refuses the thread with its own
+  | sentence — shown under the button rather than guessed here.
+  */
+  {
+    key: "student",
+    header: "الطالب",
+    render: (row) => (
+      <span className="flex flex-wrap items-center gap-2">
+        <span>{row.student_name}</span>
+        <MessageStudentButton studentUuid={row.student_uuid} studentName={row.student_name} />
+      </span>
+    ),
+  },
   { key: "course", header: "الكورس", render: (row) => row.course_title },
   {
     key: "remaining",

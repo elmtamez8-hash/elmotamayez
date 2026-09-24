@@ -65,6 +65,17 @@ export const P = {
    * at all — on either side of the wire.
    */
   membersUpdate: "members.update",
+  // Read by `WorkspacePolicy::removeMember()` — the door and the «إزالة» button
+  // ask the same name. Until now removal asked `members.invite` on the server.
+  membersRemove: "members.remove",
+  /*
+   * The teacher's side of a private chat: `ConversationPolicy::teacherSide()` is
+   * membership AND this permission, so it is also what decides whether «راسِل»
+   * is offered and whether /messages speaks to a teacher or to a student. A
+   * student holds no permissions at all (no workspace, no team id), so it
+   * cannot be mistaken for one.
+   */
+  chatReply: "chat.reply",
   /*
    * ⚠️ A PLATFORM PERMISSION ON A TEACHER-SHAPED SCREEN, AND BOTH HALVES
    * ARE TRUE. Raising a ceiling creates a debt the platform carries alone,
