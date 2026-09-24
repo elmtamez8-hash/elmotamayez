@@ -36,6 +36,12 @@ class LinkGuardian extends Action
     {
         $student = $data->studentUuid === null ? null : $this->resolveStudent($guardian, $data->studentUuid);
 
+        // The FormRequest is not the only door (Filament, seeders): a child with
+        // no account is known by nothing but the name the guardian types.
+        if ($student === null && trim($data->studentName) === '') {
+            throw new DomainException('اسم الطالب مطلوب.');
+        }
+
         if ($student !== null && $this->alreadyLinked($guardian, $student)) {
             throw new DomainException('هذا الطالب مرتبط بحسابك بالفعل.');
         }
@@ -47,12 +53,25 @@ class LinkGuardian extends Action
         $relation = ParentStudentRelation::query()->create([
             'guardian_user_id' => $guardian->getKey(),
             'student_user_id' => $student?->getKey(),
-            'student_name' => $data->studentName,
-            'student_age' => $data->studentAge,
+            /*
+            | ⛔ A CHILD NAMED BY CODE IS STORED WITH NOTHING ABOUT THEM
+            | (owner decision, 2026-09-24).
+            |
+            | The code alone is enough, so whatever name, age or year arrived
+            | beside it is dropped: the account is the only source for those, and
+            | it may not be read on the guardian's behalf until the student
+            | accepts — `AcceptRelation` fills all three inside the claim. Filling
+            | them here and masking them in the Resource would be a screen hiding
+            | a field, not a guard: the data-rights export walk
+            | (`IdentityPersonalData`) reads `student_name` straight off the row.
+            | `''` rather than NULL because the column is NOT NULL.
+            */
+            'student_name' => $student === null ? $data->studentName : '',
+            'student_age' => $student === null ? $data->studentAge : null,
             // The new column; `student_grade_level_slug` stays NULL and is the
             // fallback for relations created before years existed. The stage is
             // derived (`ParentStudentRelation::stageSlug`), never stored twice.
-            'student_school_year_slug' => $data->schoolYearSlug,
+            'student_school_year_slug' => $student === null ? $data->schoolYearSlug : null,
             'relation_type' => $data->relationType->value,
             'permissions' => array_map(fn ($permission) => $permission->value, $data->permissions),
             // A guardian added for a child with no account yet is active at once:

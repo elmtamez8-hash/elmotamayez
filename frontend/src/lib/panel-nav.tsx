@@ -431,7 +431,15 @@ export const mainNav: NavItem[] = [
   // The student's credits, counted in sessions and never in money. Separate
   // from /orders, which is one payment at a time: this is the standing balance
   // those payments produce, per course.
-  { href: "/billing", label: "رصيدي", Icon: CreditsIcon, audience: ["student", "guardian"] },
+  {
+    href: "/billing",
+    label: "رصيدي",
+    Icon: CreditsIcon,
+    audience: ["student", "guardian"],
+    // A guardian holds no credits of their own: theirs is the screen they buy
+    // a child's from. The page reads this name back through `navLabel`.
+    labels: { guardian: "شراء حصص لأبنائي" },
+  },
   /*
    * Spec 010 · US2. No permission: everyone signed in has a side of a private
    * conversation — the student writes to their teacher, the teacher and whoever

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { CheckboxField } from "@/components/ui/Field";
-import { GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
+import { childLinkName, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 
 /**
  * One guardian link, drawn from whichever side is reading it.
@@ -48,7 +48,7 @@ export function RelationRow({
    */
   const heading = readingAsStudent
     ? (relation.guardian?.name ?? "وليّ أمر غير معروف")
-    : relation.student_name;
+    : childLinkName(relation.student_name, relation.status);
 
   const run = async (action: () => Promise<void>) => {
     setBusy(true);

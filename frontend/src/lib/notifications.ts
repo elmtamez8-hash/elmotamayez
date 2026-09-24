@@ -213,10 +213,27 @@ export const contactVerification = {
     ),
 };
 
+/**
+ * What a guardian's row is headed with.
+ *
+ * A child linked by CODE is stored with an empty name until they accept: the
+ * server fills it from their account at that moment and never before, so the
+ * guardian learns nothing about whoever the code belongs to. An empty name is
+ * therefore a request still waiting on the child (or one they declined), never
+ * a blank to print.
+ */
+export function childLinkName(name: string, status: string): string {
+  if (name.trim() !== "") return name;
+
+  return status === "pending" ? "طلب ربط بانتظار موافقة الطالب" : "طلب ربط لم يكتمل";
+}
+
 export const family = {
   list: () => api.get<{ data: GuardianRelation[] }>("/family/relations"),
   add: (data: {
-    student_name: string;
+    // Only for a child with NO account. With `student_uuid` the code is all
+    // that is sent: the server fills the rest from the account on acceptance.
+    student_name?: string;
     age?: number | null;
     // `school_year_slug`, the key `LinkGuardianRequest` reads — this type said
     // `grade_level_slug`, which the server has never accepted.

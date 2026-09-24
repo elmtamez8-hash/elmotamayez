@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
 import { family, type GuardianRelation } from "@/lib/notifications";
 import { navLabel } from "@/lib/panel-nav";
 import { arabicDecimal } from "@/lib/numerals";
@@ -67,7 +68,9 @@ const AXIS_ICONS: Record<string, ComponentType<IconProps>> = {
  */
 export default function MyReviewsPage() {
   const { user } = useAuth();
-  const isGuardian = user?.platform_role === "parent";
+  // One spelling of «is this a guardian», shared with the sidebar, /family and
+  // /billing/purchase — never a second comparison against `platform_role`.
+  const isGuardian = dashboardAudience(user) === "guardian";
 
   const [rows, setRows] = useState<PeriodicReview[]>([]);
   const [children, setChildren] = useState<GuardianRelation[]>([]);
@@ -164,7 +167,11 @@ export default function MyReviewsPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           title="لا توجد تقييمات بعد"
-          description="يظهر هنا تقييم مدرّسك الدوري فور نشره."
+          description={
+            isGuardian
+              ? "يظهر هنا تقييم المدرّس الدوري لابنك فور نشره."
+              : "يظهر هنا تقييم مدرّسك الدوري فور نشره."
+          }
         />
       ) : (
         <ul className="space-y-4">

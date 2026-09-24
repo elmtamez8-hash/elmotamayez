@@ -21,7 +21,15 @@ class LinkGuardianRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'student_name' => ['required', 'string', 'max:150'],
+            /*
+            | A child who already has an account is named by the CODE alone
+            | (owner decision, 2026-09-24): the guardian is not asked for a name,
+            | an age or a year, and `LinkGuardian` ignores any that arrive — the
+            | row is filled from the student's own account when they accept
+            | (`AcceptRelation`), never before, so a pending request teaches the
+            | guardian nothing about whoever the code belongs to.
+            */
+            'student_name' => ['required_without:student_uuid', 'nullable', 'string', 'max:150'],
             'age' => ['nullable', 'integer', 'between:3,25'],
             /*
             | Spec 022 · FR-005 — the child's individual YEAR. Nullable, unlike
@@ -49,6 +57,7 @@ class LinkGuardianRequest extends FormRequest
     {
         return [
             'student_name.required' => 'اسم الطالب مطلوب.',
+            'student_name.required_without' => 'اسم الطالب مطلوب إن لم يكن له رمز حساب.',
             // A malformed code is a typo, not a lookup — saying so reveals nothing
             // about which accounts exist, unlike "not found" vs "not a student".
             'student_uuid.uuid' => 'رمز حساب الطالب غير صحيح. انسخه كما يظهر في حسابه.',

@@ -40,23 +40,42 @@ describe("AddChildForm", () => {
     get.mockResolvedValue({ data: [] });
   });
 
-  it("sends the child's account code when one is entered", async () => {
-    post.mockResolvedValue(created());
+  /*
+   * ⛔ Owner decision (2026-09-24): a child who already has an account is named
+   * by the CODE alone. The server fills the name, age and year from the
+   * account when the child accepts, so the form neither asks for them nor
+   * sends them — the payload is exactly the code, the relation and the
+   * permissions.
+   */
+  it("hides name, age and year once a code is typed, and sends the code alone", async () => {
+    post.mockResolvedValue(created({ student_name: "", status: "pending" }));
 
-    render(<AddChildForm schoolYears={[]} />);
+    render(<AddChildForm schoolYears={[{ slug: "year-10", name: "الصف العاشر" } as never]} />);
 
-    fireEvent.change(screen.getByLabelText("اسم الطالب"), { target: { value: "كريم" } });
+    expect(screen.getByLabelText("اسم الطالب")).toBeTruthy();
+
     fireEvent.change(screen.getByLabelText(/رمز حساب الطالب/), {
       target: { value: " 9f1c2d3e-0000-4000-8000-000000000001 " },
     });
+
+    expect(screen.queryByLabelText("اسم الطالب")).toBeNull();
+    expect(screen.queryByLabelText("العمر")).toBeNull();
+    expect(screen.queryByLabelText("الصف الدراسي")).toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "إضافة الطفل" }));
 
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith(
-        "/family/relations",
-        expect.objectContaining({ student_uuid: "9f1c2d3e-0000-4000-8000-000000000001" }),
-      ),
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect(post.mock.calls[0][0]).toBe("/family/relations");
+    expect(Object.keys(post.mock.calls[0][1] as object).sort()).toEqual(
+      ["permissions", "relation_type", "student_uuid"],
     );
+    expect((post.mock.calls[0][1] as { student_uuid: string }).student_uuid).toBe(
+      "9f1c2d3e-0000-4000-8000-000000000001",
+    );
+
+    // The pending row carries no name until the child accepts — the list says
+    // what it is rather than printing a blank.
+    expect(await screen.findByText("طلب ربط بانتظار موافقة الطالب")).toBeTruthy();
   });
 
   it("omits the code for a child with no account", async () => {

@@ -11,6 +11,7 @@ import { EyeIcon, FamilyIcon, ShieldIcon, UserPlusIcon } from "@/components/icon
 import { CheckboxField, SelectField, TextField } from "@/components/ui/Field";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
 import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 
 import { RelationRow } from "./RelationRow";
@@ -77,12 +78,18 @@ export default function FamilyPage() {
        * Omitted rather than `""` when empty: the server's `uuid` rule refuses an
        * empty string.
        */
-      await family.add({
-        student_name: name,
-        relation_type: relationType,
-        permissions,
-        ...(code === "" ? {} : { student_uuid: code }),
-      });
+      /*
+       * ⛔ WITH A CODE, THE CODE IS ALL THAT IS SENT (owner decision, 2026-09-24).
+       * The server fills the child's name, age and year from their own account
+       * once they accept — never before — so asking the parent for them was a
+       * question with no use, and a typed name beside a code was a second answer
+       * to «who is this child» that could disagree with the account.
+       */
+      await family.add(
+        code === ""
+          ? { student_name: name, relation_type: relationType, permissions }
+          : { student_uuid: code, relation_type: relationType, permissions },
+      );
       setName("");
       setStudentCode("");
       setRequested(code !== "");
@@ -148,6 +155,19 @@ export default function FamilyPage() {
    * a two-value union would have told them they were the student.
    */
   const mine = relations.filter((relation) => relation.viewer_side === "guardian");
+
+  /*
+   * ⚠️ WHO IS READING DECIDES WHICH SECTIONS EXIST. The page used to render the
+   * guardian's «إضافة مرتبط» form to a student too — a form asking them for
+   * «اسم الطالب» and telling them «يجده ابنك…» about their own account. One
+   * predicate, the one the dashboard already uses to tell a guardian from a
+   * student (`dashboardAudience`), never a second spelling of it here. A null
+   * user (still loading) is neither, so nothing role-specific flashes.
+   */
+  const audience = user ? dashboardAudience(user) : null;
+  const readingAsStudent = audience === "student";
+  const readingAsGuardian = audience === "guardian";
+  const codeTyped = studentCode.trim() !== "";
   const following = relations.filter((relation) => relation.viewer_side === "student");
 
   return (
@@ -163,7 +183,7 @@ export default function FamilyPage() {
         them alone; handing it to a parent lets that parent ASK, never see — the
         link stays pending until the student accepts it below.
       */}
-      {user?.platform_role === "student" && user.uuid && (
+      {readingAsStudent && user?.uuid && (
         <Card as="section">
           <div className="mb-2">
             <SectionHeading id="family-code" Icon={ShieldIcon} title="رمز ربط حسابي" />
@@ -189,12 +209,15 @@ export default function FamilyPage() {
         request nobody can see is a request nobody answers, which is exactly how
         this shipped.
       */}
-      {following.length > 0 && (
+      {(readingAsStudent || following.length > 0) && (
         <Card as="section">
           <div className="mb-4">
             <SectionHeading id="family-following" Icon={EyeIcon} title="من يتابعني" />
           </div>
 
+          {following.length === 0 ? (
+            <p className="py-6 text-center text-ink-muted">لم يطلب أحدٌ متابعتك بعد.</p>
+          ) : (
           <ul className="space-y-3">
             {following.map((relation) => (
               <RelationRow
@@ -206,9 +229,11 @@ export default function FamilyPage() {
               />
             ))}
           </ul>
+          )}
         </Card>
       )}
 
+      {!readingAsStudent && (
       <Card as="section">
         <div className="mb-4">
           <SectionHeading id="family-linked" Icon={FamilyIcon} title="المرتبطون" />
@@ -231,28 +256,38 @@ export default function FamilyPage() {
           </ul>
         )}
       </Card>
+      )}
 
+      {readingAsGuardian && (
       <Card as="section">
         <div className="mb-4">
           <SectionHeading id="family-add" Icon={UserPlusIcon} title="إضافة مرتبط" />
         </div>
 
         <div className="space-y-4">
-          <TextField
-            id="student_name"
-            label="اسم الطالب"
-            value={name}
-            onChange={setName}
-            required
-          />
-
+          {/*
+            The code comes FIRST: with it nothing else about the child is asked
+            (the server reads it from their account once they accept). The name
+            is only for a child who has no account at all.
+          */}
           <TextField
             id="student_uuid"
             label="رمز حساب الطالب — إن كان له حساب على المنصّة"
             value={studentCode}
             onChange={setStudentCode}
-            hint="يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يصله طلبك ليوافق عليه، ولا ترى شيئاً قبل موافقته."
+            hint="يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق عليه، ولا ترى شيئاً قبل موافقته."
           />
+
+          {!codeTyped && (
+            <TextField
+              id="student_name"
+              label="اسم الطالب"
+              value={name}
+              onChange={setName}
+              hint="لطفلٍ ليس له حسابٌ على المنصّة بعد."
+              required
+            />
+          )}
 
           <SelectField
             id="relation_type"
@@ -299,12 +334,13 @@ export default function FamilyPage() {
             onClick={add}
             loading={submitting}
             loadingLabel="جارٍ الإضافة…"
-            disabled={name.trim() === "" || permissions.length === 0}
+            disabled={(!codeTyped && name.trim() === "") || permissions.length === 0}
           >
             إضافة
           </Button>
         </div>
       </Card>
+      )}
     </div>
   );
 }
