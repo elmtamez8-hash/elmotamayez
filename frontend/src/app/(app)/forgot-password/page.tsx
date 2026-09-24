@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+
+import { SignedInRedirect } from "@/components/auth/SignedInRedirect";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +16,7 @@ import { userMessage } from "@/lib/errors";
  * finds. The server answers identically for an unknown address, so this screen
  * never tells a visitor whether somebody has an account here.
  */
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -84,5 +86,16 @@ export default function ForgotPasswordPage() {
         </p>
       </form>
     </AuthShell>
+  );
+}
+
+// `SignedInRedirect` reads `?next=`, so the page needs a Suspense boundary to prerender.
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignedInRedirect>
+        <ForgotPasswordForm />
+      </SignedInRedirect>
+    </Suspense>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { SignedInRedirect } from "@/components/auth/SignedInRedirect";
 import { Suspense, useState } from "react";
 import { homePathFor, useAuth } from "@/lib/auth-context";
 import { fieldErrors } from "@/lib/api";
@@ -282,7 +283,9 @@ export default function LoginPage() {
         </div>
       }
     >
-      <LoginForm />
+      <SignedInRedirect>
+        <LoginForm />
+      </SignedInRedirect>
     </Suspense>
   );
 }

@@ -19,6 +19,13 @@ import LoginPage from "./page";
 
 const searchParams = new URLSearchParams();
 
+
+// The signed-in bounce has its own file (`SignedInRedirect.test.tsx`); here the
+// form is what is measured, so the guard passes it straight through.
+vi.mock("@/components/auth/SignedInRedirect", () => ({
+  SignedInRedirect: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => searchParams,
