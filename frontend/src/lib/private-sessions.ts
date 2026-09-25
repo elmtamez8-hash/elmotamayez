@@ -23,9 +23,15 @@ export type PrivateSessionStatus =
 export interface PrivateSessionRequest {
   uuid: string;
   status: PrivateSessionStatus;
-  /** An absolute instant. Rendered in the reader's own timezone. */
+  /** An absolute instant, rendered in `timezone` — never the browser's own zone. */
   starts_at: string;
   duration_minutes: number;
+  /**
+   * The declared session zone (`sessions.timezone`), the same one every class
+   * session carries — so a request and the lesson it becomes read the same hour.
+   * Every time on the row goes through `formatSessionTime(iso, timezone)`.
+   */
+  timezone: string;
   expires_at: string;
   /** ⚠️ Mandatory on a rejection, and shown — the student reads it (FR-018). */
   decision_reason: string | null;
@@ -37,7 +43,12 @@ export interface PrivateSessionRequest {
 }
 
 export const privateSessions = {
-  /** The student's own asks, live and settled. */
+  /**
+   * The student's own asks, live and settled, newest first.
+   *
+   * The endpoint paginates at a fixed twenty; the screen reads the first page,
+   * which holds every request a student plausibly has open.
+   */
   mine: () => api.get<{ data: PrivateSessionRequest[] }>("/private-session-requests"),
 
   /**

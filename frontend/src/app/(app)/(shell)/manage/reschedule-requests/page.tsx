@@ -10,6 +10,7 @@ import { TextareaField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
+import { formatSessionTime } from "@/lib/session-format";
 import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-requests";
 
 /**
@@ -55,15 +56,6 @@ export default function RescheduleQueuePage() {
       .finally(() => setPending(null));
   };
 
-  const when = (iso: string) =>
-    new Date(iso).toLocaleString("ar-QA", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -107,9 +99,9 @@ export default function RescheduleQueuePage() {
                   teacher open their calendar to find out what is being given
                   up — which is the one fact the decision turns on. */}
               <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <span className="text-ink-muted line-through">{when(request.from_starts_at)}</span>
+                <span className="text-ink-muted line-through">{formatSessionTime(request.from_starts_at, request.timezone)}</span>
                 <ChevronEndIcon className="h-4 w-4 text-ink-muted" />
-                <span className="font-bold">{when(request.to_starts_at)}</span>
+                <span className="font-bold">{formatSessionTime(request.to_starts_at, request.timezone)}</span>
               </p>
 
               {request.student_reason !== null && (

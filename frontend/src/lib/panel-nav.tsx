@@ -188,6 +188,10 @@ export const mainNav: NavItem[] = [
   // /manage/sessions is the teacher's calendar. Two screens, two audiences —
   // collapsing them into one route would make each show the other half nothing.
   { href: "/schedule", label: "جدولي", Icon: ScheduleIcon, audience: ["student"] },
+  // The student's half of the private-session queue below: what they asked for,
+  // what the teacher answered and why, and a way to take back an ask still
+  // waiting. Without an entry the answer lived only in a notification.
+  { href: "/private-sessions", label: "حصصي الخاصة", Icon: SessionsIcon, audience: ["student"] },
   { href: "/manage/sessions", label: "حصصي", Icon: SessionsIcon, permission: P.sessionsManage },
   // ⚠️ ITS OWN ENTRY, BECAUSE A SURFACE NOTHING LINKS TO IS A SURFACE NOBODY HAS.
   // The queue has a deadline running on every row — a screen reachable only by

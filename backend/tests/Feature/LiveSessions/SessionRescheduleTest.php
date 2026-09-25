@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Testing\TestResponse;
@@ -275,6 +276,25 @@ it('refuses a rejection with no reason, and tells only the asker when there is o
 
     // Nothing moved, so the group was never in this conversation.
     expect($told)->toBe([(int) $fixture['students'][0]->getKey()]);
+});
+
+/*
+| Every time on a reschedule row is shown in the declared zone, sent beside it —
+| the same one `ClassSessionResource` sends for the lesson being moved. Changed
+| from its default first, so a literal matching `Asia/Qatar` cannot pass it.
+*/
+it('sends the declared session timezone on the teacher queue', function (): void {
+    $fixture = rescheduleFixture();
+
+    askToMove($fixture)->assertStatus(201);
+
+    PlatformSettings::set('sessions.timezone', 'Asia/Riyadh', null);
+
+    Sanctum::actingAs($fixture['owner']);
+
+    $this->getJson('/api/v1/manage/session-reschedule-requests')
+        ->assertOk()
+        ->assertJsonPath('data.0.timezone', 'Asia/Riyadh');
 });
 
 it('keeps one teacher out of another workspace queue', function (): void {

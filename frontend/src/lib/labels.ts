@@ -253,6 +253,33 @@ export function sessionEndedLabel(reason: string | null): string | null {
 }
 
 /**
+ * A private-session request as the STUDENT reads it (spec 023 · US3).
+ *
+ * ⚠️ ITS OWN MAP, NOT `statusLabel()`. That table reads `pending` as «بانتظار
+ * الدفع» — an order's word — and has no `withdrawn` or `accepted` at all, so a
+ * request waiting on the teacher would tell the student to go and pay. The
+ * values are `PrivateSessionRequest`'s own five; an unknown one falls through to
+ * itself, as every label here does.
+ */
+const PRIVATE_SESSION_STATUS: Record<string, { label: string; tone: StatusTone }> = {
+  pending: { label: "بانتظار ردّ المدرّس", tone: "warning" },
+  accepted: { label: "مقبول", tone: "success" },
+  rejected: { label: "مرفوض", tone: "danger" },
+  // Neutral, not red: withdrawing is the student's own decision, and an unanswered
+  // request running out is nobody's fault the student can act on.
+  withdrawn: { label: "مسحوب", tone: "neutral" },
+  expired: { label: "انتهت المهلة", tone: "neutral" },
+};
+
+export function privateSessionStatusLabel(status: string): string {
+  return PRIVATE_SESSION_STATUS[status]?.label ?? status;
+}
+
+export function privateSessionStatusTone(status: string): StatusTone {
+  return PRIVATE_SESSION_STATUS[status]?.tone ?? "neutral";
+}
+
+/**
  * Arabic for a role, from the SERVER.
  *
  * ⚠️ THE MAP THAT USED TO LIVE HERE HAD DRIFTED, AND THAT IS THE WHOLE STORY. It
