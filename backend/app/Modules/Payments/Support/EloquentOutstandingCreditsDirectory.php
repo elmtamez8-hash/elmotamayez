@@ -31,6 +31,8 @@ class EloquentOutstandingCreditsDirectory implements OutstandingCreditsDirectory
             'sold' => (int) CreditPurchase::query()
                 ->withoutWorkspaceScope()
                 ->where('workspace_id', $workspaceId)
+                // A reversed sale is not a sale: its money went back.
+                ->whereNull('reversed_at')
                 ->sum('credits'),
             'outstanding' => (int) CreditBalance::query()
                 ->withoutWorkspaceScope()

@@ -72,6 +72,13 @@ class EffectiveSubscriptionEnd
     private array $shortened = [];
 
     /**
+     * The renewals `redateChain()` moved during the current walk.
+     *
+     * @var list<Subscription>
+     */
+    private array $redated = [];
+
+    /**
      * The date this subscription's access actually runs to.
      *
      * The LENGTH of `starts_on`..`ends_on` never moves — it is what the plan
@@ -199,20 +206,25 @@ class EffectiveSubscriptionEnd
      * changes — so the student loses no paid day and gains none: the cancelled
      * month's money goes back, and the renewal's month is exactly one month.
      *
-     * @return int how many renewals were re-dated
+     * @return list<Subscription> the renewals that moved, on their new dates —
+     *                            the caller tells the student
      */
-    public function startRenewalsOfCancelled(Subscription $cancelled): int
+    public function startRenewalsOfCancelled(Subscription $cancelled): array
     {
         $workspaceId = (int) $cancelled->workspace_id;
         $this->shortened = [];
+        $this->redated = [];
 
-        $moved = $this->redateChain($workspaceId, (int) $cancelled->student_user_id, orphansStartToday: true);
+        $this->redateChain($workspaceId, (int) $cancelled->student_user_id, orphansStartToday: true);
 
         foreach ($this->takeShortened() as $student) {
             $this->announceShortened($workspaceId, $student);
         }
 
-        return $moved;
+        $redated = $this->redated;
+        $this->redated = [];
+
+        return $redated;
     }
 
     /**
@@ -342,6 +354,7 @@ class EffectiveSubscriptionEnd
 
                     $this->remeasure($subscription, force: true);
 
+                    $this->redated[] = $subscription;
                     $moved++;
                 }
             }

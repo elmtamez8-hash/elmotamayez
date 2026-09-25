@@ -449,8 +449,9 @@ class OrderResource extends Resource
             ->requiresConfirmation()
             ->modalHeading('عكس الدفع')
             ->modalDescription(fn (Order $record): string => sprintf(
-                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d. المُستهلَكُ يبقى مُستهلَكاً. لا تراجُعَ عن هذا من الشاشة.',
+                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
                 app(ReverseCreditOrder::class)->refundableFor($record),
+                app(ReverseCreditOrder::class)->seatsReleasedFor($record),
             ))
             ->schema([
                 Textarea::make('reason')

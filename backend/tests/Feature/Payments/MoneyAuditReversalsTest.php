@@ -7,7 +7,11 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Actions\CreateOrder;
@@ -25,6 +29,7 @@ use App\Modules\Payments\Listeners\CreateEnrollmentFromOrder;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPackage;
+use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
@@ -34,6 +39,8 @@ use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\OutstandingCreditsDirectory;
+use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
@@ -109,12 +116,9 @@ function moneyAuditConsume(CreditBalance $balance, int $credits, int $sourceId):
     ));
 }
 
-/*
-| #1 — a credit package had no way back: `ReverseCourseOrder` refused it and
-| `AdjustCredits` has no screen. The panel reverses it now, and takes back what
-| THIS purchase still holds — the two spent credits stay spent.
-*/
-it('reverses a credit package from the panel and claws back only its unconsumed credits', function (): void {
+/** Ten credits bought as a package and approved — the real path. */
+function moneyAuditPackageBought(): CreditPurchase
+{
     PlatformSettings::set('billing.operating_fee_minor.individual', 500);
     PlatformSettings::set('billing.gateway_fee_bps', 0);
     PlatformSettings::set('billing.gateway_fixed_fee_minor', 0);
@@ -129,13 +133,24 @@ it('reverses a credit package from the panel and claws back only its unconsumed 
 
     // Credits are bought on a course the student is a party to.
     app(WorkspaceContext::class)->forWorkspace(
-        $this->workspace,
-        fn () => app(EnrollStudent::class)->handle($this->course, $this->student, 'manual'),
+        test()->workspace,
+        fn () => app(EnrollStudent::class)->handle(test()->course, test()->student, 'manual'),
     );
 
-    $purchase = app(PurchaseCredits::class)->handle($this->student, $this->course, $package);
+    $purchase = app(PurchaseCredits::class)->handle(test()->student, test()->course, $package);
+    app(ApproveOrder::class)->handle(moneyAuditOrder((int) $purchase->order_id), test()->officer);
+
+    return $purchase;
+}
+
+/*
+| #1 — a credit package had no way back: `ReverseCourseOrder` refused it and
+| `AdjustCredits` has no screen. The panel reverses it now, and takes back what
+| THIS purchase still holds — the two spent credits stay spent.
+*/
+it('reverses a credit package from the panel and claws back only its unconsumed credits', function (): void {
+    $purchase = moneyAuditPackageBought();
     $order = moneyAuditOrder((int) $purchase->order_id);
-    app(ApproveOrder::class)->handle($order, $this->officer);
 
     $balance = moneyAuditBalance((int) $purchase->credit_balance_id);
     expect($balance->remaining_credits)->toBe(10);
@@ -294,4 +309,113 @@ it('opens nothing when the order was reversed before the queued listener ran', f
 
     expect(Enrollment::query()->withoutWorkspaceScope()->where('student_user_id', $this->student->getKey())->count())->toBe(0)
         ->and(Subscription::query()->withoutWorkspaceScope()->where('order_id', $monthOrder->getKey())->exists())->toBeFalse();
+});
+
+/*
+| Owner decision 2026-09-25 (#1 follow-up) — a credit frozen for a booked seat
+| is not consumed, so it is taken back; the future seats it froze are released
+| with it, by the system's own door (`Released`, not billable), and no debt is
+| left behind.
+*/
+it('releases the future seats a reversed package funds, and leaves no debt', function (): void {
+    $purchase = moneyAuditPackageBought();
+    $balance = moneyAuditBalance((int) $purchase->credit_balance_id);
+
+    $bookings = [];
+
+    foreach ([1, 2, 3] as $i) {
+        $session = billableSession($this->workspace, $this->teacher, $this->course, seatsTotal: 5);
+        $session->forceFill(['starts_at' => now()->addDays($i), 'ends_at' => now()->addDays($i)->addHour()])->save();
+
+        $bookings[] = SessionBooking::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'class_session_id' => $session->getKey(),
+            'student_user_id' => $this->student->getKey(),
+        ]);
+
+        expect(app(SessionCreditHolds::class)->place(
+            $this->student,
+            (int) $session->getKey(),
+            (int) $this->course->getKey(),
+            (int) $this->workspace->getKey(),
+        )->granted)->toBeTrue();
+    }
+
+    expect(moneyAuditBalance((int) $balance->getKey())->held_credits)->toBe(3)
+        ->and(app(ReverseCreditOrder::class)->seatsReleasedFor(moneyAuditOrder((int) $purchase->order_id)))->toBe(3);
+
+    app(ReverseCreditOrder::class)->handle(moneyAuditOrder((int) $purchase->order_id), $this->officer, 'استرداد');
+
+    $after = moneyAuditBalance((int) $balance->getKey());
+
+    expect($after->remaining_credits)->toBe(0)
+        ->and($after->held_credits)->toBe(0);
+
+    foreach ($bookings as $booking) {
+        $fresh = SessionBooking::query()->withoutWorkspaceScope()->findOrFail($booking->getKey());
+
+        expect($fresh->status)->toBe(BookingStatus::Released)
+            ->and($fresh->is_billable)->toBeFalse();
+    }
+});
+
+/*
+| Owner decision 2026-09-25 (#2 follow-up) — an hours plan opened the course
+| (`source = session_plan`); reversing it closes that access.
+*/
+it('closes the course an hours plan opened when the plan is reversed', function (): void {
+    $plan = Plan::factory()->bySessions(12)->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+
+    $order = app(PurchaseSubscription::class)->handle($this->student, (string) $plan->uuid);
+    app(ApproveOrder::class)->handle($order, $this->officer);
+
+    expect(moneyAuditEnrollment())->source->toBe('session_plan')->status->toBe('active');
+
+    app(ReverseCreditOrder::class)->handle(moneyAuditOrder((int) $order->getKey()), $this->officer, 'استرداد');
+
+    expect(moneyAuditEnrollment()->status)->toBe('cancelled')
+        ->and(moneyAuditEnrollment()->grantsContentAccess())->toBeFalse();
+});
+
+/*
+| Owner decision 2026-09-25 (#4 follow-up) — the sale row is marked, so the
+| screens summing `credit_purchases` stop counting a sale whose money went back.
+*/
+it('marks a reversed credit sale so it is no longer counted as sold', function (): void {
+    $purchase = moneyAuditPackageBought();
+    $directory = app(OutstandingCreditsDirectory::class);
+
+    expect($directory->forWorkspace((int) $purchase->workspace_id)['sold'])->toBe(10);
+
+    app(ReverseCreditOrder::class)->handle(moneyAuditOrder((int) $purchase->order_id), $this->officer, 'استرداد');
+
+    expect(CreditPurchase::query()->withoutWorkspaceScope()->findOrFail($purchase->getKey())->reversed_at)->not->toBeNull()
+        ->and($directory->forWorkspace((int) $purchase->workspace_id)['sold'])->toBe(0);
+});
+
+/*
+| Owner decision 2026-09-25 (#3 follow-up) — the renewal moved to start today,
+| and the student is told the new dates: the activation notice they hold names
+| dates that no longer exist.
+*/
+it('tells the student the renewal now starts today, with its new dates', function (): void {
+    $running = moneyAuditMonth();
+    $renewal = moneyAuditMonth();
+
+    app(CancelSubscription::class)->handle($running, 'استرداد الشهر الجاري');
+
+    $renewal->refresh();
+
+    $sent = Notification::query()
+        ->where('recipient_user_id', $this->student->getKey())
+        ->where('type', NotificationType::SubscriptionRedated->value)
+        ->get();
+
+    expect($sent)->toHaveCount(1)
+        ->and($sent->first()->body)->toContain($renewal->starts_on->toDateString())
+        ->and($sent->first()->body)->toContain(CarbonImmutable::parse($renewal->effective_ends_on)->toDateString());
 });
