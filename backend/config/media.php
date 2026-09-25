@@ -155,6 +155,19 @@ return [
     'max_renewals' => (int) env('MEDIA_MAX_RENEWALS', 480),  // ~8 h of viewing
 
     /*
+    | When one viewing counts as «watched» (spec 005 · FR-021د).
+    |
+    | Measured on the SERVER CLOCK — seconds since this server minted the grant,
+    | read at a renewal — never from the `position_seconds` the player reports,
+    | which is one forged request away. The share applies to the asset's known
+    | duration; `watched_fallback_seconds` stands in when the provider never told
+    | us one. The fact moves no status and no money: it is a line on the
+    | teacher's register and nothing else.
+    */
+    'watched_share' => (float) env('MEDIA_WATCHED_SHARE', 0.5),
+    'watched_fallback_seconds' => (int) env('MEDIA_WATCHED_FALLBACK_SECONDS', 600),
+
+    /*
     | How long ReconcileAssetStatus keeps asking about one asset.
     |
     | ⚠️ A CEILING AND A VERDICT, NOT JUST A CEILING. The sweep runs every five

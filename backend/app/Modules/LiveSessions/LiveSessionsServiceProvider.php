@@ -19,6 +19,7 @@ use App\Modules\LiveSessions\Listeners\BookSubscribersOnScheduled;
 use App\Modules\LiveSessions\Listeners\ExpireRequestsOnTeacherDeparture;
 use App\Modules\LiveSessions\Listeners\NotifySeatHolders;
 use App\Modules\LiveSessions\Listeners\PublishRecordingAsLesson;
+use App\Modules\LiveSessions\Listeners\RecordWatchedOnSustainedPlayback;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnSubscriptionEnd;
 use App\Modules\LiveSessions\Listeners\ReleaseSeatsOnTransfer;
 use App\Modules\LiveSessions\Listeners\SendAbsenceAlerts;
@@ -46,6 +47,7 @@ use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Modules\Media\Events\MediaAssetsExpired;
+use App\Modules\Media\Events\PlaybackSustained;
 use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
@@ -180,6 +182,11 @@ class LiveSessionsServiceProvider extends Module
         // stays in every enrolled student's denominator with no video behind it —
         // 100% unreachable, no certificate, permanently (spec 013).
         Event::listen(MediaAssetsExpired::class, ArchiveExpiredRecordingLessons::class);
+
+        // FR-021د: Media says «this viewing ran long enough»; this module decides
+        // that the file was a session's recording and notes it on the register —
+        // a fact beside the status, never a change to it, and never to money.
+        Event::listen(PlaybackSustained::class, RecordWatchedOnSustainedPlayback::class);
 
         // A seat that will not be honoured is explained to the person who took
         // it — whether the teacher called the session off or a freeze suspended

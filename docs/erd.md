@@ -386,7 +386,10 @@ attendances gains:  report_sent_at    → when the guardian was told what this r
   system concluded next to what a person decided. A record that hides having been edited is
   trusted more than it has earned
 - **Attendance.recording_watched_at:** an independent fact that never moves `status`. The
-  teacher may mark someone present on the strength of it; the system never does
+  teacher may mark someone present on the strength of it; the system never does. Written once,
+  never for the host, by `RecordWatchedOnSustainedPlayback` when a playback grant's SERVER-clock
+  age crosses `media.watched_share` of the recording (Media's `PlaybackSustained`, fired from
+  the renewal loop) — never from the position the player reports
 - **Lesson.class_session_id:** the recording's entitlement hangs off this one column, checked
   in `IssuePlaybackGrant` **above** the workspace-membership shortcut — every enrolled
   student is a member of their teacher's workspace, so membership alone would hand the
