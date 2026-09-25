@@ -102,8 +102,15 @@ describe('enrollment', function (): void {
 
         Sanctum::actingAs($student);
 
+        // 403 since 2026-09-26: `CoursePolicy::view()` no longer opens a draft
+        // to a student member (it asked `COURSES_VIEW`, which students hold), so
+        // the refusal comes at the policy before the «not published» 422 — the
+        // answer a student outside the workspace already got. The row is the
+        // point either way.
         $this->postJson("/api/v1/courses/{$course->uuid}/enroll")
-            ->assertStatus(422);
+            ->assertForbidden();
+
+        expect(Enrollment::query()->withoutWorkspaceScope()->where('course_id', $course->id)->exists())->toBeFalse();
     });
 
     /*

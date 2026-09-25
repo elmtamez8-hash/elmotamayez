@@ -44,6 +44,41 @@ it('shows a student member the published courses only', function (): void {
         ->not->toContain($this->draft->uuid);
 });
 
+/*
+| ⛔ AND THE SINGLE-COURSE DOORS. `CoursePolicy::view()` asked `COURSES_VIEW` for
+| an unpublished course, so the same student opened the draft by uuid at
+| `GET /courses/{course}` and `/courses/{course}/sections` — the index hiding
+| it was a list, not a guard. Now `COURSES_UPDATE` or the author (pivot role).
+*/
+it('refuses a student member the draft at every single-course door', function (string $door): void {
+    $student = $this->addWorkspaceMember($this->workspace, 'student');
+    Sanctum::actingAs($student);
+
+    $this->getJson(str_replace('{uuid}', $this->draft->uuid, $door))->assertForbidden();
+})->with(['/api/v1/courses/{uuid}', '/api/v1/courses/{uuid}/sections']);
+
+it('opens the draft to the owner and to a teacher member', function (string $role): void {
+    $reader = $role === 'owner'
+        ? $this->owner
+        : $this->addWorkspaceMember($this->workspace, $role);
+
+    $this->setCurrentWorkspace($this->workspace, $reader);
+    Sanctum::actingAs($reader);
+
+    $this->getJson("/api/v1/courses/{$this->draft->uuid}")->assertOk();
+    $this->getJson("/api/v1/courses/{$this->draft->uuid}/sections")->assertOk();
+})->with(['owner', 'teacher', 'assistant-teacher']);
+
+it('leaves a published course open to its enrolled student', function (): void {
+    $student = $this->addWorkspaceMember($this->workspace, 'student');
+    $this->createEnrollment($this->workspace, $this->published, $student);
+
+    Sanctum::actingAs($student);
+
+    $this->getJson("/api/v1/courses/{$this->published->uuid}")->assertOk();
+    $this->getJson("/api/v1/courses/{$this->published->uuid}/sections")->assertOk();
+});
+
 it('still shows the owner their drafts', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     Sanctum::actingAs($this->owner);
