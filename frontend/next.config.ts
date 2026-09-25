@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   */
   output: "standalone",
 
+  // No `X-Powered-By: Next.js` on every response: it tells a scanner which
+  // framework (and so which advisories) to try, and tells a user nothing.
+  poweredByHeader: false,
+
   // The Next.js dev badge defaults to bottom-left. On an RTL page that is the
   // inline-end corner, which is exactly where the WhatsApp and back-to-top
   // buttons sit — so it overlapped them and read as part of the product.

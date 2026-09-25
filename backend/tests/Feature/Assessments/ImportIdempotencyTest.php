@@ -115,7 +115,12 @@ it('serialises imports per workspace, which is the whole duplicate guard', funct
         // Keyed on the workspace, not on the import: two DIFFERENT uploads by one
         // teacher are exactly the race, so a key carrying the import id would
         // lock each job against only itself and guard nothing.
-        ->and($middleware[0]->key)->toBe('question-import:'.$workspace->id);
+        ->and($middleware[0]->key)->toBe('question-import:'.$workspace->id)
+        // A lock with no expiry outlives a worker killed mid-file, and every
+        // later upload in the workspace is then dropped by `dontRelease()`.
+        // It must also outlast supervisor-1's 60-second timeout, or a live
+        // import could lose its lock while still inserting.
+        ->and($middleware[0]->expiresAfter)->toBeGreaterThan(60);
 });
 
 it('does nothing when the job runs a second time on the same import', function (): void {
