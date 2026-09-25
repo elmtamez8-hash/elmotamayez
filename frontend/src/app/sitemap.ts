@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { publicApi } from "@/lib/public-api";
+import { publicApi, type Paginated } from "@/lib/public-api";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -59,8 +59,95 @@ export async function generateSitemaps(): Promise<{ id: number }[]> {
  * ⚠️ **مُصيَّرٌ وقتَ التشغيل، لا وقتَ البناء.** الخريطةُ تُبنى من الـAPI ومن
  * `SITE_URL`، وكلاهما غيرُ موجودٍ داخلَ `docker build` — فنسخةُ البناءِ خريطةٌ
  * فارغةٌ بعناوينِ `localhost`، وتُخدَمُ إلى الأبدِ بلا شيءٍ يُعيدُ توليدَها.
+ *
+ * ⚠️ **و`revalidate = 60` وحدَه لم يمنعْ ذلك** — بعدَ النشرِ كانت الخريطةُ
+ * تُخدَمُ بعناوينِ `localhost`، لأنّ Next يُصيِّرُ المسارَ ساكناً وقتَ البناءِ ثمّ
+ * يُجدِّدُه في الخلفية، فالنسخةُ الأولى هي نسخةُ البناء. `force-dynamic` يجعلُ
+ * كلَّ طلبٍ يُبنى من الـAPI و`SITE_URL` الحقيقيَّين، والكلفةُ طلباتٌ قليلةٌ من
+ * زاحفٍ يمرُّ بضعَ مرّاتٍ في اليوم.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+
+/**
+ * The marketplace's cap (`config/marketplace.php` · `max_per_page`). ⚠️ NOT the
+ * articles' 200: the teachers and courses requests VALIDATE `per_page`, so 200
+ * answers 422, the `catch` swallows it, and the map silently ships with no
+ * teacher and no course in it.
+ */
+const MARKETPLACE_PER_PAGE = 48;
+
+/**
+ * A ceiling on the walk, so a runaway `last_page` cannot turn one crawler visit
+ * into hundreds of API calls. 40 × 48 is ~1,900 of each — far past today, and the
+ * day it is reached the answer is chunking these like the articles, not a
+ * bigger number here.
+ */
+const MAX_MARKETPLACE_PAGES = 40;
+
+/**
+ * Every page of one public marketplace feed. It reads the SAME feed the
+ * `/teachers` and `/courses` listings read, for the reason the articles do: the
+ * API's `publiclyListed` predicate is the one answer to «what is public», and a
+ * second one spelled here would drift from it.
+ */
+async function walk<T>(
+  fetchPage: (params: Record<string, string>) => Promise<Paginated<T>>,
+): Promise<T[]> {
+  const rows: T[] = [];
+
+  for (let page = 1; page <= MAX_MARKETPLACE_PAGES; page++) {
+    const { data, meta } = await fetchPage({
+      page: String(page),
+      per_page: String(MARKETPLACE_PER_PAGE),
+    });
+
+    rows.push(...data);
+
+    if (page >= meta.last_page) break;
+  }
+
+  return rows;
+}
+
+/**
+ * Teachers and courses, each in its own `try`: one feed failing must not take
+ * the other down with it, or the static half beside them.
+ */
+async function marketplaceEntries(): Promise<MetadataRoute.Sitemap> {
+  const entries: MetadataRoute.Sitemap = [];
+
+  try {
+    const teachers = await walk(publicApi.teachers);
+
+    entries.push(
+      ...teachers.map((teacher) => ({
+        // The same `slug ?? uuid` the cards link to — a uuid address 308s to
+        // the slug, and a map that lists a redirect is a map a crawler distrusts.
+        url: `${SITE_URL}/teachers/${encodeURIComponent(teacher.slug ?? teacher.uuid)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      })),
+    );
+  } catch {
+    // The rest of the map still ships.
+  }
+
+  try {
+    const courses = await walk(publicApi.courses);
+
+    entries.push(
+      ...courses.map((course) => ({
+        url: `${SITE_URL}/courses/${encodeURIComponent(course.slug ?? course.uuid)}`,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      })),
+    );
+  } catch {
+    // The rest of the map still ships.
+  }
+
+  return entries;
+}
 
 /**
  * ⚠️ **`id` ليسَ رقماً، والتوقيعُ الخطأُ أفرغَ الخريطةَ بالكامل.** توثيقُ Next
@@ -111,5 +198,10 @@ export default async function sitemap(props: {
     // is recoverable; a build that fails because the API was slow is not.
   }
 
-  return [...staticEntries, ...articles];
+  // Teachers and courses ride in chunk 0 with the static pages: the article
+  // count decides how many chunks there are, and a later chunk repeating them
+  // would list every profile once per chunk.
+  const marketplace = id === 0 ? await marketplaceEntries() : [];
+
+  return [...staticEntries, ...marketplace, ...articles];
 }

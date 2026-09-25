@@ -89,7 +89,10 @@ export function AuthShell({
             >
               <BrandMarkDecorative size="xl" />
             </Link>
-            <p className="mt-2 text-ink-muted">{subtitle}</p>
+            {/* The screen's one heading. These pages had no `<h1>` at all: the
+                mark is a link named after the platform, and the line that says
+                what the screen is for was a paragraph. Same look, real level. */}
+            <h1 className="mt-2 text-base font-normal text-ink-muted">{subtitle}</h1>
           </div>
 
           {children}

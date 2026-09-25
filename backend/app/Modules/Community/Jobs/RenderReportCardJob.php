@@ -37,7 +37,7 @@ class RenderReportCardJob implements ShouldQueue
 
     public function __construct(private readonly int $reportCardId)
     {
-        $this->onQueue('community');
+        $this->onQueue('report-cards');
     }
 
     public function handle(): void

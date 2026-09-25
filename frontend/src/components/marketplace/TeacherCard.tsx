@@ -1,6 +1,6 @@
 import { VerifiedBadgeIcon } from "@/components/icons";
 import Link from "next/link";
-import { counted } from "@/lib/labels";
+import { counted, YEARS_OF_EXPERIENCE } from "@/lib/labels";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
 import { AvailableNowChip, AvailableNowDot } from "./AvailableNow";
 import { StarRating } from "./StarRating";
@@ -74,17 +74,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
             {teacher.headline}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
-            {counted(teacher.years_experience, {
-              // ⚠️ «أقل من سنة»، لا «لا سنوات خبرة». الصفرُ هنا مدرّسٌ مُعتمَدٌ
-              // في أوّلِ عامِه، وجملةُ النفيِ تقرأُ حكماً عليه على بطاقةٍ
-              // تُعرَضُ في السوق.
-              zero: "أقل من سنة خبرة",
-              one: "سنة خبرة",
-              two: "سنتا خبرة",
-              few: "سنوات خبرة",
-              many: "سنة خبرة",
-              other: "سنة خبرة",
-            })}
+            {counted(teacher.years_experience, YEARS_OF_EXPERIENCE)}
             {teacher.grade_levels.length > 0 && (
               <> · {teacher.grade_levels.map((level) => level.name).join(" · ")}</>
             )}

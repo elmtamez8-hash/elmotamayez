@@ -55,8 +55,26 @@ class WorkspaceController extends Controller
     {
         $this->authorize('view', $workspace);
 
+        /*
+        | ⚠️ PAGED, BECAUSE `workspace_members` CARRIES THE STUDENTS TOO. A
+        | teacher's team is three people and their workspace is three people plus
+        | every student they ever added — so the unpaged read loaded the whole
+        | roll, hydrated, on every visit to «فريقك». Ordered by id so a page is
+        | the same rows twice: MySQL guarantees no order without one, and an
+        | unordered page two can repeat a row of page one and skip another.
+        */
+        $page = $workspace->members()
+            ->withPivot('role')
+            ->orderBy('users.id')
+            ->paginate(50);
+
         return response()->json([
-            'data' => $workspace->members()->withPivot('role')->get()->map(fn (User $member) => [
+            'meta' => [
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
+                'total' => $page->total(),
+            ],
+            'data' => $page->getCollection()->map(fn (User $member) => [
                 'uuid' => $member->uuid,
                 'name' => $member->name,
                 'email' => $member->email,

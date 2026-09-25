@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Support\Roles;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -127,5 +128,38 @@ it('lists conversations at a constant cost whatever their number', function () u
     foreach ($largeResponse->json() as $row) {
         expect($row['last_message'])->not->toBeNull()
             ->and($row['last_message']['sender_name'])->not->toBeEmpty();
+    }
+});
+
+it('reads a page and its cursor through the (workspace_id, conversation_id, id) index', function () use ($fill): void {
+    /*
+    | ⚠️ SQLITE CANNOT SHOW THE DEFECT, SO THE SQL IS WHAT IS MEASURED. The read
+    | drops the workspace scope (the reader is a student), and without a
+    | hand-written `workspace_id` the only index on `messages` — led by that
+    | column — is unusable on MySQL: the page becomes a backwards walk of the
+    | primary key. Nothing local is slower for it, so the guard is that both
+    | message reads name the leading column.
+    */
+    $fill($this->conversationUuid, 3, $this->student, $this->owner);
+
+    Sanctum::actingAs($this->student);
+    $url = "/api/v1/conversations/{$this->conversationUuid}/messages";
+    $newest = (string) $this->getJson($url)->assertOk()->json('2.uuid');
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $this->getJson($url.'?before='.$newest)->assertOk()->assertJsonCount(2);
+    $reads = collect(DB::getQueryLog())
+        ->pluck('query')
+        ->filter(fn (string $sql): bool => str_starts_with($sql, 'select') && str_contains($sql, 'from "messages"'))
+        ->values();
+    DB::disableQueryLog();
+
+    // The cursor lookup and the page itself.
+    expect($reads)->toHaveCount(2);
+
+    foreach ($reads as $sql) {
+        expect($sql)->toContain('"workspace_id" = ?')
+            ->and($sql)->toContain('"conversation_id" = ?');
     }
 });

@@ -65,7 +65,8 @@ class MoneyPulseWidget extends BaseWidget
         );
 
         $take = $this->byCurrency(
-            CreditPurchase::query()->withoutWorkspaceScope(),
+            // A reversed sale took no fee: its money went back.
+            CreditPurchase::query()->withoutWorkspaceScope()->whereNull('reversed_at'),
             DB::raw('SUM(operating_fee_minor + gateway_fee_minor) as total'),
         );
 

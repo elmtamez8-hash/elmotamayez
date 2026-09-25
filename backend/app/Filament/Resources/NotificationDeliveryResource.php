@@ -14,6 +14,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\PaginationMode;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use UnitEnum;
@@ -99,7 +100,13 @@ class NotificationDeliveryResource extends Resource
                         ->all(),
                 ),
             ])
-            ->defaultSort('id', 'desc');
+            ->defaultSort('id', 'desc')
+            // ⚠️ SIMPLE, BECAUSE THIS IS THE LARGEST LOG IN THE PANEL. One row per
+            // notification per channel, never pruned by this screen — and the
+            // default length-aware paginator runs a full `COUNT(*)` of it, with
+            // the chosen filters, beside every page. Nobody reading a delivery
+            // log needs «page 3 of 41,208»; «next» is the whole of the use.
+            ->paginationMode(PaginationMode::Simple);
     }
 
     public static function getPages(): array

@@ -129,7 +129,7 @@ export const gamification = {
     api.get<{ data: Reward[] }>(`/gamification/shop?workspace=${encodeURIComponent(workspaceUuid)}`),
 
   redeem: (rewardUuid: string) =>
-    api.post<{ data: Redemption }>(`/gamification/rewards/${rewardUuid}/redeem`, {}),
+    api.post<Redemption>(`/gamification/rewards/${rewardUuid}/redeem`, {}),
 
   myRedemptions: () => api.get<{ data: Redemption[] }>("/gamification/redemptions"),
 
@@ -143,8 +143,8 @@ export const gamification = {
 
     saveReward: (payload: Record<string, unknown>, uuid?: string) =>
       uuid
-        ? api.put<{ data: Reward }>(`/manage/gamification/rewards/${uuid}`, payload)
-        : api.post<{ data: Reward }>("/manage/gamification/rewards", payload),
+        ? api.put<Reward>(`/manage/gamification/rewards/${uuid}`, payload)
+        : api.post<Reward>("/manage/gamification/rewards", payload),
 
     redemptions: (status?: string) =>
       api.get<{ data: Redemption[] }>(
@@ -152,9 +152,9 @@ export const gamification = {
       ),
 
     fulfill: (uuid: string) =>
-      api.post<{ data: Redemption }>(`/manage/gamification/redemptions/${uuid}/fulfill`, {}),
+      api.post<Redemption>(`/manage/gamification/redemptions/${uuid}/fulfill`, {}),
 
     reject: (uuid: string) =>
-      api.post<{ data: Redemption }>(`/manage/gamification/redemptions/${uuid}/reject`, {}),
+      api.post<Redemption>(`/manage/gamification/redemptions/${uuid}/reject`, {}),
   },
 };

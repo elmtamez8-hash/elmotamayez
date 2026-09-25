@@ -69,10 +69,36 @@ class ShowPublicTeacher extends Action
      */
     public function reviewsOf(TeacherProfile $teacher, int $limit = 20): array
     {
-        $reviews = Review::query()
+        $visible = fn () => Review::query()
             ->withoutWorkspaceScope()
             ->where('teacher_profile_id', $teacher->getKey())
-            ->where('is_visible', true)
+            ->where('is_visible', true);
+
+        /*
+        | ⚠️ COUNTED IN SQL, NOT BY LOADING EVERY REVIEW. The page shows twenty, and
+        | it used to fetch all of them — with the student and their profile eager
+        | loaded for each — only to count stars in PHP and throw the rest away. A
+        | teacher with two thousand reviews paid two thousand rows and two eager
+        | loads on every public visit to say «٤٫٨ من ٢٠٠٠». One GROUP BY answers
+        | the total, the average and the distribution from the same five rows.
+        */
+        $counts = $visible()
+            ->toBase()
+            ->selectRaw('rating, COUNT(*) as aggregate')
+            ->groupBy('rating')
+            ->pluck('aggregate', 'rating');
+
+        $distribution = ['5' => 0, '4' => 0, '3' => 0, '2' => 0, '1' => 0];
+        $total = 0;
+        $sum = 0;
+
+        foreach ($counts as $rating => $count) {
+            $distribution[(string) $rating] = (int) $count;
+            $total += (int) $count;
+            $sum += (int) $rating * (int) $count;
+        }
+
+        $reviews = $visible()
             // The nested select needs `user_id`: without the foreign key the
             // hasOne has nothing to match on and every profile comes back null,
             // which reads as "no student uploaded a photo" rather than as a bug.
@@ -81,24 +107,21 @@ class ShowPublicTeacher extends Action
                 'student.studentProfile:id,user_id,avatar_path',
             ])
             ->orderByDesc('created_at')
+            // Same-second reviews would otherwise swap places between two loads.
+            ->orderByDesc('id')
+            ->limit($limit)
             ->get();
 
-        $distribution = ['5' => 0, '4' => 0, '3' => 0, '2' => 0, '1' => 0];
-
-        foreach ($reviews as $review) {
-            $distribution[(string) $review->rating]++;
-        }
-
         return [
-            'average' => $reviews->isEmpty() ? null : round((float) $reviews->avg('rating'), 2),
-            'total' => $reviews->count(),
+            'average' => $total === 0 ? null : round($sum / $total, 2),
+            'total' => $total,
             // Cast to object: PHP turns numeric string keys into integers and
             // json_encode would then emit an array instead of the keyed object.
             'distribution' => (object) $distribution,
             // The `teacher_*` keys the home carousel adds are deliberately absent
             // here: this page IS the teacher, and repeating their photo on every
             // row would be the same image sent twenty times to say nothing.
-            'items' => $reviews->take($limit)->map(function (Review $review): array {
+            'items' => $reviews->map(function (Review $review): array {
                 $avatar = $review->student?->studentProfile?->avatar_path;
 
                 return [

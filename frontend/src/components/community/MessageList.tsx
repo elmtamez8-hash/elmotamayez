@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { Badge } from "@/components/ui/Badge";
-import { formatDate, formatTime } from "@/lib/labels";
+import { counted, formatDate, formatTime, NOUNS } from "@/lib/labels";
 import type { ChatMessage } from "@/lib/conversations";
 
 /** How close to the bottom still counts as "following the conversation". */
@@ -280,7 +280,7 @@ function Attachment({
         <audio controls preload="metadata" src={attachment.url} className="w-56 max-w-full" />
         {attachment.duration_seconds !== null && (
           <span className={mine ? "text-[10px] text-white/70" : "text-[10px] text-ink-muted"}>
-            <bdi>{`${attachment.duration_seconds} ثانية`}</bdi>
+            <bdi>{counted(attachment.duration_seconds, { ...NOUNS.seconds, zero: "أقل من ثانية" })}</bdi>
           </span>
         )}
       </div>

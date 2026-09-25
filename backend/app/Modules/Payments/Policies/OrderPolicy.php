@@ -201,9 +201,11 @@ class OrderPolicy extends BasePolicy
      *
      * The officer who witnesses that the money arrived is the one who records
      * that it went back — one spelling, so the button and the Action cannot
-     * disagree about who may press it. `ReverseCourseOrder` refuses every kind
-     * but a course order, so the platform branch inside `approve()` is never
-     * the answer that lets a credit sale through here.
+     * disagree about who may press it. A course order reaches
+     * `ReverseCourseOrder`; a credit package or an hours plan reaches
+     * `ReverseCreditOrder`, and for those the platform branch inside `approve()`
+     * is the answer — `BILLING_PURCHASE_APPROVE`, the permission that minted
+     * the credits being taken back.
      */
     public function reverse(User $user, Order $order): Response
     {

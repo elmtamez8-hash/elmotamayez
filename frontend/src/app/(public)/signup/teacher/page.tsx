@@ -2,17 +2,12 @@ import type { Metadata } from "next";
 import { publicApi } from "@/lib/public-api";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { TeacherSignupWizard } from "@/components/marketplace/TeacherSignupWizard";
-import { platformName } from "@/lib/platform";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const name = await platformName();
-
-  return {
-    title: `التقديم كمدرّس — ${name}`,
-    description:
-      "قدّم طلبك للتدريس على المنصة في أربع خطوات: بياناتك، تخصصك، المستندات، ثم السعر والتوفّر.",
-  };
-}
+export const metadata: Metadata = {
+  title: "التقديم كمدرّس",
+  description:
+    "قدّم طلبك للتدريس على المنصة في أربع خطوات: بياناتك، تخصصك، المستندات، ثم السعر والتوفّر.",
+};
 
 /*
   ⚠️ THE SIBLING OF `signup/parent/children`, AND THE SAME TRAP. Prerendering a
