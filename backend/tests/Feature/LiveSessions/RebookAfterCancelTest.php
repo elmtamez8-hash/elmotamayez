@@ -35,6 +35,9 @@ use Illuminate\Support\Facades\DB;
 */
 
 beforeEach(function (): void {
+    // Midday UTC, so a freeze's platform days and the UTC dates agree.
+    $this->travelTo(CarbonImmutable::parse('2026-10-01 09:00:00', 'UTC'));
+
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
@@ -124,21 +127,63 @@ it('books a seat again after the system released it', function (): void {
         ->and(rebookLiveHolds($session))->toBe(1);
 });
 
-it('refuses to rebook a late cancellation, whose seat is still counted and charged, and leaves the count alone', function (): void {
+it('undoes a late cancellation with no second seat and no second credit hold, once', function (): void {
     $session = rebookSession(CarbonImmutable::now()->addHours(3));
 
     $booking = app(BookSeat::class)->handle($session, $this->student);
     app(CancelBooking::class)->handle($booking);
 
     expect($booking->refresh()->status)->toBe(BookingStatus::CancelledLate)
-        ->and($session->refresh()->seats_taken)->toBe(1);
-
-    expect(fn () => app(BookSeat::class)->handle($session, $this->student))
-        ->toThrow(DomainException::class, 'ألغيت هذا الحجز بعد انتهاء مهلة الإلغاء');
-
-    expect($booking->refresh()->status)->toBe(BookingStatus::CancelledLate)
         ->and($session->refresh()->seats_taken)->toBe(1)
         ->and(rebookLiveHolds($session))->toBe(1);
+
+    $undone = app(BookSeat::class)->handle($session, $this->student);
+
+    expect($undone->getKey())->toBe($booking->getKey())
+        ->and($undone->status)->toBe(BookingStatus::Booked)
+        ->and($undone->cancelled_at)->toBeNull()
+        ->and($session->refresh()->seats_taken)->toBe(1)
+        ->and(rebookLiveHolds($session))->toBe(1)
+        ->and(DB::table('credit_holds')->where('class_session_id', $session->getKey())->count())->toBe(1);
+
+    // A double tap: the row is booked now, so the second press is a second
+    // booking — refused, with nothing counted twice.
+    expect(fn () => app(BookSeat::class)->handle($session, $this->student))
+        ->toThrow(DomainException::class, 'لديك مقعد محجوز في هذه الحصة بالفعل.');
+
+    expect($session->refresh()->seats_taken)->toBe(1)
+        ->and(rebookLiveHolds($session))->toBe(1);
+});
+
+it('does not undo a late cancellation once the lesson has started', function (): void {
+    $session = rebookSession(CarbonImmutable::now()->addHours(3));
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+    app(CancelBooking::class)->handle($booking);
+
+    $this->travel(4)->hours();
+
+    expect(fn () => app(BookSeat::class)->handle($session->refresh(), $this->student))
+        ->toThrow(DomainException::class);
+
+    expect($booking->refresh()->status)->toBe(BookingStatus::CancelledLate);
+});
+
+it('clears the reminder and the excuse of a seat that is booked back, so the reminder goes out again', function (): void {
+    $session = rebookSession(CarbonImmutable::now()->addDays(3));
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+    $booking->forceFill(['reminded_at' => now(), 'excused_at' => now(), 'excused_by_user_id' => $this->owner->getKey()])->save();
+    app(CancelBooking::class)->handle($booking);
+
+    app(BookSeat::class)->handle($session, $this->student);
+
+    $row = DB::table('session_bookings')->where('id', $booking->getKey())->first();
+
+    expect($row->status)->toBe(BookingStatus::Booked->value)
+        ->and($row->reminded_at)->toBeNull()
+        ->and($row->excused_at)->toBeNull()
+        ->and($row->excused_by_user_id)->toBeNull();
 });
 
 it('still refuses a second booking of a seat the student holds, giving the claimed capacity back', function (): void {

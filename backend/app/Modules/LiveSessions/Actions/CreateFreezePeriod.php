@@ -248,7 +248,7 @@ class CreateFreezePeriod extends Action
                     'status' => BookingStatus::Released,
                     'is_billable' => false,
                     'cancelled_at' => now(),
-                    'cancellation_reason' => 'فترة تجميد',
+                    'cancellation_reason' => self::SEAT_RELEASE_REASON,
                 ]);
 
             // ٠٣٥ · T060 — a suspended hour holds nobody's credit. The seats are

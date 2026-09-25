@@ -57,6 +57,12 @@ class BookSeat extends Action
     {
         $this->assertBookable($session);
 
+        $undone = $this->undoLateCancellation($session, $student);
+
+        if ($undone !== null) {
+            return $undone;
+        }
+
         /*
         | ⚠️ THE LEAD TIME GUARDS AN OPEN 1:1 SLOT, AT THIS DOOR ONLY. A private
         | request is refused «too soon» (`RequestPrivateSession`), and an open 1:1
@@ -210,7 +216,9 @@ class BookSeat extends Action
      *
      * ⚠️ CALLED AFTER `claimCapacity()`, NEVER BEFORE IT, and the caller gives the
      * capacity back on null: the seat count is the overbooking guard, and a row
-     * flipped to `booked` without it would put a student in a full room.
+     * flipped to `booked` without it would put a student in a full room. The one
+     * exception is `CancelledLate` ({@see self::undoLateCancellation()}), whose
+     * seat never left `seats_taken`.
      *
      * @param  list<BookingStatus>  $from
      */
@@ -227,6 +235,17 @@ class BookSeat extends Action
                 'booked_at' => now(),
                 'cancelled_at' => null,
                 'cancellation_reason' => null,
+                /*
+                | ⚠️ WHAT BELONGED TO THE SEAT BEFORE IT WENT GOES WITH IT. The
+                | reminder job claims `reminded_at IS NULL`, so a row reminded
+                | before it was cancelled would never be reminded of the lesson
+                | it was just booked back into. And an excuse (`ExcuseBooking`)
+                | exempts THAT absence from the charge — a student who books the
+                | hour again has not been excused from the hour they now hold.
+                */
+                'reminded_at' => null,
+                'excused_at' => null,
+                'excused_by_user_id' => null,
                 'updated_at' => now(),
             ]);
 
@@ -239,6 +258,29 @@ class BookSeat extends Action
             ->where('class_session_id', $session->getKey())
             ->where('student_user_id', $student->getKey())
             ->first();
+    }
+
+    /**
+     * «تراجع عن الإلغاء» — a late cancellation taken back (owner decision
+     * 2026-09-26). Null when the student holds no late-cancelled row here.
+     *
+     * ⛔ NO CAPACITY CLAIM AND NO CREDIT HOLD, AND THAT IS THE WHOLE POINT. A late
+     * cancellation never gave its seat back (`seats_taken` still counts it), its
+     * credit hold was never released, and it is still charged at delivery — so
+     * the chair, the frozen credit and the charge are all still the student's.
+     * Claiming either again would sell one chair twice. The row simply goes
+     * back to `booked`.
+     *
+     * ⚠️ ONE CONDITIONAL UPDATE (`WHERE status = cancelled_late`, through
+     * `reviveRow()`), so a double tap moves the row once and the second press
+     * finds it booked and is refused like any second booking — nothing is
+     * counted twice. Only before the lesson starts: `assertBookable()` has
+     * already refused a session that started or stopped taking bookings. No
+     * eligibility or lead-time question is asked: nothing new is being bought.
+     */
+    private function undoLateCancellation(ClassSession $session, User $student): ?SessionBooking
+    {
+        return $this->reviveRow($session, $student, [BookingStatus::CancelledLate]);
     }
 
     private function assertBookable(ClassSession $session): void
@@ -279,8 +321,9 @@ class BookSeat extends Action
             | went back to the pool (`seats_taken` still counts it), its credit is
             | still frozen, and it is still charged at delivery — so reviving it
             | through here would claim a second seat and a second credit for one
-            | chair. «Un-cancelling» a late cancellation is its own decision, not
-            | a side effect of a booking door.
+            | chair. The student's own door takes it back BEFORE this point, with
+            | no capacity and no hold ({@see self::undoLateCancellation()}); the
+            | other two entries never do.
             */
             $booking = $this->reviveRow($session, $student, [
                 BookingStatus::CancelledInWindow,

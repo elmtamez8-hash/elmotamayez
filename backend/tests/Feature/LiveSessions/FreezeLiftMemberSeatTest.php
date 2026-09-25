@@ -31,6 +31,11 @@ use Illuminate\Support\Facades\DB;
 */
 
 beforeEach(function (): void {
+    // Midday UTC, so every «day» below is the same date in UTC and in Doha —
+    // a freeze's days are the platform's (`FreezeDayBoundaryTest`), and near
+    // midnight UTC the two calendars disagree about which day a lesson is on.
+    $this->travelTo(CarbonImmutable::parse('2026-10-01 09:00:00', 'UTC'));
+
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 

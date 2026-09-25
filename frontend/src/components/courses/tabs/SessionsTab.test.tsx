@@ -151,7 +151,7 @@ describe("the student's own booking", () => {
    | server revives the row now, so the button comes back — except after a LATE
    | cancellation, whose seat is still counted and still charged.
    */
-  it("offers «احجز» again after an in-time cancellation or a release, and not after a late one", () => {
+  it("offers «احجز» again after an in-time cancellation or a release, and an undo after a late one", () => {
     render(
       <SessionsTab
         sessions={[
@@ -165,6 +165,9 @@ describe("the student's own booking", () => {
           }),
           upcoming({
             uuid: "late",
+            // Full, because the late-cancelled seat is still counted — and the
+            // undo returns to that very chair, so a full room must not hide it.
+            seats: { total: 6, taken: 6, available: 0 },
             my_booking: { uuid: "c", status: "cancelled_late", status_label: "ملغى بعد المهلة", may_cancel_until: "" },
           }),
         ]}
@@ -172,9 +175,26 @@ describe("the student's own booking", () => {
     );
 
     expect(screen.getAllByRole("button", { name: "احجز" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "تراجع عن الإلغاء" })).toHaveLength(1);
     expect(screen.getByText("ملغى ضمن المهلة")).toBeTruthy();
     expect(screen.getByText("مقعد محرَّر")).toBeTruthy();
     expect(screen.getByText("ملغى بعد المهلة")).toBeTruthy();
+  });
+
+  it("undoes a late cancellation and shows the seat as held again", async () => {
+    post.mockResolvedValue({ uuid: "c" });
+
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({ my_booking: { uuid: "c", status: "cancelled_late", status_label: "ملغى بعد المهلة", may_cancel_until: "" } }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "تراجع عن الإلغاء" }));
+
+    expect(await screen.findByText("محجوز")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/class-sessions/s-9/book", {});
   });
 
   it("books a released seat again and then shows it as held", async () => {

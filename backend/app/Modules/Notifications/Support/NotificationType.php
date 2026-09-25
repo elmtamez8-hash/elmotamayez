@@ -471,6 +471,18 @@ enum NotificationType: string
     case SubscriptionSeatUnavailable = 'subscription_seat_unavailable';
 
     /*
+    | A freeze on the WHOLE workspace was lifted, and lessons whose seat it took
+    | from this student are back on the timetable (owner decision 2026-09-26).
+    |
+    | ⚠️ ITS OWN TYPE, NOT `SubscriptionSeatUnavailable`. That one says «the
+    | automation tried and could not»; here nobody tried — the student is TOLD
+    | they may book again, and the seat is deliberately not taken for them: a
+    | credit-paying student decides whether to spend a credit on the hour.
+    | Student only, like its neighbour: a guardian can press nothing.
+    */
+    case SessionSeatReopened = 'session_seat_reopened';
+
+    /*
     | ٠٣٤ · FR-019 — الإدارةُ أنشأَت باقةً **باسمِ المدرّس**.
     |
     | ⚠️ **المُستقبِلُ مدرّسٌ لا طالب، وهذا ما يُخرِجُه من `targetsGuardians()`**:
@@ -594,6 +606,7 @@ enum NotificationType: string
             self::PlanChangeApproved => 'قبول تعديل باقة',
             self::PlanChangeRejected => 'رفض تعديل باقة',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
+            self::SessionSeatReopened => 'حصص عادت للحجز',
             self::PlanCreatedForYou => 'باقة أُنشئت باسمك',
             self::ScheduledReport => 'تقرير مجدول',
             // ⚠️ `label()` is an EXHAUSTIVE match with no default arm — a new

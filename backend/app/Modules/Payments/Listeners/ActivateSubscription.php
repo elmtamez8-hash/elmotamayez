@@ -286,8 +286,10 @@ class ActivateSubscription implements ShouldQueueAfterCommit
      * and the actor is the officer who approved.
      *
      * @param  bool  $releaseClaimedPlace  true only on the activation that CREATED
-     *                                     the subscription — a retry must not give
-     *                                     `ApproveOrder`'s place back a second time
+     *                                     the subscription (or, for the hours
+     *                                     shape, posted the hours) — a retry must
+     *                                     not give `ApproveOrder`'s place back a
+     *                                     second time
      */
     private function joinCohort(Order $order, ?string $seatWindowEnd, bool $releaseClaimedPlace = false): void
     {
@@ -548,7 +550,10 @@ class ActivateSubscription implements ShouldQueueAfterCommit
 
         $this->recordSale($order, $plan, $intent, $course, $balance);
 
-        $this->ledger->post(new CreditMovement(
+        // Null on a redelivery (the idempotency key above). The run that
+        // actually posted the hours is the one allowed to give back the place
+        // `ApproveOrder` claimed, if the student has changed group since.
+        $posted = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Purchase,
             credits: (int) $intent->sessionCount,
@@ -564,7 +569,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         */
         $this->openAccess($order, $plan, null, self::ENROLMENT_SOURCE);
 
-        $this->joinCohort($order, null);
+        $this->joinCohort($order, null, releaseClaimedPlace: $posted !== null);
 
         $this->announceSessionPlan($order, $intent, $course);
     }

@@ -167,12 +167,19 @@ function BookButton({ session }: { session: ClassSession }) {
    |
    | ⛔ AND A SEAT GIVEN UP IN TIME, OR TAKEN BACK BY THE SYSTEM, CAN BE BOOKED
    | AGAIN — the server revives the row (`BookSeat::claim()`), so the button
-   | comes back beside the badge. A LATE cancellation is the one that cannot:
-   | its seat is still counted and still charged, so it keeps the badge alone.
+   | comes back beside the badge.
+   |
+   | ⚠️ A LATE CANCELLATION IS UNDONE, NOT BOOKED (owner decision 2026-09-26).
+   | Its seat is still counted and still charged, so the server puts the row
+   | back with no new seat and no new credit — which is why the button says
+   | «تراجع عن الإلغاء» and why it ignores `seats.available`: the chair it
+   | returns to is already the student's, and a full room is no reason to hide
+   | it. Only before the lesson starts; the server refuses after.
    */
   const givenUp = booking !== null && booking.status !== "booked" ? booking : null;
+  const lateUndo = givenUp?.status === "cancelled_late";
 
-  if (givenUp?.status === "cancelled_late") {
+  if (lateUndo && (session.status !== "scheduled" || Date.parse(session.starts_at) <= Date.now())) {
     return <Badge tone="neutral">{givenUp.status_label}</Badge>;
   }
 
@@ -194,7 +201,7 @@ function BookButton({ session }: { session: ClassSession }) {
 
   const badge = givenUp !== null ? <Badge tone="neutral">{givenUp.status_label}</Badge> : null;
 
-  if (session.status !== "scheduled" || session.seats.available <= 0) return badge;
+  if (!lateUndo && (session.status !== "scheduled" || session.seats.available <= 0)) return badge;
 
   const book = async () => {
     setBusy(true);
@@ -222,8 +229,14 @@ function BookButton({ session }: { session: ClassSession }) {
   return (
     <div className="flex flex-col items-end gap-1">
       {badge}
-      <Button size="sm" onClick={() => void book()} loading={busy} loadingLabel="جارٍ الحجز…">
-        احجز
+      <Button
+        size="sm"
+        variant={lateUndo ? "secondary" : undefined}
+        onClick={() => void book()}
+        loading={busy}
+        loadingLabel={lateUndo ? "جارٍ التراجع…" : "جارٍ الحجز…"}
+      >
+        {lateUndo ? "تراجع عن الإلغاء" : "احجز"}
       </Button>
       {refusal !== null && (
         <p role="alert" className="text-xs text-danger-ink">

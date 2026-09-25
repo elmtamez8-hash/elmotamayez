@@ -111,6 +111,10 @@ class DeleteFreezePeriod extends Action
                 $this->restoreGroupSeats((int) $period->student_user_id, $seatsTaken);
             }
 
+            if ($period->student_user_id === null) {
+                $this->announceReopenedGroupLessons($restored);
+            }
+
             return ['restored' => $restored, 'kept' => $kept];
         });
     }
@@ -216,6 +220,111 @@ class DeleteFreezePeriod extends Action
     }
 
     /**
+     * A WORKSPACE freeze lifted: tells each non-subscriber whose group seat it
+     * released that the lesson is back and may be booked again (owner decision
+     * 2026-09-26).
+     *
+     * ⚠️ TOLD, NEVER BOOKED. A credit-paying student decides whether to spend a
+     * credit on the hour; taking the seat for them would freeze one they may
+     * already have planned elsewhere. Their row is `Released`, so «احجز» revives
+     * it (`BookSeat::claim()`).
+     *
+     * ⚠️ A SUBSCRIBER IS NOT TOLD: their seat comes back by itself through
+     * `EffectiveSubscriptionEnd` after this transaction commits, and «book it
+     * yourself» would be a false instruction about a seat already theirs.
+     *
+     * ⚠️ ONE NOTICE PER STUDENT naming every lesson — a holiday's worth of
+     * lessons is otherwise a dozen buzzes from one button — sent after the
+     * commit, so it never describes a revival that rolled back.
+     *
+     * @param  list<ClassSession>  $restored
+     */
+    private function announceReopenedGroupLessons(array $restored): void
+    {
+        $group = array_values(array_filter(
+            $restored,
+            static fn (ClassSession $session): bool => $session->type === ClassSessionType::Group,
+        ));
+
+        if ($group === []) {
+            return;
+        }
+
+        $sessions = collect($group)->keyBy(static fn (ClassSession $session): int => (int) $session->getKey());
+
+        $released = DB::table('session_bookings')
+            ->whereIn('class_session_id', $sessions->keys()->all())
+            ->where('status', BookingStatus::Released->value)
+            ->where('cancellation_reason', CreateFreezePeriod::SEAT_RELEASE_REASON)
+            ->get(['class_session_id', 'student_user_id']);
+
+        /** @var array<int, list<ClassSession>> $byStudent */
+        $byStudent = [];
+
+        foreach ($released as $row) {
+            $session = $sessions->get((int) $row->class_session_id);
+            $studentId = (int) $row->student_user_id;
+
+            if ($session === null) {
+                continue;
+            }
+
+            if ($session->course_id !== null && $this->subscriptions->subscriberIdsAmong(
+                [$studentId],
+                (int) $session->course_id,
+                $session->type->value,
+                $session->starts_at,
+            ) !== []) {
+                continue;
+            }
+
+            $byStudent[$studentId][] = $session;
+        }
+
+        if ($byStudent === []) {
+            return;
+        }
+
+        DB::afterCommit(function () use ($byStudent): void {
+            $students = User::query()->whereKey(array_keys($byStudent))->get()->keyBy('id');
+
+            foreach ($byStudent as $studentId => $lessons) {
+                $student = $students->get($studentId);
+
+                if ($student === null) {
+                    continue;
+                }
+
+                $this->notify->handle(new NotificationRequest(
+                    recipient: $student,
+                    type: NotificationType::SessionSeatReopened,
+                    variables: ['sessions' => $this->describe($lessons)],
+                    actionUrl: '/schedule',
+                    subject: $student,
+                    workspaceId: (int) $lessons[0]->workspace_id,
+                ));
+            }
+        });
+    }
+
+    /**
+     * «title (Y-m-d H:i)، …» in the platform's zone — the line both notices carry.
+     *
+     * @param  list<ClassSession>  $sessions
+     */
+    private function describe(array $sessions): string
+    {
+        return implode('، ', array_map(
+            fn (ClassSession $session): string => sprintf(
+                '%s (%s)',
+                $session->title,
+                CarbonImmutable::instance($session->starts_at)->setTimezone($this->settings->timezone())->format('Y-m-d H:i'),
+            ),
+            $sessions,
+        ));
+    }
+
+    /**
      * «These seats did not come back», to the student and to the teacher.
      *
      * The type is the one the automatic booker already sends for a seat it could
@@ -226,14 +335,7 @@ class DeleteFreezePeriod extends Action
      */
     private function announceUnrestored(User $student, array $sessions): void
     {
-        $lines = implode('، ', array_map(
-            fn (ClassSession $session): string => sprintf(
-                '%s (%s)',
-                $session->title,
-                CarbonImmutable::instance($session->starts_at)->setTimezone($this->settings->timezone())->format('Y-m-d H:i'),
-            ),
-            $sessions,
-        ));
+        $lines = $this->describe($sessions);
 
         $workspaceId = (int) $sessions[0]->workspace_id;
 
