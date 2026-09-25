@@ -8,9 +8,9 @@ use App\Modules\Marketplace\Events\TeacherRejected;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
-class NotifyTeacherRejected implements ShouldQueue
+class NotifyTeacherRejected implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
