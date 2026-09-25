@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Events\CourseAccessEnded;
 use App\Shared\Events\CourseAccessWithdrawn;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
@@ -51,6 +52,11 @@ use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
  * release seats outside the freeze as well as inside it. Release on the fact
  * that happened — this subscription ended — and nothing wider.
  *
+ * ⚠️ AND THREE EVENTS REACH IT, ONE FACT: access to these courses ended — a
+ * subscription ran out, an order was reversed (`CourseAccessWithdrawn`), or an
+ * officer expired an enrolment by hand (`CourseAccessEnded`). One release path
+ * for all three, so the three cannot drift one predicate apart.
+ *
  * Queued and `ShouldQueueAfterCommit`: the expiry sweep claims each row
  * inside its own statement, and a worker reading before commit would find the
  * enrolment still active and release nothing.
@@ -62,7 +68,7 @@ class ReleaseSeatsOnSubscriptionEnd implements ShouldQueueAfterCommit
         private readonly EnrollmentDirectory $enrollments,
     ) {}
 
-    public function handle(SubscriptionEnded|CourseAccessWithdrawn $event): void
+    public function handle(SubscriptionEnded|CourseAccessWithdrawn|CourseAccessEnded $event): void
     {
         if ($event->courseIds === []) {
             return;

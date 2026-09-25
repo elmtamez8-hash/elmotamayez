@@ -6,7 +6,12 @@ use App\Filament\Resources\EnrollmentResource\Pages\EditEnrollment;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
+use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Events\SubscriptionEnded;
+use App\Shared\Events\CourseAccessEnded;
+use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Forms\Components\Select;
@@ -119,4 +124,59 @@ it('still reopens an expired purchase by hand', function (): void {
         ->assertHasNoFormErrors();
 
     expect(subscriptionPanelStatus($enrollment))->toBe('active');
+});
+
+/*
+| ⚠️ A PURCHASED enrolment expired by hand kept its seats too. The page wrote the
+| column raw for every source but `subscription`, so the student kept — and was
+| charged at delivery for — every future seat in a course they could no longer
+| open. Driven end to end: the seat itself must come back, not only an event.
+*/
+it('releases the future seats when a purchased enrolment is expired from the panel', function (): void {
+    $enrollment = subscriptionPanelEnrollment('active', 'purchase');
+
+    $session = app(WorkspaceContext::class)->forWorkspace(
+        test()->away,
+        fn (): ClassSession => ClassSession::factory()->create([
+            'workspace_id' => test()->away->getKey(),
+            'course_id' => test()->course->getKey(),
+            'seats_taken' => 1,
+        ]),
+    );
+
+    $booking = SessionBooking::factory()->create([
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $enrollment->student_user_id,
+    ]);
+
+    Livewire::test(EditEnrollment::class, ['record' => $enrollment->getRouteKey()])
+        ->fillForm(['status' => 'expired'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->findOrFail($booking->getKey());
+
+    expect(subscriptionPanelStatus($enrollment))->toBe('expired')
+        ->and($booking->status)->toBe(BookingStatus::Released)
+        ->and($booking->is_billable)->toBeFalse()
+        ->and((int) ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey())->value('seats_taken'))->toBe(0);
+});
+
+it('announces the end of access, not a withdrawal, for a purchased enrolment', function (): void {
+    // `CourseAccessWithdrawn` would also take the group place, over a refund
+    // that did not happen — the panel expires, it does not reverse.
+    Event::fake([CourseAccessEnded::class, CourseAccessWithdrawn::class, SubscriptionEnded::class]);
+
+    $enrollment = subscriptionPanelEnrollment('completed', 'purchase');
+
+    Livewire::test(EditEnrollment::class, ['record' => $enrollment->getRouteKey()])
+        ->fillForm(['status' => 'expired'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    Event::assertDispatched(CourseAccessEnded::class, fn (CourseAccessEnded $event): bool => $event->studentUserId === (int) $enrollment->student_user_id
+        && $event->courseIds === [(int) test()->course->getKey()]
+        && $event->workspaceId === (int) test()->away->getKey());
+    Event::assertNotDispatched(CourseAccessWithdrawn::class);
+    Event::assertNotDispatched(SubscriptionEnded::class);
 });

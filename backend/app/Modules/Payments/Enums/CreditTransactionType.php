@@ -40,14 +40,4 @@ enum CreditTransactionType: string
             self::Expire => 'انتهاء صلاحية',
         };
     }
-
-    /**
-     * Types that add credits, and therefore open a lot for consumption.
-     *
-     * @return list<self>
-     */
-    public static function lotOpening(): array
-    {
-        return [self::Purchase, self::Bonus];
-    }
 }

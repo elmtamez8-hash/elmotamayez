@@ -355,7 +355,12 @@ class CreditLedger
                 );
             }
 
-            if (in_array($movement->type, CreditTransactionType::lotOpening(), true)) {
+            // ⚠️ THE SIGN DECIDES, NEVER THE TYPE. Every credit that raises a
+            // balance has to sit in a lot, or the drawer has nothing to take it
+            // from and `lotsAgainstBalances()` reports the balance for ever — an
+            // excuse accepted late (`Adjustment` +1) and a manual correction
+            // upwards both did, nightly. See the docblock of `openLot()`.
+            if ($movement->credits > 0) {
                 $this->openLot($entry, $movement);
             }
 
@@ -544,11 +549,25 @@ class CreditLedger
     }
 
     /**
-     * A batch, for the types that add credits with a life of their own.
+     * A batch, for every movement that ADDS credits.
      *
-     * Only purchases and bonuses open one. A refund or a correction moves the
-     * total without being a batch anyone can consume from — giving them lots
-     * would let a negative correction be "spent".
+     * ⛔ IT USED TO BE «PURCHASES AND BONUSES ONLY», AND THAT LEFT TWO POSITIVE
+     * MOVEMENTS WITH NO LOT: the reversal of a charge when an excuse is accepted
+     * after the room closed (`EloquentSessionSeatCharges::reverse()`, an
+     * `Adjustment` of +1) and a manual correction upwards through
+     * `AdjustCredits`. Each raised `remaining_credits` with nothing behind it,
+     * so the lots fell short of the balance: `ReconcileCreditBalancesJob`
+     * reported a false `lot_remainder` every night, and — with expiry switched
+     * on — that credit could never expire, because the expiry walks lots. A
+     * NEGATIVE correction never opens one (the caller asks `credits > 0`), which
+     * was the whole of the original worry about letting a correction be spent.
+     *
+     * The lot's expiry is whatever the movement carries, and the callers decide
+     * it the way packages do: a purchase takes its package's validity; a bonus or
+     * a manual correction carries none (the launch default, like a bonus always
+     * has); and a REVERSED CHARGE goes back into the batch it was taken from —
+     * it inherits the expiry of the lot(s) the charge drew, so an accepted
+     * excuse neither extends nor shortens the life of the credit it returns.
      *
      * ⚠️ AND IT OPENS ALREADY REDUCED BY ANY DEBT IT IS PAYING OFF. A session
      * delivered at zero moves `remaining_credits` and draws from no lot — there

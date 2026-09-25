@@ -104,7 +104,9 @@ it('still writes a real window for a plan sold by the month', function (): void 
 
     expect($subscription)->not->toBeNull()
         ->and($subscription->starts_on->toDateString())->not->toBe($subscription->ends_on->toDateString())
-        ->and($subscription->starts_on->diffInDays($subscription->ends_on))->toBe(30.0);
+        // `ends_on` is the last day that opens, so thirty days is a difference
+        // of twenty-nine — the plan sells exactly what it says.
+        ->and($subscription->starts_on->diffInDays($subscription->ends_on) + 1)->toBe(30.0);
 });
 
 it('reads a truncated snapshot as no window rather than as a window of zero', function (): void {

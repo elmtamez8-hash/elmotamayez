@@ -22,12 +22,12 @@ use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
-use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\CoveredCourses;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
+use App\Modules\Payments\Support\PlanLineage;
 use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Modules\Payments\Support\SubscriptionDays;
 use App\Shared\Contracts\CohortDirectory;
@@ -122,6 +122,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         private readonly CreditLedger $ledger,
         // The platform's calendar, never UTC's: see `SubscriptionDays`.
         private readonly SubscriptionDays $days,
+        private readonly PlanLineage $lineage,
     ) {}
 
     public function handle(CarriesPaidOrder $event): void
@@ -699,51 +700,6 @@ class ActivateSubscription implements ShouldQueueAfterCommit
      * for a plan that was on sale when they bought it, and a teacher switching it
      * off in the meantime must not swallow their money.
      */
-    /**
-     * This plan and every plan it replaced — the chain a renewal must extend along.
-     *
-     * ⛔ WITHOUT IT THE EXTENSION STOPS AT THE FIRST PRICE CHANGE, AND THAT IS THE
-     * MOST ORDINARY THING A TEACHER DOES. `DecidePlanChange` does not edit a plan;
-     * it writes a NEW row and retires the old one, so a student holding a running
-     * month renews onto a different `plan_id` and the lookup in {@see claim()}
-     * finds nothing — restoring the very defect it was added to end, silently, for
-     * every teacher who has ever repriced.
-     *
-     * ⚠️ `approved_plan_id` IS THE ONLY THREAD, as `DecidePlanChange`'s own header
-     * says. There is no `replaces_plan_id` on `plans` and no coverage-based
-     * shortcut: `plans.coverage_uuid` is NULL for a workspace-coverage plan and
-     * `NULL = NULL` is never true, so matching «the same coverage» would chain
-     * course plans and silently never chain workspace ones — this repository's
-     * most-repeated defect, reached from a new direction.
-     *
-     * ⚠️ AND THE WALK IS BOUNDED AND CYCLE-AWARE. This runs in a queue worker on
-     * rows an operator writes; an unbounded walk over a cycle is a hung worker and
-     * a payment approved with no subscription behind it. Twenty hops is already
-     * pathological — a plan repriced twenty times — and the cost of stopping early
-     * is the old behaviour, not a wrong one.
-     *
-     * @return list<int>
-     */
-    private function planLineage(Plan $plan): array
-    {
-        $ids = [(int) $plan->getKey()];
-
-        for ($hop = 0; $hop < 20; $hop++) {
-            $previous = PlanChangeRequest::query()
-                ->withoutWorkspaceScope()
-                ->where('approved_plan_id', $ids[count($ids) - 1])
-                ->value('plan_id');
-
-            if ($previous === null || in_array((int) $previous, $ids, true)) {
-                break;
-            }
-
-            $ids[] = (int) $previous;
-        }
-
-        return $ids;
-    }
-
     private function planFor(Order $order): ?Plan
     {
         $uuid = $order->metadata['plan_uuid'] ?? null;
@@ -804,7 +760,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         $runningEnd = Subscription::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $order->user_id)
-            ->whereIn('plan_id', $this->planLineage($plan))
+            ->whereIn('plan_id', $this->lineage->of($plan))
             ->where('status', SubscriptionStatus::Active->value)
             ->where('effective_ends_on', '>=', $today->toDateString())
             ->max('effective_ends_on');
@@ -813,7 +769,16 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             ? $today
             : CarbonImmutable::parse((string) $runningEnd)->addDay();
 
-        $ends = $starts->addDays($window);
+        /*
+        | ⛔ `ends_on` IS INCLUSIVE — THE LAST DAY THAT STILL OPENS — SO A WINDOW
+        | OF N DAYS ENDS ON `starts + N − 1`. It was `addDays($window)`: `liveOn()`
+        | admits `effective_ends_on >= today` and the sweep expires at `< today`,
+        | so a 30-day plan bought on the 15th of October ran to the 14th of
+        | November — 31 days — and every renewal chained onto it gained one more.
+        | A freeze period is dated the same way (`starts_on + days − 1`), so the
+        | two date columns in this product now mean the same thing.
+        */
+        $ends = $starts->addDays($window - 1);
 
         try {
             return Subscription::create([

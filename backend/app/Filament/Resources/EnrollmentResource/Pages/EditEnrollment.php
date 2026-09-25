@@ -8,6 +8,7 @@ use App\Filament\Resources\EnrollmentResource;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Payments\Support\SubscriptionAccess;
+use App\Shared\Events\CourseAccessEnded;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -65,18 +66,24 @@ class EditEnrollment extends EditRecord
      * ⚠️ «منتهٍ» على تسجيلِ اشتراكٍ يمرُّ بـ`SubscriptionAccess::closeEnrollment()`
      * لا بـ`$record->update()`: الكتابةُ الخامُ لا تُطلِقُ `SubscriptionEnded`،
      * فيبقى الطالبُ محجوزاً في حصصِ كورسٍ لم يعدْ يفتحُه — ويُخصَمُ منه عندَ
-     * تسليمِ كلِّ حصّة. بقيّةُ الانتقالاتِ تُحفَظُ كما كانت.
+     * تسليمِ كلِّ حصّة.
+     *
+     * ⚠️ والتسجيلُ المشترى (وأيُّ مصدرٍ غيرِ الاشتراك) له العطبُ نفسُه: كان
+     * يُكتَبُ خاماً فتبقى مقاعدُه القادمةُ محجوزةً ويُخصَمُ عنها عندَ التسليم.
+     * يُغلَقُ الآنَ بتحديثٍ مشروطٍ ويُطلَقُ `CourseAccessEnded` فتُحرِّرُ
+     * `ReleaseSeatsOnSubscriptionEnd` المقاعدَ من الطريقِ نفسِه (غيرَ محسوبةٍ،
+     * ويُفَكُّ الرصيدُ المحجوز). لا `CourseAccessWithdrawn`: ذاك يُخرجُ الطالبَ
+     * من مجموعته بسببِ «استرداد» لم يحدث. بقيّةُ الانتقالاتِ تُحفَظُ كما كانت.
      *
      * @param  array<string, mixed>  $data
      */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Enrollment $record */
-        $closesSubscription = $record->source === 'subscription'
-            && ($data['status'] ?? null) === EnrollmentStatus::Expired->value
+        $closesAccess = ($data['status'] ?? null) === EnrollmentStatus::Expired->value
             && in_array($record->status, Enrollment::GRANTING_STATUSES, true);
 
-        if (! $closesSubscription) {
+        if (! $closesAccess) {
             $record->update($data);
 
             return $record;
@@ -89,9 +96,37 @@ class EditEnrollment extends EditRecord
                 $record->update($data);
             }
 
-            SubscriptionAccess::closeEnrollment($record);
+            if ($record->source === 'subscription') {
+                SubscriptionAccess::closeEnrollment($record);
+            } else {
+                self::closeGrantedEnrollment($record);
+            }
 
             return $record->refresh();
         });
+    }
+
+    /**
+     * The non-subscription half: close the row with a conditional UPDATE (so a
+     * second save, or a sweep in between, announces nothing twice) and say that
+     * access ended. The listener runs after commit.
+     */
+    private static function closeGrantedEnrollment(Enrollment $enrollment): void
+    {
+        $closed = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($enrollment->getKey())
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
+            ->update(['status' => EnrollmentStatus::Expired->value]);
+
+        if ($closed === 0) {
+            return;
+        }
+
+        CourseAccessEnded::dispatch(
+            (int) $enrollment->workspace_id,
+            (int) $enrollment->student_user_id,
+            [(int) $enrollment->course_id],
+        );
     }
 }

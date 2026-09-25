@@ -80,7 +80,8 @@ class EnrollmentResource extends Resource
                                 self::isCancelled($record) => 'أُلغِيَ هذا التسجيلُ بعكسِ دفعته، ولا يُعادُ فتحُه من هنا.',
                                 self::isLapsedSubscription($record) => 'انتهى وصولُ هذا الاشتراك، ولا يُعادُ فتحُه من هنا — يعودُ بتجديد الاشتراك.',
                                 $record?->source === 'subscription' => 'اختيارُ «منتهٍ» يُغلقُ هذا الكورسَ وحدَه ويُحرِّرُ مقاعدَ الطالبِ في حصصِه القادمة.',
-                                default => null,
+                                $record === null => null,
+                                default => 'اختيارُ «منتهٍ» يُغلقُ هذا الكورسَ ويُحرِّرُ مقاعدَ الطالبِ في حصصِه القادمة.',
                             })
                             ->required(),
                     ]),
