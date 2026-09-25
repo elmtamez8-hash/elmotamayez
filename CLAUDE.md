@@ -45,7 +45,7 @@ Model factories currently live centrally in `backend/database/factories/Modules/
 Cross-module coupling goes through **events**, not direct calls into another module's actions. Listeners are wired with `Event::listen()` in the subscribing module's provider `boot()` — there is no `EventServiceProvider`. Key chains:
 
 - `PaymentApproved` → `Payments\Listeners\CreateEnrollmentFromOrder` → `EnrollmentCreated` → `Notifications\Listeners\NotifyStudentEnrolled` → `DispatchNotification`
-- `CourseCompleted` / `ExamPassed` → `Certificates\Listeners\IssueCertificateIfEligible` (idempotent) → `CertificateIssued` → notification
+- `CourseCompleted` → `Certificates\Listeners\IssueCertificateIfEligible` (idempotent) → `CertificateIssued` → notification. **Only** course completion issues the course certificate (owner decision 2026-09-25); a passed exam reaches it by completing its exam item — `ExamSubmitted` / `ExamPassed` → `Learning\Listeners\CompleteExamLessonOnSubmission` → `CourseCompleted` on the last item
 - `WorkspaceCreated` → `Tenancy\Listeners\SeedDefaultRoles`
 
 ### Multi-tenancy

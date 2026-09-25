@@ -298,7 +298,8 @@ final class ScenarioSeeder extends Seeder
             ->where('student_user_id', $buyer->id)
             ->firstOrFail();
 
-        // Passed attempt → ExamPassed → certificate with reason "exam_passed".
+        // Passed attempt. It issues no certificate on its own: since 2026-09-25
+        // the course certificate follows `CourseCompleted` alone.
         $passing = app(StartAttempt::class)->handle($exam, $halfway, $halfwayEnrollment);
         app(GradeAttempt::class)->handle($passing, $this->answers($exam, correct: true));
 

@@ -271,10 +271,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | it proves who asked for the link, never whether they may still read
      | (FR-048أ). Five minutes, declared in the controller.
      |
-     | Inside the auth group, so it inherits `auth:sanctum` from it.
+     | Inside the auth group, so it inherits `auth:sanctum` from it — which is
+     | why the client FETCHES it with the bearer and never navigates to it.
+     | `signed:relative` because the link is minted relative; see `linkFor()`.
      */
     Route::get('/submissions/{submission}/file', SubmissionFileController::class)
-        ->middleware('signed')
+        ->middleware('signed:relative')
         ->name('submissions.file');
 
     /*

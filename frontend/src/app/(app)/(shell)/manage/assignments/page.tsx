@@ -190,7 +190,13 @@ function SubmissionList({ assignmentUuid, points }: { assignmentUuid: string; po
   return (
     <div className="mt-4 space-y-4 border-t border-line pt-4">
       {rows.map((row) => (
-        <SubmissionRow key={row.uuid} row={row} points={points} onGraded={load} />
+        <SubmissionRow
+          key={row.uuid}
+          assignmentUuid={assignmentUuid}
+          row={row}
+          points={points}
+          onGraded={load}
+        />
       ))}
     </div>
   );
@@ -210,10 +216,12 @@ function badgeTone(state: string | undefined) {
 }
 
 function SubmissionRow({
+  assignmentUuid,
   row,
   points,
   onGraded,
 }: {
+  assignmentUuid: string;
   row: Submission;
   points: number;
   onGraded: () => void;
@@ -223,6 +231,27 @@ function SubmissionRow({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [scoreError, setScoreError] = useState("");
+  const [opening, setOpening] = useState(false);
+  const [fileError, setFileError] = useState("");
+
+  /*
+   | ⚠️ THE FILE IS FETCHED, NEVER LINKED. The row used to say only that a file
+   | existed (`has_file`) — the teacher could see a worksheet had been handed in
+   | and had no way to read it. The route is behind `auth:sanctum`, so a plain
+   | link answers 401; `assignments.openFile()` fetches it with the bearer.
+   */
+  const openFile = async () => {
+    setOpening(true);
+    setFileError("");
+
+    try {
+      await assignments.openFile(assignmentUuid, row.uuid);
+    } catch (cause: unknown) {
+      setFileError(userMessage(cause));
+    } finally {
+      setOpening(false);
+    }
+  };
 
   const save = async () => {
     /*
@@ -269,6 +298,16 @@ function SubmissionRow({
           {row.answer_text}
         </blockquote>
       )}
+
+      {row.has_file && (
+        <div>
+          <Button variant="secondary" onClick={openFile} loading={opening} loadingLabel="جارٍ التنزيل…">
+            نزّل الملف المرفق
+          </Button>
+        </div>
+      )}
+
+      {fileError !== "" && <Alert tone="danger" title={fileError} />}
 
       {error !== "" && <Alert tone="danger" title={error} />}
 

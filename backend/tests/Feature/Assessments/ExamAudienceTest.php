@@ -286,6 +286,12 @@ it('does not put a mistake from a narrowed lesson back in front of the student',
 | `AttemptController::submit()` ⇒ يسقطُ هذا الشقُّ بـ«٤٢٢ بدلَ ٢٠٠».
 */
 it('lets an attempt begun before the narrowing finish and keep its score', function (): void {
+    // ⚠️ `StartAttempt` asks the course sequence since 2026-09-25, and this
+    // fixture's tree is sequential with unfinished items above the paper. The
+    // subject here is the audience axis, so the sequence is switched off rather
+    // than walked — the sequence has its own file (`ExamSequenceGateTest`).
+    $this->tree['course']->forceFill(['is_sequential' => false])->save();
+
     actAsAudienceStudent();
 
     $this->postJson('/api/v1/exams/'.$this->fx['shared']['exam']->uuid.'/attempts')
