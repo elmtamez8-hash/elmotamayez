@@ -29,7 +29,6 @@ function isEssay(q: AttemptResponse["questions"][number]): boolean {
   return q.type === "essay";
 }
 
-
 export default function TakeExamPage({
   params,
 }: {
