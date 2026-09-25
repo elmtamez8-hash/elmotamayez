@@ -49,8 +49,26 @@ class AccrueTeachingUnits extends Action
     ): array {
         $seatHolderIds = $this->seatHolderIds($session);
 
-        if ($seatHolderIds === [] || $billableSeats === 0) {
+        if ($seatHolderIds === []) {
             return $this->compensateEmptySession($session, $billableSeats);
+        }
+
+        /*
+        | ⚠️ ZERO FROZEN SEATS WITH SEAT HOLDERS PRESENT IS A MISSING FACT, NOT AN
+        | EMPTY ROOM — the rule `Payments\Actions\ChargeSessionSeats` already
+        | follows, repeated here rather than imported because `ContextIsolationTest`
+        | forbids the import. Keep the two in step.
+        |
+        | `billable_seats` freezes at the cancellation deadline, and `BookSeat` does
+        | not refuse a booking after it — so a room empty at the deadline and
+        | booked an hour later freezes at zero. This branch used to send that
+        | session to `compensateEmptySession()`: the students were CHARGED for the
+        | hour (billing counts the seat holders) while the teacher was paid, at
+        | most, a fraction of one seat for «an empty room» that was not empty.
+        | The seat holders are the fact; the frozen count is an optimisation of it.
+        */
+        if ($billableSeats === 0) {
+            $billableSeats = count($seatHolderIds);
         }
 
         $rate = $this->rates->resolve(
@@ -123,8 +141,8 @@ class AccrueTeachingUnits extends Action
         | ⚠️ AND `$charged === null` IS NOT ZERO. It is the pre-035 era — nothing
         | was judged — where every seat earns and nothing is suspicious.
         */
-        // Seats are known to be non-empty here: the early return above sent the
-        // empty case to `compensateEmptySession()` before any of this ran.
+        // Seat holders are known to be non-empty here: the early return above
+        // sent the empty case to `compensateEmptySession()` before any of this ran.
         $noneCharged = $charged !== null && $charged === [];
 
         /*
