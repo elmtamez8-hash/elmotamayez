@@ -14,6 +14,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Events\CourseAccessShortened;
 use Carbon\CarbonImmutable;
 
 /**
@@ -57,6 +58,18 @@ class EffectiveSubscriptionEnd
      * the ceiling is a guard against a pathological calendar, not the mechanism.
      */
     private const PASSES = 20;
+
+    /**
+     * The students whose end moved EARLIER during the current recompute.
+     *
+     * Collected rather than acted on inside the walk: whether a seat past the
+     * new end is still covered is a question about the WHOLE chain (a renewal
+     * re-dated behind the shortened month covers those days again), and the
+     * chain is only settled once `redateChain()` has run.
+     *
+     * @var array<int, true>
+     */
+    private array $shortened = [];
 
     /**
      * The date this subscription's access actually runs to.
@@ -135,6 +148,7 @@ class EffectiveSubscriptionEnd
     {
         $moved = 0;
         $students = [];
+        $this->shortened = [];
 
         Subscription::query()
             ->withoutWorkspaceScope()
@@ -161,7 +175,60 @@ class EffectiveSubscriptionEnd
             $moved += $this->redateChain($workspaceId, $student);
         }
 
+        foreach ($this->takeShortened() as $student) {
+            $this->announceShortened($workspaceId, $student);
+        }
+
         return $moved;
+    }
+
+    /**
+     * The students collected by this recompute, and the collection emptied.
+     *
+     * @return list<int>
+     */
+    private function takeShortened(): array
+    {
+        $students = array_keys($this->shortened);
+        $this->shortened = [];
+
+        return $students;
+    }
+
+    /**
+     * Tell LiveSessions a student's paid time now ends sooner than it did
+     * (owner decision 2026-09-25 · freeze lift, option 3a).
+     *
+     * ⛔ THE SEATS PAST THE NEW END USED TO WAIT FOR THE NIGHTLY SWEEP. Lifting a
+     * freeze takes its extension back, but the seats claimed for the extension
+     * days stayed booked until `SubscriptionEnded` fired — up to a night in which
+     * the student held seats nothing paid for, and in which a delivered session
+     * was charged to them as an uncovered seat. The release is the sweep's own
+     * (`ReleaseSeatsOnSubscriptionEnd`); only the question differs — «is this
+     * seat's HOUR still covered», because the enrolment itself is still open.
+     *
+     * The courses are the student's granting subscription enrolments in this
+     * workspace, read AFTER the chain is re-dated, so `expires_at` on each of
+     * them is already the end the listener compares against.
+     */
+    private function announceShortened(int $workspaceId, int $studentUserId): void
+    {
+        $courseIds = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->where('student_user_id', $studentUserId)
+            ->where('source', 'subscription')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
+            ->pluck('course_id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->all();
+
+        $courseIds = array_values($courseIds);
+
+        if ($courseIds !== []) {
+            CourseAccessShortened::dispatch($workspaceId, $studentUserId, $courseIds);
+        }
     }
 
     /**
@@ -258,12 +325,17 @@ class EffectiveSubscriptionEnd
      *     `subscription`) gets `expires_at` = the last instant of the new end,
      *     in the platform's calendar — the renewal took that row over at its
      *     approval (`EnrollStudent::handOver()`), so it is the renewal's row;
-     *   · when the end moved LATER on a group subscription, the seats are
+     *   · whenever the end MOVED on a group subscription, the seats are
      *     claimed again up to the new end (`ClaimSubscriptionSeatsJob` is
-     *     re-runnable and takes nothing twice) — spec 027's «the extension days
-     *     are booked too». A move EARLIER needs no second path: the seats past
-     *     the new end are released when this subscription expires, which is
-     *     before those sessions happen.
+     *     re-runnable and takes nothing twice). LATER is spec 027's «the
+     *     extension days are booked too»; EARLIER is a freeze being lifted or
+     *     shortened, and the claim gives back the seats that freeze released in
+     *     the days that are no longer frozen — a subscriber's seats are taken
+     *     «without the student pressing anything» (027 · FR-039; owner decision
+     *     2026-09-25, option 3b). A released row is revived, a seat the student
+     *     cancelled themselves stays cancelled, and a full session is reported.
+     *   · a move EARLIER also queues the release of the seats past the new end
+     *     ({@see self::announceShortened()}), once the chain is settled.
      *
      * @param  bool  $force  carry the date even when the end did not move — the
      *                       window itself moved, and the enrolment may be on
@@ -294,8 +366,12 @@ class EffectiveSubscriptionEnd
             ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->update(['expires_at' => $this->days->endOf($end)]);
 
-        if ($end->greaterThan($before)) {
+        if ($moved) {
             $this->reclaimSeats($subscription, $end);
+        }
+
+        if ($end->lessThan($before)) {
+            $this->shortened[(int) $subscription->student_user_id] = true;
         }
 
         return $moved;

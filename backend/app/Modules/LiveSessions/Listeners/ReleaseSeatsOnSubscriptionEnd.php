@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Events\CourseAccessEnded;
+use App\Shared\Events\CourseAccessShortened;
 use App\Shared\Events\CourseAccessWithdrawn;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
@@ -57,6 +58,15 @@ use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
  * officer expired an enrolment by hand (`CourseAccessEnded`). One release path
  * for all three, so the three cannot drift one predicate apart.
  *
+ * ⚠️ AND A FOURTH EVENT ASKS THE SAME QUESTION ABOUT AN HOUR RATHER THAN A
+ * COURSE. `CourseAccessShortened` — a lifted freeze took back the days it had
+ * added — arrives while the enrolment is still OPEN, so «still enrolled» would
+ * keep every seat. For it the test is whether the access runs to the session's
+ * start (`EnrollmentDirectory::accessEndsFor()`): the seats past the new end go
+ * now, the ones before it stay, and an outright purchase or a renewal already
+ * re-dated behind the month still covers what it covers. Same query, same
+ * `release()`; only the predicate is per seat.
+ *
  * Queued and `ShouldQueueAfterCommit`: the expiry sweep claims each row
  * inside its own statement, and a worker reading before commit would find the
  * enrolment still active and release nothing.
@@ -68,7 +78,7 @@ class ReleaseSeatsOnSubscriptionEnd implements ShouldQueueAfterCommit
         private readonly EnrollmentDirectory $enrollments,
     ) {}
 
-    public function handle(SubscriptionEnded|CourseAccessWithdrawn|CourseAccessEnded $event): void
+    public function handle(SubscriptionEnded|CourseAccessShortened|CourseAccessWithdrawn|CourseAccessEnded $event): void
     {
         if ($event->courseIds === []) {
             return;
@@ -86,7 +96,9 @@ class ReleaseSeatsOnSubscriptionEnd implements ShouldQueueAfterCommit
         | rather than of the seat — a per-booking call would be an N+1 on a queued
         | sweep that walks every subscription that ended last night.
         */
-        $stillEnrolled = $this->enrollments->activeCourseIdsFor($student);
+        $shortened = $event instanceof CourseAccessShortened;
+        $stillEnrolled = $shortened ? [] : $this->enrollments->activeCourseIdsFor($student);
+        $accessEnds = $shortened ? $this->enrollments->accessEndsFor($student, $event->courseIds) : [];
 
         $bookings = SessionBooking::query()
             ->withoutWorkspaceScope()
@@ -109,6 +121,27 @@ class ReleaseSeatsOnSubscriptionEnd implements ShouldQueueAfterCommit
             $courseId = $booking->classSession?->course_id;
 
             if ($courseId === null) {
+                continue;
+            }
+
+            if ($shortened) {
+                /*
+                | ⚠️ `array_key_exists`, NEVER `??`. Null here is the OPEN-ENDED
+                | answer — an outright purchase — and `$ends[$id] ?? …` reads a
+                | null value as a missing key: the one enrolment that covers every
+                | hour would have released every seat.
+                */
+                if (array_key_exists((int) $courseId, $accessEnds)) {
+                    $until = $accessEnds[(int) $courseId];
+
+                    // Covered at that hour — open-ended, or running to it at least.
+                    if ($until === null || $booking->classSession->starts_at->lessThanOrEqualTo($until)) {
+                        continue;
+                    }
+                }
+
+                $this->bookings->release($booking, 'انتهى اشتراكك قبل موعد هذه الحصة.');
+
                 continue;
             }
 

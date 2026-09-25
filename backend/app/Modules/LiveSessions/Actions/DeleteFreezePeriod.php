@@ -26,10 +26,14 @@ use Illuminate\Support\Facades\DB;
  * an hour as free that was still holding a dead session. A freeze lifted a day
  * after it was declared cost every lesson inside it, permanently.
  *
- * What comes back is the SESSION, never its seats. Those were released and every
- * holder was told «لن تُعقد»; quietly putting them back would seat students in a
- * lesson they were told was off. A revived session is simply bookable again, and
- * whoever still wants the hour books it.
+ * What comes back HERE is the SESSION, never its seats. Those were released and
+ * every holder was told «لن تُعقد»; this Action does not put them back. A revived
+ * session is bookable again, and a credit-paying student who still wants the hour
+ * books it. ⚠️ A GROUP SUBSCRIBER IS THE EXCEPTION, and it is not decided here:
+ * the delete moves their subscription's end, and `EffectiveSubscriptionEnd`
+ * re-claims their seats up to the new end and releases the ones past it (owner
+ * decision 2026-09-25, option 3) — their month paid for those hours, and FR-039
+ * takes a subscriber's seats «without the student pressing anything».
  *
  * Three things keep a session suspended, and each is reported rather than
  * swallowed:
@@ -51,22 +55,38 @@ class DeleteFreezePeriod extends Action
         // sessions were its own.
         $candidates = $this->suspendedBy($period);
 
-        // Through the model, never a query: `booted()` announces the delete, and
-        // spec 011 takes back the subscription extension this period granted.
-        $period->delete();
+        /*
+        | ⚠️ ONE TRANSACTION AROUND THE DELETE AND EVERY REVIVAL. The delete
+        | announces `FreezePeriodChanged`, and its listener
+        | (`RecomputeSubscriptionEnds`, `ShouldQueueAfterCommit`) re-claims each
+        | subscriber's group seats up to the new end (owner decision 2026-09-25,
+        | option 3b). With no transaction open that job is pushed the instant the
+        | row goes — while every session this freeze suspended is still
+        | `Suspended`, which the claim skips — so a workspace freeze lifted gave
+        | nobody their seats back. Inside it, the job waits until the sessions it
+        | is meant to fill are bookable again. Each revival keeps its own inner
+        | transaction (a savepoint here), so one refused revival still leaves the
+        | others standing.
+        */
+        return DB::transaction(function () use ($period, $candidates): array {
+            // Through the model, never a query: `booted()` announces the delete,
+            // and spec 011 takes back the subscription extension this period
+            // granted.
+            $period->delete();
 
-        $restored = [];
-        $kept = [];
+            $restored = [];
+            $kept = [];
 
-        foreach ($candidates as $session) {
-            if ($this->restore($session)) {
-                $restored[] = $session;
-            } else {
-                $kept[] = $session;
+            foreach ($candidates as $session) {
+                if ($this->restore($session)) {
+                    $restored[] = $session;
+                } else {
+                    $kept[] = $session;
+                }
             }
-        }
 
-        return ['restored' => $restored, 'kept' => $kept];
+            return ['restored' => $restored, 'kept' => $kept];
+        });
     }
 
     /**
@@ -162,8 +182,12 @@ class DeleteFreezePeriod extends Action
         // Armed for the session's own start, like every other arming: a revival
         // is a second birth, so a session revived inside its own cancellation
         // window settles its count when it starts.
+        // `afterCommit`: this now runs inside `handle()`'s transaction, and a
+        // worker reading the session before it commits would find it still
+        // `Suspended`.
         FreezeBillableSeatsJob::dispatch((int) $session->getKey(), $session->starts_at->getTimestamp())
-            ->delay($session->billableSeatsFreezeAt(now()));
+            ->delay($session->billableSeatsFreezeAt(now()))
+            ->afterCommit();
 
         return true;
     }

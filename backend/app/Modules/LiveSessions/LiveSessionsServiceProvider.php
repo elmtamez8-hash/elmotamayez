@@ -53,6 +53,7 @@ use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Events\CourseAccessEnded;
+use App\Shared\Events\CourseAccessShortened;
 use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -216,6 +217,9 @@ class LiveSessionsServiceProvider extends Module
         // A reversed course order ends the same future seats (owner decision 2026-09-23).
         Event::listen(CourseAccessWithdrawn::class, ReleaseSeatsOnSubscriptionEnd::class);
         Event::listen(CourseAccessEnded::class, ReleaseSeatsOnSubscriptionEnd::class);
+        // A lifted freeze moved a running subscription's end earlier: the seats
+        // past it go now, not at the nightly sweep (owner decision 2026-09-25).
+        Event::listen(CourseAccessShortened::class, ReleaseSeatsOnSubscriptionEnd::class);
 
         /*
         | Spec 027 · FR-040 — a subscriber's seat is taken for lessons that did
