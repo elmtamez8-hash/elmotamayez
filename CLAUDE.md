@@ -326,6 +326,7 @@ _Read before touching anything under `frontend/src/`._
 - `PasswordField` is the one spelling, and `"password"` had to leave `TextField`'s type union in the same change.
 - A screen with no permission gate may only make reads EVERYBODY holds — and `/dashboard` made one nobody but a teacher did.
 - AN ENDPOINT NO FILE IN `frontend/src` CALLS IS A FEATURE NOBODY HAS — and three of them surfaced in one day (2026-09-06), each reported by the user as a missing product.
+- A session time is drawn on `useViewerTimeZone()`, never on `session.timezone` — that field is the PLATFORM zone.
 
 ### HTTP surface, rate limits and proxies → [`docs/gotchas/http-and-security.md`](docs/gotchas/http-and-security.md)
 _Read before touching routes, middleware, rate limiters, API response shapes, logging._

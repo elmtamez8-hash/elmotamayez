@@ -8,7 +8,9 @@ use Laravel\Sanctum\Sanctum;
 /*
 | The student's own list of private-session asks carries the declared zone.
 |
-| Every other session time in the product is formatted in `sessions.timezone`,
+| ⚠️ Since 2026-09-25 screens draw times on the VIEWER's zone and this field is
+| the PLATFORM zone, kept for compatibility. What follows is its history:
+| every other session time in the product was formatted in `sessions.timezone`,
 | sent beside it by `ClassSessionResource`. A request that did not carry it left
 | the screen to the browser's own zone — a different hour, on the same row, from
 | the lesson it turns into.
