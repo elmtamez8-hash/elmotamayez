@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { dashboardAudience } from "./dashboard-audience";
-import { isLearner } from "./auth-context";
+import { homePathFor, isLearner, panelPathFor } from "./auth-context";
 import { P } from "./permissions";
 import type { User } from "./types";
 
@@ -35,7 +35,13 @@ describe("dashboardAudience", () => {
   it("gives an academy founder the staff layout, since the role is null by design", () => {
     // `RegisterAccount`: «NULL IS THE CORRECT ROLE FOR AN ACADEMY FOUNDER» —
     // ومساحتُه تُولَدُ مع حسابِه (٠٢٥ · FR-001)، فهو يحملُ صلاحيّاتٍ من أوّلِ ثانية.
-    const founder = person({ platform_role: null, permissions: [P.sessionsManage] });
+    // ⚠️ والمساحةُ في الحمولةِ لا الصلاحيّاتُ وحدَها: `workspaces` هي ما يقرؤه
+    // المُصنِّف، وهي ما يحملُه المؤسّسُ فعلاً.
+    const founder = person({
+      platform_role: null,
+      permissions: [P.sessionsManage],
+      workspaces: [{ uuid: "w-1", name: "أكاديمية النور" }],
+    });
 
     expect(dashboardAudience(founder)).toBe("teacher");
   });
@@ -64,5 +70,79 @@ describe("dashboardAudience", () => {
 
     expect(isLearner(guardian)).toBe(true);
     expect(dashboardAudience(guardian)).not.toBe("student");
+  });
+});
+
+/*
+| ⛔ ONE CLASSIFIER, EVERY READER. `isLearner`, `homePathFor` and `panelPathFor`
+| are derived from `dashboardAudience`, so this table walks the account shapes
+| the server actually sends and asserts that none of them can disagree.
+*/
+describe("one classifier for «which side is this account»", () => {
+  const teaching = [{ uuid: "w-1", name: "أكاديمية" }];
+
+  function payload(over: Partial<User>): User {
+    return {
+      platform_role: null,
+      is_super_admin: false,
+      may_access_admin_panel: false,
+      workspaces: [],
+      permissions: [],
+      ...over,
+    } as User;
+  }
+
+  const table: { name: string; user: User; side: "student" | "teacher" | "guardian" }[] = [
+    { name: "a student", user: payload({ platform_role: "student" }), side: "student" },
+    { name: "a guardian", user: payload({ platform_role: "parent" }), side: "guardian" },
+    {
+      name: "a guardian who also teaches",
+      user: payload({ platform_role: "parent", workspaces: teaching }),
+      side: "guardian",
+    },
+    {
+      name: "a teacher",
+      user: payload({ platform_role: "teacher", workspaces: teaching }),
+      side: "teacher",
+    },
+    {
+      name: "a founder (null role, owns a workspace)",
+      user: payload({ workspaces: teaching, permissions: [P.sessionsManage] }),
+      side: "teacher",
+    },
+    {
+      name: "a super admin with no workspace",
+      user: payload({ is_super_admin: true, permissions: [P.sessionsManage] }),
+      side: "teacher",
+    },
+    { name: "a platform officer", user: payload({ may_access_admin_panel: true }), side: "teacher" },
+    {
+      // ⚠️ THE CASE THAT CHANGED: a student a teacher added to a workspace
+      // carries the `student` role's permissions and no `workspaces` entry (the
+      // server excludes the `student` pivot role). It used to get the teacher
+      // layout here while `panelPathFor` sent it to `/enrollments`.
+      name: "a null-role student holding the student role's permissions",
+      // (The student role's names are absent from `P` — no screen gates on them.)
+      user: payload({ permissions: ["courses.view", "sessions.view", "orders.create"] }),
+      side: "student",
+    },
+    { name: "a null-role account holding nothing", user: payload({}), side: "student" },
+  ];
+
+  it.each(table)("classifies $name", ({ user, side }) => {
+    expect(dashboardAudience(user)).toBe(side);
+  });
+
+  it.each(table)("never lets the landing paths or isLearner disagree for $name", ({ user, side }) => {
+    const learns = side !== "teacher";
+
+    expect(isLearner(user)).toBe(learns);
+    expect(homePathFor(user)).toBe(learns ? "/teachers" : "/dashboard");
+    expect(panelPathFor(user)).toBe(learns ? "/enrollments" : "/dashboard");
+  });
+
+  it("treats no user as a visitor: not a learner, student layout", () => {
+    expect(isLearner(null)).toBe(false);
+    expect(dashboardAudience(null)).toBe("student");
   });
 });
