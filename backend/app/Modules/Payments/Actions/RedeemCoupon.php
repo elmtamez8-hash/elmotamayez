@@ -37,6 +37,8 @@ use DomainException;
  */
 class RedeemCoupon extends Action
 {
+    public const UNDECIDED_REFUSAL = 'لديك طلب بهذا الكود لم يُبَتّ فيه بعد. أكمِل دفعه أو انتظر قرار الإدارة قبل استعمال الكود مرة أخرى.';
+
     public function handle(Order $order, AppliedDiscount $discount): ?CouponRedemption
     {
         $coupon = $discount->coupon;
@@ -45,6 +47,43 @@ class RedeemCoupon extends Action
             // A family discount is not a redemption: it has no code, no ceiling
             // and nothing to record beyond the amount already on the order.
             return null;
+        }
+
+        /*
+        | ⛔ ONE UNDECIDED ORDER PER BUYER PER CODE. A place is claimed at
+        | PURCHASE (see the class docblock), so a buyer who placed order after
+        | order with one code and paid none of them drained the campaign's
+        | ceiling with transfers that never came — every other buyer then read
+        | «استُنفد هذا الكود». The subscription door already refuses a second
+        | pending order outright (`PurchaseSubscription::guardNoPendingOrder()`);
+        | the store and credits doors take any number of pending orders, which
+        | is legitimate — two different books, two packages — so the rule lives
+        | HERE, narrowed to the coupon: it bites only on the order that would
+        | take a SECOND place for the same buyer while the first is undecided.
+        |
+        | ⚠️ AND THE PLACE IS STILL NEVER GIVEN BACK ON A REJECTION. A rejected
+        | order is not dead: `acceptsReceipt()` lets its buyer upload a new
+        | receipt, which returns it to `under_review` at its DISCOUNTED amount
+        | (FR-032), and `ApproveOrder` then takes it. A place released at the
+        | rejection would be sold twice. This guard is what bounds the drain
+        | instead: one place per buyer per code while undecided.
+        |
+        | A check, not a claim: two purchases submitted in the same instant can
+        | both pass it, which costs one extra place — the ceiling itself is
+        | still claimed atomically below, so nothing is ever oversold.
+        */
+        $undecided = CouponRedemption::query()
+            ->where('coupon_id', $coupon->getKey())
+            ->where('user_id', (int) $order->user_id)
+            ->where('order_id', '!=', $order->getKey())
+            ->whereIn('order_id', Order::query()
+                ->withoutWorkspaceScope()
+                ->whereIn('status', Order::awaitingDecisionStatuses())
+                ->select('id'))
+            ->exists();
+
+        if ($undecided) {
+            throw new DomainException(self::UNDECIDED_REFUSAL);
         }
 
         $redemption = CouponRedemption::create([
