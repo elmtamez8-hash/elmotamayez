@@ -20,6 +20,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\LiveSessions\ClassSessionFactory;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -241,6 +242,30 @@ class ClassSession extends BaseModel
     public function seatsAvailable(): int
     {
         return max(0, $this->seats_total - $this->seats_taken);
+    }
+
+    /**
+     * Sessions that START on one of a freeze period's days.
+     *
+     * ONE spelling for the two doors that ask it: declaring a freeze suspends
+     * what lies inside it (`CreateFreezePeriod`), and lifting one hands back
+     * what it suspended (`DeleteFreezePeriod`). Written twice, the two ranges
+     * drift, and a lifted freeze leaves its last day suspended for ever.
+     *
+     * Range comparison, not whereDate(): a function on the column costs the
+     * `(workspace_id, status, starts_at)` index. The end bound is the START of the
+     * next day, which is what "the whole of ends_on" means for a timestamp column
+     * — `<= ends_on` would silently drop every session on the last day after
+     * midnight.
+     *
+     * @param  Builder<ClassSession>  $query
+     * @return Builder<ClassSession>
+     */
+    public function scopeStartingInside(Builder $query, FreezePeriod $period): Builder
+    {
+        return $query
+            ->where('starts_at', '>=', $period->starts_on->copy()->startOfDay())
+            ->where('starts_at', '<', $period->ends_on->copy()->addDay()->startOfDay());
     }
 
     /** Arrive by this moment and lateness is forgiven (FR-021). */

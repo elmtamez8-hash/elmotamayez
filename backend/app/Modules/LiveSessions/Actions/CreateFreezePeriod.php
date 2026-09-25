@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Actions;
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -33,10 +34,14 @@ use Illuminate\Support\Facades\DB;
  * bookings and any question about them with it, and a family asking "what
  * happened to Tuesday" deserves an answer that still exists.
  *
- * The return value names what was suspended and how many people were told. A
- * freeze that quietly takes away twelve booked hours is the failure mode the
- * last edge case in the spec is about — the teacher has to see the cost of the
- * button they just pressed.
+ * A freeze on ONE student is narrower: it suspends that student's individual
+ * sessions and takes only their seat out of a group one, which carries on for
+ * everybody else (FR-039).
+ *
+ * The return value names what was suspended, which group sessions lost a seat,
+ * and how many people were told. A freeze that quietly takes away twelve booked
+ * hours is the failure mode the last edge case in the spec is about — the
+ * teacher has to see the cost of the button they just pressed.
  */
 class CreateFreezePeriod extends Action
 {
@@ -44,10 +49,11 @@ class CreateFreezePeriod extends Action
         private readonly EnrollmentDirectory $enrollments,
         private readonly WorkspaceContext $context,
         private readonly SessionCreditHolds $holds,
+        private readonly CancelBooking $bookings,
     ) {}
 
     /**
-     * @return array{period: FreezePeriod, suspended: list<ClassSession>, notified: int}
+     * @return array{period: FreezePeriod, suspended: list<ClassSession>, released: list<ClassSession>, notified: int}
      */
     public function handle(
         User $actor,
@@ -83,26 +89,20 @@ class CreateFreezePeriod extends Action
             'created_by' => $actor->getKey(),
         ]);
 
-        [$suspended, $notified] = $this->suspendSessionsIn($period);
+        [$suspended, $released, $notified] = $this->suspendSessionsIn($period);
 
-        return ['period' => $period, 'suspended' => $suspended, 'notified' => $notified];
+        return ['period' => $period, 'suspended' => $suspended, 'released' => $released, 'notified' => $notified];
     }
 
     /**
-     * @return array{0: list<ClassSession>, 1: int}
+     * @return array{0: list<ClassSession>, 1: list<ClassSession>, 2: int}
      */
     private function suspendSessionsIn(FreezePeriod $period): array
     {
         $sessions = ClassSession::query()
             ->where('status', ClassSessionStatus::Scheduled)
-            // Range comparison, not whereDate(): a function on the column costs
-            // the `(workspace_id, status, starts_at)` index. The end bound is the
-            // START of the next day, which is what "the whole of ends_on" means
-            // for a timestamp column — `<= ends_on` would silently drop every
-            // session on the freeze's last day after midnight.
-            ->where('starts_at', '>=', $period->starts_on->copy()->startOfDay())
-            ->where('starts_at', '<', $period->ends_on->copy()->addDay()->startOfDay())
-            // A freeze on one student suspends only the sessions that student
+            ->startingInside($period)
+            // A freeze on one student reaches only the sessions that student
             // holds a seat in — the teacher's other classes carry on (FR-039).
             ->when(
                 $period->student_user_id !== null,
@@ -115,29 +115,121 @@ class CreateFreezePeriod extends Action
             )
             ->get();
 
+        $reason = $period->reason === null ? 'فترة تجميد' : 'فترة تجميد: '.$period->reason;
         $notified = 0;
         $suspended = [];
+        $released = [];
 
         foreach ($sessions as $session) {
-            $notified += $this->suspend($session, $period);
-            $suspended[] = $session;
+            /*
+            | ⛔ A FREEZE ON ONE STUDENT TAKES THAT STUDENT'S SEAT, NEVER THE ROOM.
+            |
+            | The selection above already knew this — it asks for the sessions the
+            | student holds a seat in — and `suspend()` then treated each one as
+            | the whole class's: every booking released, `seats_taken = 0`, every
+            | credit hold returned, and «لن تُعقد» sent to every classmate and
+            | their guardians about a lesson that was still being taught. One
+            | family's holiday called off a whole group.
+            |
+            | An individual session is that student's alone, so suspending it IS
+            | taking their seat and nothing more — it keeps the old behaviour. A
+            | group session loses exactly one seat, through the system-release
+            | door `CancelBooking::release()` already is: `Released`, not billable,
+            | one decrement, and only this student's credit hold returned.
+            */
+            if ($period->student_user_id !== null && $session->type === ClassSessionType::Group) {
+                if ($this->releaseOneSeat($session, (int) $period->student_user_id, $reason)) {
+                    $notified++;
+                    $released[] = $session;
+                }
+
+                continue;
+            }
+
+            $told = $this->suspend($session, $reason);
+
+            if ($told !== null) {
+                $notified += $told;
+                $suspended[] = $session;
+            }
         }
 
-        return [$suspended, $notified];
+        return [$suspended, $released, $notified];
     }
 
-    private function suspend(ClassSession $session, FreezePeriod $period): int
+    /**
+     * Takes one student's seat out of a group session that carries on.
+     *
+     * Says whether this freeze actually took the seat: `release()` claims the
+     * row with a conditional UPDATE and returns quietly when somebody else got
+     * there first, and then nobody is told about it a second time.
+     */
+    private function releaseOneSeat(ClassSession $session, int $studentUserId, string $reason): bool
     {
-        // Read before the release, for the same reason CancelClassSession does:
-        // a listener running afterwards cannot tell a seat taken away from a
-        // seat given back weeks ago.
-        $seatHolderIds = array_values($session->bookings()
+        $booking = $session->bookings()
+            ->where('student_user_id', $studentUserId)
             ->where('status', BookingStatus::Booked)
-            ->pluck('student_user_id')
-            ->map(fn ($id): int => (int) $id)
-            ->all());
+            ->first();
 
-        DB::transaction(function () use ($session): void {
+        if ($booking === null) {
+            return false;
+        }
+
+        $fresh = $this->bookings->release($booking, 'فترة تجميد');
+
+        // `release()` hands back the row as it now stands, so `Released` alone
+        // does not say who released it: a system sweep that got there a moment
+        // earlier leaves the same status under its own reason. Only a seat this
+        // freeze took is announced as this freeze's news.
+        if ($fresh->status !== BookingStatus::Released || $fresh->cancellation_reason !== 'فترة تجميد') {
+            return false;
+        }
+
+        // The same event as a suspension, addressed to ONE person: from that
+        // seat's point of view the hour will not happen — for them — and the
+        // reason line says why. Every classmate hears nothing, because nothing
+        // happened to them.
+        SessionCancelled::dispatch($session, $reason, [$studentUserId]);
+
+        return true;
+    }
+
+    /**
+     * Suspends the whole session. Null when it had already moved on.
+     */
+    private function suspend(ClassSession $session, string $reason): ?int
+    {
+        /** @var list<int>|null $seatHolderIds */
+        $seatHolderIds = null;
+
+        DB::transaction(function () use ($session, &$seatHolderIds): void {
+            /*
+            | The transition is the claim — one conditional UPDATE. The query that
+            | selected this session read `scheduled` a moment ago, and the room
+            | may have opened since: suspending a live lesson would release the
+            | seats of students sitting in it. The loser writes nothing.
+            */
+            $claimed = ClassSession::query()->withoutWorkspaceScope()
+                ->whereKey($session->getKey())
+                ->where('status', ClassSessionStatus::Scheduled->value)
+                ->update([
+                    'status' => ClassSessionStatus::Suspended->value,
+                    'seats_taken' => 0,
+                ]);
+
+            if ($claimed !== 1) {
+                return;
+            }
+
+            // Read before the release, for the same reason CancelClassSession
+            // does: a listener running afterwards cannot tell a seat taken away
+            // from a seat given back weeks ago.
+            $seatHolderIds = array_values($session->bookings()
+                ->where('status', BookingStatus::Booked)
+                ->pluck('student_user_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all());
+
             // Released, not cancelled: the students did nothing, and filing it
             // against them would put a mark on the wrong person.
             $session->bookings()
@@ -149,11 +241,6 @@ class CreateFreezePeriod extends Action
                     'cancellation_reason' => 'فترة تجميد',
                 ]);
 
-            $session->forceFill([
-                'status' => ClassSessionStatus::Suspended,
-                'seats_taken' => 0,
-            ])->save();
-
             // ٠٣٥ · T060 — a suspended hour holds nobody's credit. The seats are
             // taken away by a decision that was not the student's, so keeping
             // their credits frozen would be charging them for the teacher's
@@ -161,14 +248,21 @@ class CreateFreezePeriod extends Action
             $this->holds->release((int) $session->getKey());
         });
 
+        if ($seatHolderIds === null) {
+            return null;
+        }
+
+        // The in-memory model does not learn about a conditional UPDATE, and the
+        // response renders it.
+        $session->forceFill([
+            'status' => ClassSessionStatus::Suspended,
+            'seats_taken' => 0,
+        ])->syncOriginal();
+
         // Same event as an outright cancellation, because from a seat's point of
         // view it is the same news. Dispatched after the transaction so a message
         // never describes a rollback.
-        SessionCancelled::dispatch(
-            $session,
-            $period->reason === null ? 'فترة تجميد' : 'فترة تجميد: '.$period->reason,
-            $seatHolderIds,
-        );
+        SessionCancelled::dispatch($session, $reason, $seatHolderIds);
 
         return count($seatHolderIds);
     }
