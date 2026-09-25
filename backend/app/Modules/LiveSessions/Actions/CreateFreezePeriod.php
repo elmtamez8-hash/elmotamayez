@@ -160,9 +160,9 @@ class CreateFreezePeriod extends Action
     /**
      * Takes one student's seat out of a group session that carries on.
      *
-     * Says whether a seat actually moved: `release()` claims the row with a
-     * conditional UPDATE and returns quietly when somebody else got there first,
-     * so false here means "already gone" — and nobody is told twice.
+     * Says whether this freeze actually took the seat: `release()` claims the
+     * row with a conditional UPDATE and returns quietly when somebody else got
+     * there first, and then nobody is told about it a second time.
      */
     private function releaseOneSeat(ClassSession $session, int $studentUserId, string $reason): bool
     {
@@ -175,7 +175,13 @@ class CreateFreezePeriod extends Action
             return false;
         }
 
-        if ($this->bookings->release($booking, 'فترة تجميد')->status !== BookingStatus::Released) {
+        $fresh = $this->bookings->release($booking, 'فترة تجميد');
+
+        // `release()` hands back the row as it now stands, so `Released` alone
+        // does not say who released it: a system sweep that got there a moment
+        // earlier leaves the same status under its own reason. Only a seat this
+        // freeze took is announced as this freeze's news.
+        if ($fresh->status !== BookingStatus::Released || $fresh->cancellation_reason !== 'فترة تجميد') {
             return false;
         }
 
