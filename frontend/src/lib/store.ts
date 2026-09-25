@@ -196,7 +196,7 @@ export const store = {
     },
     idempotencyKey: string,
   ) =>
-    api.postIdempotent<{ data: StorePurchase }>("/store/purchases", body, idempotencyKey),
+    api.postIdempotent<StorePurchase>("/store/purchases", body, idempotencyKey),
 
   /**
    * ⚠️ OPENING IS IRREVERSIBLE FOR THE REFUND. The screen must say so BEFORE the
@@ -205,7 +205,7 @@ export const store = {
   open: (uuid: string) => api.post<{ grant_uuid: string }>(`/store/purchases/${uuid}/open`, {}),
 
   refund: (uuid: string, idempotencyKey: string) =>
-    api.postIdempotent<{ data: StorePurchase }>(
+    api.postIdempotent<StorePurchase>(
       `/store/purchases/${uuid}/refund`,
       {},
       idempotencyKey,

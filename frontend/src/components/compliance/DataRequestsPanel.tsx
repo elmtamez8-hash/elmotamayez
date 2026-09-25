@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { dataRights, type DataRequestRecord } from "@/lib/compliance";
@@ -133,9 +134,13 @@ export function DataRequestsPanel() {
             erasure button for as long as an unrelated export took — the second
             right unreachable while the first was pending.
           */}
-          <Button variant="danger" onClick={() => request("erasure")} disabled={busy || openErasure}>
+          <ConfirmButton
+            disabled={busy || openErasure}
+            confirmLabel="اضغط مجدداً لتأكيد طلب الحذف"
+            onConfirm={() => void request("erasure")}
+          >
             {openErasure ? "طلبُ الحذف قيد المراجعة" : "اطلب حذف بياناتي"}
-          </Button>
+          </ConfirmButton>
         </div>
       </div>
 

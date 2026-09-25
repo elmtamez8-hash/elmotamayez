@@ -39,8 +39,10 @@ class ChargeUnbilledDeliveriesJob implements ShouldQueue
 
     public function handle(WorkspaceContext $context, ChargeSessionSeats $action): void
     {
-        // Leading on charged_at, which is the index's leading column and the
-        // selective side: almost every session is charged.
+        // `class_sessions_charge_sweep_index` (charged_at, delivered_at,
+        // workspace_id): a range over the delivered-and-unbilled few, covered by
+        // the index. On charged_at alone this read every session never charged —
+        // future, cancelled and abandoned ones included — to test delivered_at.
         $sessions = ClassSession::query()
             ->withoutWorkspaceScope()
             ->whereNull('charged_at')

@@ -80,3 +80,25 @@ describe("ConfirmButton", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 });
+
+describe("ConfirmButton, disabled", () => {
+  it("never arms, so it cannot fire on a later press either", () => {
+    // `fireEvent`, not `userEvent`: see the note in `docs/gotchas/frontend.md`.
+    const onConfirm = vi.fn();
+
+    render(
+      <ConfirmButton disabled confirmLabel="أكّد الحذف" onConfirm={onConfirm}>
+        حذف
+      </ConfirmButton>,
+    );
+
+    const button = screen.getByRole("button", { name: "حذف" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "أكّد الحذف" })).toBeNull();
+  });
+});

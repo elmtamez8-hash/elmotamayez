@@ -158,6 +158,41 @@ describe('workspace settings', function (): void {
     });
 });
 
+describe('member list', function (): void {
+    /*
+    | Paged at fifty, because `workspace_members` carries every student the
+    | teacher ever added and the list used to load them all. The meta is what
+    | the screen's «عرض المزيد» reads; without it the list would stop at fifty
+    | with nothing saying there is more.
+    */
+    it('pages the members and says how many pages there are', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+
+        $workspace->members()->attach(
+            User::factory()->count(50)->create()->pluck('id')->all(),
+            ['role' => Roles::STUDENT, 'joined_at' => now()],
+        );
+
+        Sanctum::actingAs($owner);
+
+        $first = $this->getJson("/api/v1/workspaces/{$workspace->uuid}/members")
+            ->assertOk()
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 51)
+            ->assertJsonCount(50, 'data');
+
+        $second = $this->getJson("/api/v1/workspaces/{$workspace->uuid}/members?page=2")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        // Every member exactly once across the two pages.
+        $uuids = array_merge($first->json('data.*.uuid'), $second->json('data.*.uuid'));
+        expect(array_unique($uuids))->toHaveCount(51)
+            ->and($uuids)->toContain($owner->uuid);
+    });
+});
+
 describe('member removal', function (): void {
     it('allows the owner to remove a member', function (): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();

@@ -38,6 +38,7 @@ export function ConfirmButton({
   confirmLabel,
   onConfirm,
   loading,
+  disabled,
   size,
   variant = "danger",
 }: {
@@ -46,6 +47,8 @@ export function ConfirmButton({
   confirmLabel: string;
   onConfirm: () => void;
   loading?: boolean;
+  /** Not pressable at all — it never arms, so it can never fire later either. */
+  disabled?: boolean;
   size?: "sm" | "md" | "lg";
   variant?: "danger" | "secondary" | "ghost";
 }) {
@@ -77,6 +80,7 @@ export function ConfirmButton({
       variant={armed ? "danger" : variant}
       size={size}
       loading={loading}
+      disabled={disabled}
       onClick={press}
     >
       {armed ? confirmLabel : children}

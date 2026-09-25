@@ -368,6 +368,9 @@ _Read before touching `docker/`, `scripts/`, Horizon, the scheduler, env and sec
 - Provider secrets go in the ENVIRONMENT, and the repo's own "operational numbers live in `platform_settings`" rule does not apply to them.
 - The npm advisories: `sharp` is FIXED, `postcss` is accepted, and the guard for what remains is CALL-SITE DISCIPLINE — not the config, whatever an earlier version of this note claimed.
 - `withoutOverlapping()` on `Schedule::job()` guards the DISPATCH, not the run — for a queued job that is milliseconds around the push, released long before the worker starts, so last night's sweep still walking when tonight's begins runs two copies over the same rows.
+- The backend image had NO `php.ini` until 2026-09-25 — and `opcache.validate_timestamps=0` now means a manual `artisan config:cache` in a running container is invisible to FPM until it restarts.
+- A job that fails for good mails `HORIZON_NOTIFICATION_EMAIL` once per class per hour; a server that is DOWN alerts nobody without an external uptime check.
+- The deploy checks out the SHA CI tested, and rollback is `bash scripts/rollback.sh` — images only, never the code or the migrations.
 
 ### Testing (pest, vitest, Playwright) → [`docs/gotchas/testing.md`](docs/gotchas/testing.md)
 _Read before touching writing or debugging any test._

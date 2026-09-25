@@ -13,6 +13,7 @@ use App\Modules\Gamification\Models\LeaderboardEntry;
 use App\Modules\Gamification\Models\StudentProgress;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Models\Subject;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 
@@ -140,6 +141,50 @@ it('produces identical numbers when the rollup runs twice', function (): void {
 
     expect($second)->toBe($first)
         ->and(LeaderboardEntry::query()->count())->toBe(count($first));
+});
+
+/*
+ * A second pass rewrites only the rows whose standing moved — and KEEPS the rest.
+ *
+ * ⚠️ THE KEEPING IS THE HALF THAT CAN BREAK. The sweep deletes every row of the
+ * period without this pass's stamp, so an unchanged row the pass merely skipped
+ * would vanish from the board. `updated_at` tells a rewritten row from a
+ * re-stamped one; the single stamp across the table says none was left behind.
+ */
+it('rewrites only the rows that moved, and keeps the ones that did not', function (): void {
+    $this->travelTo(now()->startOfWeek()->addDay()->setTime(10, 0));
+
+    earn($this->alice, $this->workspaceA, $this->courseA, 3);
+    earn($this->bilal, $this->workspaceA, $this->courseA, 2, 100);
+
+    app(RollUpLeaderboards::class)->handle();
+    $firstRun = now()->toDateTimeString();
+    $rows = LeaderboardEntry::query()->count();
+
+    $this->travel(1)->hours();
+
+    // Bilal earns with the OTHER teacher: his platform total passes Alice's, so
+    // both platform rows move; his and Alice's rows under teacher A do not.
+    earn($this->bilal, $this->workspaceB, $this->courseB, 2, 200);
+
+    app(RollUpLeaderboards::class)->handle();
+
+    $row = fn (User $who, string $scope) => DB::table('leaderboard_entries')
+        ->where('user_id', $who->getKey())
+        ->where('scope_key', $scope)
+        ->first();
+
+    $teacherA = 'teacher:'.$this->workspaceA->getKey();
+
+    expect($row($this->alice, $teacherA)->updated_at)->toBe($firstRun)
+        ->and($row($this->bilal, $teacherA)->updated_at)->toBe($firstRun)
+        ->and($row($this->bilal, 'platform')->updated_at)->not->toBe($firstRun)
+        ->and((int) $row($this->bilal, 'platform')->rank)->toBe(1)
+        ->and((int) $row($this->alice, 'platform')->rank)->toBe(2)
+        // Nothing swept that should have stayed: every row carries this pass's
+        // stamp, and the only new rows are Bilal's under teacher B.
+        ->and(DB::table('leaderboard_entries')->distinct()->count('run_stamp'))->toBe(1)
+        ->and(LeaderboardEntry::query()->count())->toBe($rows + 2);
 });
 
 /*

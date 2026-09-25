@@ -43,6 +43,13 @@ class ImportQuestionsJob implements ShouldQueue
      * would sit in the queue re-attempting, and the teacher who uploaded twice by
      * accident wants the second one to fail loudly, not to run an hour later.
      *
+     * ⚠️ `expireAfter()` IS THE LOAD-BEARING HALF (docs/gotchas/deploy-ops.md).
+     * Without it the lock never expires, so a worker killed mid-file — a deploy,
+     * an out-of-memory — leaves it held for ever and every later upload in that
+     * workspace is dropped by `dontRelease()` without running. 120 seconds is
+     * twice the 60-second timeout of `supervisor-1`, which works `default`, so a
+     * live import always finishes (or is killed) before its lock can lapse.
+     *
      * @return list<object>
      */
     public function middleware(): array
@@ -52,7 +59,7 @@ class ImportQuestionsJob implements ShouldQueue
             ->whereKey($this->importId)
             ->value('workspace_id');
 
-        return [(new WithoutOverlapping('question-import:'.$workspaceId))->dontRelease()];
+        return [(new WithoutOverlapping('question-import:'.$workspaceId))->dontRelease()->expireAfter(120)];
     }
 
     public function handle(WorkspaceContext $context, ImportQuestions $action): void

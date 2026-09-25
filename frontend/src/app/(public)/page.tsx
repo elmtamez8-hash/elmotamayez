@@ -55,6 +55,9 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: name,
       type: "website",
       locale: "ar_QA",
+      // Next does not deep-merge `openGraph`: this object REPLACES the root
+      // layout's, so the default image has to be named here too.
+      images: [{ url: siteUrl("/marketplace/banner-about.webp") }],
     },
     twitter: { card: "summary_large_image" },
   };

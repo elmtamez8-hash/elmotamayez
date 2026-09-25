@@ -12,6 +12,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { CertificateIcon, UploadIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
+import { counted } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import type { CertificateValues } from "@/lib/certificate-design";
 import {
   certificateDesigns,
@@ -322,7 +324,16 @@ function UploadPanel({
     >
       <SectionHeading id="upload-design" Icon={UploadIcon} title="ارفع تصميمك" />
       <p className="text-sm text-ink-muted">
-        استعملتَ {used} من {limit} تصاميم. يُعاد ترميز الصورة على الخادم، ثمّ تضبط مواضع الحقول
+        {/* «من تصميمين»: بعد «من» المثنّى مجرور. */}
+        استعملتَ {arabicNumber(used)} من{" "}
+        {counted(limit, {
+          one: "تصميم واحد",
+          two: "تصميمين",
+          few: "تصاميم",
+          many: "تصميماً",
+          other: "تصميم",
+        })}
+        . يُعاد ترميز الصورة على الخادم، ثمّ تضبط مواضع الحقول
         عليها قبل اعتمادها.
       </p>
 
