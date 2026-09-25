@@ -214,6 +214,17 @@ interface CohortDirectory
     public function claimSeat(int $cohortId): bool;
 
     /**
+     * Give back a place {@see claimSeat()} took, when nobody will ever sit in it.
+     *
+     * ⚠️ ONLY FOR A CLAIM WHOSE MEMBERSHIP WILL NOT BE WRITTEN, and at most once
+     * per claim: it is a guarded decrement (never below zero), not an idempotent
+     * recount, so a caller that can run twice must decide on its own that it is
+     * the first. The one caller is `ActivateSubscription`, for an approval whose
+     * student joined a different group before the activation ran.
+     */
+    public function releaseSeat(int $cohortId): void;
+
+    /**
      * Whether ADMINISTRATION could put somebody into THIS group at this instant.
      *
      * ⚠️ The per-cohort twin of {@see assignableCohortsExist()}. The picker offers what

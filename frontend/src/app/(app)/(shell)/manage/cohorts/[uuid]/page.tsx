@@ -314,7 +314,7 @@ export default function ManageCohortPage({
         <StatTile
           Icon={SparkIcon}
           label="المقاعد"
-          value={group.capacity === null ? "بلا حدّ" : `${group.seats_left ?? 0} متاح`}
+          value={group.capacity === null ? "بلا حدّ" : counted(group.seats_left ?? 0, NOUNS.seatsAvailable)}
           hint={group.capacity === null ? undefined : `من ${group.capacity}`}
         />
       </div>

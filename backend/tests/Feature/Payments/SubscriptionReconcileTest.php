@@ -16,6 +16,7 @@ use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
@@ -85,6 +86,10 @@ beforeEach(function (): void {
     // do with subscriptions — a green «the teacher was not paid» assertion
     // measuring the fixture instead of the feature.
     $this->session->forceFill(['type' => ClassSessionType::Individual])->save();
+
+    // A 1:1 lesson minutes away is this fixture's premise, not the booking under
+    // test — the lead time (`LeadTime`) is not what this file measures.
+    PlatformSettings::set('sessions.min_lead_minutes', 0);
 
     app(BookSeat::class)->handle($this->session, $this->student);
 

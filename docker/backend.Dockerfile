@@ -41,6 +41,61 @@ RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && docker-php-ext-enable redis \
     && apk del .build-deps
 
+# ⛔ **الصورةُ كانت تعملُ بلا `php.ini` إطلاقاً** — قِيسَ على الإنتاجِ في ٢٠٢٦-٠٩-٢٥:
+# `php_ini_loaded_file()` فارغ، فكلُّ قيمةٍ هي الافتراضيُّ المُصرَّفُ في PHP:
+# `display_errors=1` (نصُّ الخطأِ ومسارُ الملفِّ في جسمِ الردّ)، ورفعٌ بسقفِ ٢ ميغا
+# (فإيصالٌ بـ٣ ميغا يُرفَضُ قبلَ أن يصلَ قاعدةَ التحقّقِ التي تقبلُ ١٠)، و١٢٨ ميغا ذاكرة،
+# وخمسةُ عمّالِ FPM لخادمٍ بـ١٦ غيغا — الطلبُ السادسُ المتزامنُ ينتظرُ في الطابور.
+#
+# `php.ini-production` أساساً، وفوقَه ملفّانِ صغيرانِ هما كلُّ ما يخصُّنا. ويُطبَّقانِ على
+# `horizon` و`scheduler` و`reverb` أيضاً لأنّها الصورةُ نفسُها (CLI يقرأُ `conf.d` ذاتَه).
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+
+# ⚠️ الرفعُ: أكبرُ رفعٍ عبرَ نموذجٍ (multipart) قاعدتُه ١٠ ميغا (الإيصالُ، الواجبُ، ملفُّ
+# الاستيراد)؛ ٢٠ ميغا تتركُ هامشاً، و`post_max_size` أكبرُ منه بقليلٍ لأنّ الطلبَ يحملُ
+# حقولاً غيرَ الملفّ. ورفعُ الوسائطِ الكبيرُ على المزوّدِ المحلّيِّ `PUT` بجسمٍ خامٍ
+# يُقرَأُ تدفّقاً (`getContent(true)`)، فلا يمرُّ بأيٍّ من السقفَين — وهو سببُ بقاءِ
+# `client_max_body_size 512m` في nginx.
+#
+# ⚠️ `variables_order` يبقى `EGPCS` كما كانَ بلا ملفّ: `php.ini-production` يُسقِطُ `E`،
+# ولا نغيّرُ من أينَ تُقرَأُ متغيّراتُ البيئةِ في التغييرِ نفسِه الذي يغيّرُ كلَّ شيءٍ آخر.
+#
+# ⚠️ `opcache.validate_timestamps=0`: الشيفرةُ داخلَ الصورةِ لا تتغيّرُ ما دامت الحاويةُ
+# حيّة — كلُّ نشرةٍ تُنشئُ حاويةً جديدة. **لكنّ `artisan config:cache` يدويّاً داخلَ حاويةٍ
+# عاملةٍ لا يراه FPM** حتى تُعادَ (`docker compose … restart backend`). وCLI لا يتأثّر:
+# `opcache.enable_cli` مطفأٌ افتراضيّاً.
+RUN printf '%s\n' \
+        'upload_max_filesize = 20M' \
+        'post_max_size = 21M' \
+        'memory_limit = 512M' \
+        'expose_php = Off' \
+        'display_errors = Off' \
+        'display_startup_errors = Off' \
+        'log_errors = On' \
+        'variables_order = "EGPCS"' \
+        'opcache.enable = 1' \
+        'opcache.memory_consumption = 256' \
+        'opcache.interned_strings_buffer = 32' \
+        'opcache.max_accelerated_files = 32531' \
+        'opcache.validate_timestamps = 0' \
+    > /usr/local/etc/php/conf.d/zz-app.ini
+
+# ⚠️ خمسةُ عمّالٍ كانت سقفَ الموقعِ كلِّه. ٤٠ على ١٦ غيغا: عاملُ Laravel يستهلكُ عادةً
+# ٥٠–٨٠ ميغا، فـ٤٠ نحوَ ٣ غيغا في الذروة، ويبقى الباقي لـMySQL وRedis وMeilisearch وNext.
+# و`memory_limit` سقفٌ لطلبٍ واحدٍ شاذّ، لا ما يستهلكُه كلُّ عامل.
+# `pm.max_requests` يُعيدُ العاملَ بعدَ ألفِ طلبٍ فلا يتراكمُ تسرّبٌ بطيء.
+# والاسمُ `zz-` كي يُقرَأَ بعدَ `www.conf` (خمسةُ العمّالِ منه) فيغلبَه. و`printf` لا
+# `COPY <<EOF`: ذاكَ يحتاجُ BuildKit حديثاً لا نعرفُ أنّ دوكر الخادمِ يحملُه.
+RUN printf '%s\n' \
+        '[www]' \
+        'pm = dynamic' \
+        'pm.max_children = 40' \
+        'pm.start_servers = 8' \
+        'pm.min_spare_servers = 4' \
+        'pm.max_spare_servers = 12' \
+        'pm.max_requests = 1000' \
+    > /usr/local/etc/php-fpm.d/zz-app.conf
+
 COPY --from=composer:2.10.3 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html

@@ -62,6 +62,11 @@ class CreateEnrollmentFromOrder implements ShouldQueueAfterCommit
             return;
         }
 
+        // Reversed between the approval and this worker: nothing to open.
+        if ($order->wasWithdrawn()) {
+            return;
+        }
+
         $course = $order->course;
 
         if ($course === null) {

@@ -81,6 +81,11 @@ class CancelBooking extends Action
                 | that behaved correctly.
                 */
                 $this->holds->release((int) $session->getKey(), [(int) $booking->student_user_id]);
+
+                // The seat went back to the pool, so a generated 1:1 slot is
+                // nobody's again. Not in the late arm: that seat is still
+                // counted, and still the student's to be charged for.
+                ClassSession::reopenEmptyIndividualSlot((int) $session->getKey());
             }
         });
 
@@ -99,10 +104,11 @@ class CancelBooking extends Action
      * carries the distinction and says why: «the student did nothing — their
      * eligibility lapsed and the system took the seat back». Filing a system
      * release under a cancellation puts a mark against somebody who cancelled
-     * nothing — and worse, it makes the seat unrecoverable: the auto-booker skips
-     * a cancelled row on purpose (FR-044), so a student who lapses, is released,
-     * then renews would never be booked into those sessions again. Paid, unbooked,
-     * silent.
+     * nothing — and worse, it made the seat unrecoverable for the automation:
+     * the auto-booker skips a cancelled row on purpose (FR-044), so a student who
+     * lapses, is released, then renews would never be booked into those sessions
+     * again. Paid, unbooked, silent. (The student's own «احجز» revives either —
+     * `BookSeat::claim()`.)
      *
      * ⚠️ AND THE DEADLINE IS NOT ASKED. `handle()` bills a late cancellation
      * because the student chose the moment; nobody chose this one. Taking the
@@ -145,6 +151,8 @@ class CancelBooking extends Action
                 (int) $booking->class_session_id,
                 [(int) $booking->student_user_id],
             );
+
+            ClassSession::reopenEmptyIndividualSlot((int) $booking->class_session_id);
         });
 
         return $booking->refresh();

@@ -94,6 +94,8 @@ enum NotificationCategory: string
                  * about the timetable rather than about the purchase.
                  */
                 NotificationType::SubscriptionSeatUnavailable,
+                // The timetable again: lessons a lifted freeze gave back.
+                NotificationType::SessionSeatReopened,
                 NotificationType::AppointmentReminder,
                 NotificationType::AttendanceAlert,
                 NotificationType::SessionReport,
@@ -215,6 +217,8 @@ enum NotificationCategory: string
                  * this tab is.
                  */
                 NotificationType::SessionPlanActivated,
+                // The correction of the activation above: the same purchase, new dates.
+                NotificationType::SubscriptionRedated,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,

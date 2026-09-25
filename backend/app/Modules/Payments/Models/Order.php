@@ -265,4 +265,27 @@ class Order extends BaseModel implements HasMedia
     {
         return $this->status === 'approved';
     }
+
+    /**
+     * Has this order been taken back SINCE this instance was loaded?
+     *
+     * ⛔ ASKED BY THE QUEUED LISTENERS THAT OPEN ACCESS, AND READ FROM THE ROW,
+     * NEVER FROM THE INSTANCE. `CreateEnrollmentFromOrder` and
+     * `ActivateSubscription` run after commit on a worker, carrying the order
+     * as it was when the payment was approved; a reversal landing in that gap
+     * (`ReverseCourseOrder`, the credit reversal, `CancelSubscription`) cancelled
+     * the order and closed nothing — the enrolment did not exist yet — and the
+     * listener then opened it on a cancelled order, for ever.
+     *
+     * ⚠️ `cancelled` / `rejected`, NOT «anything but `approved`». A gateway
+     * capture never passes through `ApproveOrder`, so its order is still
+     * `pending` when `PaymentCaptured` reaches the same listeners — «not
+     * approved» would refuse every gateway buyer their purchase.
+     */
+    public function wasWithdrawn(): bool
+    {
+        $status = self::query()->withoutWorkspaceScope()->whereKey($this->getKey())->value('status');
+
+        return $status === null || in_array($status, ['cancelled', 'rejected'], true);
+    }
 }

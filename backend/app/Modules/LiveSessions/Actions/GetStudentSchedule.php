@@ -106,10 +106,25 @@ class GetStudentSchedule extends Action
                     // anywhere (six call sites shipped that way in spec 010).
                     'teacherProfile' => fn ($profiles) => $profiles->withoutWorkspaceScope()->with('user'),
                 ])])
-            ->get()
-            ->sortBy(fn (SessionBooking $booking): string => $booking->classSession?->starts_at->toIso8601String() ?? '')
-            ->take($limit)
-            ->values();
+            /*
+             | ⚠️ ORDERED AND LIMITED IN SQL, NOT AFTER THE FACT. This loaded
+             | EVERY upcoming booking — with its session, course, teacher and
+             | recording eager-loaded — then sorted in PHP and kept `$limit`; the
+             | countdown widget asks for ONE, on every page a student opens, and
+             | paid for a term's worth. The sort key is the related session's
+             | start, so it is a correlated subquery; `id` breaks a tie so two
+             | lessons at the same minute come back in the same order twice.
+             */
+            ->orderBy(
+                ClassSession::query()
+                    ->withoutWorkspaceScope()
+                    ->select('starts_at')
+                    ->whereColumn('class_sessions.id', 'session_bookings.class_session_id')
+                    ->limit(1)
+            )
+            ->orderBy('session_bookings.id')
+            ->limit($limit)
+            ->get();
     }
 
     /** The next one, or null. Drives the countdown widget (FR-053 · FR-055). */

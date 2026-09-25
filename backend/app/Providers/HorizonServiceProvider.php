@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
+use App\Shared\Listeners\AlertOperatorOfFailedJob;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
 use Laravel\Horizon\HorizonApplicationServiceProvider;
@@ -39,6 +42,10 @@ class HorizonServiceProvider extends HorizonApplicationServiceProvider
         if (is_string($recipient) && $recipient !== '') {
             Horizon::routeMailNotificationsTo($recipient);
         }
+
+        // A job that FAILS is not something Horizon notifies about — only a
+        // queue that waits too long is. Same address, same "unset = silent".
+        Event::listen(JobFailed::class, AlertOperatorOfFailedJob::class);
     }
 
     /**
