@@ -94,17 +94,27 @@ class EvaluateBadges extends Action
      * a teacher later marked absent — and would count each of those sessions
      * TWICE, once for the award and once for its correction.
      *
-     * Served by `index(student_user_id, action_key, created_at)`, which exists for
-     * the daily cap and answers this with the same two leading equalities.
+     * ⚠️ COUNTED AS CAUSES WITH AN ODD NUMBER OF ENTRIES, not as originals minus
+     * everything else. A cause can be reversed and then REINSTATED (a mark changed
+     * to absent and back — see `AwardChain`), and the reinstatement also carries a
+     * non-zero `reversal_of_id`: "originals minus the rest" counted that session
+     * as −1. Parity is the state of each chain — odd is paid, even is reversed —
+     * and it does not depend on the sign of `xp`, which a clamped reversal can
+     * leave at zero.
+     *
+     * The inner query selects only the grouped columns, so it is valid under
+     * `ONLY_FULL_GROUP_BY` on MySQL as well as on SQLite.
      */
     private function countOf(StudentProgress $progress, string $actionKey): int
     {
-        $rows = AwardEntry::query()
+        $paidCauses = AwardEntry::query()
             ->where('student_user_id', $progress->user_id)
-            ->where('action_key', $actionKey);
+            ->where('action_key', $actionKey)
+            ->select(['source_type', 'source_id'])
+            ->groupBy('source_type', 'source_id')
+            ->havingRaw('COUNT(*) % 2 = 1');
 
-        return (int) (clone $rows)->where('reversal_of_id', 0)->count()
-            - (int) (clone $rows)->where('reversal_of_id', '<>', 0)->count();
+        return DB::query()->fromSub($paidCauses, 'paid_causes')->count();
     }
 
     private function record(StudentProgress $progress, Badge $badge): bool
