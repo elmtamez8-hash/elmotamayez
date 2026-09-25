@@ -81,8 +81,31 @@ class RepairUnledgeredUnits extends Command
         $repairableAmount = (int) (clone $repairable)->sum('amount_minor');
         $strandedCount = (clone $stranded)->count();
 
+        // Outside the age floor, so the printed total is the whole problem and
+        // not only the part this run will touch: accrued too recently (a live
+        // writer may still be between its two statements) or with no
+        // `accrued_at` at all, which no writer in the tree produces for an
+        // earning and is therefore a row for a human to look at.
+        $skippedCount = TeachingUnit::query()
+            ->withoutWorkspaceScope()
+            ->where('amount_minor', '!=', 0)
+            ->whereIn('status', [
+                TeachingUnitStatus::Accrued->value,
+                TeachingUnitStatus::Reversed->value,
+            ])
+            ->whereNull('settlement_period_id')
+            ->where(static fn (Builder $query) => $query
+                ->whereNull('accrued_at')
+                ->orWhere('accrued_at', '>=', $cutoff))
+            ->whereNotExists(static fn (QueryBuilder $query) => $query
+                ->selectRaw('1')
+                ->from('ledger_entries')
+                ->whereColumn('ledger_entries.teaching_unit_id', 'teaching_units.id'))
+            ->count();
+
         $this->line("وحدات بلا قيد وقابلة للإصلاح: {$repairableCount} (المجموع بالوحدات الصغرى: {$repairableAmount})");
         $this->line("وحدات بلا قيد داخل فترة مُغلقة (للتقرير فقط، لا تُكتب): {$strandedCount}");
+        $this->line("وحدات بلا قيد تُركت لأنها أحدث من {$minAge} دقيقة أو بلا تاريخ استحقاق (لا تُكتب): {$skippedCount}");
 
         if ($strandedCount > 0) {
             $this->table(

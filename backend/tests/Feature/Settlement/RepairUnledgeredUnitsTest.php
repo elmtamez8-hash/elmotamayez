@@ -117,7 +117,10 @@ it('does not write for units that have no entry by design, or that may still be 
     // Accrued a moment ago: a live writer may be between its two statements.
     $young = unledgeredUnit($this->teacher, ['accrued_at' => now()]);
 
-    $this->artisan('settlement:repair-unledgered-units')->assertSuccessful();
+    // Counted as left behind, so the operator's number is the whole problem.
+    $this->artisan('settlement:repair-unledgered-units')
+        ->expectsOutputToContain('أو بلا تاريخ استحقاق (لا تُكتب): 1')
+        ->assertSuccessful();
 
     foreach ([$zero, $pending, $disputed, $young] as $unit) {
         expect(unledgeredEntryCount($unit))->toBe(0);
