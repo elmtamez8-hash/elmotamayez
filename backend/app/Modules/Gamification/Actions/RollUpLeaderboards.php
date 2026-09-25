@@ -156,6 +156,12 @@ class RollUpLeaderboards extends Action
         | re-runs this window-function aggregate once per page over the whole
         | period: the `chunk`-vs-`chunkById` defect with a GROUP BY in front of it.
         | `cursor()` runs the statement once and yields as it goes.
+        |
+        | The writes below run while it is still open, which is safe because
+        | `pdo_mysql` buffers results by default (`config/database.php` does not
+        | turn that off). Turn it off and every write here fails with «Cannot
+        | execute queries while other unbuffered queries are active» — on MySQL
+        | only; SQLite would never say so.
         */
         $ranked = DB::query()
             ->fromSub($sub, 'totals')

@@ -38,7 +38,7 @@ class ReportCard extends BaseModel implements HasMedia
     /**
      * ⚠️ `published_at`, `overall_pct` AND `improvement_index` ARE ALL ABSENT.
      * The three are written together inside one conditional UPDATE in
-     * `BuildReportCardsJob` — mass-assignable, each becomes a second way to
+     * `BuildStudentReportCardsJob` — mass-assignable, each becomes a second way to
      * publish from outside the statement that owns the claim, and the totals
      * stop being derived from the segments they claim to summarise.
      */
