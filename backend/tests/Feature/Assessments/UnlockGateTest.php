@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Contracts\UnlockDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -352,4 +353,59 @@ it('refuses the booking itself, not merely the screen', function (): void {
     // FR-039 — satisfying the condition opens it on the very next request, with
     // no sweep in between.
     $this->postJson("/api/v1/class-sessions/{$second->uuid}/book")->assertCreated();
+});
+
+/*
+| The teacher's list of who was let past, read from the session page.
+|
+| Before it existed an exemption could be written and never seen again — the
+| reason column had no reader, which is the whole point FR-040 makes of it.
+*/
+it('lists a session\'s exemptions for the teacher, and refuses a student', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    [, $second] = gatedPair($workspace, $student);
+
+    app(GrantUnlockExemption::class)->handle(
+        (int) $workspace->getKey(),
+        (int) $second->getKey(),
+        $owner,
+        $student,
+        'ظرفٌ عائلي.',
+    );
+
+    Sanctum::actingAs($owner);
+
+    $rows = $this->getJson("/api/v1/manage/class-sessions/{$second->uuid}/unlock-exemptions")
+        ->assertOk()
+        ->json('data');
+
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]['student']['uuid'])->toBe($student->uuid)
+        // A blank name is the column-restricted eager load's signature.
+        ->and($rows[0]['student']['name'])->toBe($student->name)
+        ->and($rows[0]['student']['name'])->not->toBe('')
+        ->and($rows[0]['reason'])->toBe('ظرفٌ عائلي.');
+
+    // The student holds no `unlock.rules.manage`.
+    Sanctum::actingAs($student);
+
+    $this->getJson("/api/v1/manage/class-sessions/{$second->uuid}/unlock-exemptions")->assertForbidden();
+});
+
+it('answers 404 for another workspace\'s session on the exemptions list', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    [$other] = $this->createWorkspaceWithOwner();
+
+    $foreign = app(WorkspaceContext::class)->forWorkspace(
+        $other,
+        fn (): ClassSession => ClassSession::factory()->create(['workspace_id' => $other->getKey()]),
+    );
+
+    $this->setCurrentWorkspace($workspace, $owner);
+    Sanctum::actingAs($owner);
+
+    $this->getJson("/api/v1/manage/class-sessions/{$foreign->uuid}/unlock-exemptions")->assertNotFound();
 });

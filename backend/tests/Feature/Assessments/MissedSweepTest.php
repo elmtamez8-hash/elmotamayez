@@ -147,3 +147,39 @@ it('marks the row once the extension itself has run out', function (): void {
     expect($row->refresh()->state)->toBe(Submission::STATE_MISSED)
         ->and($row->submitted_at)->toBeNull();
 });
+
+/*
+| The commonest extension of all: the student missed the date, then asked.
+|
+| `GrantExtension` used `firstOrCreate` with `pending` on INSERT only, so a row
+| the sweep had already marked `missed` kept that verdict under a fresh date —
+| the teacher's screen said nothing was handed in beside the extension they had
+| just granted, and the unlock gate (which reads `state`) still shut the next
+| session.
+*/
+it('reopens a row the sweep already marked missed when an extension is granted', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    [$assignment] = courseAssignment($workspace, $owner, $student, ['due_at' => now()->subDay()]);
+
+    app(MarkMissedSubmissionsJob::class)->handle(app(WorkspaceContext::class), app(ApplyAccommodation::class));
+
+    $row = Submission::query()
+        ->where('assignment_id', $assignment->getKey())
+        ->where('student_user_id', $student->getKey())
+        ->sole();
+
+    expect($row->state)->toBe(Submission::STATE_MISSED);
+
+    app(GrantExtension::class)->handle($assignment, $owner, $student, now()->addDays(2));
+
+    expect($row->refresh()->state)->toBe(Submission::STATE_PENDING)
+        ->and($row->extension_until)->not->toBeNull();
+
+    // And the next night leaves it alone: the new date has not passed.
+    app(MarkMissedSubmissionsJob::class)->handle(app(WorkspaceContext::class), app(ApplyAccommodation::class));
+
+    expect($row->refresh()->state)->toBe(Submission::STATE_PENDING);
+});
