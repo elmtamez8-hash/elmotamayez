@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -77,7 +78,12 @@ class PrivateSessionRequest extends BaseModel
     /** @return BelongsTo<Course, $this> */
     public function course(): BelongsTo
     {
-        return $this->belongsTo(Course::class);
+        // ⚠️ Unscoped, as `Enrollment::course()` is: the STUDENT reads this on
+        // «حصصي الخاصة», and a student stamped with another teacher's
+        // `last_workspace_id` would AND that workspace on and get null — the
+        // card then said «حصة خاصة» instead of the course name. The request row
+        // itself is already the reader's (policy), so the course is its key.
+        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class)->withTrashed();
     }
 
     /** @return BelongsTo<User, $this> */

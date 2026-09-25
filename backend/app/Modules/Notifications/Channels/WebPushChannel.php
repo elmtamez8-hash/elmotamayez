@@ -112,6 +112,7 @@ class WebPushChannel implements NotificationChannelInterface
 
         $client = app(WebPush::class);
         $accepted = 0;
+        $expired = 0;
         $lastFailure = null;
 
         foreach ($rows as $row) {
@@ -142,6 +143,7 @@ class WebPushChannel implements NotificationChannelInterface
             */
             if ($report->isSubscriptionExpired()) {
                 $row->delete();
+                $expired++;
 
                 continue;
             }
@@ -151,6 +153,16 @@ class WebPushChannel implements NotificationChannelInterface
 
         if ($accepted > 0) {
             return;
+        }
+
+        /*
+        | Every device had dropped its subscription: permanent, and SAID so. This
+        | used to fall through to a transient throw logged as «reason: unknown»,
+        | which bought one pointless retry and hid the one ordinary cause — a
+        | browser that cleared its site data (measured 2026-09-25).
+        */
+        if ($expired === $rows->count()) {
+            throw PermanentDeliveryException::invalidRecipient('انتهى اشتراك أجهزة هذا الحساب في الإشعارات الفوريّة.');
         }
 
         // ⚠️ MASKED: an endpoint is a device identifier, and a delivery log is the

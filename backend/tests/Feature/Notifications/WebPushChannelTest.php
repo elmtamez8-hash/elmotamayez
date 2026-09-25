@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Notifications\Channels\WebPushChannel;
+use App\Modules\Notifications\Exceptions\PermanentDeliveryException;
 use App\Modules\Notifications\Models\PushSubscription;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
@@ -93,7 +94,7 @@ it('deletes the row when the push service says the subscription is gone', functi
     | attempted against a device that no longer exists, for ever.
     */
     expect(fn () => app(WebPushChannel::class)->send(envelopeFor($user)))
-        ->toThrow(RuntimeException::class);
+        ->toThrow(PermanentDeliveryException::class);
 
     expect(PushSubscription::query()->where('user_id', $user->getKey())->count())->toBe(0);
 });
@@ -114,7 +115,7 @@ it('treats 404 as gone as well, because the library does', function (): void {
     | two years later.
     */
     expect(fn () => app(WebPushChannel::class)->send(envelopeFor($user)))
-        ->toThrow(RuntimeException::class);
+        ->toThrow(PermanentDeliveryException::class);
 
     expect(PushSubscription::query()->where('user_id', $user->getKey())->count())->toBe(0);
 });

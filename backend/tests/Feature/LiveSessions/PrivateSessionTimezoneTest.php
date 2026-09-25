@@ -41,3 +41,25 @@ it('sends the declared session timezone on the student own list', function (): v
         // The envelope the page reads — a bare array here reads as an empty list.
         ->and($mine->json('meta.total'))->toBe(1);
 });
+
+it("names the course on the student's list even when they are stamped with another teacher's workspace", function (): void {
+    $fx = privateSessionFixture();
+
+    Sanctum::actingAs($fx['student']);
+    $this->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->toIso8601String(),
+    ])->assertCreated();
+
+    // Stamped elsewhere: `forceFill`, because `last_workspace_id` is guarded and
+    // `create([...])` would drop it in silence, rebuilding the null-context case.
+    [$elsewhere] = $this->createWorkspaceWithOwner();
+    $fx['student']->forceFill(['last_workspace_id' => $elsewhere->getKey()])->save();
+
+    app()->forgetInstance(WorkspaceContext::class);
+    $this->asGuest();
+    Sanctum::actingAs($fx['student']->refresh());
+
+    $mine = $this->getJson('/api/v1/private-session-requests')->assertOk();
+
+    expect($mine->json('data.0.course.title'))->toBe($fx['course']->title);
+});
