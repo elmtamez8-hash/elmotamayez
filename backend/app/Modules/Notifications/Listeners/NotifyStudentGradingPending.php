@@ -8,7 +8,7 @@ use App\Modules\Assessments\Events\AttemptPendingGrading;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * Tells the student their paper is in but not finished.
@@ -19,7 +19,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * concludes they failed. This message is the difference between "not finished"
  * and "this is what you got".
  */
-class NotifyStudentGradingPending implements ShouldQueue
+class NotifyStudentGradingPending implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
