@@ -53,6 +53,12 @@ class UpdateCourseRequest extends FormRequest
             | which is exactly what is wanted here and is why `WorkspaceRules` is NOT
             | used: the question is whether ANY course on the platform holds this
             | address.
+            |
+            | ⚠️ AND A SOFT-DELETED COURSE STILL HOLDS ITS SLUG — deliberately, and
+            | that is why this rule does not add `whereNull('deleted_at')`. Freed,
+            | a deleted course's public URL (and every search result pointing at
+            | it) would start serving whichever course in ANY workspace claimed it
+            | next. The unique index agrees, and so does `CourseSlug::taken()`.
             */
             'slug' => ['nullable', 'string', 'max:255', Rule::unique('courses', 'slug')->ignore($this->courseBeingEdited())],
             'price_minor' => ['nullable', 'integer', 'min:0'],

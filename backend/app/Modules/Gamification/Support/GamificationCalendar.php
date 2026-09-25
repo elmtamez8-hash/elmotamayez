@@ -17,10 +17,10 @@ use DateTimeInterface;
  * still in force after midnight while the board has already rolled over.
  *
  * ⚠️ IT READS THE EXISTING `sessions.timezone` SETTING, NOT A NEW KEY. The
- * platform's timezone is already declared twice (`sessions.timezone` and
- * `notifications.default_timezone`); adding a third is precisely the mistake this
- * class exists to prevent, one level up. An operator moving the platform to a
- * second market changes one row — and if the gamification day did not follow, the
+ * platform's timezone has one source (`SESSIONS_TIMEZONE`, which
+ * `notifications.default_timezone` and the scheduler both derive from); adding a
+ * second is precisely the mistake this class exists to prevent, one level up.
+ * An operator moving the platform to a second market changes one row — and if the gamification day did not follow, the
  * daily cap would silently drift away from the class schedule.
  *
  * ⚠️ AND `config('app.timezone')` STAYS `UTC`. Stored timestamps are not touched.

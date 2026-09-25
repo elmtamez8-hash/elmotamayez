@@ -140,6 +140,7 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - A SCOPED RELATION READ ON THE STUDENT'S PATH RETURNS AN EMPTY COURSE, NOT AN ERROR — AND `Enrollment::course()` CARRYING THE BYPASS DOES NOT COVER WHAT HANGS OFF IT.
 - «THE AUTHOR» IS THE PIVOT ROLE, NEVER MERE MEMBERSHIP — AND THE THIRD DOOR OPENED PAID CONTENT.
 - LESSON CONTENT HAS FOUR DOORS, NOT ONE — AND THE ONE THAT ACTUALLY SERVES THE FILE ENDS AT `hasActiveEnrollment`.
+- A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
 
 ### Exams, questions, practice and grading → [`docs/gotchas/assessments.md`](docs/gotchas/assessments.md)
 _Read before touching `Modules/Assessments/`, exams, the question bank, practice, study rooms._
@@ -246,6 +247,7 @@ _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts
 - A close claims units with `< ends_on + 1 day`, never `<= ends_on`.
 - The settlement audit filters by asking for six subject types, not by removing rows.
 - `SUM(ledger_entries.amount_minor)` IS the teacher's balance, payouts included.
+- `ledger_entries.teaching_unit_id` has NO unique index, so a repair that writes a unit's line is idempotent only by its own predicate — `settlement:repair-unledgered-units` is a command, never a sweep.
 
 ### Notifications and channels → [`docs/gotchas/notifications.md`](docs/gotchas/notifications.md)
 _Read before touching `Modules/Notifications/`, templates, WhatsApp, push, guardian fan-out._

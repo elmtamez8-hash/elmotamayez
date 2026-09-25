@@ -63,9 +63,16 @@ return [
     | Timezone used when a user has not chosen one. Quiet hours apply to external
     | channels only (FR-032): an in-app notification wakes nobody.
     |
+    | ⚠️ THE PLATFORM'S OWN ZONE, NOT A SECOND DECLARATION OF IT. This used to
+    | read its own `NOTIFICATIONS_DEFAULT_TIMEZONE`, so an operator who moved
+    | `SESSIONS_TIMEZONE` moved the class schedule and left quiet hours on the
+    | old clock. It reads the same variable as `config/sessions.php` — through
+    | `env()`, because one config file cannot `config()` another while they are
+    | still being loaded.
+    |
     */
 
-    'default_timezone' => env('NOTIFICATIONS_DEFAULT_TIMEZONE', 'Asia/Qatar'),
+    'default_timezone' => env('SESSIONS_TIMEZONE', 'Asia/Qatar'),
 
     /*
     |--------------------------------------------------------------------------
