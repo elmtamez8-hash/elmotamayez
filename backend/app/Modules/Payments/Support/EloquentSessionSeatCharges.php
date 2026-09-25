@@ -10,6 +10,8 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditTransaction;
 use App\Shared\Contracts\SessionSeatCharges;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * ٠٣٥ — «قبِلتُ عذرَه بعدَ أن أُغلقَتِ الحصّة»: القيدُ العكسيّ.
@@ -78,8 +80,34 @@ class EloquentSessionSeatCharges implements SessionSeatCharges
             reason: $reason,
             meta: ['reverses_transaction_uuid' => $charge->uuid],
             enforceFloor: false,
+            expiresAt: $this->expiryOfLotsDrawnBy($charge),
         ));
 
         return $entry !== null;
+    }
+
+    /**
+     * The expiry the returned credit goes back with: that of the batch the
+     * charge took it from (see `CreditLedger::openLot()`).
+     *
+     * A charge drawn across several lots returns with the LATEST of their
+     * expiries, and with none at all if any of them never expires — the credit
+     * given back is one credit, and the student is given the benefit of the
+     * doubt about which of the batches it was. A charge that drew from no lot
+     * (it was delivered at zero, into debt) has nothing to inherit, and returns
+     * undated like a bonus.
+     */
+    private function expiryOfLotsDrawnBy(CreditTransaction $charge): ?CarbonImmutable
+    {
+        $expiries = DB::table('credit_allocations')
+            ->join('credit_lots', 'credit_lots.credit_transaction_id', '=', 'credit_allocations.lot_transaction_id')
+            ->where('credit_allocations.consumed_transaction_id', $charge->getKey())
+            ->pluck('credit_lots.expires_at');
+
+        if ($expiries->isEmpty() || $expiries->contains(null)) {
+            return null;
+        }
+
+        return CarbonImmutable::parse((string) $expiries->max());
     }
 }
