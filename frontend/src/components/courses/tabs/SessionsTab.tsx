@@ -159,17 +159,24 @@ function BookButton({ session }: { session: ClassSession }) {
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
 
-  if (booking !== null) {
-    /*
-     | ⚠️ A CANCELLED BOOKING IS NOT «محجوز». The badge used to read the mere
-     | presence of `my_booking`, so a seat given up — or taken back by the
-     | system — kept telling the student they held it. The server's own label
-     | says which of the three it was.
-     */
-    if (booking.status !== "booked") {
-      return <Badge tone="neutral">{booking.status_label}</Badge>;
-    }
+  /*
+   | ⚠️ A CANCELLED BOOKING IS NOT «محجوز». The badge used to read the mere
+   | presence of `my_booking`, so a seat given up — or taken back by the
+   | system — kept telling the student they held it. The server's own label
+   | says which of the three it was.
+   |
+   | ⛔ AND A SEAT GIVEN UP IN TIME, OR TAKEN BACK BY THE SYSTEM, CAN BE BOOKED
+   | AGAIN — the server revives the row (`BookSeat::claim()`), so the button
+   | comes back beside the badge. A LATE cancellation is the one that cannot:
+   | its seat is still counted and still charged, so it keeps the badge alone.
+   */
+  const givenUp = booking !== null && booking.status !== "booked" ? booking : null;
 
+  if (givenUp?.status === "cancelled_late") {
+    return <Badge tone="neutral">{givenUp.status_label}</Badge>;
+  }
+
+  if (booking !== null && givenUp === null) {
     return (
       <div className="flex flex-wrap items-start justify-end gap-2">
         <Badge tone="success">محجوز</Badge>
@@ -185,7 +192,9 @@ function BookButton({ session }: { session: ClassSession }) {
     );
   }
 
-  if (session.status !== "scheduled" || session.seats.available <= 0) return null;
+  const badge = givenUp !== null ? <Badge tone="neutral">{givenUp.status_label}</Badge> : null;
+
+  if (session.status !== "scheduled" || session.seats.available <= 0) return badge;
 
   const book = async () => {
     setBusy(true);
@@ -212,6 +221,7 @@ function BookButton({ session }: { session: ClassSession }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
+      {badge}
       <Button size="sm" onClick={() => void book()} loading={busy} loadingLabel="جارٍ الحجز…">
         احجز
       </Button>

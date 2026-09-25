@@ -10,9 +10,11 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\BookingEligibility;
+use App\Modules\LiveSessions\Support\LeadTime;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +43,7 @@ class BookSeat extends Action
         private readonly BookingEligibility $eligibility,
         private readonly CohortDirectory $cohorts,
         private readonly SessionCreditHolds $holds,
+        private readonly LeadTime $lead,
     ) {}
 
     /**
@@ -53,6 +56,28 @@ class BookSeat extends Action
     public function handle(ClassSession $session, User $student): SessionBooking
     {
         $this->assertBookable($session);
+
+        /*
+        | ⚠️ THE LEAD TIME GUARDS AN OPEN 1:1 SLOT, AT THIS DOOR ONLY. A private
+        | request is refused «too soon» (`RequestPrivateSession`), and an open 1:1
+        | slot generated from the same availability was not — so the hour a
+        | request could not take, the «احجز» button took one minute before it
+        | started, with nobody able to prepare for it. «Open» is `cohort_id IS
+        | NULL`: a 1:1 session already filed under one student was timed by the
+        | teacher for that student, and the automation that seats members
+        | (`ClaimSubscriptionSeats::claimOneAsMember()`, which also walks through
+        | here) must not be refused an hour the teacher chose. A teacher's grant
+        | and the revival of a released seat are the other two entries and are
+        | not asked. A group lesson happens whoever books it, so it keeps «not
+        | started».
+        */
+        if ($session->type === ClassSessionType::Individual && $session->cohort_id === null) {
+            $tooSoon = $this->lead->refusalFor(CarbonImmutable::instance($session->starts_at));
+
+            if ($tooSoon !== null) {
+                throw new DomainException($tooSoon);
+            }
+        }
 
         // ⚠️ `openingRefusal`, not `refusalReason`: booking is one of the two
         // doors FR-041 names, so 008's unlock condition is asked here too.
@@ -125,11 +150,14 @@ class BookSeat extends Action
      * second spelling of the seat claim, which is the defect the docblock above
      * exists to forbid.
      *
-     * ⚠️ AND ONLY `Released` IS REVIVED. A student's own cancellation stays
-     * cancelled (FR-044) — a booking they undid must not come back in the night.
-     * The conditional `where status = released` is what makes that true under a
-     * race as well: a seat re-booked by hand a millisecond earlier affects zero
-     * rows here and the claimed capacity goes straight back.
+     * ⚠️ AND ONLY `Released` IS REVIVED BY THIS ENTRY. A student's own
+     * cancellation stays cancelled for the AUTOMATION (FR-044) — a booking they
+     * undid must not come back in the night. The student's own «احجز» may take
+     * it back ({@see self::claim()}), which is the same UPDATE over a wider set of
+     * statuses, because a person pressing a button is not the night. The
+     * conditional `where status = released` is what makes this true under a race
+     * as well: a seat re-booked by hand a millisecond earlier affects zero rows
+     * here and the claimed capacity goes straight back.
      */
     public function reviveReleasedSeat(
         ClassSession $session,
@@ -148,37 +176,12 @@ class BookSeat extends Action
         return DB::transaction(function () use ($session, $student, $subscriptionCovered): SessionBooking {
             $this->claimCapacity($session);
 
-            $revived = SessionBooking::query()
-                ->withoutWorkspaceScope()
-                ->where('class_session_id', $session->getKey())
-                ->where('student_user_id', $student->getKey())
-                ->where('status', BookingStatus::Released->value)
-                ->update([
-                    'status' => BookingStatus::Booked->value,
-                    'is_billable' => true,
-                    'booked_at' => now(),
-                    'cancelled_at' => null,
-                    'cancellation_reason' => null,
-                    'updated_at' => now(),
-                ]);
+            $booking = $this->reviveRow($session, $student, [BookingStatus::Released]);
 
-            if ($revived === 0) {
+            if ($booking === null) {
                 $this->releaseCapacity($session);
 
                 throw new DomainException('لم يعد هذا المقعد قابلاً للاسترجاع.');
-            }
-
-            $session->refresh();
-
-            $booking = SessionBooking::query()
-                ->withoutWorkspaceScope()
-                ->where('class_session_id', $session->getKey())
-                ->where('student_user_id', $student->getKey())
-                ->first();
-
-            if ($booking === null) {
-                // Unreachable: the UPDATE above affected exactly this row.
-                throw new DomainException('تعذّر استرجاع المقعد.');
             }
 
             // A revived seat freezes a credit exactly as a fresh one does — and
@@ -186,8 +189,56 @@ class BookSeat extends Action
             // first hold was settled when the seat was taken away.
             $this->freezeCredit($session, $student, $subscriptionCovered);
 
+            // A 1:1 slot whose group was taken off when this seat went
+            // (`ClassSession::reopenEmptyIndividualSlot()`) is filed again.
+            $this->fileUnderTheStudentsOwnGroup($session, $student);
+
+            $session->refresh();
+
             return $booking;
         });
+    }
+
+    /**
+     * Puts the student's existing row back to `booked`, in ONE statement, when
+     * its status is one of `$from` — and hands the row back, or null.
+     *
+     * ⚠️ THE ONE SPELLING OF A REVIVAL, FOR BOTH ENTRIES THAT REVIVE. The
+     * automation revives `Released` only; the student's own button revives their
+     * own in-time cancellation as well. Two UPDATEs written apart drift at the
+     * first column somebody adds to one of them.
+     *
+     * ⚠️ CALLED AFTER `claimCapacity()`, NEVER BEFORE IT, and the caller gives the
+     * capacity back on null: the seat count is the overbooking guard, and a row
+     * flipped to `booked` without it would put a student in a full room.
+     *
+     * @param  list<BookingStatus>  $from
+     */
+    private function reviveRow(ClassSession $session, User $student, array $from): ?SessionBooking
+    {
+        $revived = SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->whereIn('status', array_map(static fn (BookingStatus $status): string => $status->value, $from))
+            ->update([
+                'status' => BookingStatus::Booked->value,
+                'is_billable' => true,
+                'booked_at' => now(),
+                'cancelled_at' => null,
+                'cancellation_reason' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($revived === 0) {
+            return null;
+        }
+
+        return SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->first();
     }
 
     private function assertBookable(ClassSession $session): void
@@ -214,22 +265,46 @@ class BookSeat extends Action
         return DB::transaction(function () use ($session, $student, $subscriptionCovered): SessionBooking {
             $this->claimCapacity($session);
 
-            try {
-                $booking = SessionBooking::query()->create([
-                    'workspace_id' => $session->workspace_id,
-                    'class_session_id' => $session->getKey(),
-                    'student_user_id' => $student->getKey(),
-                    'status' => BookingStatus::Booked,
-                    'is_billable' => true,
-                    'booked_at' => now(),
-                ]);
-            } catch (UniqueConstraintViolationException) {
-                // The student already holds a seat. Give the one we just claimed
-                // back, or a double-tap on the button would eat a seat nobody
-                // occupies.
-                $this->releaseCapacity($session);
+            /*
+            | ⛔ A ROW THAT IS ALREADY THERE IS NOT «A SEAT YOU HOLD». The row is
+            | the record of what happened to the seat, so it stays when the seat
+            | goes — and the unique index on (session, student) then refused every
+            | INSERT after it with «لديك مقعد محجوز في هذه الحصة بالفعل», about a
+            | seat the student had given up in time or the system had taken back.
+            | No screen had a way out. Both of those are revived here, by the
+            | same conditional UPDATE the automation's revival uses, AFTER the
+            | capacity claim.
+            |
+            | ⚠️ `CancelledLate` IS NOT IN THE LIST, ON PURPOSE. Its seat never
+            | went back to the pool (`seats_taken` still counts it), its credit is
+            | still frozen, and it is still charged at delivery — so reviving it
+            | through here would claim a second seat and a second credit for one
+            | chair. «Un-cancelling» a late cancellation is its own decision, not
+            | a side effect of a booking door.
+            */
+            $booking = $this->reviveRow($session, $student, [
+                BookingStatus::CancelledInWindow,
+                BookingStatus::Released,
+            ]);
 
-                throw new DomainException('لديك مقعد محجوز في هذه الحصة بالفعل.');
+            if ($booking === null) {
+                try {
+                    $booking = SessionBooking::query()->create([
+                        'workspace_id' => $session->workspace_id,
+                        'class_session_id' => $session->getKey(),
+                        'student_user_id' => $student->getKey(),
+                        'status' => BookingStatus::Booked,
+                        'is_billable' => true,
+                        'booked_at' => now(),
+                    ]);
+                } catch (UniqueConstraintViolationException) {
+                    // The row is there and is not one we may revive. Give the
+                    // capacity we just claimed back, or a double-tap on the
+                    // button would eat a seat nobody occupies.
+                    $this->releaseCapacity($session);
+
+                    throw new DomainException($this->heldRowRefusal($session, $student));
+                }
             }
 
             // ⛔ AFTER THE BOOKING ROW AND BEFORE THE COMMIT. Placed above the
@@ -245,6 +320,24 @@ class BookSeat extends Action
 
             return $booking;
         });
+    }
+
+    /**
+     * The sentence for a row that is there and could not be revived — read,
+     * because «you already hold it» is false about a late cancellation.
+     */
+    private function heldRowRefusal(ClassSession $session, User $student): string
+    {
+        // `value()` goes through the model, so the cast hands back the enum.
+        $status = SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->value('status');
+
+        return $status === BookingStatus::CancelledLate
+            ? 'ألغيت هذا الحجز بعد انتهاء مهلة الإلغاء، فبقي مقعدك محسوباً عليك ولا يمكن حجزه من جديد.'
+            : 'لديك مقعد محجوز في هذه الحصة بالفعل.';
     }
 
     /**
@@ -339,7 +432,13 @@ class BookSeat extends Action
         // `forceFill`: `cohort_id` is deliberately not `$fillable` — which group
         // a session belongs to decides who is offered it, so it is never a
         // mass-assignable field. Same spelling `ScheduleClassSession` uses.
-        $session->forceFill(['cohort_id' => $cohortId])->save();
+        //
+        // ⚠️ AND `cohort_from_booking` SAYS THE SEAT PUT IT THERE. When this seat
+        // goes, the slot is nobody's again and the group comes off
+        // (`ClassSession::reopenEmptyIndividualSlot()`) — which must never
+        // happen to a 1:1 session a teacher SCHEDULED for one student (a
+        // granted private request is filed under that student at creation).
+        $session->forceFill(['cohort_id' => $cohortId, 'cohort_from_booking' => true])->save();
     }
 
     /**

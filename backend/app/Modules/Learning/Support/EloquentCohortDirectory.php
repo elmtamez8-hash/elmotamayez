@@ -348,6 +348,12 @@ class EloquentCohortDirectory implements CohortDirectory
         return CohortMembershipWriter::claimSeat($cohortId);
     }
 
+    public function releaseSeat(int $cohortId): void
+    {
+        // Delegated for the same reason as its twin above.
+        CohortMembershipWriter::releaseSeat($cohortId);
+    }
+
     public function isAssignable(int $cohortId): bool
     {
         $cohort = Cohort::query()->withoutWorkspaceScope()->whereKey($cohortId)->first();

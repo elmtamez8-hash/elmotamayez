@@ -45,6 +45,16 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateFreezePeriod extends Action
 {
+    /**
+     * The reason written on the group seat a freeze on ONE student takes.
+     *
+     * ⚠️ A CONSTANT BECAUSE LIFTING THE FREEZE READS IT BACK
+     * (`DeleteFreezePeriod::groupSeatsTakenBy()`): it is how the seat this freeze
+     * took is told apart from one a lapse or a transfer took, and two spellings
+     * of it would silently restore nothing.
+     */
+    public const SEAT_RELEASE_REASON = 'فترة تجميد';
+
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly WorkspaceContext $context,
@@ -175,13 +185,13 @@ class CreateFreezePeriod extends Action
             return false;
         }
 
-        $fresh = $this->bookings->release($booking, 'فترة تجميد');
+        $fresh = $this->bookings->release($booking, self::SEAT_RELEASE_REASON);
 
         // `release()` hands back the row as it now stands, so `Released` alone
         // does not say who released it: a system sweep that got there a moment
         // earlier leaves the same status under its own reason. Only a seat this
         // freeze took is announced as this freeze's news.
-        if ($fresh->status !== BookingStatus::Released || $fresh->cancellation_reason !== 'فترة تجميد') {
+        if ($fresh->status !== BookingStatus::Released || $fresh->cancellation_reason !== self::SEAT_RELEASE_REASON) {
             return false;
         }
 
