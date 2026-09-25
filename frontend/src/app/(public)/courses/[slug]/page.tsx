@@ -424,8 +424,6 @@ export default async function CoursePage({
               نصفَ الشاشة، فيهبطُ هنا إلى مكانِه في التدفّقِ ويُمرَّرُ كأيِّ قسم. */}
           <div className="lg:sticky lg:top-24">
             <CourseRail
-              priceMinor={course.price_minor}
-              currency={course.currency ?? null}
               courseUuid={course.uuid}
               isFull={course.is_full}
               freeEnrollment={course.free_enrollment}

@@ -14,7 +14,6 @@ import {
 import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
 import { VerifiedBadgeIcon } from "@/components/icons";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
-import { CoursePrice } from "@/components/marketplace/CoursePrice";
 import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
 import { api } from "@/lib/api";
@@ -35,8 +34,6 @@ import { counted } from "@/lib/labels";
  * a door that refuses (`CurriculumResource::resumeUuid()` says why).
  */
 export function CourseRail({
-  priceMinor,
-  currency,
   courseUuid,
   isFull,
   freeEnrollment = false,
@@ -45,8 +42,6 @@ export function CourseRail({
   joinableGroup,
   teacher,
 }: {
-  priceMinor: number | null;
-  currency: string | null;
   courseUuid: string;
   /** حكمُ الخادم، ولا يُشتَقُّ هنا — {@see VisitorRail}. */
   isFull: boolean;
@@ -68,8 +63,6 @@ export function CourseRail({
         <OwnerRail data={ownership.data} courseUuid={courseUuid} />
       ) : (
         <VisitorRail
-          priceMinor={priceMinor}
-          currency={currency}
           isFull={isFull}
           freeEnrollment={freeEnrollment}
           enrolmentOpen={enrolmentOpen}
@@ -167,8 +160,6 @@ const PROMISES = [
  * يُعيدُه إلى الاختيارِ نفسِه — و`StudentSignupForm` يمرِّرُه على `safeNext()`.
  */
 function VisitorRail({
-  priceMinor,
-  currency,
   isFull,
   freeEnrollment,
   enrolmentOpen,
@@ -176,8 +167,6 @@ function VisitorRail({
   joinableGroup,
   courseUuid,
 }: {
-  priceMinor: number | null;
-  currency: string | null;
   isFull: boolean;
   freeEnrollment: boolean;
   enrolmentOpen: boolean;
@@ -195,16 +184,17 @@ function VisitorRail({
   return (
     <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm">
       {/*
-        ⛔ ASKED, NEVER RESTATED. «Who may see a price» is `CoursePrice`'s whole
-        job — shown to the people who would pay it and to nobody else, a
-        signed-out visitor included — and a copy of that condition here is a
-        second spelling that drifts at the first edit to either. It renders
-        nothing at all when the answer is no, so there is no wrapper to guard.
+        ⛔ NO PRICE ON A COURSE, EVER (owner decision 2026-09-25). A course is sold
+        through a plan and nothing else — the one-off purchase route is gone — so
+        `courses.price_minor` prices nothing a buyer can pay, and printing it read
+        as an offer. The plan's own price is shown where the plan is chosen
+        (`/subscribe`).
 
-        ⚠️ Except the one question it cannot ask: whether anything is on sale.
-        A price over a course nobody can buy reads as an offer.
+        ⚠️ «مجاني» stays, and only on the server's `free_enrollment` — never on
+        `price_minor === 0`, which is also true of every course that is sold by a
+        plan and was never given a price.
       */}
-      {!closed && <CoursePrice priceMinor={priceMinor} currency={currency} size="rail" />}
+      {freeEnrollment && !isFull && <p className="text-3xl font-black text-ink">مجاني</p>}
 
       {isFull ? (
         <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">

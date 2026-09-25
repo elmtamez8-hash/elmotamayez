@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Actions\ApproveOrder;
-use App\Modules\Payments\Actions\CreateOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Enums\OrderKind;
@@ -120,53 +118,6 @@ class OrderController extends Controller
             'course', 'media', 'user', 'grantor',
             'creditPurchase' => fn ($rows) => $rows->withoutWorkspaceScope(),
         ])));
-    }
-
-    public function store(Request $request, string $courseUuid, CreateOrder $action): JsonResponse
-    {
-        /*
-        | ⛔ **وهذا البابُ أيضاً، من جهةِ الطالبِ لا الموظَّف.** التعليقُ فوقَ
-        | المسارِ يشرحُ لماذا صارَت الأربعةُ الأخرى `{orderUuid}`: موظَّفُ المنصّةِ
-        | يسقطُ سياقُه إلى `users.last_workspace_id`. والعمودُ نفسُه **مختومٌ لكلِّ
-        | طالبٍ أُضيفَ يوماً إلى مساحةِ عمل**، فالشراءُ من مدرّسٍ ثانٍ كانَ يُجابُ
-        | ٤٠٤ — والسوقُ كلُّه قائمٌ على أنّ الطالبَ يشتري من أيِّ مدرّس.
-        |
-        | ⚠️ ولا توسيعَ: `OrderPolicy::create()` صلاحيّةٌ بلا سؤالِ مساحة،
-        | و`isPublished()` أدناه هو الحارسُ الذي كانَ ويبقى.
-        */
-        $course = Course::query()->withoutWorkspaceScope()->where('uuid', $courseUuid)->firstOrFail();
-
-        $this->authorize('create', Order::class);
-
-        if (! $course->isPublished()) {
-            return response()->json(['message' => 'Course is not available.'], 422);
-        }
-
-        if ($course->isFree()) {
-            return response()->json(['message' => 'This course is free; no order needed.'], 422);
-        }
-
-        // ⛔ A teacher never buys a course — not another teacher's and not their
-        // own. The second door of three; the free one is
-        // `EnrollmentController::enroll()` and the subscription is inside
-        // `PurchaseSubscription`. Refused BEFORE the order exists: an order
-        // created and then refused at fulfilment is money taken for a seat that
-        // is never written.
-        if ($this->currentUser($request)->teachesOnPlatform()) {
-            return response()->json(['message' => 'هذا الحسابُ حسابُ مدرّسٍ على المنصّة، والمدرّسُ لا يشتركُ في الكورسات.'], 422);
-        }
-
-        $validated = $request->validate([
-            'coupon_code' => ['nullable', 'string', 'max:32'],
-        ]);
-
-        $order = $action->handle(
-            $course,
-            $this->currentUser($request),
-            $validated['coupon_code'] ?? null,
-        );
-
-        return response()->json(OrderResource::make($order), 201);
     }
 
     public function uploadReceipt(Request $request, string $orderUuid, UploadPaymentReceipt $action): JsonResponse

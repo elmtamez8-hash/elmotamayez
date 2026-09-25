@@ -28,30 +28,20 @@ function createPaidCourse(int $workspaceId): Course
 }
 
 describe('order creation', function (): void {
-    it('creates an order for a paid published course', function (): void {
+    /*
+    | ⛔ OWNER DECISION 2026-09-25 — a course is sold through a plan and nothing
+    | else. The one-off purchase route is gone; `CreateOrder` stays as the
+    | internal Action the cases below build a historical course order with.
+    */
+    it('no longer offers a one-off order for a paid course', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
         $course = createPaidCourse($workspace->id);
 
         $student = $this->addWorkspaceMember($workspace, 'student');
         Sanctum::actingAs($student);
 
-        $this->postJson("/api/v1/courses/{$course->uuid}/orders")
-            ->assertCreated()
-            ->assertJsonPath('amount_minor', 4999)
-            ->assertJsonPath('status', 'pending');
-
-        expect(Order::where('course_id', $course->id)->count())->toBe(1);
-    });
-
-    it('prevents ordering a free course', function (): void {
-        [$workspace] = $this->createWorkspaceWithOwner();
-        $course = Course::factory()->published()->free()->create(['workspace_id' => $workspace->id]);
-
-        $student = $this->addWorkspaceMember($workspace, 'student');
-        Sanctum::actingAs($student);
-
-        $this->postJson("/api/v1/courses/{$course->uuid}/orders")
-            ->assertStatus(422);
+        expect($this->postJson("/api/v1/courses/{$course->uuid}/orders")->status())->toBeIn([404, 405])
+            ->and(Order::query()->withoutWorkspaceScope()->count())->toBe(0);
     });
 });
 
@@ -102,9 +92,8 @@ describe('payment approval critical path', function (): void {
         $student = $this->addWorkspaceMember($workspace, 'student');
         Sanctum::actingAs($student);
 
-        // Student creates order.
-        $orderResp = $this->postJson("/api/v1/courses/{$course->uuid}/orders")->assertCreated();
-        $orderUuid = $orderResp->json('uuid');
+        // A historical one-off course order — the route that created these is gone.
+        $orderUuid = app(CreateOrder::class)->handle($course, $student)->uuid;
 
         // Student uploads receipt.
         $this->postJson("/api/v1/orders/{$orderUuid}/receipt", [
@@ -171,8 +160,7 @@ describe('payment approval critical path', function (): void {
         $student = $this->addWorkspaceMember($workspace, 'student');
         Sanctum::actingAs($student);
 
-        $orderResp = $this->postJson("/api/v1/courses/{$course->uuid}/orders");
-        $orderUuid = $orderResp->json('uuid');
+        $orderUuid = app(CreateOrder::class)->handle($course, $student)->uuid;
 
         // ⚠️ REJECT MOVED WITH APPROVE, and both directions are measured for the
         // reason above: a teacher who may refuse a transfer may cancel a payment
@@ -206,34 +194,6 @@ describe('payment approval critical path', function (): void {
 
         $this->postJson("/api/v1/orders/{$order->uuid}/approve")
             ->assertForbidden();
-    });
-
-    /*
-    | ⚠️ **٤٢٢ لا ٤٠٤، وتغيُّرُ الرقمِ هو الإصلاحُ لا الانحدار.**
-    |
-    | الفاعلُ **مدرّس**، والرفضُ كانَ يأتي من `WorkspaceScope` على الربطِ الضمنيِّ
-    | لـ`{course}`: «لا وجودَ لهذا الكورس». وذلك الحارسُ نفسُه كانَ يرفضُ
-    | **الطالبَ** المختومَ على مساحةٍ أخرى — أي الشراءَ من مدرّسٍ ثانٍ، وهو
-    | السوقُ كلُّه (قِيسَ على الإنتاجِ ٢٠٢٦-٠٩-١٤ من بابِ الدَّور).
-    |
-    | فلمّا رُفِعَ صارَ الرفضُ من حارسِه الصحيحِ المكتوبِ في `store()`: «المدرّسُ
-    | لا يشتركُ في الكورسات» — وهو **أقوى**، لأنّه يشملُ كورسَ مساحتِه هو، بينما
-    | فحصُ النطاقِ كانَ يُمرِّرُه إليه.
-    |
-    | والخاصّيّةُ المقيسةُ هي الكتابةُ لا الرقم: صفرُ طلبات.
-    */
-    it('refuses a teacher buying a course at another workspace, and writes nothing', function (): void {
-        [$workspaceA] = $this->createWorkspaceWithOwner();
-        [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner();
-        $course = createPaidCourse($workspaceA->id);
-
-        Sanctum::actingAs($ownerB);
-
-        $this->postJson("/api/v1/courses/{$course->uuid}/orders")
-            ->assertStatus(422);
-
-        expect(Order::query()->withoutWorkspaceScope()
-            ->where('user_id', $ownerB->getKey())->count())->toBe(0);
     });
 });
 

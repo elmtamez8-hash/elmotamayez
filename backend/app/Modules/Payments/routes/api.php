@@ -293,7 +293,10 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     */
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{orderUuid}', [OrderController::class, 'show']);
-    Route::post('/courses/{courseUuid}/orders', [OrderController::class, 'store']);
+    // ⛔ `POST /courses/{courseUuid}/orders` — the one-off course purchase — is
+    // gone (owner decision 2026-09-25): a course is sold through a plan and
+    // nothing else. `CreateOrder` stays as the internal Action the seeder and
+    // the reversal fixtures build a historical course order with.
     Route::post('/orders/{orderUuid}/receipt', [OrderController::class, 'uploadReceipt']);
     // Money moves and an enrolment is granted — sensitive by any reading, so
     // the second factor is required here once the account's grace period is up.

@@ -46,8 +46,6 @@ const teacher = {
 function RailWithFree() {
   return (
     <CourseRail
-      priceMinor={0}
-      currency={null}
       courseUuid="c-1"
       isFull={false}
       freeEnrollment
@@ -62,8 +60,6 @@ function RailWithFree() {
 function rail(freeEnrollment: boolean) {
   render(
     <CourseRail
-      priceMinor={0}
-      currency={null}
       courseUuid="c-1"
       isFull={false}
       freeEnrollment={freeEnrollment}
@@ -137,5 +133,31 @@ describe("the free course", () => {
 
     expect(screen.queryByText("سجّل مجاناً")).toBeNull();
     expect(screen.getByText("اشترك بحصص خاصة")).toBeTruthy();
+  });
+
+  it("says «مجاني» on a free course and on no other — never read off a zero price", () => {
+    /*
+    | ⛔ The rail printed `CoursePrice`, which says «مجاني» for `price_minor === 0`
+    | — true of every course sold by a plan and never given a one-off price. So a
+    | paid course told a signed-in student it was free, right above «اشترك».
+    */
+    mockUser = { platform_role: "student" };
+
+    const { unmount } = render(
+      <CourseRail
+        courseUuid="c-1"
+        isFull={false}
+        freeEnrollment={false}
+        enrolmentOpen
+        privateSubscriptionAvailable
+        joinableGroup={false}
+        teacher={teacher}
+      />,
+    );
+    expect(screen.queryByText("مجاني")).toBeNull();
+    unmount();
+
+    rail(true);
+    expect(screen.getByText("مجاني")).toBeTruthy();
   });
 });

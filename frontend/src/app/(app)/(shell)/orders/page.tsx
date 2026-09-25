@@ -98,7 +98,7 @@ const KIND_ICONS: Record<string, ComponentType<{ className?: string }>> = {
  * is presentation only — a status that is not on it still gets a tile, at the
  * end — so a sixth case added tomorrow appears by itself.
  */
-const STATUS_ORDER = ["pending", "under_review", "rejected", "approved", "cancelled"];
+const STATUS_ORDER = ["pending", "under_review", "rejected", "approved", "refund_due", "cancelled"];
 
 const STATUS_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   pending: ClockIcon,

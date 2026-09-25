@@ -81,14 +81,10 @@ beforeEach(function (): void {
     | that killed the first version of this guard: a predicate of «belongs to any
     | workspace» refuses them, which takes buying away from real students.
     |
-    | It is also the ONLY shape that reaches `POST /courses/{course}/orders` at
-    | all: that route asks `OrderPolicy::create()` for the `orders.create`
-    | permission, and spatie's team id is null for anyone who is a member of
-    | nothing — so a self-registered student is answered 403 there before this
-    | rule is ever consulted. ⚠️ That is a DEAD ROUTE rather than a hole: no file
-    | under `frontend/src` posts to it, spec 027 having moved buying to
-    | `/billing/subscriptions`. It is guarded here anyway, because a guard added
-    | the day a caller appears is a guard nobody remembers to add.
+    | It was also the only shape that reached `POST /courses/{course}/orders`,
+    | the one-off course purchase — a route REMOVED on 2026-09-25 (owner
+    | decision: a course is sold through a plan and nothing else). Its case
+    | below now pins the door as gone for everybody.
     */
     $this->memberStudent = $this->addWorkspaceMember($this->workspace, 'student');
 
@@ -187,10 +183,20 @@ it('refuses an ASSISTANT too — the predicate is the pivot ROLE, not ownership'
     expect(Enrollment::query()->withoutWorkspaceScope()->count())->toBe(0);
 });
 
-it('refuses a teacher the PAID course door', function (): void {
-    $this->actingAs($this->owner, 'sanctum')
-        ->postJson('/api/v1/courses/'.$this->paidCourse->uuid.'/orders')
-        ->assertStatus(422);
+it('offers nobody the one-off PAID course door any more — teacher or student', function (): void {
+    /*
+    | ⛔ OWNER DECISION 2026-09-25: a course is sold through a plan and nothing
+    | else, so `POST /courses/{course}/orders` was removed rather than guarded.
+    | Asserted for the teacher AND for the student it used to serve: a route
+    | that refused only the teacher would pass the first half alone.
+    */
+    foreach ([$this->owner, $this->memberStudent] as $caller) {
+        $status = $this->actingAs($caller, 'sanctum')
+            ->postJson('/api/v1/courses/'.$this->paidCourse->uuid.'/orders')
+            ->status();
+
+        expect($status)->toBeIn([404, 405]);
+    }
 
     expect(Order::query()->withoutWorkspaceScope()->count())->toBe(0);
 });
@@ -259,7 +265,7 @@ it('refuses a FOREIGN teacher the credits door too — and NOTHING WAS ADDED TO 
 });
 
 /*
-| ⛔ FOUR MANDATORY CONTROLS, ONE PER DOOR — AND THREE CASES RATHER THAN ONE.
+| ⛔ MANDATORY CONTROLS, ONE PER DOOR THAT STILL EXISTS — AND SEPARATE CASES.
 |
 | Every assertion above is an ABSENCE, and an absence is also what a broken
 | route, a mistyped uuid or a fixture that never published anything produces.
@@ -275,14 +281,6 @@ it('CONTROL — a real student still enrols free', function (): void {
     enrolAsTeacherCheck($this->student, $this->course)->assertCreated();
 
     expect(Enrollment::query()->withoutWorkspaceScope()->count())->toBe(1);
-});
-
-it('CONTROL — a workspace-member student still orders a paid course', function (): void {
-    $this->actingAs($this->memberStudent, 'sanctum')
-        ->postJson('/api/v1/courses/'.$this->paidCourse->uuid.'/orders')
-        ->assertCreated();
-
-    expect(Order::query()->withoutWorkspaceScope()->count())->toBe(1);
 });
 
 it('CONTROL — a real student still buys a subscription', function (): void {

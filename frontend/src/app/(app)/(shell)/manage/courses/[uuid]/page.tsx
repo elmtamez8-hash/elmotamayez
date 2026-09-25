@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { formatMinorMoney, lessonTypeLabel } from "@/lib/labels";
+import { lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
@@ -95,13 +95,7 @@ export default function CourseDetailPage({
               who published every item read the tree as live while the course
               itself was still a draft. */}
           <StatusBadge status={course.status} />
-          {course.is_free ? (
-            <Badge tone="success">مجاني</Badge>
-          ) : (
-            <Badge tone="warning">
-              <bdi>{formatMinorMoney(course.price_minor, course.currency)}</bdi>
-            </Badge>
-          )}
+          {/* ⛔ No price and no «مجاني» here — see the course list. */}
           <span className="text-sm text-ink-muted">
             {course.is_sequential ? "تسلسل إجباري للدروس" : "ترتيب مرن للدروس"}
           </span>
