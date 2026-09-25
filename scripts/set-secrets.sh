@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# إدخالُ أسرارِ المزوّدين (LiveKit · R2 · Bunny) في `docker/.env` على الخادم.
+# إدخالُ أسرارِ المزوّدين (LiveKit · R2 · Bunny) وبريدِ تنبيهاتِ التشغيل في `docker/.env` على الخادم.
 #
 #   ssh root@<server> 'cd /srv/elmotamayez && bash scripts/set-secrets.sh'
 #
@@ -72,6 +72,11 @@ ask BUNNY_STREAM_LIBRARY_ID      "Library ID" plain
 ask BUNNY_STREAM_ACCESS_KEY      "Stream AccessKey"
 ask BUNNY_PULL_ZONE              "Pull zone hostname (xxx.b-cdn.net)" plain
 ask BUNNY_PULL_ZONE_SECURITY_KEY "Pull zone token security key"
+
+echo
+echo "══ تنبيهاتُ التشغيل ══"
+# ليس سرّاً، لكنّه لا يُكتَبُ في المستودع: عنوانُ صندوقِ شخصٍ ليس حقيقةً عن الشيفرة.
+ask HORIZON_NOTIFICATION_EMAIL "بريدُ المشغِّل لتنبيهاتِ الطابور (HORIZON_NOTIFICATION_EMAIL)" plain
 
 # ⚠️ التحقّقُ قبلَ التبديل. `LIVEKIT_URL` بصيغةِ `wss://` لأنّ المتصفّحَ يطلبُه،
 # والمُهايئُ يشتقُّ صيغةَ HTTP بنفسِه — و`https://` هنا كسرَ كلَّ غرفةٍ مرّةً.
