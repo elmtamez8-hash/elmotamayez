@@ -39,7 +39,7 @@ beforeEach(function (): void {
     $this->buyer = User::factory()->create();
 });
 
-function buyWithCode(User $buyer, StoreItem $item, ?string $code): StoreOrder
+function drainPurchase(User $buyer, StoreItem $item, ?string $code): StoreOrder
 {
     return app(PurchaseStoreItem::class)->handle($buyer, PurchaseData::fromArray([
         'item_uuid' => $item->uuid,
@@ -48,9 +48,9 @@ function buyWithCode(User $buyer, StoreItem $item, ?string $code): StoreOrder
 }
 
 it('refuses a second place on the same code while the buyer first order is undecided', function (): void {
-    buyWithCode($this->buyer, $this->item, $this->coupon->code);
+    drainPurchase($this->buyer, $this->item, $this->coupon->code);
 
-    expect(fn () => buyWithCode($this->buyer, $this->item, $this->coupon->code))
+    expect(fn () => drainPurchase($this->buyer, $this->item, $this->coupon->code))
         ->toThrow(DomainException::class, RedeemCoupon::UNDECIDED_REFUSAL);
 
     // One place taken, not two — and no second order left behind.
@@ -59,17 +59,17 @@ it('refuses a second place on the same code while the buyer first order is undec
 });
 
 it('still lets the same buyer order without the code, and another buyer use it', function (): void {
-    buyWithCode($this->buyer, $this->item, $this->coupon->code);
+    drainPurchase($this->buyer, $this->item, $this->coupon->code);
 
-    expect(buyWithCode($this->buyer, $this->item, null)->discount_minor)->toBe(0)
-        ->and(buyWithCode(User::factory()->create(), $this->item, $this->coupon->code)->discount_minor)->toBe(5_000);
+    expect(drainPurchase($this->buyer, $this->item, null)->discount_minor)->toBe(0)
+        ->and(drainPurchase(User::factory()->create(), $this->item, $this->coupon->code)->discount_minor)->toBe(5_000);
 });
 
 it('lets the buyer use the code again once the first order is decided', function (): void {
-    $first = buyWithCode($this->buyer, $this->item, $this->coupon->code);
+    $first = drainPurchase($this->buyer, $this->item, $this->coupon->code);
 
     app(ApproveOrder::class)->handle(Order::query()->withoutWorkspaceScope()->findOrFail($first->order_id), $this->owner);
 
-    expect(buyWithCode($this->buyer, $this->item, $this->coupon->code)->discount_minor)->toBe(5_000)
+    expect(drainPurchase($this->buyer, $this->item, $this->coupon->code)->discount_minor)->toBe(5_000)
         ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(2);
 });
