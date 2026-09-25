@@ -43,7 +43,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   // The automatic (family) preview on open finds nothing.
   previewDiscount.mockResolvedValue({ discount_minor: 0, source: null, label: null });
-  buy.mockResolvedValue({ data: { uuid: "p-1" } });
+  // The bare purchase: `StoreOrderResource` goes out unwrapped (`withoutWrapping`).
+  buy.mockResolvedValue({ uuid: "p-1" });
 });
 
 describe("buying with a discount code", () => {
@@ -63,8 +64,10 @@ describe("buying with a discount code", () => {
   });
 
   it("sends the code once it has been applied", async () => {
+    const onDone = vi.fn();
+
     await act(async () => {
-      render(<PurchaseDialog item={ITEM} onDone={vi.fn()} onCancel={vi.fn()} />);
+      render(<PurchaseDialog item={ITEM} onDone={onDone} onCancel={vi.fn()} />);
     });
 
     previewDiscount.mockResolvedValue({ discount_minor: 500, source: "coupon", label: "كوبون" });
@@ -82,5 +85,7 @@ describe("buying with a discount code", () => {
       expect.objectContaining({ item_uuid: "item-1", coupon_code: "SUMMER26" }),
       "key-1",
     );
+    // The purchase itself, never `res.data` — which is undefined on this wire.
+    expect(onDone).toHaveBeenCalledWith({ uuid: "p-1" });
   });
 });

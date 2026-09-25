@@ -4,13 +4,21 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Actions;
 
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Enums\SubscriptionStatus;
+use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
 use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -48,7 +56,11 @@ class CancelSubscription extends Action
 {
     use LogsActivity;
 
-    public function __construct(private readonly ReversePayment $reverse) {}
+    public function __construct(
+        private readonly ReversePayment $reverse,
+        private readonly EffectiveSubscriptionEnd $ends,
+        private readonly DispatchNotification $notify,
+    ) {}
 
     public function handle(Subscription $subscription, string $reason): Subscription
     {
@@ -100,6 +112,34 @@ class CancelSubscription extends Action
             SubscriptionAccess::handBackToRunning($subscription);
             SubscriptionAccess::close($subscription);
 
+            /*
+            | ⛔ AND THE MIRROR: CANCELLING THE RUNNING MONTH AFTER ITS RENEWAL WAS
+            | BOUGHT (owner decision 2026-09-25). The renewal already holds the
+            | enrolment row, so nothing above closes anything — but its window was
+            | dated from the end of THIS month, which no longer exists. It now
+            | starts today, same length: no gap in access, no free month, and no
+            | seat in between charged to credits as «not covered».
+            */
+            foreach ($this->ends->startRenewalsOfCancelled($subscription) as $renewal) {
+                // After commit: a message about dates a rollback would undo is
+                // a message about something that did not happen.
+                DB::afterCommit(fn () => $this->announceRedated($renewal));
+            }
+
+            /*
+            | ⚠️ THE ORDER IS CANCELLED TOO, as `ReverseCourseOrder` cancels its
+            | own: a reversed payment on an order still reading «معتمَد» is two
+            | screens disagreeing about one purchase. A gateway order never moved
+            | to `approved` (the capture door does not pass through
+            | `ApproveOrder`), so any order still standing is taken; the claim on
+            | the subscription above already decided the race.
+            */
+            Order::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($subscription->order_id)
+                ->whereIn('status', [OrderStatus::Approved->value, ...Order::awaitingDecisionStatuses()])
+                ->update(['status' => OrderStatus::Cancelled->value]);
+
             $this->logActivity('subscription.cancelled', $subscription, [
                 'order_id' => $subscription->order_id,
                 'reason' => $reason,
@@ -130,5 +170,37 @@ class CancelSubscription extends Action
         });
 
         return $subscription;
+    }
+
+    /**
+     * «Your renewal now starts today» — the activation notice the student holds
+     * names dates that no longer exist (owner decision 2026-09-25).
+     */
+    private function announceRedated(Subscription $renewal): void
+    {
+        $order = Order::query()->withoutWorkspaceScope()->find($renewal->order_id);
+        $student = $order?->user;
+
+        if ($order === null || $student === null) {
+            return;
+        }
+
+        $intent = SubscriptionIntent::fromOrder($order);
+
+        $this->notify->handle(new NotificationRequest(
+            recipient: $student,
+            type: NotificationType::SubscriptionRedated,
+            variables: [
+                // Never empty: `TemplateRenderer` drops a message whose
+                // variable is present but blank.
+                'plan_title' => $intent->planTitle ?? 'اشتراكك',
+                'teacher_name' => $intent->teacherName ?? 'مدرّسك',
+                'starts_on' => CarbonImmutable::parse($renewal->starts_on)->toDateString(),
+                'ends_on' => CarbonImmutable::parse($renewal->effective_ends_on)->toDateString(),
+            ],
+            actionUrl: '/schedule',
+            subject: $student,
+            workspaceId: (int) $renewal->workspace_id,
+        ));
     }
 }

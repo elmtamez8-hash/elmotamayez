@@ -141,6 +141,32 @@ describe("MembersPage", () => {
   });
 
   /*
+   * The server pages the list at fifty (the workspace's members include every
+   * student ever added), so a second page must be REACHABLE and must ADD to
+   * the list — a list that silently stops at fifty is a screen that lies.
+   */
+  it("fetches the next page on «عرض المزيد» and appends it", async () => {
+    api.get.mockImplementation((path: string) => {
+      if (path === "/workspaces") return Promise.resolve({ data: [{ uuid: "w-1", is_current: true }] });
+      if (path.endsWith("?page=2")) return Promise.resolve({ data: [ASSISTANT], meta: { last_page: 2 } });
+      return Promise.resolve({ data: [OWNER], meta: { last_page: 2 } });
+    });
+
+    render(<MembersPage />);
+
+    await screen.findByText("هدى");
+    expect(screen.queryByText("سارة")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "عرض المزيد" }));
+
+    expect(await screen.findByText("سارة")).toBeTruthy();
+    expect(screen.getByText("هدى")).toBeTruthy();
+    expect(api.get).toHaveBeenCalledWith("/workspaces/w-1/members?page=2");
+    // The last page offers nothing further.
+    expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
+  });
+
+  /*
    * ⛔ `DELETE …/members/{member}` HAD NO CALLER. The control is offered on
    * `members.remove` — the name the door asks since this change — never on the
    * owner's row, and it asks in a window before anything is sent.

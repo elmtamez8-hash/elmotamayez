@@ -1,18 +1,13 @@
 import { CheckIcon } from "@/components/icons";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { platformName } from "@/lib/platform";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const name = await platformName();
-
-  return {
-    title: `طلبك قيد المراجعة — ${name}`,
-    // Not a page anyone should reach from search: it only means anything to the
-    // person who just submitted.
-    robots: { index: false },
-  };
-}
+export const metadata: Metadata = {
+  title: "طلبك قيد المراجعة",
+  // Not a page anyone should reach from search: it only means anything to the
+  // person who just submitted.
+  robots: { index: false },
+};
 
 const REVIEW_DAYS = 3;
 

@@ -10,6 +10,7 @@ use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Shutting a subscription's access, in exactly one place.
@@ -161,25 +162,54 @@ class SubscriptionAccess
             ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
             ->get(['id', 'course_id']);
 
+        return count(self::handBackRows(
+            $rows,
+            (int) $cancelled->order_id,
+            (int) $cancelled->student_user_id,
+            (int) $cancelled->getKey(),
+        ));
+    }
+
+    /**
+     * Give rows an order is losing back to a subscription of the same student
+     * that is still running today and covers their course.
+     *
+     * Two callers, one act: a cancelled renewal ({@see self::handBackToRunning()})
+     * and a reversed COURSE ORDER that had taken a subscriber's row over
+     * (`EnrollStudent::handOver()` moves a live subscription's row to an outright
+     * purchase). In both the row goes back exactly as it was before it was taken
+     * — `source = subscription`, the running subscription's order, and its clock
+     * — so the running month's own expiry closes it on the right night.
+     *
+     * @param  Collection<int, Enrollment>  $rows  granting rows still on `$fromOrderId`
+     * @return list<int> the ids of the rows actually handed back
+     */
+    public static function handBackRows(
+        Collection $rows,
+        int $fromOrderId,
+        int $studentUserId,
+        ?int $exceptSubscriptionId = null,
+    ): array {
         if ($rows->isEmpty()) {
-            return 0;
+            return [];
         }
 
         $running = Subscription::query()
             ->withoutWorkspaceScope()
-            ->where('student_user_id', $cancelled->student_user_id)
-            ->whereKeyNot($cancelled->getKey())
+            ->where('student_user_id', $studentUserId)
+            ->when($exceptSubscriptionId !== null, fn ($query) => $query->whereKeyNot($exceptSubscriptionId))
             ->liveOn(now())
             ->orderByDesc('effective_ends_on')
             ->get();
 
         if ($running->isEmpty()) {
-            return 0;
+            return [];
         }
 
         $covered = app(CoveredCourses::class);
         $days = app(SubscriptionDays::class);
-        $handedBack = 0;
+        $handedBack = [];
+        $rows = $rows->keyBy('id');
 
         foreach ($running as $subscription) {
             $plan = Plan::query()->withoutWorkspaceScope()->find($subscription->plan_id);
@@ -188,22 +218,27 @@ class SubscriptionAccess
                 continue;
             }
 
-            $courseIds = $covered->coveredCourses($plan)->modelKeys();
+            $courseIds = array_map('intval', $covered->coveredCourses($plan)->modelKeys());
 
             foreach ($rows as $key => $row) {
-                if (! in_array((int) $row->course_id, array_map('intval', $courseIds), true)) {
+                if (! in_array((int) $row->course_id, $courseIds, true)) {
                     continue;
                 }
 
-                $handedBack += Enrollment::query()
+                $moved = Enrollment::query()
                     ->withoutWorkspaceScope()
                     ->whereKey($row->getKey())
                     // Conditional: a row somebody else moved in between is theirs.
-                    ->where('order_id', $cancelled->order_id)
+                    ->where('order_id', $fromOrderId)
                     ->update([
+                        'source' => 'subscription',
                         'order_id' => $subscription->order_id,
                         'expires_at' => $days->endOf(CarbonImmutable::parse($subscription->effective_ends_on)),
                     ]);
+
+                if ($moved > 0) {
+                    $handedBack[] = (int) $row->getKey();
+                }
 
                 $rows->forget($key);
             }

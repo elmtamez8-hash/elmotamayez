@@ -32,7 +32,12 @@ jobs:
     runs-on: ubuntu-latest
     # ⚠️ `workflow_run` يُطلَقُ على الفشلِ كما على النجاح. بدونِ هذا السطرِ تُنشَرُ
     # كلُّ دفعةٍ سقطت اختباراتُها — وهو عكسُ الغرضِ من ربطِ الاثنَين.
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    #
+    # ⚠️ و`event == 'push'`: مرشِّحُ `branches: [main]` يطابقُ **اسمَ** فرعِ الرأس، وطلبُ
+    # دمجٍ من فرعٍ اسمُه `main` في نسخةٍ منسوخة (fork) يطابقُه أيضاً. كانَ ذلكَ يُعيدُ نشرَ
+    # main فقط؛ ومنذُ صارَ `head_sha` يُمرَّرُ إلى الخادمِ صارَ اسمَ commit لم يُدمَج.
+    # (`deploy.sh` يرفضُه أيضاً — ما ليسَ على main لا يُنشَر — وهذا الحارسُ الأوّل.)
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
 
     # بيئةٌ مُسمّاةٌ ليُمكِنَ لاحقاً اشتراطُ موافقةٍ يدويّةٍ قبلَ الإنتاج، ولتظهرَ
     # النشراتُ في تبويبِ Environments بتاريخها.
@@ -56,9 +61,14 @@ jobs:
           HOST: ${{ secrets.VPS_HOST }}
           USER: ${{ secrets.VPS_USER }}
           APP_PATH: ${{ secrets.VPS_APP_PATH }}
+          # ⛔ **الـcommit الذي اختبرَه CI، لا «آخرُ ما على main».** دمجٌ يصلُ بينَ
+          # خُضرةِ CI وبدءِ هذه الوظيفةِ كانَ يُنشَرُ بلا أن تمرَّ عليه اختباراتُه.
+          # فارغٌ في التشغيلِ اليدويّ (`workflow_dispatch` لا يحملُ `workflow_run`)،
+          # فيعودُ `deploy.sh` إلى `origin/main` كما كان.
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER@$HOST" \
-            "cd '$APP_PATH' && bash ./scripts/deploy.sh"
+            "cd '$APP_PATH' && DEPLOY_SHA='$DEPLOY_SHA' bash ./scripts/deploy.sh"
 
       - name: تنظيف المفتاح
         # ⚠️ `always()`: عاملُ GitHub يُتلَفُ بعدَ الوظيفةِ على أيِّ حال، لكنّ خطوةً

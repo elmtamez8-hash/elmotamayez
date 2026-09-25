@@ -135,7 +135,10 @@ class ClassSessionController extends Controller
             // rather than one per row (SC-011). `recordingLesson` belongs in the
             // list for the same reason the other two do: the Resource asks every
             // published session where its recording went.
-            ->with(['course', 'bookings', 'recordingLesson'])
+            // ⚠️ `bookings` narrowed to the reader's own seat: the Resource reads
+            // exactly that one row, and a month of group sessions otherwise
+            // loaded every seat of every session to find it.
+            ->with(['course', 'bookings' => ClassSession::viewerBooking($this->currentUser($request)), 'recordingLesson'])
             ->orderBy('starts_at', $descending ? 'desc' : 'asc')
             ->paginate(50);
 
@@ -206,7 +209,7 @@ class ClassSessionController extends Controller
 
         $this->authorize('view', $session);
 
-        $session->load(ClassSession::studentEagerLoads());
+        $session->load(ClassSession::studentEagerLoads($this->currentUser($request)));
 
         // One row, so the bulk shape buys nothing here — it is called anyway so
         // the two endpoints answer the same question the same way. A field that

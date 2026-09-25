@@ -124,7 +124,7 @@ export function PurchaseDialog({
         store.newIdempotencyKey(),
       );
 
-      onDone(res.data);
+      onDone(res);
     } catch (error) {
       const fields = fieldErrors(error);
 

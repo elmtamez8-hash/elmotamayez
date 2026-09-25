@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { TextareaField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-requests";
@@ -64,13 +65,27 @@ export default function RescheduleQueuePage() {
         description="تأجيل حصة واحدة بعينها. الحصة التالية تبقى في موعدها المعتاد، ولا شيء يتحرك قبل موافقتك."
       />
 
-      {error !== null && (
+      {requests !== null && error !== null && (
         <Alert tone="danger" title="لم يكتمل الإجراء">
           {error}
         </Alert>
       )}
 
-      {requests === null && <p className="text-sm text-ink-muted">جارٍ التحميل…</p>}
+      {/* ⚠️ A failed first load is an error with a way out, never a
+          «جارٍ التحميل…» that stays on screen for ever. */}
+      {requests === null && error === null && (
+        <p className="text-sm text-ink-muted">جارٍ التحميل…</p>
+      )}
+
+      {requests === null && error !== null && (
+        <ErrorState
+          description={error}
+          onRetry={() => {
+            setError(null);
+            load();
+          }}
+        />
+      )}
 
       {requests !== null && requests.length === 0 && (
         <EmptyState

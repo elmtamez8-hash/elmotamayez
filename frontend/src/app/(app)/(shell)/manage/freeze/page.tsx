@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { TextField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -202,9 +203,17 @@ export default function ManageFreezePage() {
                 </p>
               </div>
 
-              <Button size="sm" variant="secondary" onClick={() => void lift(period.uuid)}>
+              {/* Two presses: lifting a freeze moves the paused subscriptions'
+                  end dates back and releases seats at once — not undone by
+                  freezing again. */}
+              <ConfirmButton
+                size="sm"
+                variant="secondary"
+                confirmLabel="اضغط مجدداً لرفع التجميد"
+                onConfirm={() => void lift(period.uuid)}
+              >
                 رفع التجميد
-              </Button>
+              </ConfirmButton>
             </li>
           ))}
         </ul>

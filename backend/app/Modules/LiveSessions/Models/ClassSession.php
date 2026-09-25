@@ -200,13 +200,46 @@ class ClassSession extends BaseModel
      * and the page stops recognising the seat — and `recordingLesson` loads null,
      * hiding the recording. One list, so the three student reads cannot drift.
      *
+     * ⚠️ `bookings` IS THE VIEWER'S OWN ROW, NEVER THE SESSION'S WHOLE REGISTER.
+     * The Resource reads one booking off the relation — the viewer's
+     * (`ClassSessionResource::bookingFor()`) — and a group session of forty seats
+     * loaded forty rows to find it, on every session of the page. A null viewer
+     * loads none, which is the answer the Resource already gives a guest.
+     *
      * @return array<string, \Closure>
      */
-    public static function studentEagerLoads(): array
+    public static function studentEagerLoads(?User $viewer): array
     {
         $unscoped = static fn ($query) => $query->withoutWorkspaceScope();
 
-        return ['course' => $unscoped, 'bookings' => $unscoped, 'recordingLesson' => $unscoped];
+        return [
+            'course' => $unscoped,
+            'bookings' => self::viewerBooking($viewer, unscoped: true),
+            'recordingLesson' => $unscoped,
+        ];
+    }
+
+    /**
+     * The eager-load constraint that narrows `bookings` to the viewer's own seat.
+     *
+     * ⚠️ THE LOADED RELATION IS THEREFORE NOT THE REGISTER. Anything that needs
+     * every seat of the session queries `bookings()` itself, as `holdsSeat()`
+     * and the roster do; a reader that took `$session->bookings` off one of
+     * these pages would see one row, or none, and no error.
+     */
+    public static function viewerBooking(?User $viewer, bool $unscoped = false): \Closure
+    {
+        return static function ($query) use ($viewer, $unscoped) {
+            if ($unscoped) {
+                $query->withoutWorkspaceScope();
+            }
+
+            // No viewer, no seat: the relation loads EMPTY rather than being
+            // left out, so `relationLoaded()` still says it was asked.
+            return $viewer === null
+                ? $query->whereRaw('1 = 0')
+                : $query->where('student_user_id', $viewer->getKey());
+        };
     }
 
     public function holdsSeat(User $user): bool

@@ -217,6 +217,8 @@ enum NotificationCategory: string
                  * this tab is.
                  */
                 NotificationType::SessionPlanActivated,
+                // The correction of the activation above: the same purchase, new dates.
+                NotificationType::SubscriptionRedated,
             ],
             self::Settlement => [
                 NotificationType::SettlementRateApproved,

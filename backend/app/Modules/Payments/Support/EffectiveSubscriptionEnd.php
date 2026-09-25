@@ -72,6 +72,13 @@ class EffectiveSubscriptionEnd
     private array $shortened = [];
 
     /**
+     * The renewals `redateChain()` moved during the current walk.
+     *
+     * @var list<Subscription>
+     */
+    private array $redated = [];
+
+    /**
      * The date this subscription's access actually runs to.
      *
      * The LENGTH of `starts_on`..`ends_on` never moves — it is what the plan
@@ -149,6 +156,7 @@ class EffectiveSubscriptionEnd
         $moved = 0;
         $students = [];
         $this->shortened = [];
+        $this->redated = [];
 
         Subscription::query()
             ->withoutWorkspaceScope()
@@ -180,6 +188,44 @@ class EffectiveSubscriptionEnd
         }
 
         return $moved;
+    }
+
+    /**
+     * The running month was cancelled after its renewal was bought: the renewal
+     * starts TODAY (owner decision 2026-09-25).
+     *
+     * ⛔ WITHOUT THIS THE STUDENT FELL INTO A GAP NOBODY SOLD. The renewal took
+     * the enrolment row at its approval (`EnrollStudent::handOver()`), so
+     * cancelling the running month closed nothing — the course stayed open on
+     * the renewal's row — while the renewal itself was dated from the end of the
+     * month that no longer exists. Every seat in between read «not covered by a
+     * subscription» and was charged to the credit balance, pushing it negative.
+     *
+     * It is `redateChain()` asked once more, with one rule added: a renewal that
+     * has not started and has NO live predecessor left in its lineage starts
+     * today. The window still moves whole — the length the plan sold never
+     * changes — so the student loses no paid day and gains none: the cancelled
+     * month's money goes back, and the renewal's month is exactly one month.
+     *
+     * @return list<Subscription> the renewals that moved, on their new dates —
+     *                            the caller tells the student
+     */
+    public function startRenewalsOfCancelled(Subscription $cancelled): array
+    {
+        $workspaceId = (int) $cancelled->workspace_id;
+        $this->shortened = [];
+        $this->redated = [];
+
+        $this->redateChain($workspaceId, (int) $cancelled->student_user_id, orphansStartToday: true);
+
+        foreach ($this->takeShortened() as $student) {
+            $this->announceShortened($workspaceId, $student);
+        }
+
+        $redated = $this->redated;
+        $this->redated = [];
+
+        return $redated;
     }
 
     /**
@@ -253,9 +299,13 @@ class EffectiveSubscriptionEnd
      * own extension still lands on `effective_ends_on` alone, re-measured
      * against the new window. Idempotent: a chain already in place moves nothing.
      *
+     * @param  bool  $orphansStartToday  a renewal that has not started and has no
+     *                                   live predecessor left in its lineage (the
+     *                                   running month was cancelled) starts today
+     *                                   — {@see self::startRenewalsOfCancelled()}
      * @return int how many renewals were re-dated
      */
-    private function redateChain(int $workspaceId, int $studentUserId): int
+    private function redateChain(int $workspaceId, int $studentUserId, bool $orphansStartToday = false): int
     {
         $today = $this->days->today();
 
@@ -268,7 +318,7 @@ class EffectiveSubscriptionEnd
             ->orderBy('id')
             ->get();
 
-        if ($subscriptions->count() < 2) {
+        if ($subscriptions->count() < ($orphansStartToday ? 1 : 2)) {
             return 0;
         }
 
@@ -293,8 +343,8 @@ class EffectiveSubscriptionEnd
 
             $starts = CarbonImmutable::parse($subscription->starts_on)->startOfDay();
 
-            if ($previousEnd !== null && $starts->greaterThan($today)) {
-                $expected = $previousEnd->addDay()->max($today);
+            if (($previousEnd !== null || $orphansStartToday) && $starts->greaterThan($today)) {
+                $expected = $previousEnd === null ? $today : $previousEnd->addDay()->max($today);
                 $shift = (int) $starts->diffInDays($expected, false);
 
                 if ($shift !== 0) {
@@ -305,6 +355,7 @@ class EffectiveSubscriptionEnd
 
                     $this->remeasure($subscription, force: true);
 
+                    $this->redated[] = $subscription;
                     $moved++;
                 }
             }

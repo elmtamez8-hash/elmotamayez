@@ -33,6 +33,10 @@ import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { videoEmbedUrl } from "@/lib/video-embed";
 import { arabicNumber } from "@/lib/numerals";
+import { counted, YEARS_OF_EXPERIENCE } from "@/lib/labels";
+import { platformName } from "@/lib/platform";
+import { siteUrl } from "@/lib/site";
+import { absoluteHttpUrl } from "@/components/seo/JsonLd";
 import {
   ProfileTabs,
   isProfileTab,
@@ -68,12 +72,39 @@ export async function generateMetadata({
 
   try {
     const teacher = await loadTeacher(slug);
+    const title = `${teacher.name} — ${teacher.headline ?? "مدرّس"}`;
+    const description =
+      teacher.bio?.slice(0, 155) ??
+      `احجز حصة مع ${teacher.name}، ${counted(teacher.years_experience, YEARS_OF_EXPERIENCE)}.`;
+    // Absolute and on the slug, for the reason the course page's is: a relative
+    // canonical resolves against whichever host the crawler arrived on, and the
+    // uuid address 308s to this one. Encoded because a slug may be Arabic.
+    const url = siteUrl(`/teachers/${encodeURIComponent(teacher.slug ?? teacher.uuid)}`);
 
     return {
-      title: `${teacher.name} — ${teacher.headline ?? "مدرّس"}`,
-      description:
-        teacher.bio?.slice(0, 155) ??
-        `احجز حصة مع ${teacher.name}، ${teacher.years_experience} سنوات خبرة.`,
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        title,
+        description,
+        url,
+        type: "profile",
+        locale: "ar_QA",
+        siteName: await platformName(),
+        /*
+         * ⚠️ الصورةُ الشخصيّةُ إن كانت عنواناً مطلقاً، وصورةُ القسمِ وإلّا —
+         * بطاقةُ مشاركةٍ بلا صورةٍ شريطٌ رماديٌّ في كلِّ تطبيقِ محادثة، والرابطُ
+         * النسبيُّ لا يقرؤه أيٌّ منها.
+         */
+        images: [
+          {
+            url:
+              absoluteHttpUrl(teacher.photo_url) ??
+              siteUrl("/marketplace/banner-teachers.webp"),
+          },
+        ],
+      },
     };
   } catch {
     return { title: "غير متاح" };

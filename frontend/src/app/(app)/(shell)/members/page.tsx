@@ -54,7 +54,18 @@ export default function MembersPage() {
   const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const load = useCallback(() => {
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
+  /*
+   * ⚠️ THE LIST IS PAGED, AND «عرض المزيد» IS NOT DECORATION. The server answers
+   * fifty members a page, because the workspace's members include every student
+   * the teacher ever added. Without the button the list would stop at fifty
+   * without saying so — a screen that lies rather than one that is short.
+   * Page one REPLACES the list (every reload after a change starts there);
+   * a later page is appended, so the rows being read are never swapped out.
+   */
+  const load = useCallback((target: number = 1) => {
     setLoading(true);
     setFailed(false);
 
@@ -66,16 +77,19 @@ export default function MembersPage() {
 
         setWorkspaceUuid(current.uuid);
 
-        const detail = await api.get<{ data: Member[] }>(
-          `/workspaces/${current.uuid}/members`,
+        const detail = await api.get<{ data: Member[]; meta?: { last_page: number } }>(
+          `/workspaces/${current.uuid}/members?page=${target}`,
         );
-        setMembers(detail.data ?? []);
+        const rows = detail.data ?? [];
+        setMembers((before) => (target === 1 ? rows : [...before, ...rows]));
+        setLastPage(detail.meta?.last_page ?? 1);
+        setPage(target);
       })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(load, [load]);
+  useEffect(() => load(1), [load]);
 
   const submitInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,10 +348,23 @@ export default function MembersPage() {
         rowKey={(m) => m.uuid}
         caption="فريقك وأدوارهم"
         state={loading ? "loading" : failed ? "error" : "ready"}
-        onRetry={load}
+        onRetry={() => load(1)}
         emptyTitle="لا أحد في فريقك غيرك"
         emptyDescription="ادعُ مدرّساً أو مساعداً أو طالباً من النموذج أعلاه."
       />
+
+      {page < lastPage && (
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            loading={loading}
+            loadingLabel="جارٍ التحميل…"
+            onClick={() => load(page + 1)}
+          >
+            عرض المزيد
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
