@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Actions\UpdateClassSession;
@@ -64,6 +65,15 @@ function reminderStudent(string $name = 'طالب'): User
     ]);
 
     fundBooking($test->workspace, $student, $test->course);
+
+    // A seat in a group's session goes to a member of that group.
+    CohortMembership::query()->create([
+        'workspace_id' => $test->workspace->getKey(),
+        'cohort_id' => $test->cohort->getKey(),
+        'course_id' => $test->course->getKey(),
+        'student_user_id' => $student->getKey(),
+        'joined_at' => now(),
+    ]);
 
     return $student;
 }

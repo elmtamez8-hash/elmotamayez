@@ -43,13 +43,25 @@ class BookSeat extends Action
         private readonly SessionCreditHolds $holds,
     ) {}
 
+    /**
+     * ⚠️ ALL THREE ENTRIES ASK `bookingScopeRefusal()` FIRST — the course the
+     * session belongs to and, when it is filed under a group, that group (owner
+     * decision 2026-09-25). Asked here rather than in a controller because this
+     * is the one door the «احجز» button, a teacher's grant and the subscription
+     * auto-booker (`ClaimSubscriptionSeats`) all walk through.
+     */
     public function handle(ClassSession $session, User $student): SessionBooking
     {
         $this->assertBookable($session);
 
         // ⚠️ `openingRefusal`, not `refusalReason`: booking is one of the two
         // doors FR-041 names, so 008's unlock condition is asked here too.
-        return $this->claim($session, $student, $this->eligibility->openingRefusal($session, $student));
+        return $this->claim(
+            $session,
+            $student,
+            $this->eligibility->bookingScopeRefusal($session, $student)
+                ?? $this->eligibility->openingRefusal($session, $student),
+        );
     }
 
     /**
@@ -90,7 +102,8 @@ class BookSeat extends Action
         return $this->claim(
             $session,
             $student,
-            $this->eligibility->refusalReason($session, $student),
+            $this->eligibility->bookingScopeRefusal($session, $student)
+                ?? $this->eligibility->refusalReason($session, $student),
             $subscriptionCovered,
         );
     }
@@ -125,7 +138,8 @@ class BookSeat extends Action
     ): SessionBooking {
         $this->assertBookable($session);
 
-        $refusal = $this->eligibility->refusalReason($session, $student);
+        $refusal = $this->eligibility->bookingScopeRefusal($session, $student)
+            ?? $this->eligibility->refusalReason($session, $student);
 
         if ($refusal !== null) {
             throw new DomainException($refusal);

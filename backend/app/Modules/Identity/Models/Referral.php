@@ -24,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property int $referred_user_id
  * @property ReferralStatus $status
  * @property Carbon|null $completed_at
+ * @property int|null $completing_order_id the order whose payment completed it —
+ *                                         the only one whose reversal undoes it;
+ *                                         not `$fillable`, written by the flip
  * @property Carbon|null $reversed_at
  * @property string|null $flagged_reason
  */
@@ -49,6 +52,7 @@ class Referral extends BaseModel
         return [
             'status' => ReferralStatus::class,
             'completed_at' => 'datetime',
+            'completing_order_id' => 'integer',
             'reversed_at' => 'datetime',
         ];
     }

@@ -87,6 +87,8 @@ function rescheduleFixture(): array
 
         enrolInCourse($workspace, $course, $student);
         fundBooking($workspace, $student, $course, 10);
+        // A seat in a group's session goes to a member of that group.
+        joinTestGroup($student, (int) $course->getKey(), (int) $workspace->getKey());
 
         app(BookSeat::class)->handle($saturday, $student);
         app(BookSeat::class)->handle($nextSaturday, $student);
