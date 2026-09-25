@@ -19,8 +19,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SubscriptionDirectory;
 use App\Shared\Support\WorkspaceContext;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Carbon;
 
 /**
@@ -53,7 +52,7 @@ use Illuminate\Support\Carbon;
  * owns it (the status table, the frozen-count skip, the revival of a released
  * row); this class only enumerates in the other direction.
  */
-class BookSubscribersOnScheduled implements ShouldHandleEventsAfterCommit, ShouldQueue
+class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly ClaimSubscriptionSeats $claim,

@@ -35,8 +35,7 @@ use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Support\CountedNoun;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Queue\InteractsWithQueue;
@@ -51,7 +50,7 @@ use Illuminate\Support\Facades\Log;
  * — the exact defect `CreateEnrollmentFromOrder` threw a TypeError over on the
  * first real gateway payment.
  *
- * ⚠️ `ShouldHandleEventsAfterCommit`, BECAUSE `ApproveOrder` FIRES FROM INSIDE ITS
+ * ⚠️ `ShouldQueueAfterCommit`, BECAUSE `ApproveOrder` FIRES FROM INSIDE ITS
  * OWN TRANSACTION. Without it this job is queued while that transaction is still
  * open, a worker picks it up in milliseconds and reads the order as `pending` —
  * or does not find it at all. The student has paid and got nothing, with no
@@ -80,7 +79,7 @@ use Illuminate\Support\Facades\Log;
  * `CoursePublished` event, which does not exist in this tree yet; add the
  * listener beside this one when it does.
  */
-class ActivateSubscription implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ActivateSubscription implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

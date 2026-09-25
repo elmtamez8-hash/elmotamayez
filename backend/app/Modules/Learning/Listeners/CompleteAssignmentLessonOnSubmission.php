@@ -11,8 +11,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -47,7 +46,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * **Queued, and after the commit** — for the exam listener's reason: progress
  * bookkeeping must not be able to roll back the hand-in it is bookkeeping for.
  */
-class CompleteAssignmentLessonOnSubmission implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CompleteAssignmentLessonOnSubmission implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

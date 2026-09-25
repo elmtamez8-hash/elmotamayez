@@ -8,8 +8,7 @@ use App\Modules\Learning\Events\CohortTransferDecided;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The answer the student is waiting for (FR-028ح).
@@ -22,7 +21,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * able to, TemplateRenderer would drop the whole message rather than send half
  * of one.
  */
-class NotifyStudentCohortTransferDecided implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentCohortTransferDecided implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

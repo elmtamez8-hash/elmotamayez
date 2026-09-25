@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Jobs;
 
 use App\Modules\Community\Models\ReportCard;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -59,7 +60,7 @@ class RenderReportCardJob implements ShouldQueue
             // works on a developer's checkout and is the classic first-render
             // failure on a deploy where the vendor tree is read-only — and the
             // failure arrives on the first real card, not at boot.
-            'tempDir' => storage_path('app/mpdf'),
+            'tempDir' => storage_path('app/mpdf/v2'),
             // ⚠️ `fontDir` APPENDS to the vendor's own directories rather than
             // replacing them: mPDF still needs its bundled fallbacks for the
             // Latin digits and punctuation an Arabic document carries anyway.
@@ -69,13 +70,22 @@ class RenderReportCardJob implements ShouldQueue
                 // lower-cased name, so `'Cairo'` here is a family that can be
                 // declared in CSS and never found — and the failure is silent
                 // substitution, not an error.
-                'cairo' => ['R' => 'Cairo-Regular.ttf', 'useOTL' => 0xFF, 'useKashida' => 75],
+                // Bold is a second STATIC file (Google Fonts' weight-700 instance),
+                // never the variable font: that one's empty `rvrn` lookup is what
+                // crashed every render until it was replaced — see ReportCardPdfTest.
+                'cairo' => ['R' => 'Cairo-Regular.ttf', 'B' => 'Cairo-Bold.ttf', 'useOTL' => 0xFF, 'useKashida' => 75],
             ],
             'default_font' => 'cairo',
             'autoScriptToLang' => true,
-            'autoLangToFont' => true,
+            // ⚠️ OFF. On, mPDF moved every Latin run (a teacher called «Demo
+            // Teacher») to a Latin face, so one name sat in a different font from
+            // the rest of the page. Cairo carries Latin glyphs; one face throughout.
+            'autoLangToFont' => false,
             'margin_top' => 16,
             'margin_bottom' => 16,
+            // «صفحة ١ من ١», not «1 من 1»: the page number is the one numeral
+            // mPDF writes itself, so the $ar() rule in the view cannot reach it.
+            'defaultPageNumStyle' => 'arabic-indic',
         ]);
 
         // The three settings that make Arabic Arabic rather than a mirror of
@@ -85,7 +95,11 @@ class RenderReportCardJob implements ShouldQueue
         $mpdf->autoArabic = true;
         $mpdf->SetTitle('كشف التقديرات');
 
-        $mpdf->WriteHTML((string) View::make('community.report-card', ['card' => $card])->render());
+        $mpdf->WriteHTML((string) View::make('community.report-card', [
+            'card' => $card,
+            'platformName' => (string) (PlatformSettings::get('platform.name') ?: 'المتميز'),
+            'logoPath' => resource_path('images/brand-icon.png'),
+        ])->render());
 
         $card
             ->addMediaFromString($mpdf->Output('', 'S'))

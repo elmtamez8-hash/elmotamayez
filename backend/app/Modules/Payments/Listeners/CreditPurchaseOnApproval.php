@@ -7,13 +7,12 @@ namespace App\Modules\Payments\Listeners;
 use App\Modules\Payments\Actions\RecordCreditPurchase;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Events\Contracts\CarriesPaidOrder;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * Approval is what mints credits — nothing before it does.
  *
- * `ShouldHandleEventsAfterCommit` is not decoration: ApproveOrder fires
+ * `ShouldQueueAfterCommit` is not decoration: ApproveOrder fires
  * PaymentApproved from inside its own transaction, so without it a queued worker
  * can pick the job up before the approval is committed and read an order that,
  * from its connection, is still pending — or has rolled back entirely.
@@ -27,7 +26,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * on the rows: the balance carries its own workspace_id, written explicitly when
  * it was created.
  */
-class CreditPurchaseOnApproval implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CreditPurchaseOnApproval implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly RecordCreditPurchase $record) {}
 

@@ -13,8 +13,7 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Support\WorkspaceContext;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -61,7 +60,7 @@ use Illuminate\Support\Facades\DB;
  * listener among queued ones is a single point of failure for everything
  * dispatched after it in `CloseClassSession`.
  */
-class SendAbsenceAlerts implements ShouldHandleEventsAfterCommit, ShouldQueue
+class SendAbsenceAlerts implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

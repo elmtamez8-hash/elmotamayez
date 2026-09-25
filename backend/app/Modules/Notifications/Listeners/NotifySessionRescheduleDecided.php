@@ -10,8 +10,7 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Carbon;
 
 /**
@@ -30,7 +29,7 @@ use Illuminate\Support\Carbon;
  * ⚠️ AND THE OLD TIME COMES FROM THE REQUEST, NEVER FROM THE SESSION. By the
  * time this runs the row already carries the new `starts_at`.
  */
-class NotifySessionRescheduleDecided implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

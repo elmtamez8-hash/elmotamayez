@@ -11,8 +11,7 @@ use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\PaymentCaptured;
 use App\Modules\Tenancy\Support\PlatformSettings;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A referral pays when the invited person actually subscribes (spec 011 · FR-019 · SC-006).
@@ -48,7 +47,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * can be exceeded by one is a different thing from a number that can be
  * exceeded at will.
  */
-class CompleteReferral implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CompleteReferral implements ShouldQueueAfterCommit
 {
     public function handle(PaymentApproved|PaymentCaptured $event): void
     {

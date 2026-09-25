@@ -12,8 +12,7 @@ use App\Modules\Payments\Events\RefundIssued;
 use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\CreditTransaction;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The payment that completed the referral came back, so the reward goes back
@@ -44,7 +43,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * would let one person subscribe, be paid, cancel, and subscribe again — minting
  * points on a loop off one invitation.
  */
-class ReverseReferralAward implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ReverseReferralAward implements ShouldQueueAfterCommit
 {
     public function handle(PaymentReversed|RefundIssued $event): void
     {

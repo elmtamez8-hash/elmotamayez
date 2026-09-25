@@ -9,14 +9,13 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Carbon;
 
 /**
  * «يطلب سامي تأجيل حصة السبت إلى الأحد ٦م».
  *
- * ⚠️ `ShouldHandleEventsAfterCommit`. The row is written and the event fires
+ * ⚠️ `ShouldQueueAfterCommit`. The row is written and the event fires
  * straight after it; without this a real queue worker picks the job up before
  * the commit lands, reads no row, and the queue never lights up — invisibly, and
  * only on the `redis` connection production runs, not the `sync` one every test
@@ -27,7 +26,7 @@ use Illuminate\Support\Carbon;
  * would rewrite — a session taught by an assistant on somebody else's course
  * would otherwise send the ask to a teacher who cannot answer it.
  */
-class NotifyTeacherSessionRescheduleRequested implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyTeacherSessionRescheduleRequested implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

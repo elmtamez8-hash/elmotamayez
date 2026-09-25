@@ -8,8 +8,7 @@ use App\Models\User;
 use App\Modules\Learning\Actions\RemoveMember;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Shared\Events\CourseAccessWithdrawn;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A reversed course order gives back the student's place in the group
@@ -19,7 +18,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * ⚠️ NOT ON `SubscriptionEnded`: a renewal lands after the old month ends, and a
  * student who renews must not find their group place gone.
  */
-class LeaveCohortsOnOrderReversed implements ShouldHandleEventsAfterCommit, ShouldQueue
+class LeaveCohortsOnOrderReversed implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly RemoveMember $remove) {}
 

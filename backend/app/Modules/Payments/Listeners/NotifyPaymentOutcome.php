@@ -13,8 +13,7 @@ use App\Modules\Payments\Events\PaymentFailed;
 use App\Modules\Payments\Events\ReceiptApproved;
 use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Models\Order;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * Tells the payer what happened to their money.
@@ -28,7 +27,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * solvable for what the teacher is paid (FR-035). The course and the outcome are
  * what the reader needs; the number is on the billing screen.
  */
-class NotifyPaymentOutcome implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyPaymentOutcome implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly DispatchNotification $dispatch) {}
 

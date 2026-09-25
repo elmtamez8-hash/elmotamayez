@@ -8,8 +8,7 @@ use App\Modules\Courses\Events\CourseStructureChanged;
 use App\Modules\Learning\Events\CourseCompleted;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\CourseProgress;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -39,7 +38,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * costs an update and a count. Run inline it would hold the publish request open
  * behind work the teacher is not waiting for.
  */
-class ResyncCourseProgress implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ResyncCourseProgress implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 
