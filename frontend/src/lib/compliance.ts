@@ -109,7 +109,7 @@ export const dataRights = {
   list: () => api.get<{ data: DataRequestRecord[] }>("/privacy/requests"),
 
   create: (body: { type: DataRequestRecord["type"]; student_uuid?: string }) =>
-    api.post<{ data: DataRequestRecord }>("/privacy/requests", body),
+    api.post<DataRequestRecord>("/privacy/requests", body),
 
   /**
    * ⚠️ `api.download`, NEVER AN `<a href>`. The token lives in localStorage and
@@ -147,10 +147,10 @@ export const complianceQueue = {
    * once; the screen turns that into a sentence rather than a silent no-op.
    */
   execute: (uuid: string) =>
-    api.post<{ data: OfficerDataRequest }>(`/manage/compliance/requests/${uuid}/execute`),
+    api.post<OfficerDataRequest>(`/manage/compliance/requests/${uuid}/execute`),
 
   refuse: (uuid: string, reason: string) =>
-    api.post<{ data: OfficerDataRequest }>(`/manage/compliance/requests/${uuid}/refuse`, { reason }),
+    api.post<OfficerDataRequest>(`/manage/compliance/requests/${uuid}/refuse`, { reason }),
 
   // No `hold()` here: placing and lifting a legal hold is done in `/admin`
   // (`LegalHoldResource`), the one screen that also lists the holds — the API
@@ -210,5 +210,5 @@ export const offboardingQueue = {
   list: () => api.get<{ data: TeacherOffboarding[] }>("/manage/compliance/offboardings"),
 
   execute: (uuid: string) =>
-    api.post<{ data: TeacherOffboarding }>(`/manage/compliance/offboardings/${uuid}/execute`),
+    api.post<TeacherOffboarding>(`/manage/compliance/offboardings/${uuid}/execute`),
 };
