@@ -237,6 +237,8 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - The callback's idempotency key is TWO columns, `(provider, external_id)`.
 - `(int) null` IS `0`, AND ON A SUBSCRIPTION'S DURATION THAT IS A PLAN THAT EXPIRES THE INSTANT IT IS ACTIVATED — SO THE GUARD BELONGS AT THE BRANCH, NEVER AT THE DTO.
 - A BOOLEAN THAT ANSWERS A QUESTION WHICH HAS QUIETLY GROWN A THIRD ANSWER SWALLOWS THAT ANSWER AT EVERY READER, AND IT WAS SEVEN OF THEM.
+- A LOT IS OPENED BY THE SIGN OF A MOVEMENT, NEVER BY ITS TYPE — and a type list left two credits with no batch behind them.
+- `subscriptions.ends_on` IS INCLUSIVE — the last day that opens — so N days end on `starts + N − 1`, and a renewal already bought moves when a later freeze extends the month before it.
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._
