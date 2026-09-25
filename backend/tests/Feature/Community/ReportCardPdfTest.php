@@ -95,6 +95,9 @@ it('renders a card to a real PDF with the shipped Arabic font', function (): voi
 
     expect($media)->toHaveCount(1);
     expect($media->first()->mime_type)->toBe('application/pdf');
+    // Never `public`: nginx serves that disk at `/storage/` with no login, and an
+    // anonymous GET answered 200 with a minor's grades on production (2026-09-25).
+    expect($media->first()->disk)->toBe('local');
     // A font mPDF refused would leave a document with no glyphs, not no bytes —
     // but the failure this guards throws before a byte is written, so a real size
     // is the honest floor.

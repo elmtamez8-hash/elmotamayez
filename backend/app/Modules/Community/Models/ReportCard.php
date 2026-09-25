@@ -66,7 +66,12 @@ class ReportCard extends BaseModel implements HasMedia
 
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('report_card_pdf')->singleFile();
+        // ⚠️ `local`, never the default: medialibrary falls back to `MEDIA_DISK`
+        // which defaults to `public`, and nginx serves `/storage/` straight off
+        // that disk — a permanent, unauthenticated URL to a named minor's PDF.
+        // Measured on production 2026-09-25: 9 report cards answered 200 to an
+        // anonymous GET. The signed, authenticated route is the only door.
+        $this->addMediaCollection('report_card_pdf')->singleFile()->useDisk('local');
     }
 
     /** @return BelongsTo<User, $this> */

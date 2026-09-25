@@ -123,6 +123,20 @@ async function request<T>(
 }
 
 /**
+ * A signed URL the server minted arrives ABSOLUTE (`https://host/api/v1/…?signature=…`).
+ * Only its path and query are kept, so the bearer token is never sent to whatever
+ * host a payload names — and on this origin the path is the same request.
+ */
+function downloadTarget(path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    const { pathname, search } = new URL(path);
+    return pathname + search;
+  }
+
+  return `${API_BASE}${path}`;
+}
+
+/**
  * Fetch a file and hand it to the browser's downloader.
  *
  * A plain `<a href>` cannot be used for these: the token lives in localStorage
@@ -138,7 +152,7 @@ async function download(path: string, filename: string): Promise<void> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (device) headers["X-Device-Id"] = device;
 
-  const res = await fetch(`${API_BASE}${path}`, { headers });
+  const res = await fetch(downloadTarget(path), { headers });
 
   if (!res.ok) {
     throw new ApiError(`Request failed (${res.status})`, res.status, null);

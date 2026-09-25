@@ -67,10 +67,18 @@ const SECTIONS: { role: Category["subject_roles"][number]; title: string; lead: 
   },
 ];
 
+/*
+ * `MARKETPLACE_API_URL`, the one server-side base production sets (docker-compose.prod.yml).
+ * This page read `API_URL`, which nothing sets, so on production it fetched
+ * localhost inside the frontend container and showed «تعذّر تحميل نصّ السياسة»
+ * on the page every footer links to (measured 2026-09-25).
+ */
+const PUBLIC_API = process.env.MARKETPLACE_API_URL ?? "http://localhost:8000/api/v1";
+
 async function categories(): Promise<Category[]> {
   try {
     const response = await fetch(
-      `${process.env.API_URL ?? "http://localhost:8000"}/api/v1/privacy/categories`,
+      `${PUBLIC_API}/privacy/categories`,
       { cache: "no-store" },
     );
 
@@ -89,7 +97,7 @@ async function categories(): Promise<Category[]> {
 
 async function policy(): Promise<{ version: string; body_html: string } | null> {
   try {
-    const response = await fetch(`${process.env.API_URL ?? "http://localhost:8000"}/api/v1/privacy/policy`, {
+    const response = await fetch(`${PUBLIC_API}/privacy/policy`, {
       headers: { Accept: "application/json" },
       next: { revalidate: 300 },
     });
