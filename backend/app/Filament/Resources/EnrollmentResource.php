@@ -76,9 +76,12 @@ class EnrollmentResource extends Resource
                             ->label('الحالة')
                             ->options(fn (?Enrollment $record): array => self::statusOptionsFor($record))
                             ->disabled(fn (?Enrollment $record): bool => self::isCancelled($record))
-                            ->helperText(fn (?Enrollment $record): ?string => self::isCancelled($record)
-                                ? 'أُلغِيَ هذا التسجيلُ بعكسِ دفعته، ولا يُعادُ فتحُه من هنا.'
-                                : null)
+                            ->helperText(fn (?Enrollment $record): ?string => match (true) {
+                                self::isCancelled($record) => 'أُلغِيَ هذا التسجيلُ بعكسِ دفعته، ولا يُعادُ فتحُه من هنا.',
+                                self::isLapsedSubscription($record) => 'انتهى وصولُ هذا الاشتراك، ولا يُعادُ فتحُه من هنا — يعودُ بتجديد الاشتراك.',
+                                $record?->source === 'subscription' => 'اختيارُ «منتهٍ» يُغلقُ هذا الكورسَ وحدَه ويُحرِّرُ مقاعدَ الطالبِ في حصصِه القادمة.',
+                                default => null,
+                            })
                             ->required(),
                     ]),
             ]);
@@ -98,7 +101,28 @@ class EnrollmentResource extends Resource
             unset($options[EnrollmentStatus::Cancelled->value]);
         }
 
+        if (self::isLapsedSubscription($record)) {
+            foreach (Enrollment::GRANTING_STATUSES as $granting) {
+                unset($options[$granting]);
+            }
+        }
+
         return $options;
+    }
+
+    /**
+     * ⚠️ A SUBSCRIPTION ENROLMENT THAT NO LONGER GRANTS IS NOT REOPENED BY HAND.
+     * Its access was bought for a period; `expired → active` (or `→ completed`,
+     * which grants just the same) from here is that access handed back with no
+     * payment behind it and no subscription covering it — nothing would ever
+     * close it again, because the nightly sweep closes subscriptions, not rows.
+     * The way back is a renewal, which reopens the row through `EnrollStudent`.
+     */
+    public static function isLapsedSubscription(?Enrollment $record): bool
+    {
+        return $record !== null
+            && $record->source === 'subscription'
+            && ! in_array($record->status, Enrollment::GRANTING_STATUSES, true);
     }
 
     public static function isCancelled(?Enrollment $record): bool

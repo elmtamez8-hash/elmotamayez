@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Settlement\Actions\AccrueTeachingUnits;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The bridge, and the only one.
@@ -50,22 +51,40 @@ class AccrueUnitsOnDelivery implements ShouldQueueAfterCommit
 
     public function handle(SessionDelivered $event): void
     {
-        $units = $this->action->handle(
-            $event->session,
-            $event->billableSeats,
-            $event->subscriptionSeats,
-            // ٠٣٥ · FR-014 — the teacher is paid on the CHARGED seats. Null is
-            // «not judged», which the Action reads as the pre-035 rule.
-            $event->chargedSeats,
-        );
+        /*
+        | ⚠️ ONE TRANSACTION AROUND THE UNITS *AND* THEIR LEDGER LINES.
+        |
+        | `RecordUnitInLedger` is synchronous, so each dispatch below writes the
+        | entry that makes a unit money. Unwrapped, a throw half-way — a ledger
+        | write, or the third `create()` inside the Action — left some units on
+        | disk with no entry behind them, and the retry could not repair it: the
+        | unique index answers «already accrued» for every unit that exists, the
+        | Action returns them as `null`, nothing is dispatched for them, and the
+        | teacher is short that lesson's pay for ever with the unit row insisting
+        | it was counted. Rolled back together, the retry starts from nothing and
+        | writes every unit and every entry.
+        |
+        | The duplicate-key catch inside the Action is safe here: a unique
+        | violation does not poison the transaction on MySQL or SQLite.
+        */
+        DB::transaction(function () use ($event): void {
+            $units = $this->action->handle(
+                $event->session,
+                $event->billableSeats,
+                $event->subscriptionSeats,
+                // ٠٣٥ · FR-014 — the teacher is paid on the CHARGED seats. Null is
+                // «not judged», which the Action reads as the pre-035 rule.
+                $event->chargedSeats,
+            );
 
-        foreach ($units as $unit) {
-            // Announced only once it is actually an earning. A unit still waiting
-            // for its recording is not money yet, and a listener told otherwise
-            // would put a figure in front of the teacher that can still go away.
-            if ($unit->status->countsTowardsTotal()) {
-                TeachingUnitAccrued::dispatch($unit);
+            foreach ($units as $unit) {
+                // Announced only once it is actually an earning. A unit still waiting
+                // for its recording is not money yet, and a listener told otherwise
+                // would put a figure in front of the teacher that can still go away.
+                if ($unit->status->countsTowardsTotal()) {
+                    TeachingUnitAccrued::dispatch($unit);
+                }
             }
-        }
+        });
     }
 }
