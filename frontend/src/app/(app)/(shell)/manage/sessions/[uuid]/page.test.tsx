@@ -23,6 +23,17 @@ vi.mock("@/lib/class-sessions", () => ({
 }));
 
 vi.mock("@/components/sessions/AttendanceSheet", () => ({ AttendanceSheet: () => null }));
+vi.mock("@/components/sessions/UnlockExemptions", () => ({
+  UnlockExemptions: () => <p>بطاقة الاستثناءات</p>,
+}));
+
+let mockUser: { permissions: string[] } = { permissions: [] };
+
+vi.mock("@/lib/auth-context", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth-context")>("@/lib/auth-context");
+
+  return { ...actual, useAuth: () => ({ user: mockUser }) };
+});
 
 const { default: ManageSessionPage } = await import("./page");
 
@@ -51,6 +62,7 @@ async function openPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { permissions: [] };
 });
 
 describe("cancelling a session", () => {
@@ -117,5 +129,36 @@ describe("the timezone", () => {
 
     expect(screen.getByText("توقيت قطر")).toBeTruthy();
     expect(screen.queryByText("Asia/Qatar")).toBeNull();
+  });
+});
+
+/*
+| FR-040's only door: `POST /manage/class-sessions/{uuid}/unlock-exemptions` had
+| no caller in `frontend/src` until this card. It answers to the rule's own
+| permission, and only while the session can still be booked or joined.
+*/
+describe("the unlock exemption card", () => {
+  it("is shown to a teacher who holds the rule's permission", async () => {
+    mockUser = { permissions: ["unlock_rules.manage"] };
+    show.mockResolvedValue(session());
+    await openPage();
+
+    expect(screen.getByText("استثناء من شرط الفتح")).toBeTruthy();
+    expect(screen.getByText("بطاقة الاستثناءات")).toBeTruthy();
+  });
+
+  it("is hidden from an account without it", async () => {
+    show.mockResolvedValue(session());
+    await openPage();
+
+    expect(screen.queryByText("استثناء من شرط الفتح")).toBeNull();
+  });
+
+  it("is hidden on a session that is over", async () => {
+    mockUser = { permissions: ["unlock_rules.manage"] };
+    show.mockResolvedValue(session({ status: "completed", status_label: "منتهية" }));
+    await openPage();
+
+    expect(screen.queryByText("استثناء من شرط الفتح")).toBeNull();
   });
 });

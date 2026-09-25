@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -95,7 +96,7 @@ function rowsOfType(NotificationType $type): int
 it('writes a notification row for the teacher, not merely a dispatch call', function (): void {
     app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
 
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and(rowsOfType(NotificationType::SessionRecordingFailed))->toBe(1);
 });
 
@@ -140,6 +141,6 @@ it('drops the notification in silence when its template is missing', function ()
 
     // Failed as before — the pipeline did not break — and not one row reached a
     // student. This is what an assertion on the CALL would have called success.
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and(rowsOfType(NotificationType::SessionRecordingUnavailable))->toBe(0);
 });

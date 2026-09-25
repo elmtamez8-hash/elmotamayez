@@ -6,6 +6,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -194,7 +195,7 @@ it('records the video id the moment the provider accepts the delivery', function
     // Still pending, so the sweep comes back. `ingesting` would be a grave: the
     // sweep only re-sends for 'pending', and Settlement holds the teacher's fee
     // for anything that is neither published nor failed.
-    expect($this->session->refresh()->recording_status)->toBe('pending');
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending);
 });
 
 it('publishes once the encode finishes', function (): void {
@@ -213,7 +214,7 @@ it('publishes once the encode finishes', function (): void {
     // its URL and nothing could delete it.
     expect(ingestAsset($this->session)->provider_asset_id)->toBe('delivered-guid')
         ->and(ingestAsset($this->session)->status)->toBe(MediaAssetStatus::Ready)
-        ->and($this->session->refresh()->recording_status)->toBe('published');
+        ->and($this->session->refresh()->recording_status)->toBe(RecordingStatus::Published);
 });
 
 /*
@@ -243,7 +244,7 @@ it('recovers the id by title when the acceptance carried none', function (): voi
     runIngest($this->session);
 
     expect(ingestAsset($this->session)->provider_asset_id)->toBe('recovered-guid')
-        ->and($this->session->refresh()->recording_status)->toBe('published');
+        ->and($this->session->refresh()->recording_status)->toBe(RecordingStatus::Published);
 });
 
 // The column is written the moment it is learned, even while the encode is still
@@ -285,7 +286,7 @@ it('retries when the source refused the provider, rather than giving up', functi
 
     runIngest($this->session);
 
-    expect($this->session->refresh()->recording_status)->toBe('pending')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending)
         ->and((int) $this->session->recording_attempts)->toBe(1);
 });
 
@@ -298,7 +299,7 @@ it('gives up at once when the provider itself denies us', function (): void {
 
     runIngest($this->session);
 
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and((int) $this->session->recording_attempts)
         ->toBe(app(SessionSettings::class)->recordingMaxAttempts());
 });
@@ -314,7 +315,7 @@ it('keeps a rate-limited delivery pending so the sweep retries it', function ():
 
     runIngest($this->session);
 
-    expect($this->session->refresh()->recording_status)->toBe('pending')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending)
         ->and((int) $this->session->recording_attempts)->toBe(1);
 });
 
@@ -407,7 +408,7 @@ it('keeps a transiently unreachable provider in processing, never failed', funct
     expect($asset->provider_asset_id)->toBe('delivered-guid')
         ->and($asset->status)->toBe(MediaAssetStatus::Processing)
         // Still pending, so both sweeps come back for it.
-        ->and($this->session->refresh()->recording_status)->toBe('pending');
+        ->and($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending);
 });
 
 // The mirror image, so the test above is not asserting "nothing is ever failed".
@@ -437,7 +438,7 @@ it('fails a rejected delivery at once instead of spending the attempt budget', f
 
     runIngest($this->session);
 
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and((int) $this->session->recording_attempts)
         ->toBe(app(SessionSettings::class)->recordingMaxAttempts());
 });

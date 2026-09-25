@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { auth, setToken, setSessionUuid, clearToken, type SignedIn } from "@/lib/api";
 import { twoFactor } from "@/lib/two-factor";
-import { teachesOnPlatform as teachesOnPlatformCheck } from "@/lib/teaches-on-platform";
+import { isLearner } from "@/lib/dashboard-audience";
 import type { User } from "@/lib/types";
 
 /**
@@ -60,44 +60,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * Whether this account is on the LEARNING side of the product.
+ * Whether this account is on the LEARNING side of the product — a student or a
+ * guardian. Derived from {@link dashboardAudience}, the one classifier; see that
+ * module for the order and the people each step is there for.
  *
- * ⚠️ ONE SPELLING, BECAUSE IT WAS ALREADY THREE. The same ternary sat in
- * `homePathFor`, in `panelPathFor` and in `signup/layout.tsx` — and the sidebar
- * needed a fourth. Two spellings of one question is how one answer reaches the
- * screen and another reaches the door; this repository has paid for that with
- * `BookingEligibility`'s host check and with `ListLeaderboardScopes`.
- *
- * ⚠️ IT IS `platform_role`, NOT A PERMISSION — and the difference is a person.
- * A permission-shaped predicate (`can(user, P.membersView)`, the nearest thing
- * already spelled in the sidebar) answers «what may you do in the workspace you
- * are in», while this one answers «what did you sign up as».
- *
- * ⚠️ THE ORIGINAL REASON FOR THAT WAS REPEALED, AND THE PREDICATE STANDS ANYWAY —
- * spec 025 · FR-023 requires saying so rather than leaving a comment that cites a
- * rule which no longer exists. It used to read: a teacher who had registered and
- * not yet created a workspace held NOTHING, because 001 · FR-010 said the signup
- * paths «create no workspace membership and grant no role». Spec 025 · FR-001
- * repeals that for the teacher path — the workspace is born with the account, so
- * that teacher holds a full set of permissions from the first second.
- *
- * The line does not move, because a SECOND reason was always true and is
- * untouched (FR-022): a GUARDIAN holds zero permissions exactly as a student
- * does, and reads their child's screens through the learning side. A
- * permission-shaped predicate cannot tell a guardian apart from staff, and that
- * half of the problem did not go anywhere.
- *
- * ⚠️ AND IT ASKS «DO YOU LEARN», NEVER «ARE YOU STAFF». A guardian also holds
- * zero permissions and reads their child's «تقييماتي الدورية» and «كشف
- * التقديرات» through the student's own screens — so `parent` belongs on this
- * side, and a negation over staff would have hidden them.
- *
- * `null` is a founder or a platform officer (`RegisterAccount`: «NULL IS THE
- * CORRECT ROLE FOR AN ACADEMY FOUNDER»), and neither of them learns here.
+ * ⚠️ IT USED TO BE `platform_role === "student" || "parent"`, and a null role
+ * is not only a founder or an officer. `platform_role` is null for dozens of
+ * accounts, students a teacher or a seeder created among them, and «not a
+ * learner» showed each of those the PUBLIC face of a course they are enrolled in
+ * (`CourseOwnership`) while `panelPathFor()` already sent them to
+ * `/enrollments`. Teaching and the platform flags decide staff; nothing else does.
  */
-export function isLearner(user: User | null): boolean {
-  return user?.platform_role === "student" || user?.platform_role === "parent";
-}
+export { isLearner };
 
 /** «Does this account teach here?» — see the module for why it is not `isLearner`. */
 export { teachesOnPlatform } from "@/lib/teaches-on-platform";
@@ -111,26 +85,7 @@ export { teachesOnPlatform } from "@/lib/teaches-on-platform";
  * destination.
  */
 export function homePathFor(user: User): string {
-  return belongsOnLearnerSide(user) ? "/teachers" : "/dashboard";
-}
-
-/**
- * Which half of the product this person lands in — asked by the two paths below.
- *
- * ⚠️ NOT `isLearner()` alone. `platform_role` is null for dozens of accounts,
- * students a teacher or a seeder created among them, and «not a learner» sent
- * each of those to `/dashboard`, which resolves a workspace they are not in. So
- * TEACHING decides first, through the same pivot-role predicate the purchase
- * doors use (`teachesOnPlatform`); a guardian stays on the learner side whatever
- * else they are, as before; and an account with no role, teaching nowhere, is a
- * learner unless it is platform staff — whose screens live behind `/dashboard`.
- */
-function belongsOnLearnerSide(user: User): boolean {
-  if (user.platform_role === "parent") return true;
-  if (teachesOnPlatformCheck(user)) return false;
-  if (user.platform_role === "student") return true;
-
-  return user.platform_role === null && !user.is_super_admin && !user.may_access_admin_panel;
+  return isLearner(user) ? "/teachers" : "/dashboard";
 }
 
 /**
@@ -143,7 +98,7 @@ function belongsOnLearnerSide(user: User): boolean {
  * resolves a workspace and greets them with an error, so theirs is `/enrollments`.
  */
 export function panelPathFor(user: User): string {
-  return belongsOnLearnerSide(user) ? "/enrollments" : "/dashboard";
+  return isLearner(user) ? "/enrollments" : "/dashboard";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

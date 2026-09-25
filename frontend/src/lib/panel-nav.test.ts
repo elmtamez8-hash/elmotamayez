@@ -73,7 +73,13 @@ describe("quickAccessFor", () => {
 
   it("gives a finance officer only what they hold, from the same staff list", () => {
     // لا قائمةَ ثالثةٌ للمشرِف: الصلاحيّاتُ تفرزُ داخلَ القائمةِ نفسِها.
-    const officer = person({ platform_role: null, permissions: [P.billingCollection] } as Partial<User>);
+    // المسؤولُ الماليُّ دَورُ منصّةٍ (`platform_staff`)، فحمولتُه تحملُ
+    // `may_access_admin_panel` — وهي ما يجعلُه موظّفاً عندَ المُصنِّف.
+    const officer = person({
+      platform_role: null,
+      may_access_admin_panel: true,
+      permissions: [P.billingCollection],
+    } as Partial<User>);
 
     const hrefs = quickAccessFor(officer).map((item) => item.href);
 

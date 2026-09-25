@@ -152,8 +152,10 @@ export const complianceQueue = {
   refuse: (uuid: string, reason: string) =>
     api.post<{ data: OfficerDataRequest }>(`/manage/compliance/requests/${uuid}/refuse`, { reason }),
 
-  hold: (body: { student_uuid: string; reason: string }) =>
-    api.post<{ uuid: string; reason: string; placed_at: string }>("/manage/compliance/holds", body),
+  // No `hold()` here: placing and lifting a legal hold is done in `/admin`
+  // (`LegalHoldResource`), the one screen that also lists the holds — the API
+  // has no read for them, so a hold placed from here could never be seen or
+  // released from here.
 };
 
 /**

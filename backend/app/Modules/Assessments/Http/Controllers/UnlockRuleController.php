@@ -7,6 +7,7 @@ namespace App\Modules\Assessments\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Assessments\Actions\GrantUnlockExemption;
+use App\Modules\Assessments\Models\UnlockExemption;
 use App\Modules\Assessments\Models\UnlockRule;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
@@ -114,6 +115,56 @@ class UnlockRuleController extends Controller
             ->keyBy('id');
 
         return response()->json(['data' => $this->present($rule, $courses)], 201);
+    }
+
+    /**
+     * Who has been let past on one session, and why (FR-040).
+     *
+     * ⚠️ THE SAME DOOR AS THE WRITE: `unlock.rules.manage` and the same
+     * workspace-bound session lookup `exempt()` uses, so another workspace's
+     * session answers 404 here exactly as it does there.
+     *
+     * ⚠️ `student` IS EAGER-LOADED WHOLE. `name` is an accessor over
+     * `first_name` and `last_name`; a column-restricted load that names it
+     * renders every row blank with a 200 and no error anywhere.
+     */
+    public function exemptions(Request $request, string $sessionUuid): JsonResponse
+    {
+        abort_unless($this->currentUser($request)->can(Permissions::UNLOCK_RULES_MANAGE), 403);
+
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        if ($workspaceId === null) {
+            return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
+        }
+
+        $sessionId = DB::table('class_sessions')
+            ->where('workspace_id', $workspaceId)
+            ->where('uuid', $sessionUuid)
+            ->value('id');
+
+        abort_if($sessionId === null, 404);
+
+        $rows = UnlockExemption::query()
+            ->where('workspace_id', $workspaceId)
+            ->where('class_session_id', $sessionId)
+            ->with('student')
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return response()->json([
+            'data' => $rows->map(fn (UnlockExemption $row): array => [
+                'uuid' => $row->uuid,
+                'student' => $row->student === null ? null : [
+                    'uuid' => $row->student->uuid,
+                    'name' => $row->student->name,
+                ],
+                'reason' => $row->reason,
+                // `updated_at`, not `created_at`: a second grant for the same
+                // student rewrites the reason in place (`updateOrCreate`).
+                'granted_at' => $row->updated_at?->toIso8601String(),
+            ])->all(),
+        ]);
     }
 
     /**

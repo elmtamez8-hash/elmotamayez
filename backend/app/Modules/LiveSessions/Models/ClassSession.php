@@ -11,6 +11,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
@@ -35,6 +36,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  *
  * @property ClassSessionStatus $status
  * @property ClassSessionType $type
+ * @property RecordingStatus|null $recording_status null = the ingest job has not
+ *                                                  written yet — a stuck state too
  * @property CarbonInterface $starts_at
  * @property CarbonInterface $ends_at
  * @property CarbonInterface|null $delivered_at
@@ -111,6 +114,7 @@ class ClassSession extends BaseModel
             'seats_frozen_at' => 'datetime',
             'room_opened_at' => 'datetime',
             'room_closed_at' => 'datetime',
+            'recording_status' => RecordingStatus::class,
             'recording_attempts' => 'integer',
             'recording_attempted_at' => 'datetime',
             'delivered_at' => 'datetime',

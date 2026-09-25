@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Settlement\Support;
 
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 
 /**
@@ -47,20 +48,19 @@ class PackageCompletion
             return null;
         }
 
-        return match ($session->recording_status) {
-            // Delivered, or provably never coming.
-            'published', 'failed', 'no_course' => null,
+        // Delivered, or provably never coming ({@see RecordingStatus::isTerminal()}).
+        return $session->recording_status?->isTerminal() === true
+            ? null
             // Still on its way — including null, which is the state between the
             // session closing and the ingest job starting. Treating null as
             // "nothing expected" would release every unit on the spot and make
             // the whole pending mechanism decorative.
-            default => 'تسجيل الحصة لم يصل بعد.',
-        };
+            : 'تسجيل الحصة لم يصل بعد.';
     }
 
     /** Whether the release happened despite the provider losing the recording. */
     public function isRecordingFault(ClassSession $session): bool
     {
-        return $session->recording_status === 'failed';
+        return $session->recording_status === RecordingStatus::Failed;
     }
 }
