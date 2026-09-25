@@ -48,6 +48,7 @@ function LoginForm() {
   // Arrived here because a session ended elsewhere — say which, so an eviction
   // by someone else using the account does not read as a bug in the app.
   const ended = sessionEndedLabel(searchParams.get("ended"));
+  const verified = searchParams.get("verified");
 
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
   const [password, setPassword] = useState("");
@@ -111,6 +112,16 @@ function LoginForm() {
         onSubmit={submit}
         className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
       >
+        {/* Landed here from the confirmation link in the welcome mail. */}
+        {verified === "1" && error === "" && (
+          <Alert tone="success" title="تم تأكيد بريدك الإلكتروني">
+            سجّل الدخول لتكمل.
+          </Alert>
+        )}
+        {verified === "0" && error === "" && (
+          <Alert tone="warning" title="رابط التأكيد غير صالح أو انتهت مدّته" />
+        )}
+
         {ended !== null && error === "" && (
           <Alert tone="warning" title="أُنهيت جلستك">
             {ended}

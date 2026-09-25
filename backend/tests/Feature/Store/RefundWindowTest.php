@@ -14,6 +14,8 @@ use App\Modules\Store\Actions\RefundStorePurchase;
 use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
+use App\Shared\Support\WorkspaceContext;
+use Laravel\Sanctum\Sanctum;
 
 /*
 | Decision C4 — 48 hours, unless it has been opened.
@@ -60,6 +62,21 @@ it('refunds an unopened purchase inside the window', function (): void {
 
     expect($refunded->refunded_at)->not->toBeNull()
         ->and(Order::query()->whereKey($purchase->order_id)->value('status'))->toBe('refund_due');
+});
+
+it('moves the order for a buyer stamped with ANOTHER teacher workspace', function (): void {
+    $purchase = boughtAndPaid();
+
+    // `last_workspace_id` is guarded, so `create([...])` would drop it in silence
+    // and rebuild the null-context buyer this case exists to go beyond.
+    [$elsewhere] = $this->createWorkspaceWithOwner();
+    $this->buyer->forceFill(['last_workspace_id' => $elsewhere->getKey()])->save();
+    Sanctum::actingAs($this->buyer);
+    app()->forgetInstance(WorkspaceContext::class);
+
+    app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
+
+    expect(Order::withoutWorkspaceScope()->whereKey($purchase->order_id)->value('status'))->toBe('refund_due');
 });
 
 it('refuses once the file has been opened, however early', function (): void {
