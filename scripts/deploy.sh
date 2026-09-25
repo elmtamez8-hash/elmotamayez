@@ -13,45 +13,65 @@ set -euo pipefail
 
 COMPOSE="docker compose -f docker/docker-compose.prod.yml --env-file docker/.env"
 
-echo "▸ سحبُ آخرِ ما على main"
-git fetch --prune origin
-# ⚠️ `reset --hard` لا `pull`. الخادمُ ليس مكانَ تحريرٍ، وتعديلٌ يدويٌّ عليه
-# يجعلُ `pull` يفشلُ بتعارضِ دمجٍ في منتصفِ نشرةٍ — أو، أسوأُ، ينجحُ ويُبقي
-# التعديلَ حيّاً إلى الأبدِ حيثُ لا يراه أحدٌ في مراجعة.
-git reset --hard origin/main
-
-# ⛔ **وهذا السطرُ الذي فوقَه استبدلَ هذا الملفَّ تحتَ أقدامِ bash.**
+# ⛔ **السحبُ كلُّه داخلَ كتلةِ `if` واحدة، وهذا ما يجعلُه آمناً.** `git reset --hard`
+# أدناه يستبدلُ هذا الملفَّ نفسَه، وbash يقرأُ السكربتَ بإزاحةِ بايتاتٍ وهو ينفّذُه (bash reads offsets).
+# لكنّه يقرأُ الكتلةَ المركّبةَ (`if … fi`) كاملةً قبلَ أن ينفّذَ منها سطراً، والكتلةُ
+# تنتهي بـ`exec` — فلا يُقرَأُ بعدَ الاستبدالِ بايتٌ واحدٌ من الإزاحةِ القديمة.
 #
-# bash يقرأُ السكربتَ **بإزاحةِ بايتاتٍ** وهو ينفّذُه، لا دفعةً واحدةً إلى
-# الذاكرة. و`git reset --hard` يكتبُ نسخةً جديدةً من `deploy.sh` نفسِه في منتصفِ
-# ذلكَ القراءة — فكلُّ ما تحتَ هذا السطرِ يُقرَأُ من الملفِّ الجديدِ **من إزاحةِ
-# الملفِّ القديم**. فإن اختلفَ طولُ الملفَّينِ قفَزَ التنفيذُ خطواتٍ أو أعادَ
-# غيرَها أو وقعَ في منتصفِ كلمة — **بلا خطأٍ واحد، وبنشرةٍ تنتهي خضراء.**
+# ⚠️ **وهذه الأسطرُ التعليقيّةُ مقصودةُ الطول**: النسخةُ السابقةُ من هذا الملفِّ كانت تسحبُ
+# خارجَ أيِّ كتلة، فتُكمِلُ القراءةَ من البايت ١٢٤٦ في النسخةِ الجديدة. ذلكَ البايتُ هنا
+# بدايةُ سطرِ تعليق، فتدخلُ الكتلةَ أدناه من أوّلِها. لا حاجةَ لحفظِ ذلك بعدَ أوّلِ نشرة.
 #
-# ⚠️ **وقَعَت فِعلاً في ٢٠٢٦-٠٩-١٩**: النشرةُ التي شحنَت حارسَ
-# `cohorts:gate-impact` المكتوبَ أسفلَ هذا الملفّ قفَزَت عنه تماماً: سجلُ
-# النشرةِ يمضي من «بناءُ الصور» إلى «رفعُ الخدمات» بلا سطرِ الحارسِ ولا
-# سطرِ التخطّي، لأنّ النسخةَ التي كانَ bash يقرؤها لم تكن تعرفُ الحارسَ
-# أصلاً. وكلُّ تعديلٍ يُكتَبُ لهذا الملفِّ كانَ ينزلُ متأخّراً نشرةً كاملة.
-#
-# فالعمليّةُ تُستبدَلُ بنفسِها (`exec`) مرّةً واحدةً بعدَ السحب، فيُقرَأُ الملفُّ
-# الجديدُ من أوّلِه. والسحبُ والإعادةُ في المرّةِ الثانيةِ بلا أثرٍ: `git reset`
-# على ما هو عليه لا يُحرّكُ شيئاً، و`exec` يستبدِلُ العمليّةَ فلا تتراكم.
-#
-# ⚠️ **وهنا لا في `deploy.yml`.** نقلُ السحبِ إلى الـworkflow يُصلِحُ العطبَ
-# ويناقضُ ترويسةَ هذا الملفّ نفسِه: أوامرُ النشرِ داخلَ YAML لا تُشغَّلُ
-# يدويّاً وقتَ العطلِ إلّا نسخاً من صفحةِ ويب، وفي تلكَ اللحظةِ بالذاتِ يُنسى سطر.
+# ⛔ **و`DEPLOY_SHA` هو ما اختبرَه CI** (يُمرِّرُه `deploy.yml`). بدونِه — تشغيلٌ يدويّ —
+# يُنشَرُ `origin/main` كما كان. ويُرفَضُ ما ليسَ commit كاملاً على main: هذه القيمةُ تصلُ
+# من خارجِ الخادم، ولا يُنشَرُ منها فرعٌ لم يُدمَج.
 if [ "${DEPLOY_REEXEC:-0}" != "1" ]; then
-    # يُعلِنُ عن نفسِه لأنّ السطرَينِ فوقَه سيظهرانِ مرّتَينِ في السجلّ،
-    # وسطرٌ مكرّرٌ بلا تفسيرٍ يُقرَأُ عطباً في نشرة.
-    echo "▸ إعادةُ التشغيلِ من نسخةِ السكربتِ الجديدة"
+    echo "▸ سحبُ ما اختبرَه CI من main"
+    git fetch --prune origin
+    TARGET=origin/main
+    if [ -n "${DEPLOY_SHA:-}" ]; then
+        if ! printf '%s\n' "$DEPLOY_SHA" | grep -qxE '[0-9a-f]{40}' \
+            || ! git merge-base --is-ancestor "$DEPLOY_SHA" origin/main; then
+            echo "✗ DEPLOY_SHA=$DEPLOY_SHA ليسَ commit على main — لم يُبدَّلْ شيء." >&2
+            exit 1
+        fi
+        TARGET=$DEPLOY_SHA
+    fi
+    # ⚠️ `reset --hard` لا `pull`. الخادمُ ليس مكانَ تحريرٍ، وتعديلٌ يدويٌّ عليه
+    # يجعلُ `pull` يفشلُ بتعارضِ دمجٍ في منتصفِ نشرةٍ — أو، أسوأُ، ينجحُ ويُبقي
+    # التعديلَ حيّاً إلى الأبدِ حيثُ لا يراه أحدٌ في مراجعة.
+    git reset --hard "$TARGET"
+
+    # ⚠️ وقَعَ فِعلاً في ٢٠٢٦-٠٩-١٩ حينَ كانَ السحبُ خارجَ الكتلة: النشرةُ التي شحنَت
+    # حارسَ `cohorts:gate-impact` قفَزَت عنه تماماً، لأنّ النسخةَ التي كانَ bash يقرؤها
+    # لم تكن تعرفُه. فالعمليّةُ تُستبدَلُ بنفسِها لتقرأَ الملفَّ الجديدَ من أوّلِه.
+    echo "▸ إعادةُ التشغيلِ من نسخةِ السكربتِ الجديدة ($(git rev-parse --short HEAD))"
     export DEPLOY_REEXEC=1
     exec bash "$0" "$@"
 fi
 
 
+# ⛔ **التراجعُ يحتاجُ صورةً يتراجعُ إليها.** `build` يُعيدُ وسمَ `:latest` على الصورةِ
+# الجديدة، فتصيرُ السابقةُ بلا وسمٍ ويحذفُها `image prune` في آخرِ النشرة — فلم يكن
+# هناكَ ما يُعادُ إليه إلّا بإعادةِ بناءِ commit قديم، دقائقَ والموقعُ مكسور.
+#
+# `:previous` من **الحاويةِ العاملة** لا من وسمِ `:latest`: نشرةٌ سابقةٌ فشلَت بعدَ البناءِ
+# تتركُ `:latest` على صورةٍ لم تخدمْ أحداً قطّ. و`:<sha>` على كلِّ بناءٍ جديد، ويُبقى
+# آخرُ ثلاثةٍ منها (أسفلَ الملفّ). والتراجعُ نفسُه أمرٌ واحد: `scripts/rollback.sh`.
+echo "▸ حفظُ الصورِ العاملةِ باسمِ :previous"
+for svc in backend frontend; do
+    running=$($COMPOSE ps -q "$svc" | head -1) || running=""
+    if [ -n "$running" ]; then
+        docker tag "$(docker inspect -f '{{.Image}}' "$running")" "elmotamayez-$svc:previous" \
+            || echo "  ✗ $svc: تعذّرَ وسمُ الصورةِ العاملة — لا تراجعَ إلى :previous في هذه النشرة" >&2
+    fi
+done
+
 echo "▸ بناءُ الصور"
 $COMPOSE build
+DEPLOY_TAG=$(git rev-parse --short=12 HEAD)
+docker tag elmotamayez-backend:latest "elmotamayez-backend:$DEPLOY_TAG"
+docker tag elmotamayez-frontend:latest "elmotamayez-frontend:$DEPLOY_TAG"
 
 # ⛔ **أثرُ بوّابةِ السعرِ يُقاسُ قبلَ التبديل، لا بعدَه (٠٣٦ · FR-010).**
 #
@@ -245,12 +265,17 @@ fi
 # مفترَض: `compose exec`/`ps`/`up -d` بعدَها تتعاملُ مع الحاويةِ الوحيدةِ أيّاً كانَ رقمُها،
 # و`up -d` العامُّ لا يُعيدُ إنشاءَها لأنّ تعريفَها هو التعريفُ الحاليّ.
 roll_service() {
-    local svc=$1 old new status count waited=0
+    local svc=$1 old new status count waited=0 paths
+    case "$svc" in
+        backend)  paths="/admin/login /api/v1/marketplace/home" ;;
+        frontend) paths="/" ;;
+    esac
     old=$($COMPOSE ps -a -q "$svc")
     if [ -z "$old" ]; then
         # أوّلُ إقلاعٍ على هذا الخادم: لا قديمةَ تُستبدَل.
         $COMPOSE up -d --no-deps "$svc"
-        return
+        if [ "$svc" = backend ]; then warm_backend "$($COMPOSE ps -q backend)"; fi
+        return 0
     fi
     count=$(printf '%s\n' "$old" | wc -l)
     $COMPOSE up -d --no-deps --no-recreate --scale "$svc=$((count + 1))" "$svc"
@@ -278,12 +303,73 @@ roll_service() {
         waited=$((waited + 3))
     done
     echo "  ✓ $svc: الجديدةُ سليمةٌ بعدَ ${waited} ثانية"
+    if [ "$svc" = backend ]; then warm_backend "$new"; fi
     sleep 12
+
+    # ⛔ **القديمةُ تُطفَأُ ولا تُحذَف حتى يُجيبَ الموقعُ من الجديدةِ وحدَها.** الفحصُ
+    # الصحّيُّ يسألُ «هل المنفذُ مفتوح» لا «هل تُصيَّرُ صفحة»، و`/admin/login` ردَّت ٥٠٠
+    # مرّةً خلفَ فحصٍ صحّيٍّ أخضر. كانَ الفحصُ الدخانيُّ في آخرِ النشرة، بعدَ أن حُذِفَت
+    # القديمةُ، فلا يبقى ما يُعادُ إليه. الآن: إطفاءٌ، ثمّ ١١ ثانيةً كي ينسى مُحلِّلُ nginx
+    # عنوانَها (`valid=10s`)، ثمّ الفحصُ — وحينَ يفشلُ تُقلِعُ القديمةُ كما كانت وتُزالُ
+    # الجديدة. والحاويةُ المطفأةُ تخرجُ من DNS دوكر، فالطلباتُ كلُّها على الجديدة.
     # shellcheck disable=SC2086 # قائمةُ معرّفاتٍ تُفصَلُ عمداً
     docker stop -t 30 $old >/dev/null
+    sleep 11
+    # shellcheck disable=SC2086 # المساراتُ تُفصَلُ عمداً
+    if ! smoke $paths; then
+        echo "  ✗ $svc: الجديدةُ لا تُجيب — أُعيدَت القديمةُ وأُزيلَت الجديدة" >&2
+        # shellcheck disable=SC2086
+        docker start $old >/dev/null
+        docker logs --tail 40 "$new" >&2 || true
+        docker rm -f "$new" >/dev/null
+        exit 1
+    fi
     # shellcheck disable=SC2086
     docker rm $old >/dev/null
-    echo "  ✓ $svc: أُطفِئَت القديمة"
+    echo "  ✓ $svc: أُزيلَت القديمة"
+}
+
+# ⛔ **ذاكرةُ الإعداداتِ تُبنى في الحاويةِ الجديدةِ قبلَ أن تُطفَأَ القديمة** — كي يفحصَ
+# الفحصُ الدخانيُّ في `roll_service` ما سيبقى فعلاً، لا حاويةً بلا ذاكرة. `docker exec`
+# بمعرّفِ الحاوية لا `compose exec`: في تلك اللحظةِ نسختانِ من `backend`.
+#
+# ⚠️ بهذا الترتيب: `config:clear` قبلَ `config:cache`. ملفُّ ذاكرةٍ قديمٌ يحملُ
+# قيمَ `.env` السابقةَ ويتجاهلُ الجديدةَ بصمت — فتُقرأُ نشرةٌ صحيحةٌ على أنّها
+# إعدادٌ خاطئ.
+# ⚠️ `-u www-data`، وهو ما كان ناقصاً. `docker compose exec` يعملُ بصلاحيّةِ
+# **root**، و`view:cache` يكتبُ كلَّ قالبٍ مُصرَّفٍ مملوكاً لـroot — بينما حوضُ
+# PHP-FPM يعملُ بـ`www-data`. وBlade يستدعي `touch()` ليُطابِقَ زمنَ الملفِّ
+# المُصرَّفِ بالمصدر، و`utime()` لا يُسمَحُ بها إلّا لمالكِ الملفّ:
+#
+#     touch(): Utime failed: Operation not permitted   (BladeCompiler.php:215)
+#
+# فتردُّ **٥٠٠ كلُّ صفحةِ Blade** — `/admin/login` أوّلُها. ولا يظهرُ في فحصٍ
+# دخانيّ: `/` تخدمُها Next، و`/admin` تُحوِّلُ ٣٠٢ قبلَ تصييرِ أيِّ قالب.
+warm_backend() {
+    local c=$1
+    echo "  ▸ ذاكرةُ الإعداداتِ والمساراتِ والقوالب"
+    docker exec -u www-data "$c" php artisan config:clear
+    docker exec -u www-data "$c" php artisan config:cache
+    docker exec -u www-data "$c" php artisan route:cache
+    docker exec -u www-data "$c" php artisan view:cache
+    # وشبكةُ أمانٍ فوقَها: أيُّ `artisan` يُشغَّلُ يدويّاً بعدَ نشرةٍ (بذرٌ، `tinker`،
+    # تشخيص) يعملُ بـroot ويُعيدُ التلويثَ نفسَه. سطرٌ واحدٌ يُنظِّفُ الصنفَ كلَّه.
+    docker exec "$c" chown -R www-data:www-data storage bootstrap/cache
+}
+
+DOMAIN_NAME=$(sed -n 's/^DOMAIN=//p' docker/.env | head -1)
+
+# يطلبُ كلَّ مسارٍ من الموقعِ الحقيقيّ (عبرَ nginx وTLS) ويفشلُ إن ردَّ أحدُها بغيرِ 2xx/3xx.
+smoke() {
+    local path code failed=0
+    for path in "$@"; do
+        code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://${DOMAIN_NAME}${path}" || echo 000)
+        case "$code" in
+            2*|3*) printf '    ✓ %-28s %s\n' "$path" "$code" ;;
+            *)     printf '    ✗ %-28s %s\n' "$path" "$code"; failed=1 ;;
+        esac
+    done
+    return "$failed"
 }
 
 echo "▸ استبدالُ الخلفيّةِ بلا انقطاع"
@@ -313,27 +399,9 @@ echo "▸ الهجرات (تأكيدٌ بعدَ التبديل — لا يجدُ
 # كلَّ جدولٍ — كلَّ طالبٍ وكلَّ دفعةٍ وكلَّ تسجيل.
 $COMPOSE exec -T -u www-data backend php artisan migrate --force
 
-echo "▸ إعادةُ بناءِ ذاكرةِ الإعدادات"
-# ⚠️ بهذا الترتيب: `config:clear` قبلَ `config:cache`. ملفُّ ذاكرةٍ قديمٌ يحملُ
-# قيمَ `.env` السابقةَ ويتجاهلُ الجديدةَ بصمت — فتُقرأُ نشرةٌ صحيحةٌ على أنّها
-# إعدادٌ خاطئ.
-# ⚠️ `-u www-data`، وهو ما كان ناقصاً. `docker compose exec` يعملُ بصلاحيّةِ
-# **root**، و`view:cache` يكتبُ كلَّ قالبٍ مُصرَّفٍ مملوكاً لـroot — بينما حوضُ
-# PHP-FPM يعملُ بـ`www-data`. وBlade يستدعي `touch()` ليُطابِقَ زمنَ الملفِّ
-# المُصرَّفِ بالمصدر، و`utime()` لا يُسمَحُ بها إلّا لمالكِ الملفّ:
-#
-#     touch(): Utime failed: Operation not permitted   (BladeCompiler.php:215)
-#
-# فتردُّ **٥٠٠ كلُّ صفحةِ Blade** — `/admin/login` أوّلُها. ولا يظهرُ في فحصٍ
-# دخانيّ: `/` تخدمُها Next، و`/admin` تُحوِّلُ ٣٠٢ قبلَ تصييرِ أيِّ قالب.
-$COMPOSE exec -T -u www-data backend php artisan config:clear
-$COMPOSE exec -T -u www-data backend php artisan config:cache
-$COMPOSE exec -T -u www-data backend php artisan route:cache
-$COMPOSE exec -T -u www-data backend php artisan view:cache
+# ذاكرةُ الإعداداتِ (`config:cache` وأخواتُه) صارَت تُبنى داخلَ `roll_service` قبلَ الفحصِ
+# الدخانيّ وقبلَ إزالةِ القديمة: انظر `warm_backend` وقصّةَ `-u www-data` هناك.
 
-# وشبكةُ أمانٍ فوقَها: أيُّ `artisan` يُشغَّلُ يدويّاً بعدَ نشرةٍ (بذرٌ، `tinker`،
-# تشخيص) يعملُ بـroot ويُعيدُ التلويثَ نفسَه. سطرٌ واحدٌ يُنظِّفُ الصنفَ كلَّه.
-$COMPOSE exec -T backend chown -R www-data:www-data storage bootstrap/cache
 
 # ⚠️ ولا بذرةَ هنا، ولا حتى «للاحتياط». الفهارسُ التي تُقرَأُ وقتَ التشغيلِ
 # (قوالبُ الإشعاراتِ · فئاتُ البيانات · فهرسُ التلعيب) تُردَمُ بهجرةٍ تُشحَنُ مع
@@ -354,6 +422,16 @@ $COMPOSE exec -T -u www-data backend php artisan queue:restart
 $COMPOSE restart horizon scheduler
 
 echo "▸ تنظيفُ الصورِ القديمة"
+# `prune -f` يحذفُ ما لا وسمَ له فقط، فـ`:previous` و`:<sha>` تبقى. ويُبقى من وسومِ
+# الـsha آخرُ ثلاثةٍ لكلِّ صورة (القائمةُ مرتّبةٌ الأحدثَ أوّلاً)؛ الأقدمُ يُفَكُّ وسمُه، وصورةٌ
+# ما زالت حاويةٌ تستعملُها يرفضُ دوكر حذفَها فلا يُمَسُّ شيءٌ حيّ.
+for repo in elmotamayez-backend elmotamayez-frontend; do
+    # `|| true` على الأنبوبِ كلِّه: `grep` بلا سطرٍ يخرجُ بـ١، و`pipefail` يُسقِطُ النشرةَ به.
+    docker image ls "$repo" --format '{{.Tag}}' \
+        | grep -vxE 'latest|previous|<none>' | tail -n +4 \
+        | while read -r tag; do docker rmi "$repo:$tag" >/dev/null 2>&1 || true; done \
+        || true
+done
 docker image prune -f >/dev/null
 
 echo "▸ جدولةُ النسخةِ الاحتياطيّة"
@@ -373,23 +451,24 @@ crontab -l 2>/dev/null | grep -qF 'nginx -s reload' \
     || { (crontab -l 2>/dev/null; echo "$RELOAD_CRON") | crontab - && echo "  + أُضيفَت"; } \
     || echo "  ✗ تعذّرت الجدولة — الشهادةُ المُجدَّدةُ لن تُحمَّلَ بلا نشرة" >&2
 
+echo "▸ جدولةُ إعادةِ تشغيلِ الحاوياتِ المعتلّة"
+# ⚠️ `restart: unless-stopped` يُعيدُ حاويةً **ماتت**، لا حاويةً حيّةً فحصُها الصحّيُّ
+# `unhealthy` — مجدوِلٌ نبضتُه متوقّفةٌ أو Horizon متعطّلٌ يبقى كذلك حتى يلاحظَه إنسان.
+# كلَّ خمسِ دقائق، بالطريقةِ نفسِها أعلاه. وقاعدةُ البياناتِ مستثناةٌ في السكربت.
+AUTOHEAL_CRON='*/5 * * * * cd /srv/elmotamayez && bash scripts/autoheal.sh >> /var/log/elmotamayez-autoheal.log 2>&1'
+crontab -l 2>/dev/null | grep -qF 'scripts/autoheal.sh' \
+    || { (crontab -l 2>/dev/null; echo "$AUTOHEAL_CRON") | crontab - && echo "  + أُضيفَت"; } \
+    || echo "  ✗ تعذّرت الجدولة — الحاويةُ المعتلّةُ تبقى معتلّة" >&2
+
 echo "▸ فحصٌ دخانيّ"
 # ⚠️ **صفحةُ Blade واحدةٌ على الأقلّ، وهذا هو بيتُ القصيد.** كانت قائمةُ الفحصِ
 # كلُّها خضراءَ بينما `/admin/login` ترُدُّ ٥٠٠: `/` تخدمُها Next، و`/admin`
 # تُحوِّلُ ٣٠٢ **قبلَ** تصييرِ أيِّ قالب، و`/api` تُعيدُ JSON بلا Blade. فلا نقطةَ
 # واحدةً في القائمةِ كانت تُصرِّفُ قالباً — والشاشةُ الوحيدةُ التي يفتحُها إنسانٌ
 # ليدخلَ هي بالضبط الشاشةُ التي لم يفحصْها شيء.
-DOMAIN_NAME=$(sed -n 's/^DOMAIN=//p' docker/.env | head -1)
-FAILED=0
-for path in "/" "/api/v1/marketplace/home" "/admin/login"; do
-    code=$(curl -s -o /dev/null -w "%{http_code}" -m 30 "https://${DOMAIN_NAME}${path}" || echo 000)
-    case "$code" in
-        2*|3*) printf '  ✓ %-28s %s
-' "$path" "$code" ;;
-        *)     printf '  ✗ %-28s %s
-' "$path" "$code"; FAILED=1 ;;
-    esac
-done
-[ "$FAILED" -eq 0 ] || { echo "✗ النشرةُ تمّت والموقعُ لا يردّ — راجعْ فوراً." >&2; exit 1; }
+# وهذه الجولةُ الأخيرةُ بعدَ رفعِ كلِّ شيء؛ الأولى جرَت داخلَ `roll_service` قبلَ إزالةِ
+# كلِّ حاويةٍ قديمة. وحينَ تفشلُ هنا فالتراجعُ أمرٌ واحد: `bash scripts/rollback.sh`.
+smoke "/" "/api/v1/marketplace/home" "/admin/login" \
+    || { echo "✗ النشرةُ تمّت والموقعُ لا يردّ — راجعْ فوراً، أو: bash scripts/rollback.sh" >&2; exit 1; }
 
 echo "✓ تمّت النشرة: $(git rev-parse --short HEAD)"

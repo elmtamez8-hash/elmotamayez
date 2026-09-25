@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import type { Metadata } from "next";
 
-import { platformName } from "@/lib/platform";
 
 /**
  * The page for an address that leads nowhere.
@@ -27,9 +26,9 @@ import { platformName } from "@/lib/platform";
  * and the reason both of them name a next action rather than stating an absence.
  */
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: `الصفحة غير موجودة — ${await platformName()}` };
-}
+// Bare: the root layout's template already appends «| المنصّة», and a title
+// ending in the name printed it twice.
+export const metadata: Metadata = { title: "الصفحة غير موجودة" };
 
 /** Where somebody who lands here most plausibly wanted to be. */
 const WAYS_OUT: { href: string; label: string; hint: string }[] = [

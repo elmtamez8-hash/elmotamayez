@@ -6,8 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AssistantScopeForm } from "@/components/community/AssistantScopeForm";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { MembersIcon } from "@/components/icons";
@@ -115,13 +115,15 @@ export default function AssistantsPage() {
                 <h3 className="font-medium text-ink">{row.assistant?.name ?? "—"}</h3>
                 <p className="text-sm text-ink-muted">{scopeSummary(row)}</p>
               </div>
-              <Button
-                variant="danger"
+              {/* Two presses: ending the assignment cannot be taken back here —
+                  the assistant has to be invited to the team again. */}
+              <ConfirmButton
                 disabled={busy === row.uuid}
-                onClick={() => revoke(row.uuid)}
+                confirmLabel="اضغط مجدداً لإنهاء المهمة"
+                onConfirm={() => revoke(row.uuid)}
               >
                 إنهاء المهمة
-              </Button>
+              </ConfirmButton>
             </div>
 
             <AssistantScopeForm

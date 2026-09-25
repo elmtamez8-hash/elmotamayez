@@ -9,6 +9,7 @@ import { TextareaField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
@@ -74,9 +75,25 @@ export default function PrivateSessionQueuePage() {
         description="طلبات من طلابك على مواعيدك المعلَنة. لا تُنشأ حصة ولا يُخصم رصيد قبل موافقتك."
       />
 
-      {error && <Alert tone="danger" title="لم يكتمل الإجراء">{error}</Alert>}
+      {requests !== null && error !== null && (
+        <Alert tone="danger" title="لم يكتمل الإجراء">{error}</Alert>
+      )}
 
-      {requests === null && <p className="text-sm text-ink-muted">جارٍ التحميل…</p>}
+      {/* ⚠️ A failed first load is an error with a way out, never a
+          «جارٍ التحميل…» that stays on screen for ever. */}
+      {requests === null && error === null && (
+        <p className="text-sm text-ink-muted">جارٍ التحميل…</p>
+      )}
+
+      {requests === null && error !== null && (
+        <ErrorState
+          description={error}
+          onRetry={() => {
+            setError(null);
+            load();
+          }}
+        />
+      )}
 
       {requests !== null && requests.length === 0 && (
         <EmptyState

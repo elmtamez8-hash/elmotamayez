@@ -115,3 +115,20 @@ describe("the teacher's reschedule queue", () => {
     expect(queue.mock.calls.length).toBe(2);
   });
 });
+
+describe("a queue that could not be read", () => {
+  it("says so with a retry instead of loading for ever", async () => {
+    queue.mockRejectedValueOnce(new ApiError("Server Error", 500, null));
+
+    await open();
+
+    expect(screen.queryByText("جارٍ التحميل…")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "إعادة المحاولة" }));
+    });
+
+    expect(queue).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("سامي — حصة الفيزياء")).toBeDefined();
+  });
+});
