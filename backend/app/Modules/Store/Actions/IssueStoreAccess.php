@@ -12,6 +12,7 @@ use App\Modules\Store\Models\StoreOrder;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -96,28 +97,50 @@ class IssueStoreAccess extends Action
         }
 
         /*
-        | ⚠️ THE MINT RUNS FIRST, AND THE ORDER OF THESE TWO LINES IS THE WHOLE
-        | POINT. `MintPlaybackGrant` throws when the file is not playable yet — a
-        | book still transcoding — and a stamp written before it would close the
-        | refund window on a purchase that NEVER OPENED. The buyer reads
-        | «قيد التجهيز», taps again tomorrow, and is then told
-        | «فُتِح هذا الملف» about a file nobody has read. Nothing sweeps that
-        | back: the window is a clock, and it had already run out.
+        | ⚠️ THE STAMP IS CLAIMED FIRST, CONDITIONAL ON THE REFUND NOT HAVING
+        | HAPPENED, AND THE MINT RUNS INSIDE THE SAME TRANSACTION.
         |
-        | ⚠️ AND IT IS STILL CLAIMED, NOT ASSIGNED. Two grants minted at the same
-        | instant would both read the column as null and both write, moving the
-        | stamp forward and handing back a window that had already closed. One
-        | conditional UPDATE, the seat idiom; never `lockForUpdate()`, a no-op on
-        | SQLite.
+        | The open and the refund race over one row. This used to read
+        | `refunded_at` above, mint, and then stamp `first_accessed_at` on
+        | `WHERE first_accessed_at IS NULL` alone — while the refund read
+        | `first_accessed_at` OUTSIDE its transaction and claimed on
+        | `WHERE refunded_at IS NULL` alone. Interleaved, both won: the buyer
+        | held a grant to the file AND their money back. Each claim now names the
+        | OTHER column, so exactly one of the two can ever land.
+        |
+        | ⚠️ TWO STATEMENTS, AND ZERO ROWS ON THE FIRST IS NOT YET A REFUSAL. A
+        | second open of a file already opened is ordinary, and it also matches
+        | nothing. So a miss asks one more question — «refunded?» — and that
+        | answer cannot move afterwards: a refund needs `first_accessed_at IS
+        | NULL`, which an opened purchase never is again.
+        |
+        | ⚠️ AND THE TRANSACTION IS WHAT KEEPS THE WINDOW OPEN ON A FILE THAT
+        | NEVER OPENED. `MintPlaybackGrant` throws while a book is still
+        | transcoding; the stamp written just before it rolls back with it, so
+        | the buyer who read «قيد التجهيز» can still ask for the money back.
+        | Never `lockForUpdate()`, a no-op on SQLite.
         */
-        $grant = $this->mint->handle($asset, $buyer, $session, $ipHash);
+        return DB::transaction(function () use ($purchase, $asset, $buyer, $session, $ipHash): PlaybackGrant {
+            $stamped = StoreOrder::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($purchase->getKey())
+                ->whereNull('refunded_at')
+                ->whereNull('first_accessed_at')
+                ->update(['first_accessed_at' => now()]);
 
-        StoreOrder::query()
-            ->withoutWorkspaceScope()
-            ->whereKey($purchase->getKey())
-            ->whereNull('first_accessed_at')
-            ->update(['first_accessed_at' => now()]);
+            if ($stamped === 0) {
+                $stillPaid = StoreOrder::query()
+                    ->withoutWorkspaceScope()
+                    ->whereKey($purchase->getKey())
+                    ->whereNull('refunded_at')
+                    ->exists();
 
-        return $grant;
+                if (! $stillPaid) {
+                    throw new RuntimeException('استُرِدَّ ثمن هذا الطلب.');
+                }
+            }
+
+            return $this->mint->handle($asset, $buyer, $session, $ipHash);
+        });
     }
 }

@@ -10,6 +10,7 @@ use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\ReverseCourseOrder;
+use App\Modules\Payments\Actions\SettleRefundDue;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
@@ -423,6 +424,53 @@ class OrderResource extends Resource
             });
     }
 
+    /**
+     * «تمّ الردّ» — المالُ المستحَقُّ للمشتري أُرسِلَ إليه.
+     *
+     * ⛔ `refund_due` لم يكنْ له مخرج: المتجرُ يكتبُه (استردادُ المشتري داخلَ
+     * المهلة، ونفادُ النسخِ بعدَ الدفع) ولا شيءَ يقرؤُه — فالطلبُ يبقى معلّقاً
+     * والدفعةُ «محصَّلة» في تقريرِ التحصيلِ إلى الأبد.
+     *
+     * ⚠️ الزرُّ يُنادي {@see SettleRefundDue} وحدَه. والحارسانِ حارسا «عكس
+     * الدفع» بعينِهما: `authorize('reverse')` — وهو لطلبِ المتجرِ صلاحيّةُ
+     * المنصّةِ الماليّة (`billing.purchase.approve`) عبرَ `platformReads()` —
+     * والتحقّقُ بخطوتَينِ يُسأَلُ بيدٍ لأنّ `/admin` لا يمرُّ بوسيطِ `2fa.required`.
+     */
+    public static function settleRefundAction(): Action
+    {
+        return Action::make('settleRefund')
+            ->label('تمّ الردّ')
+            ->icon(Heroicon::OutlinedBanknotes)
+            ->color('warning')
+            ->visible(fn (Order $record): bool => $record->status === OrderStatus::RefundDue->value)
+            ->authorize('reverse')
+            ->requiresConfirmation()
+            ->modalHeading('تسجيل ردّ المبلغ')
+            ->modalDescription('أكِّد بعد أن تُرسِل المبلغ إلى المشتري فعلاً: تُسجَّل الدفعة معكوسةً ويُغلَق الطلب، ويصل المشتري إشعار. لا تراجُعَ عن هذا من الشاشة.')
+            ->schema([
+                Textarea::make('reason')
+                    ->label('بيان الردّ')
+                    ->required()
+                    ->maxLength(500)
+                    ->helperText('رقم التحويل أو وسيلة الردّ. يصل هذا النصّ إلى المشتري مع الإشعار.'),
+            ])
+            ->action(function (Order $record, array $data): void {
+                if (self::refusedForTwoFactor()) {
+                    return;
+                }
+
+                try {
+                    app(SettleRefundDue::class)->handle($record, self::actor(), (string) $data['reason']);
+                } catch (DomainException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->persistent()->send();
+
+                    return;
+                }
+
+                Notification::make()->success()->title('سُجِّل ردّ المبلغ وأُغلق الطلب')->send();
+            });
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -460,6 +508,7 @@ class OrderResource extends Resource
                         'pending' => 'warning',
                         'under_review' => 'info',
                         'rejected', 'cancelled' => 'danger',
+                        'refund_due' => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('approver.email')
@@ -481,6 +530,7 @@ class OrderResource extends Resource
                 self::approveAction(),
                 self::rejectAction(),
                 self::reverseAction(),
+                self::settleRefundAction(),
             ]);
     }
 
