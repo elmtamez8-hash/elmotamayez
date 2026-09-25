@@ -17,6 +17,7 @@ use App\Modules\Settlement\Enums\TeachingUnitStatus;
 use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
 use Tests\Support\FakeBroadcastProvider;
@@ -60,6 +61,9 @@ beforeEach(function (): void {
     // Prepaid is the default, so a seat has to be paid for before it can be
     // taken. The subject of this file is not money; the funding is fixture.
     fundBooking($this->workspace, $student, $this->course);
+    // A 1:1 lesson minutes away is this fixture's premise, not the booking under
+    // test — the lead time (`LeadTime`) is not what this file measures.
+    PlatformSettings::set('sessions.min_lead_minutes', 0);
     app(BookSeat::class)->handle($this->session->refresh(), $student);
 
     $this->session->refresh()->forceFill(['billable_seats' => 1])->save();

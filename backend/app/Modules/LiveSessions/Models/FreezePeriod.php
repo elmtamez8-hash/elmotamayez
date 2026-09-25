@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\LiveSessions\Events\FreezePeriodChanged;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonImmutable;
@@ -117,7 +118,14 @@ class FreezePeriod extends BaseModel
         //
         // The next-day form is correct whichever way the value was stored, and
         // both halves stay plain column comparisons, so the index survives.
-        $moment = CarbonImmutable::instance($moment);
+        //
+        // ⛔ AND «THE DAY» IS THE PLATFORM'S DAY, NOT UTC'S. The period's dates
+        // were picked off a Doha calendar, and a UTC `toDateString()` put a
+        // lesson at 01:00 Doha on the day BEFORE — so the first three hours of
+        // every frozen day were bookable and the first three of the day after
+        // were not. Same zone `startingInside()` and `SubscriptionDays` read.
+        $zone = app(SessionSettings::class)->timezone();
+        $moment = CarbonImmutable::instance($moment)->setTimezone($zone);
         $day = $moment->toDateString();
         $nextDay = $moment->addDay()->toDateString();
 

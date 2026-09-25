@@ -19,7 +19,9 @@ use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Enums\SubscriptionStatus;
+use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
+use App\Modules\Payments\Listeners\ActivateSubscription;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
@@ -28,6 +30,7 @@ use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Events\CallQueuedListener;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
@@ -466,4 +469,47 @@ it('claims the group seats of the extension days when a later freeze moves the e
     $windowEnd = new ReflectionProperty(ClaimSubscriptionSeatsJob::class, 'windowEnd');
 
     Queue::assertPushed(ClaimSubscriptionSeatsJob::class, fn (ClaimSubscriptionSeatsJob $job): bool => $windowEnd->getValue($job) === $end);
+});
+
+it('claims the seats for the group the student is actually in, and gives the approved group its place back once', function (): void {
+    /*
+    | The membership moved between the approval and the (queued) activation.
+    | `joinCohort()` said «the seats are claimed for the group they are actually
+    | in» and then returned — so no seat was claimed anywhere, and the place
+    | `ApproveOrder` claimed in the named group stayed taken by nobody.
+    */
+    Queue::fake([CallQueuedListener::class, ClaimSubscriptionSeatsJob::class]);
+
+    $order = approveIt(orderForCohort());
+
+    expect($this->cohort->refresh()->members_count)->toBe(1);
+
+    $other = cohortNamed('مجموعة الأحد');
+
+    CohortMembership::query()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => $other->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+        'joined_at' => now(),
+    ]);
+
+    $activate = fn () => app(ActivateSubscription::class)->handle(new PaymentApproved($order->refresh()));
+
+    $activate();
+
+    $cohortId = new ReflectionProperty(ClaimSubscriptionSeatsJob::class, 'cohortId');
+
+    Queue::assertPushed(ClaimSubscriptionSeatsJob::class, fn (ClaimSubscriptionSeatsJob $job): bool => $cohortId->getValue($job) === (int) $other->getKey());
+    Queue::assertNotPushed(ClaimSubscriptionSeatsJob::class, fn (ClaimSubscriptionSeatsJob $job): bool => $cohortId->getValue($job) === (int) $this->cohort->getKey());
+
+    expect($this->cohort->refresh()->members_count)->toBe(0);
+
+    // A retried activation must not give the place back a second time — here,
+    // taking a real member's place off the count.
+    $this->cohort->forceFill(['members_count' => 1])->save();
+
+    $activate();
+
+    expect($this->cohort->refresh()->members_count)->toBe(1);
 });

@@ -144,4 +144,73 @@ describe("the student's own booking", () => {
     expect(screen.getAllByText("محجوز")).toHaveLength(1);
     expect(screen.getByText("أُلغي في المهلة")).toBeTruthy();
   });
+
+  /*
+   | ⛔ A seat given up in time, or taken back by the system, could never be booked
+   | again: the server refused it and this row drew a badge and nothing else. The
+   | server revives the row now, so the button comes back — except after a LATE
+   | cancellation, whose seat is still counted and still charged.
+   */
+  it("offers «احجز» again after an in-time cancellation or a release, and an undo after a late one", () => {
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({
+            uuid: "in-time",
+            my_booking: { uuid: "a", status: "cancelled_in_window", status_label: "ملغى ضمن المهلة", may_cancel_until: "" },
+          }),
+          upcoming({
+            uuid: "released",
+            my_booking: { uuid: "b", status: "released", status_label: "مقعد محرَّر", may_cancel_until: "" },
+          }),
+          upcoming({
+            uuid: "late",
+            // Full, because the late-cancelled seat is still counted — and the
+            // undo returns to that very chair, so a full room must not hide it.
+            seats: { total: 6, taken: 6, available: 0 },
+            my_booking: { uuid: "c", status: "cancelled_late", status_label: "ملغى بعد المهلة", may_cancel_until: "" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "احجز" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "تراجع عن الإلغاء" })).toHaveLength(1);
+    expect(screen.getByText("ملغى ضمن المهلة")).toBeTruthy();
+    expect(screen.getByText("مقعد محرَّر")).toBeTruthy();
+    expect(screen.getByText("ملغى بعد المهلة")).toBeTruthy();
+  });
+
+  it("undoes a late cancellation and shows the seat as held again", async () => {
+    post.mockResolvedValue({ uuid: "c" });
+
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({ my_booking: { uuid: "c", status: "cancelled_late", status_label: "ملغى بعد المهلة", may_cancel_until: "" } }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "تراجع عن الإلغاء" }));
+
+    expect(await screen.findByText("محجوز")).toBeTruthy();
+    expect(post).toHaveBeenCalledWith("/class-sessions/s-9/book", {});
+  });
+
+  it("books a released seat again and then shows it as held", async () => {
+    post.mockResolvedValue({ uuid: "b" });
+
+    render(
+      <SessionsTab
+        sessions={[
+          upcoming({ my_booking: { uuid: "b", status: "released", status_label: "مقعد محرَّر", may_cancel_until: "" } }),
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "احجز" }));
+
+    expect(await screen.findByText("محجوز")).toBeTruthy();
+    expect(screen.queryByText("مقعد محرَّر")).toBeNull();
+    expect(post).toHaveBeenCalledWith("/class-sessions/s-9/book", {});
+  });
 });

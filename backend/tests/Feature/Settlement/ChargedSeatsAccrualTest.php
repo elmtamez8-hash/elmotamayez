@@ -100,6 +100,10 @@ function paidOnSeat(ClassSession $session): User
     $test->setCurrentWorkspace($test->workspace, $test->owner);
     fundBooking($test->workspace, $student, $test->course);
 
+    // A 1:1 lesson minutes away is this fixture's premise, not the booking under
+    // test — the lead time (`LeadTime`) is not what this file measures.
+    PlatformSettings::set('sessions.min_lead_minutes', 0);
+
     app(BookSeat::class)->handle($session->refresh(), $student);
 
     return $student;

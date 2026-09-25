@@ -661,6 +661,15 @@ class NotificationTemplateSeeder extends Seeder
                 ['student_name', 'sessions'],
             ],
             /*
+            | A lifted workspace freeze: the lessons are back, the seat is not
+            | taken for the student — they book it themselves if they still want it.
+            */
+            NotificationType::SessionSeatReopened->value => [
+                'حصص عادت إلى الجدول',
+                'انتهى التجميد وعادت هذه الحصص إلى الجدول: {{ sessions }}. مقعدك لم يُحجز تلقائيّاً — احجزه من صفحة الحصة إن أردت الحضور.',
+                ['sessions'],
+            ],
+            /*
             | ٠٣٤ · FR-019 — باقةٌ أنشأَتها الإدارةُ باسمِ المدرّس.
             |
             | ⚠️ **السعرُ في المتن.** الباقةُ تُباعُ باسمِ المدرّسِ بسعرٍ لم يضعْه،
