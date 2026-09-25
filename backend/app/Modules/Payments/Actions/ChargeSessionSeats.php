@@ -143,6 +143,11 @@ class ChargeSessionSeats extends Action
         |
         | So the seat holders win. They are the fact; the frozen count is an
         | optimisation of it, and a missing optimisation does not erase the fact.
+        |
+        | ⚠️ `Settlement\Actions\AccrueTeachingUnits` repeats this rule for the
+        | teacher's side of the same hour (the isolation test forbids sharing
+        | code across that line). Change one, change both — or the student pays
+        | for a seat the teacher is paid «empty room» compensation for.
         */
         if ($billableSeats === 0) {
             Log::warning('006: charging a delivered session whose frozen seat count is missing', [

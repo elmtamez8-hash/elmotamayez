@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Actions\ReleasePendingUnits;
 use App\Modules\Settlement\Enums\TeachingUnitStatus;
+use App\Modules\Settlement\Models\LedgerEntry;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
@@ -140,4 +141,47 @@ it('never holds a unit when the bound provider cannot record at all', function (
 
     expect($unit->status)->toBe(TeachingUnitStatus::Accrued)
         ->and($unit->accrued_at)->not->toBeNull();
+});
+
+it('releases a unit once when two runners overlap on it', function (): void {
+    deliver();
+
+    $this->session->refresh()->forceFill(['recording_status' => 'published'])->save();
+
+    /*
+     * ⚠️ THE OTHER RUNNER WINS INSIDE THE WINDOW, single-threaded.
+     *
+     * The sweep runs every fifteen minutes on a supervisor with several workers,
+     * so two runs both READING a unit as pending is ordinary. A sequential
+     * «release, then release again» proves nothing: the second run's read already
+     * excludes the released row. The window is between the read and the write,
+     * and a `retrieved` hook is inside it — the competing write lands the moment
+     * this runner has loaded the unit, exactly as a second worker's would.
+     *
+     * Proved by knock-out: with the `status = pending_package` condition removed
+     * from the claim, this runner writes over the winner, dispatches a second
+     * accrual, and the ledger carries a line nobody else wrote.
+     */
+    $raced = false;
+
+    TeachingUnit::retrieved(function (TeachingUnit $unit) use (&$raced): void {
+        if ($raced || $unit->status !== TeachingUnitStatus::PendingPackage) {
+            return;
+        }
+
+        $raced = true;
+
+        TeachingUnit::query()->whereKey($unit->getKey())->update([
+            'status' => TeachingUnitStatus::Accrued->value,
+            'accrued_at' => now(),
+        ]);
+    });
+
+    $released = app(ReleasePendingUnits::class)->handle($this->session->refresh());
+
+    // The winner's own accrual event is not part of this fixture, so any ledger
+    // line here was written by the LOSER — a second payment for one hour.
+    expect($raced)->toBeTrue()
+        ->and($released)->toBe(0)
+        ->and(LedgerEntry::query()->count())->toBe(0);
 });

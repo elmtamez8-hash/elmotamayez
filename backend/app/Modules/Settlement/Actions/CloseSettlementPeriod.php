@@ -111,6 +111,83 @@ class CloseSettlementPeriod extends Action
                 'status' => TeachingUnitStatus::Settled->value,
                 'settled_at' => now(),
             ]);
+
+        $this->stampReversals($period);
+    }
+
+    /**
+     * Claim the corrections whose original has already been paid for — or is
+     * being paid for by this very close.
+     *
+     * ⚠️ A REVERSAL WAS NEVER CLAIMED, SO IT NEVER REDUCED ANYBODY'S PAY. It is
+     * written with `status = reversed`, which the `accrued` filter above can never
+     * see, and its negative ledger line hangs off the REVERSAL row's id — so
+     * `stampEntries()` did not take it either. The −amount sat unstamped for
+     * ever, outside every `freezeTotals()`, and the teacher was paid the unit in
+     * full. (The open-window statement did show it, which is how two screens
+     * disagreed about one hour.)
+     *
+     * NO DATE FILTER, for the reason a deduction has none: a correction is typed
+     * AFTER the fact, and its `delivered_at` is copied from the original — so a
+     * window filter on it would drop every reversal of an hour already closed,
+     * i.e. exactly the ones that matter. It lands in the first close after it was
+     * written, like any other adjustment.
+     *
+     * ⚠️ BUT ONLY ONCE ITS ORIGINAL IS STAMPED. A correction of a unit still
+     * waiting for its package, or delivered after this window, travels with that
+     * unit: claiming it now would take the money off this teacher in one period
+     * and hand it back in a later one, with a carried shortfall in between that
+     * nothing actually owed. `stampUnits()` runs first, so an original settled by
+     * this same close already counts.
+     *
+     * The status stays `reversed` — only the period is written — because it is
+     * what the statement reads to keep a correction out of the session counts.
+     *
+     * Discovery and write are two statements, ids passed as values:
+     * `UPDATE teaching_units … WHERE reversal_of_id IN (SELECT id FROM
+     * teaching_units …)` is MySQL ERROR 1093, which SQLite rewrites silently and
+     * therefore never reports.
+     */
+    private function stampReversals(SettlementPeriod $period): void
+    {
+        $candidates = TeachingUnit::query()
+            ->where('teacher_profile_id', $period->teacher_profile_id)
+            ->whereNull('settlement_period_id')
+            ->where('status', TeachingUnitStatus::Reversed->value)
+            ->where('reversal_of_id', '!=', TeachingUnit::NOT_A_REVERSAL)
+            ->pluck('reversal_of_id', 'id');
+
+        if ($candidates->isEmpty()) {
+            return;
+        }
+
+        $stampedOriginals = [];
+
+        foreach (array_chunk(array_values(array_unique($candidates->all())), 1000) as $chunk) {
+            foreach (TeachingUnit::query()
+                ->whereIn('id', $chunk)
+                ->whereNotNull('settlement_period_id')
+                ->pluck('id') as $id) {
+                $stampedOriginals[(int) $id] = true;
+            }
+        }
+
+        $claimable = $candidates
+            ->filter(static fn (mixed $originalId): bool => isset($stampedOriginals[(int) $originalId]))
+            ->keys()
+            ->all();
+
+        foreach (array_chunk($claimable, 1000) as $chunk) {
+            TeachingUnit::query()
+                ->whereIn('id', $chunk)
+                // Repeated, so a row another close claimed in between is not
+                // claimed twice.
+                ->whereNull('settlement_period_id')
+                ->update([
+                    'settlement_period_id' => $period->getKey(),
+                    'settled_at' => now(),
+                ]);
+        }
     }
 
     /**
@@ -123,7 +200,8 @@ class CloseSettlementPeriod extends Action
      * still refuses every per-instance edit, and a test pins that.
      *
      * Entries are claimed by their unit, plus every standalone line — a deduction
-     * or a bonus, which have no unit behind them.
+     * or a bonus, which have no unit behind them. A reversal's negative line
+     * rides in on its reversal row, which `stampReversals()` has just claimed.
      *
      * Standalone lines carry NO date filter, deliberately. A unit has a
      * `delivered_at` that says which window it belongs to; an administrative
@@ -158,8 +236,12 @@ class CloseSettlementPeriod extends Action
      */
     private function freezeTotals(SettlementPeriod $period): void
     {
+        // Originals only. A correction is stamped for its money, not as a second
+        // hour taught — counting it would report more work than was delivered,
+        // the reason the statement already leaves it out of its own counts.
         $unitsCount = TeachingUnit::query()
             ->where('settlement_period_id', $period->getKey())
+            ->where('reversal_of_id', TeachingUnit::NOT_A_REVERSAL)
             ->count();
 
         $entries = LedgerEntry::query()

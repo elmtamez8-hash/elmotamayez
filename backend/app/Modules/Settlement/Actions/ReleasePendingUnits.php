@@ -48,21 +48,42 @@ class ReleasePendingUnits extends Action
 
         $fault = $this->package->isRecordingFault($session);
 
-        foreach ($units as $unit) {
-            $unit->forceFill([
-                'status' => TeachingUnitStatus::Accrued,
-                'pending_reason' => null,
-                // Released even though the recording never arrived. Not the
-                // teacher's fault, so not the teacher's loss (FR-008ج) — recorded
-                // rather than hidden, because a provider failing often is
-                // something somebody should be able to count.
-                'recording_fault' => $fault,
-                'accrued_at' => now(),
-            ])->save();
+        $released = 0;
 
-            TeachingUnitAccrued::dispatch($unit);
+        foreach ($units as $unit) {
+            /*
+            | ⚠️ A CLAIM, NOT A SAVE. The read above and the write here are two
+            | statements, and two runners overlap by design: the sweep that calls
+            | this runs every fifteen minutes on a supervisor with several
+            | workers, beside the recording listener. Both read the unit as
+            | pending; with `save()` both wrote `accrued` and both dispatched —
+            | and `ledger_entries.teaching_unit_id` carries no unique index, so
+            | the teacher was paid the hour twice. The condition on the UPDATE is
+            | the check AND the claim; only the runner that moved the row earns
+            | it. Never `lockForUpdate()`, a no-op on SQLite.
+            */
+            $claimed = TeachingUnit::query()
+                ->whereKey($unit->getKey())
+                ->where('status', TeachingUnitStatus::PendingPackage->value)
+                ->update([
+                    'status' => TeachingUnitStatus::Accrued->value,
+                    'pending_reason' => null,
+                    // Released even though the recording never arrived. Not the
+                    // teacher's fault, so not the teacher's loss (FR-008ج) —
+                    // recorded rather than hidden, because a provider failing
+                    // often is something somebody should be able to count.
+                    'recording_fault' => $fault,
+                    'accrued_at' => now(),
+                ]);
+
+            if ($claimed !== 1) {
+                continue;
+            }
+
+            TeachingUnitAccrued::dispatch($unit->refresh());
+            $released++;
         }
 
-        return $units->count();
+        return $released;
     }
 }
