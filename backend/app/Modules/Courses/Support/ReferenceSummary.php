@@ -8,6 +8,7 @@ use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 
@@ -123,7 +124,7 @@ final class ReferenceSummary
      */
     private static function sessionState(ClassSession $session): string
     {
-        if ($session->recording_status === 'published') {
+        if ($session->recording_status === RecordingStatus::Published) {
             return 'recorded';
         }
 
@@ -137,7 +138,7 @@ final class ReferenceSummary
 
         // Still being fetched or transcoded — a real state, and a different one
         // from "there will never be a recording".
-        return in_array($session->recording_status, ['pending', 'ingesting'], true)
+        return $session->recording_status?->isProcessing() === true
             ? 'processing'
             : 'unavailable';
     }

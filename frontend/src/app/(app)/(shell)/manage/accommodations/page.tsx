@@ -12,16 +12,9 @@ import { Table, type Column } from "@/components/ui/Table";
 import { ClockIcon } from "@/components/icons";
 import { accommodations, type Accommodation } from "@/lib/accommodations";
 import { fieldErrors } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
-import { billing } from "@/lib/billing";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDate } from "@/lib/labels";
-import { can, P } from "@/lib/permissions";
-
-type Student = { uuid: string; name: string };
-
-/** A class longer than this many pages of fifty is not a picker's job. */
-const MAX_PAGES = 20;
+import { useTeacherStudents } from "@/lib/use-teacher-students";
 
 /**
  * Extra time and extra days for one student (spec 008 · FR-053 · FR-055).
@@ -29,22 +22,17 @@ const MAX_PAGES = 20;
  * ⚠️ THE PICKER OFFERS THE TEACHER'S OWN STUDENTS ONLY. The server answers 404
  * both for «no such person» and «not your student» — on purpose, so a uuid can
  * not be probed — which means a free-typed uuid would fail with a sentence that
- * cannot say why. The list is read from the balances panel, which walks every
- * ACTIVE enrolment in the workspace; it is one row per enrolment, so a student
- * in two courses is folded into one option.
+ * cannot say why. The list comes from `useTeacherStudents()`, which reads the
+ * same predicate the server checks.
  *
  * ⚠️ AND A REVOCATION ASKS FIRST. The student's longer timer disappears on their
  * next attempt with nothing telling them why.
  */
 export default function AccommodationsPage() {
-  const { user } = useAuth();
-  const canPickStudents = can(user, P.billingBalanceView);
+  const { canPick: canPickStudents, students, failed: studentsFailed } = useTeacherStudents();
 
   const [rows, setRows] = useState<Accommodation[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
-
-  const [students, setStudents] = useState<Student[] | null>(null);
-  const [studentsFailed, setStudentsFailed] = useState(false);
 
   const [studentUuid, setStudentUuid] = useState("");
   const [extraTime, setExtraTime] = useState("");
@@ -73,43 +61,6 @@ export default function AccommodationsPage() {
   }, []);
 
   useEffect(load, [load]);
-
-  useEffect(() => {
-    if (!canPickStudents) return;
-
-    let cancelled = false;
-
-    (async () => {
-      const seen = new Map<string, string>();
-      let page = 1;
-      let last = 1;
-
-      do {
-        const response = await billing.students(page);
-
-        for (const row of response.data ?? []) {
-          if (!seen.has(row.student_uuid)) seen.set(row.student_uuid, row.student_name);
-        }
-
-        last = response.meta?.last_page ?? 1;
-        page += 1;
-      } while (page <= last && page <= MAX_PAGES);
-
-      if (!cancelled) {
-        setStudents(
-          [...seen.entries()]
-            .map(([uuid, name]) => ({ uuid, name }))
-            .sort((a, b) => a.name.localeCompare(b.name, "ar")),
-        );
-      }
-    })().catch(() => {
-      if (!cancelled) setStudentsFailed(true);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canPickStudents]);
 
   const grant = async () => {
     setSaving(true);

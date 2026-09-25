@@ -9,6 +9,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\Section;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Events\MediaAssetReady;
 
@@ -48,7 +49,7 @@ class PublishRecordingAsLesson
             // and a lesson is a node in one. Recorded, not published — the
             // teacher is told and can place it themselves, which is better than
             // inventing a course nobody asked for.
-            $session->forceFill(['recording_status' => 'no_course'])->save();
+            $session->forceFill(['recording_status' => RecordingStatus::NoCourse])->save();
 
             return;
         }
@@ -109,7 +110,7 @@ class PublishRecordingAsLesson
         // prevent, against the one writer they cannot see coming.
         $lesson->course?->increment('structure_version');
 
-        $session->forceFill(['recording_status' => 'published'])->save();
+        $session->forceFill(['recording_status' => RecordingStatus::Published])->save();
     }
 
     /**

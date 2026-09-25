@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Http\Resources;
 
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -182,7 +183,7 @@ class ClassSessionResource extends JsonResource
                 fn (): ?string => $this->teacherProfile?->user?->name,
             ),
             'recording' => $this->recording_status === null ? null : [
-                'status' => $this->recording_status,
+                'status' => $this->recording_status->value,
                 // The uuid is the route in. Publishing a lesson and not saying
                 // where it is has already cost this product a whole phase.
                 'lesson_uuid' => $this->recordingLessonUuid(),
@@ -211,7 +212,7 @@ class ClassSessionResource extends JsonResource
      */
     private function recordingLessonUuid(): ?string
     {
-        if ($this->recording_status !== 'published') {
+        if ($this->recording_status !== RecordingStatus::Published) {
             return null;
         }
 

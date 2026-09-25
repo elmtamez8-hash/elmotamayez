@@ -12,10 +12,11 @@ import { Modal } from "@/components/ui/Modal";
 import { NumberField, TextField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { PlayIcon, SessionsIcon, SettingsIcon, UsersIcon } from "@/components/icons";
+import { LockIcon, PlayIcon, SessionsIcon, SettingsIcon, UsersIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { AttendanceSheet } from "@/components/sessions/AttendanceSheet";
+import { UnlockExemptions } from "@/components/sessions/UnlockExemptions";
 import {
   attendance,
   classSessions,
@@ -24,8 +25,10 @@ import {
   type ClassSession,
 } from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { timezoneLabel, counted, NOUNS } from "@/lib/labels";
+import { can, P } from "@/lib/permissions";
 import { formatSessionTime } from "@/lib/session-format";
 
 /**
@@ -42,6 +45,7 @@ export default function ManageSessionPage({
   params: Promise<{ uuid: string }>;
 }) {
   const { uuid } = use(params);
+  const { user } = useAuth();
 
   const [session, setSession] = useState<ClassSession | null>(null);
   const [rows, setRows] = useState<AttendanceRow[]>([]);
@@ -227,6 +231,24 @@ export default function ManageSessionPage({
               حفظ التعديل
             </Button>
           </div>
+        </Card>
+      )}
+
+      {/* The one door to FR-040: a session the unlock rule shuts for one student
+          can be opened for that student here, with a reason. Only while the
+          session can still be booked or joined — an exemption on a lesson that
+          is over opens nothing. */}
+      {can(user, P.unlockRulesManage) && !ROOMLESS.has(session.status) && (
+        <Card>
+          <div className="mb-4">
+            <SectionHeading
+              id="unlock-exemptions"
+              Icon={LockIcon}
+              title="استثناء من شرط الفتح"
+              description="اسمح لطالبٍ بعينه بحجز هذه الحصة ودخولها وإن لم يستوفِ شرط الحصة السابقة."
+            />
+          </div>
+          <UnlockExemptions sessionUuid={session.uuid} />
         </Card>
       )}
 

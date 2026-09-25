@@ -156,17 +156,6 @@ export const plans = {
   /** The subscriptions this student holds — live ones and finished ones. */
   mine: () => api.get<{ data: Subscription[] }>("/billing/subscriptions"),
 
-  /**
-   * ⚠️ THE ANSWER IS AN ORDER, NOT A SUBSCRIPTION. A manual bank transfer takes
-   * days, so nothing is opened until the money is witnessed — the screen has to
-   * say «ستبدأ باقتك عند اعتماد الدفعة» rather than showing an active month.
-   */
-  buy: (planUuid: string) =>
-    api.post<{ data: { uuid: string; amount_minor: number; currency: string } }>(
-      "/billing/subscriptions",
-      { plan_uuid: planUuid },
-    ),
-
   /** The teacher's own plans — including the ones awaiting a price. */
   manage: {
     list: () => api.get<{ data: Plan[] }>("/manage/plans"),
@@ -279,6 +268,42 @@ export function planShape(plan: Pick<Plan, "duration_days" | "session_count">): 
   }
 
   return planDuration(plan.duration_days);
+}
+
+/**
+ * Where «اشترِ» on `/plans` sends the student — the one subscription screen,
+ * never a second purchase call beside it.
+ *
+ * ⛔ THIS REPLACES `plans.buy`, WHICH HAD FAILED ON EVERY PRESS SINCE 2026-09-05.
+ * It posted `{ plan_uuid }` alone, and 027 made `mode` required on
+ * `POST /billing/subscriptions` (`PurchaseSubscriptionRequest`), so the button
+ * answered 422 «نوع الاشتراك مطلوب» for every student. `/subscribe` builds the
+ * whole body — mode, group, the guardian's child — and uploads the receipt.
+ *
+ * `/subscribe` reads the mode from the address: a `cohort` means a group
+ * subscription, its absence a private one. So:
+ *
+ * - a private (one-to-one) plan → `/subscribe?course=…&mode=private`;
+ * - a group plan written for ONE group → `/subscribe?course=…&cohort=…`;
+ * - any other group plan → the course page, where the student picks the group.
+ *   Sending it to `/subscribe` with no group would open it in PRIVATE mode,
+ *   whose list filters group plans out — the plan the student chose would not
+ *   be on the screen they were sent to.
+ */
+export function planCheckoutHref(
+  courseUuid: string,
+  plan: Pick<Plan, "session_type" | "coverage_type" | "coverage_uuid">,
+): string {
+  const course = encodeURIComponent(courseUuid);
+
+  if (plan.session_type === "individual") return `/subscribe?course=${course}&mode=private`;
+
+  if (plan.coverage_type === "cohort" && plan.coverage_uuid !== null) {
+    return `/subscribe?course=${course}&cohort=${encodeURIComponent(plan.coverage_uuid)}`;
+  }
+
+  // The uuid opens the public course page (it 308s to the slug).
+  return `/courses/${course}`;
 }
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {

@@ -19,6 +19,7 @@ import type { Curriculum } from "@/lib/curriculum";
 import type { CourseDetail } from "@/lib/public-api";
 import { api } from "@/lib/api";
 import { homePathFor, teachesOnPlatform, useAuth } from "@/lib/auth-context";
+import { dashboardAudience } from "@/lib/dashboard-audience";
 import { openCourseTab } from "@/components/marketplace/CourseTabs";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
@@ -425,7 +426,7 @@ function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
   // would refuse to enrol them anyway, so the button says so and takes them home.
   // Teaching is read from the pivot role (`teachesOnPlatform`), never from
   // `platform_role` alone — that column is null for students a teacher created.
-  if (user !== null && (user.platform_role === "parent" || teachesOnPlatform(user))) {
+  if (user !== null && (dashboardAudience(user) === "guardian" || teachesOnPlatform(user))) {
     return (
       <div className="flex flex-col gap-2">
         <Link href={homePathFor(user)} className={className}>

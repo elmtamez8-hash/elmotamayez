@@ -292,6 +292,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
      | module binds the session. Both answers come from one resolver.
      */
     Route::get('/manage/unlock-rules', [UnlockRuleController::class, 'index']);
+    Route::get('/manage/class-sessions/{session}/unlock-exemptions', [UnlockRuleController::class, 'exemptions']);
 
     Route::middleware('throttle:authoring')->group(function (): void {
         Route::post('/manage/unlock-rules', [UnlockRuleController::class, 'store']);

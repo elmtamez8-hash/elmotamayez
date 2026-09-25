@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -85,7 +86,7 @@ it('re-sends the ingest for a recording still pending', function (): void {
     sweep();
 
     expect((int) $this->session->refresh()->recording_attempts)->toBe(1)
-        ->and($this->session->recording_status)->toBe('pending');
+        ->and($this->session->recording_status)->toBe(RecordingStatus::Pending);
 });
 
 /*
@@ -118,7 +119,7 @@ it('settles on failed at the limit and tells the teacher', function (): void {
 
     expect((int) $this->session->refresh()->recording_attempts)->toBe($limit)
         // Named, not "قيد المعالجة" for ever. This is the whole of SC-004.
-        ->and($this->session->recording_status)->toBe('failed');
+        ->and($this->session->recording_status)->toBe(RecordingStatus::Failed);
 
     expect(
         Notification::query()
@@ -173,7 +174,7 @@ it('sweeps a session the ingest job never wrote to', function (): void {
 
     sweep();
 
-    expect($this->session->refresh()->recording_status)->toBe('pending')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending)
         ->and((int) $this->session->recording_attempts)->toBe(1);
 });
 
@@ -250,7 +251,7 @@ it('survives a provider outage by leaving the session retryable', function (): v
 
     app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
 
-    expect($this->session->refresh()->recording_status)->toBe('pending')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending)
         ->and((int) $this->session->recording_attempts)->toBe(1);
 });
 
@@ -421,7 +422,7 @@ it('spends one attempt however many times a backlog replays the sweep', function
     }
 
     expect((int) $this->session->refresh()->recording_attempts)->toBe(1)
-        ->and($this->session->recording_status)->toBe('pending');
+        ->and($this->session->recording_status)->toBe(RecordingStatus::Pending);
 
     $this->travel(15)->minutes();
     sweep();
@@ -477,7 +478,7 @@ it('spends no attempt while the media provider is still transcoding', function (
     expect((int) $this->session->refresh()->recording_attempts)->toBe(0)
         // `pending`, not `ingesting`: the sweep must keep it in view, and the state
         // that means "the hand-off had begun" is not the state that means "come back".
-        ->and($this->session->recording_status)->toBe('pending');
+        ->and($this->session->recording_status)->toBe(RecordingStatus::Pending);
 });
 
 /*
@@ -504,7 +505,7 @@ it('gives up at once when the media provider reports a failure', function (): vo
 
     app()->call([new IngestSessionRecordingJob((int) $this->session->getKey()), 'handle']);
 
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and((int) $this->session->recording_attempts)
         ->toBe(app(SessionSettings::class)->recordingMaxAttempts());
 });
