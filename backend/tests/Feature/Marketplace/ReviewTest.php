@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Actions\ModerateReview;
+use App\Modules\Marketplace\Actions\Public\ShowPublicTeacher;
 use App\Modules\Marketplace\Actions\SubmitReview;
 use App\Modules\Marketplace\Jobs\RecalculateTrustScoreJob;
 use App\Modules\Marketplace\Models\Review;
@@ -174,6 +175,30 @@ it('drops a hidden review from the public payload and the average', function ():
         // Hidden, not deleted: deleting would free the unique pair and hand the
         // author a second slot.
         ->and(Review::query()->withoutWorkspaceScope()->count())->toBe(2);
+});
+
+it('counts every visible review but loads only the page it shows', function (): void {
+    /*
+    | The summary is aggregated in SQL and the list is LIMITed, so the two can
+    | disagree in exactly one way that matters: the totals must describe every
+    | visible review, not the page. A limit of two over three reviews is where a
+    | summary accidentally computed from the loaded rows would show.
+    */
+    foreach ([5, 4, 4] as $rating) {
+        postReview(studentWhoAttendedWith($this->teacher), $this->teacher->uuid, $rating);
+    }
+
+    postReview(studentWhoAttendedWith($this->teacher), $this->teacher->uuid, 1, 'إساءة');
+    app(ModerateReview::class)->handle(Review::query()->withoutWorkspaceScope()->where('rating', 1)->firstOrFail());
+
+    [$queries, $payload] = countingQueries(fn () => app(ShowPublicTeacher::class)->reviewsOf($this->teacher, 2));
+
+    expect($payload['total'])->toBe(3)
+        ->and($payload['average'])->toBe(4.33)
+        ->and((array) $payload['distribution'])->toBe(['5' => 1, '4' => 2, '3' => 0, '2' => 0, '1' => 0])
+        ->and($payload['items'])->toHaveCount(2)
+        // The aggregate, the page, and its two eager loads — whatever the count.
+        ->and($queries)->toBe(4);
 });
 
 it('refuses moderation without the permission', function (): void {

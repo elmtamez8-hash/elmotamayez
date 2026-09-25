@@ -188,7 +188,7 @@ class ScheduleController extends Controller
             ->orderBy('starts_at')
             // The Resource asks every published session where its recording went,
             // and reads the viewer's booking off the loaded relation.
-            ->with(ClassSession::studentEagerLoads())
+            ->with(ClassSession::studentEagerLoads($user))
             ->first();
 
         if ($session === null) {
@@ -270,7 +270,7 @@ class ScheduleController extends Controller
             ->tap(fn ($query) => CohortSessionVisibility::apply($query, $user))
             // The Resource asks every published session where its recording went,
             // and reads the viewer's own booking off the loaded relation.
-            ->with(ClassSession::studentEagerLoads());
+            ->with(ClassSession::studentEagerLoads($user));
 
         $ahead = $base()->where('ends_at', '>=', now())->orderBy('starts_at')->limit(50)->get();
         $behind = $base()->where('ends_at', '<', now())->orderByDesc('starts_at')->limit(50)->get();

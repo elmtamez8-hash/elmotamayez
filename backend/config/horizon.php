@@ -179,16 +179,27 @@ return [
         /*
         | Spec 010 — the community queue.
         |
-        | Two very different jobs share it, and the tighter one sets the number.
         | An announcement fan-out is what a teacher is standing there watching:
         | they publish "the lesson moved to seven", and every minute this queue
         | spends backed up is a minute three hundred families do not know. The
-        | report-card render behind it is nightly housekeeping nobody waits on.
+        | report cards used to share it and now have their own (below), so a
+        | month-end build can no longer queue ahead of an announcement.
         |
         | ⚠️ AND A PAIR ABSENT FROM THIS LIST IS NOT WATCHED AT A DEFAULT, IT IS
         | NOT WATCHED — see the note at the top of this array.
         */
         'redis-long:community' => 60,
+
+        /*
+        | The monthly report-card build and its PDF renders.
+        |
+        | Loose, because the build fans out into one job per chunk of students
+        | plus one render per card — thousands of jobs arriving at once on the
+        | 2nd of the month, all of it housekeeping nobody is standing in front
+        | of. An hour behind is a slow build; the alert is for a queue that has
+        | stopped draining at all.
+        */
+        'redis-long:report-cards' => 3600,
     ],
 
     /*
@@ -423,22 +434,17 @@ return [
         ],
 
         /*
-        | Announcement fan-out and report-card rendering, on their own workers
-        | (spec 010).
+        | Announcement fan-out, on its own workers (spec 010).
         |
-        | ⚠️ THE TIMEOUT IS SET BY THE PDF, NOT BY THE FAN-OUT. The fan-out is
-        | chunked precisely so it never needs more than `supervisor-1` gives —
-        | but mPDF assembling a term's grades with an embedded Arabic font is a
-        | single unsplittable call, and sixty seconds is where that gets killed
-        | mid-document with nothing to resume from. Five minutes is measured
-        | against that and nothing else.
+        | ⚠️ THE REPORT CARDS LEFT THIS SUPERVISOR FOR `supervisor-report-cards`
+        | BELOW. The monthly build dispatches one job per chunk of students and
+        | one PDF render per card — thousands of five-minute-class jobs landing
+        | together — and on a shared queue every announcement published that
+        | morning waited behind all of them. The timeout and memory here were set
+        | by the PDF and are kept, so a fan-out that grows never meets a tighter
+        | ceiling than it had.
         |
-        | `memory` is above supervisor-1's for the same reason: the font and the
-        | document live in memory together for the length of one render.
-        |
-        | `tries: 1` like every other supervisor here. A half-written card is not
-        | fixed by rendering it again — the card row already exists and the
-        | scheduled build is what notices it has no file.
+        | `tries: 1` like every other supervisor here.
         |
         | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE. `defaults`
         | supplies shared VALUES; `environments` decides which supervisors
@@ -459,6 +465,44 @@ return [
             'tries' => 1,
             'timeout' => 300,
             'nice' => 5,
+        ],
+
+        /*
+        | The monthly report-card build and its PDF renders.
+        |
+        | ⚠️ THE BUILD IS FANNED OUT, AND THIS IS THE WORKER IT FANS OUT ONTO.
+        | `BuildReportCardsJob` only lists the period's students and dispatches
+        | `BuildStudentReportCardsJob` per chunk of them; each chunk, and each
+        | `RenderReportCardJob`, finishes well inside the timeout. The build used
+        | to be ONE job walking the whole platform, killed at 300 seconds past a
+        | few thousand students with nothing re-running it.
+        |
+        | ⚠️ THE TIMEOUT IS SET BY THE PDF: mPDF assembling a term's grades with an
+        | embedded Arabic font is a single unsplittable call. `memory` for the
+        | same reason — the font and the document live in memory together.
+        |
+        | `tries: 1`. A chunk is idempotent (the card is claimed by its unique
+        | key, a published card is skipped), so the recovery for a failed one is
+        | to dispatch the period's build again, not an automatic retry storm.
+        |
+        | `nice` below the fan-out's: a card that renders a minute later is
+        | invisible, an announcement that goes out a minute later is not.
+        |
+        | ⚠️ AND IT IS LISTED IN `environments` BELOW, NOT ONLY HERE — a
+        | supervisor defined only in defaults is a queue with no worker.
+        */
+        'supervisor-report-cards' => [
+            'connection' => 'redis-long',
+            'queue' => ['report-cards'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 300,
+            'nice' => 10,
         ],
     ],
 
@@ -498,6 +542,14 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+
+            // Two: the month-end build is thousands of jobs, and one process
+            // would drain them for hours. Not more — every chunk walks grades
+            // and attendance across the platform, and the 2nd of the month
+            // still has students on it.
+            'supervisor-report-cards' => [
+                'maxProcesses' => 2,
+            ],
         ],
 
         'local' => [
@@ -518,6 +570,10 @@ return [
             ],
 
             'supervisor-community' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-report-cards' => [
                 'maxProcesses' => 1,
             ],
         ],

@@ -149,27 +149,39 @@ class RollUpLeaderboards extends Action
             ->where('award_entries.created_at', '<', $to)
             ->groupBy('scope_id', 'award_entries.student_user_id');
 
+        /*
+        | ⚠️ `cursor()`, NEVER `get()` AND NEVER `lazy()`. `get()` hydrated the
+        | whole platform board — one object per (scope, student), six scopes deep —
+        | before writing the first row. `lazy()` pages with LIMIT/OFFSET, which
+        | re-runs this window-function aggregate once per page over the whole
+        | period: the `chunk`-vs-`chunkById` defect with a GROUP BY in front of it.
+        | `cursor()` runs the statement once and yields as it goes.
+        */
         $ranked = DB::query()
             ->fromSub($sub, 'totals')
             ->selectRaw('scope_id, student_user_id, points, level_band')
             ->selectRaw(
                 'ROW_NUMBER() OVER (PARTITION BY scope_id, level_band ORDER BY points DESC, student_user_id) as position',
             )
-            ->get();
+            ->cursor();
 
         $written = 0;
 
         foreach ($ranked->chunk(self::CHUNK) as $chunk) {
+            /** @var array<string, array{uuid: string, scope_key: string, period_key: string, user_id: int, points: int, level_band: int, rank: int, run_stamp: string, created_at: \DateTimeInterface, updated_at: \DateTimeInterface}> $rows */
             $rows = [];
 
             foreach ($chunk as $row) {
-                $rows[] = [
+                $scopeKey = $scope->keyFor((string) $row->scope_id);
+                $userId = (int) $row->student_user_id;
+
+                $rows[$scopeKey.'|'.$userId] = [
                     // Explicit, as everywhere a Query Builder write happens here:
                     // no model is booted, so HasUuid never fires.
                     'uuid' => (string) Str::uuid(),
-                    'scope_key' => $scope->keyFor((string) $row->scope_id),
+                    'scope_key' => $scopeKey,
                     'period_key' => $periodKey,
-                    'user_id' => (int) $row->student_user_id,
+                    'user_id' => $userId,
                     'points' => (int) $row->points,
                     'level_band' => (int) $row->level_band,
                     'rank' => (int) $row->position,
@@ -179,16 +191,71 @@ class RollUpLeaderboards extends Action
                 ];
             }
 
-            DB::table('leaderboard_entries')->upsert(
-                $rows,
-                ['scope_key', 'period_key', 'user_id'],
-                ['points', 'level_band', 'rank', 'run_stamp', 'updated_at'],
-            );
-
             $written += count($rows);
+
+            $this->writeChanged($rows, $periodKey, $runStamp);
         }
 
         return $written;
+    }
+
+    /**
+     * Write the rows whose standing moved; only re-stamp the ones that did not.
+     *
+     * ⚠️ AN UNCHANGED ROW IS STILL STAMPED, OR THE SWEEP DELETES IT. The sweep at
+     * the end of `handle()` removes every row of the period not carrying this
+     * pass's stamp — so a row skipped outright would take its student off the
+     * board. The stamp is written by PRIMARY KEY, matched on the exact
+     * `(scope_key, user_id)` pair in PHP: the read is `whereIn × whereIn`, a
+     * cross product, and stamping from it directly would keep a student whose
+     * standing in ANOTHER scope of this chunk had been reversed away.
+     *
+     * What is saved is the rest of the row: the unchanged majority of a board no
+     * longer rewrites `points`, `level_band` and `rank`, so it never touches
+     * `leaderboard_read_index`, which carries two of them.
+     *
+     * @param  array<string, array{uuid: string, scope_key: string, period_key: string, user_id: int, points: int, level_band: int, rank: int, run_stamp: string, created_at: \DateTimeInterface, updated_at: \DateTimeInterface}>  $rows  keyed by "scope_key|user_id"
+     */
+    private function writeChanged(array $rows, string $periodKey, string $runStamp): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $existing = DB::table('leaderboard_entries')
+            ->where('period_key', $periodKey)
+            ->whereIn('scope_key', array_values(array_unique(array_column($rows, 'scope_key'))))
+            ->whereIn('user_id', array_values(array_unique(array_column($rows, 'user_id'))))
+            ->get(['id', 'scope_key', 'user_id', 'points', 'level_band', 'rank']);
+
+        $unchanged = [];
+
+        foreach ($existing as $entry) {
+            $key = $entry->scope_key.'|'.$entry->user_id;
+            $fresh = $rows[$key] ?? null;
+
+            if ($fresh !== null
+                && (int) $entry->points === $fresh['points']
+                && (int) $entry->level_band === $fresh['level_band']
+                && (int) $entry->rank === $fresh['rank']) {
+                $unchanged[] = (int) $entry->id;
+                unset($rows[$key]);
+            }
+        }
+
+        if ($unchanged !== []) {
+            DB::table('leaderboard_entries')
+                ->whereIn('id', $unchanged)
+                ->update(['run_stamp' => $runStamp]);
+        }
+
+        if ($rows !== []) {
+            DB::table('leaderboard_entries')->upsert(
+                array_values($rows),
+                ['scope_key', 'period_key', 'user_id'],
+                ['points', 'level_band', 'rank', 'run_stamp', 'updated_at'],
+            );
+        }
     }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} */

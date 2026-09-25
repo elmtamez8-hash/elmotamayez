@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 
@@ -135,4 +136,55 @@ it('shows the booked seat on the course\'s sessions tab', function (): void {
 
     expect($row)->not->toBeNull()
         ->and($row['my_booking'] ?? null)->not->toBeNull();
+});
+
+it('loads the reader\'s own seat and not the session\'s whole register', function (): void {
+    /*
+    | ⚠️ BOTH HALVES, OR THE TEST GUARDS ONE MISTAKE AND REWARDS THE OTHER. The
+    | Resource finds the reader's booking off the loaded relation, so narrowing
+    | the load WRONGLY (to nobody, or to a classmate) makes `my_booking` null
+    | while the page gets cheaper. So: a classmate books first, the reader still
+    | sees their OWN seat on all three student doors, and the query that loads
+    | seats names the reader.
+    */
+    $classmate = User::factory()->create();
+    $this->createEnrollment($this->workspace, $this->course, $classmate);
+    fundBooking($this->workspace, $classmate, $this->course);
+
+    Sanctum::actingAs($classmate);
+    $this->asGuest();
+    $this->postJson("/api/v1/class-sessions/{$this->uuid}/book")->assertCreated();
+
+    Sanctum::actingAs($this->student);
+    $this->asGuest();
+    $mine = (string) $this->postJson("/api/v1/class-sessions/{$this->uuid}/book")->assertCreated()->json('uuid');
+    $this->asGuest();
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    $this->getJson("/api/v1/class-sessions/{$this->uuid}")
+        ->assertOk()
+        ->assertJsonPath('my_booking.uuid', $mine);
+
+    $tab = collect($this->getJson("/api/v1/courses/{$this->course->uuid}/sessions")->assertOk()->json('data'))
+        ->firstWhere('uuid', $this->uuid);
+
+    $this->getJson("/api/v1/courses/{$this->course->uuid}/next-session")
+        ->assertOk()
+        ->assertJsonPath('data.my_booking.uuid', $mine);
+
+    $seatLoads = collect(DB::getQueryLog())
+        ->pluck('query')
+        ->filter(fn (string $sql): bool => str_starts_with($sql, 'select * from "session_bookings" where "session_bookings"."class_session_id" in'))
+        ->values();
+    DB::disableQueryLog();
+
+    expect($tab['my_booking']['uuid'] ?? null)->toBe($mine)
+        // show, the tab's two windows, and next.
+        ->and($seatLoads)->not->toBeEmpty();
+
+    foreach ($seatLoads as $sql) {
+        expect($sql)->toContain('"student_user_id" = ?');
+    }
 });

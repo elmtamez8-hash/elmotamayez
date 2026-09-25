@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Actions\GetStudentSchedule;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -68,6 +69,33 @@ it('gives the student ONE schedule across every teacher', function (): void {
     expect($bookings)->toHaveCount(2)
         ->and($bookings->pluck('class_session_id')->all())
         ->toEqualCanonicalizing([$this->sessionA->getKey(), $this->sessionB->getKey()]);
+});
+
+it('orders the timetable by the lesson\'s start and reads ONE booking for next()', function (): void {
+    /*
+    | The order used to be a PHP sort over every upcoming booking, loaded with
+    | its session, course and teacher; the countdown asked for one and paid for
+    | the term. The order now comes from SQL, so it is asserted against two
+    | sessions created in the OPPOSITE order to their start times — an
+    | id-ordered read would pass a test where the two agree.
+    */
+    ClassSession::query()->withoutWorkspaceScope()->whereKey($this->sessionA->getKey())
+        ->update(['starts_at' => now()->addDays(3), 'ends_at' => now()->addDays(3)->addHour()]);
+    ClassSession::query()->withoutWorkspaceScope()->whereKey($this->sessionB->getKey())
+        ->update(['starts_at' => now()->addDay(), 'ends_at' => now()->addDay()->addHour()]);
+
+    expect(app(GetStudentSchedule::class)->handle($this->student)->pluck('class_session_id')->all())
+        ->toBe([$this->sessionB->getKey(), $this->sessionA->getKey()]);
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+    $next = app(GetStudentSchedule::class)->next($this->student);
+    $bookingRead = collect(DB::getQueryLog())->pluck('query')
+        ->first(fn (string $sql): bool => str_starts_with($sql, 'select * from "session_bookings"'));
+    DB::disableQueryLog();
+
+    expect($next?->class_session_id)->toBe($this->sessionB->getKey())
+        ->and($bookingRead)->toContain('limit 1');
 });
 
 it('does not duplicate the student per teacher', function (): void {
