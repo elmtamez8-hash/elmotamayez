@@ -56,6 +56,9 @@ class StoreOrderResource extends JsonResource
             'refunded_at' => $this->refunded_at?->toIso8601String(),
             'is_refundable' => $this->refunded_at === null
                 && $this->first_accessed_at === null
+                // The printed copy on its way: refunded by the administration,
+                // never by a button here (owner decision 2026-09-25).
+                && ! $this->resource->printedCopyHasLeftTheShelf()
                 && $this->refundDeadlineHasNotPassed(),
             'purchased_at' => $this->created_at?->toIso8601String(),
             'item' => new StoreItemResource($this->whenLoaded('item')),

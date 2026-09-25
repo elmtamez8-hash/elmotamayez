@@ -23,6 +23,7 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
 use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
@@ -459,6 +460,24 @@ function groupCohortIdFor(int $courseId, int $workspaceId): int
         'course_id' => $courseId,
         'name' => 'مجموعة الاختبار',
     ])->getKey();
+}
+
+/**
+ * Put a student in the course's test group — the one `groupCohortIdFor()` names.
+ *
+ * ⚠️ THE BOOKING DOOR ASKS FOR IT (owner decision 2026-09-25): a seat in a
+ * group's session goes only to a current member of that group, so a fixture
+ * that books one has to place its student first, exactly as a teacher would.
+ */
+function joinTestGroup(User $student, int $courseId, int $workspaceId): void
+{
+    CohortMembership::query()->create([
+        'workspace_id' => $workspaceId,
+        'cohort_id' => groupCohortIdFor($courseId, $workspaceId),
+        'course_id' => $courseId,
+        'student_user_id' => $student->getKey(),
+        'joined_at' => now(),
+    ]);
 }
 
 /**

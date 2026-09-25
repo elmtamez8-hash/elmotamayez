@@ -162,6 +162,20 @@ class EloquentCohortDirectory implements CohortDirectory
             ->exists();
     }
 
+    public function mayHoldSeatIn(User $user, int $cohortId): bool
+    {
+        $owner = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($cohortId)
+            ->value('individual_for_user_id');
+
+        if ($owner !== null) {
+            return (int) $owner === (int) $user->getKey();
+        }
+
+        return $this->isCurrentMember($user, $cohortId);
+    }
+
     public function isCurrentMember(User $user, int $cohortId): bool
     {
         return CohortMembership::query()

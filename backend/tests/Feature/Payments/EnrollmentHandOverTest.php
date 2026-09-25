@@ -7,10 +7,12 @@ use App\Modules\Learning\Actions\EnrollStudent;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Payments\Actions\ApproveOrder;
+use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Actions\PurchaseSubscription;
 use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\EnrollmentDirectory;
 use Carbon\CarbonImmutable;
@@ -70,6 +72,45 @@ it('keeps a renewed subscription open when the first month runs out', function (
     handOverExpire($first);
 
     expect(handOverEnrollment()->status)->toBe('active');
+});
+
+/*
+| ⛔ CANCELLING A RENEWAL THAT HAS NOT STARTED MUST NOT CUT OFF THE MONTH THAT IS
+| STILL RUNNING (verified 2026-09-25). A covers today → +30; renewal B is chained
+| after it and approved now, so `handOver()` moves the one enrolment row to B's
+| order at approval. Cancelling B then closed that row through
+| `SubscriptionAccess::close(B)` — and the student lost the rest of A, which is
+| paid and still active.
+*/
+it('hands the course back to the running month when a not-yet-started renewal is cancelled', function (): void {
+    $running = handOverBuy();
+    $renewal = handOverBuy();
+
+    expect($renewal->starts_on->greaterThan($running->starts_on))->toBeTrue()
+        ->and(handOverEnrollment()->order_id)->toBe((int) $renewal->order_id);
+
+    app(CancelSubscription::class)->handle($renewal, 'تراجع الطالب عن التجديد');
+
+    $enrollment = handOverEnrollment();
+
+    expect($enrollment->status)->toBe('active')
+        ->and($enrollment->order_id)->toBe((int) $running->order_id)
+        // Back on the running month's clock — not open-ended, not B's end.
+        ->and($enrollment->expires_at?->toDateString())
+        ->toBe(app(SubscriptionDays::class)->endOf(CarbonImmutable::parse($running->effective_ends_on))->toDateString());
+
+    // And the running month's own end still closes it.
+    handOverExpire($running->refresh());
+
+    expect(handOverEnrollment()->status)->toBe('expired');
+});
+
+it('still closes the course when the cancelled subscription is the only one', function (): void {
+    $only = handOverBuy();
+
+    app(CancelSubscription::class)->handle($only, 'طلب الطالب');
+
+    expect(handOverEnrollment()->status)->toBe('expired');
 });
 
 it('reopens the course for a student who pays again after a lapse', function (): void {

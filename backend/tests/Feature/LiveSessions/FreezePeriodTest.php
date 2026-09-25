@@ -58,6 +58,8 @@ function frozenLearner(): User
     // Prepaid is the default, so a seat has to be paid for before it can be
     // taken. The subject of this file is a holiday, not money.
     fundBooking($test->workspace, $student, $test->course);
+    // A seat in a group's session goes to a member of that group.
+    joinTestGroup($student, (int) $test->course->getKey(), (int) $test->workspace->getKey());
 
     return $student;
 }

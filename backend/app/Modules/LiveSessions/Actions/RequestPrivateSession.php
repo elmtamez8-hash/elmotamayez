@@ -106,7 +106,12 @@ class RequestPrivateSession extends Action
             'type' => ClassSessionType::Individual,
         ]);
 
-        $refusal = $this->eligibility->refusalReason($probe, $student);
+        // The course half too (owner decision 2026-09-25): the teacher's grant
+        // goes through `BookSeat::claimGrantedSeat()`, which asks it — so a
+        // request for a course the student is not enrolled in would otherwise be
+        // accepted here and refused at the teacher's press.
+        $refusal = $this->eligibility->bookingScopeRefusal($probe, $student)
+            ?? $this->eligibility->refusalReason($probe, $student);
 
         if ($refusal !== null) {
             throw new DomainException($refusal);

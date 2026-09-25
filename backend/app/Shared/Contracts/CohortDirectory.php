@@ -122,6 +122,19 @@ interface CohortDirectory
     public function isCurrentMember(User $user, int $cohortId): bool;
 
     /**
+     * Whether a seat in a session filed under this cohort may go to this student
+     * (owner decision 2026-09-25).
+     *
+     * ⚠️ NOT `isCurrentMember()`, AND THE DIFFERENCE IS THE ONE-TO-ONE GROUP. A
+     * group cohort is answered by an open membership. An individual cohort has
+     * NO membership row at all — `ensureIndividualCohort()` deliberately opens
+     * none, or it would close the student's weekly group — so asking membership
+     * there refuses the very student the private hour was created for. It is
+     * theirs by `individual_for_user_id`, and nobody else's.
+     */
+    public function mayHoldSeatIn(User $user, int $cohortId): bool;
+
+    /**
      * Every cohort this student has EVER belonged to, closed ones included.
      *
      * ⚠️ THE BULK TWIN OF {@see wasEverMember()}, and it exists for the reason
