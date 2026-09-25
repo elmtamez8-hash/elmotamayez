@@ -71,7 +71,7 @@ it('renders a card to a real PDF with the shipped Arabic font', function (): voi
      * metrics for the family; with a cache present this test passes against a
      * font it never opened.
      */
-    $cache = storage_path('app/mpdf');
+    $cache = storage_path('app/mpdf/v2');
 
     if (is_dir($cache)) {
         foreach ((array) glob($cache.'/*') as $stale) {
@@ -125,4 +125,31 @@ it('ships a STATIC font, because mPDF cannot read a variable one', function (): 
      */
     expect($tables)->not->toContain('fvar');
     expect($tables)->not->toContain('gvar');
+});
+
+it('renders a name carrying stacked diacritics, which the font once refused', function (): void {
+    /*
+    | Cairo's `mkmk` lookups carry the UseMarkFilteringSet flag, and mPDF throws
+    | «contains MarkGlyphSets - Not tested yet» the moment one applies — i.e. on a
+    | shadda with a vowel stacked on it. That is a student called «محمّدٌ» getting
+    | no report card at all. The flag is cleared in both shipped fonts; this is the
+    | name that proves it, rendered with no cached metrics.
+    */
+    $this->student->forceFill(['first_name' => 'محمّدٌ', 'last_name' => 'سالمٌ'])->save();
+
+    $cache = storage_path('app/mpdf/v2');
+
+    if (is_dir($cache)) {
+        foreach ((array) glob($cache.'/*') as $stale) {
+            if (is_string($stale) && is_file($stale)) {
+                unlink($stale);
+            }
+        }
+    }
+
+    $card = ReportCard::query()->where('student_user_id', $this->student->getKey())->firstOrFail();
+
+    app()->call([new RenderReportCardJob($card->getKey()), 'handle']);
+
+    expect($card->refresh()->getMedia('report_card_pdf'))->toHaveCount(1);
 });
