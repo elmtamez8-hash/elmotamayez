@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Actions\AccrueTeachingUnits;
 use App\Modules\Settlement\Enums\SettlementBasis;
@@ -131,4 +133,40 @@ it('pays nothing for an empty session the teacher never delivered', function ():
     app(CloseClassSession::class)->handle($this->session->refresh());
 
     expect(TeachingUnit::query()->count())->toBe(0);
+});
+
+it('pays a normal unit when the seat was booked AFTER the count froze at zero', function (): void {
+    // Compensation ON, so the old routing is visible: it paid 40% of one seat
+    // as «an empty room» for a room that was not empty.
+    PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
+    PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
+
+    /*
+     * The count froze at zero at the cancellation deadline, and `BookSeat` does
+     * not refuse a booking after it — so a student booked, attended, and billing
+     * CHARGED them (it counts the seat holders when the frozen count is zero:
+     * `ChargeSessionSeats`). The teacher's side must read the same fact.
+     */
+    $student = User::factory()->create();
+
+    SessionBooking::factory()->create([
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $student->getKey(),
+    ]);
+
+    Attendance::factory()->create([
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => $student->getKey(),
+        'first_joined_at' => now(),
+    ]);
+
+    app(AccrueTeachingUnits::class)->handle($this->session->refresh(), 0);
+
+    $units = TeachingUnit::query()->get();
+
+    expect($units)->toHaveCount(1)
+        ->and($units->first()->student_user_id)->toBe($student->getKey())
+        ->and($units->first()->basis)->toBe(SettlementBasis::FrozenSeat)
+        ->and($units->first()->amount_minor)->toBe(5000)
+        ->and($units->first()->frozen_seats)->toBe(1);
 });
