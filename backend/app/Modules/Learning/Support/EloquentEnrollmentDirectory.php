@@ -120,6 +120,44 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
         ];
     }
 
+    /**
+     * @param  list<int>  $courseIds
+     * @return array<int, CarbonImmutable|null>
+     */
+    public function accessEndsFor(User $user, array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        $ends = [];
+
+        $rows = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->whereIn('course_id', $courseIds)
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
+            ->get(['course_id', 'expires_at']);
+
+        foreach ($rows as $row) {
+            $courseId = (int) $row->course_id;
+            $expires = $row->expires_at === null ? null : CarbonImmutable::parse($row->expires_at);
+
+            if (! array_key_exists($courseId, $ends)) {
+                $ends[$courseId] = $expires;
+
+                continue;
+            }
+
+            // Open-ended wins; otherwise the later of the two.
+            if ($ends[$courseId] !== null) {
+                $ends[$courseId] = $expires === null ? null : $ends[$courseId]->max($expires);
+            }
+        }
+
+        return $ends;
+    }
+
     /** @return list<array{student_user_id: int, workspace_id: int}> */
     public function enrolledPairsInPeriod(CarbonImmutable $from, CarbonImmutable $to): array
     {

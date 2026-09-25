@@ -124,6 +124,24 @@ interface EnrollmentDirectory
     public function accessHorizonFor(int $workspaceId): array;
 
     /**
+     * Until when this user's access to each of these courses runs.
+     *
+     * Keyed by course id, and only for a course the user holds a granting
+     * enrolment in — an absent key means no access at all. The value is the
+     * LATEST `expires_at` across those enrolments, or null when any of them is
+     * open-ended (null `expires_at` is access that does not expire, the default
+     * shape of an enrolment here — the same trap `accessHorizonFor()` names).
+     *
+     * Asked where «is the student enrolled» is not enough: a subscription whose
+     * end moved earlier still has its enrolment open, and what decides a seat is
+     * whether the access runs to that seat's HOUR.
+     *
+     * @param  list<int>  $courseIds
+     * @return array<int, CarbonImmutable|null>
+     */
+    public function accessEndsFor(User $user, array $courseIds): array;
+
+    /**
      * Every (student, workspace) pair whose enrolment overlapped a period
      * (010 · FR-036).
      *
