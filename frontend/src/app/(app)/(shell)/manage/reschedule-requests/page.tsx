@@ -10,8 +10,9 @@ import { TextareaField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
-import { formatSessionTime } from "@/lib/session-format";
+import { formatSessionTimeWithZone } from "@/lib/session-format";
 import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-requests";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * The teacher's queue of postponement asks (spec 049).
@@ -27,6 +28,7 @@ import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-req
  * still waiting, so it is asked again — which is this same queue, twice.
  */
 export default function RescheduleQueuePage() {
+  const zone = useViewerTimeZone();
   const [requests, setRequests] = useState<RescheduleRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
@@ -99,9 +101,9 @@ export default function RescheduleQueuePage() {
                   teacher open their calendar to find out what is being given
                   up — which is the one fact the decision turns on. */}
               <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <span className="text-ink-muted line-through">{formatSessionTime(request.from_starts_at, request.timezone)}</span>
+                <span className="text-ink-muted line-through">{formatSessionTimeWithZone(request.from_starts_at, zone)}</span>
                 <ChevronEndIcon className="h-4 w-4 text-ink-muted" />
-                <span className="font-bold">{formatSessionTime(request.to_starts_at, request.timezone)}</span>
+                <span className="font-bold">{formatSessionTimeWithZone(request.to_starts_at, zone)}</span>
               </p>
 
               {request.student_reason !== null && (

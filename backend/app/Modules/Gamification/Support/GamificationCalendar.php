@@ -16,12 +16,18 @@ use DateTimeInterface;
  * Letting each compute its own boundary is how a student finds yesterday's cap
  * still in force after midnight while the board has already rolled over.
  *
- * ⚠️ IT READS THE EXISTING `sessions.timezone` SETTING, NOT A NEW KEY. The
- * platform's timezone has one source (`SESSIONS_TIMEZONE`, which
- * `notifications.default_timezone` and the scheduler both derive from); adding a
- * second is precisely the mistake this class exists to prevent, one level up.
- * An operator moving the platform to a second market changes one row — and if the gamification day did not follow, the
- * daily cap would silently drift away from the class schedule.
+ * ⚠️ IT READS THE PLATFORM ZONE THROUGH `SessionSettings::timezone()`, NOT A NEW
+ * KEY — and since 2026-09-25 that is `SESSIONS_TIMEZONE` and nothing else. Until
+ * then it read a `platform_settings` row the panel could edit while the
+ * scheduler and `notifications.default_timezone` read the environment, so this
+ * comment's «one source» was two until somebody saved the panel. The row is
+ * gone, the panel field is read-only, and moving the platform's day means
+ * changing the environment and restarting — which moves the daily cap, the
+ * billing day and the nightly schedules together.
+ *
+ * ⚠️ THE PLATFORM DAY IS NOT THE VIEWER'S CLOCK. A student in Cairo SEES their
+ * lessons on their own clock (`SessionSettings::timezoneFor()`), but the cap,
+ * the streak and the week roll over at one instant for everybody.
  *
  * ⚠️ AND `config('app.timezone')` STAYS `UTC`. Stored timestamps are not touched.
  * What is converted is the BOUNDARY, here and nowhere else.

@@ -16,7 +16,8 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->unsignedBigInteger('teacher_profile_id')->index();
             $table->unsignedTinyInteger('day_of_week'); // 0 = Sunday
-            // Stored in UTC; the visitor's timezone is applied in the UI so the same
+            // ⚠️ Superseded 2026-09-25: wall-clock time + `timezone` (see
+            // 2026_09_25_000200). Originally: stored in UTC; the visitor's timezone is applied in the UI so the same
             // row reads correctly for a viewer outside Qatar (FR-029).
             $table->time('start_time');
             $table->time('end_time');

@@ -45,14 +45,14 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
             return;
         }
 
-        $from = $this->local($request->from_starts_at);
-
         if (! $event->approved) {
             $student = $request->student;
 
             if ($student === null) {
                 return;
             }
+
+            $from = $this->local($request->from_starts_at, $student);
 
             $this->dispatch->handle(new NotificationRequest(
                 recipient: $student,
@@ -76,8 +76,6 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
             return;
         }
 
-        $to = $this->local($request->to_starts_at);
-
         // The audience comes from the EVENT, not from a query here: a second
         // spelling of «who is in this lesson» beside `seatHolderUserIds()` is
         // two answers to one question, which this tree has paid for repeatedly.
@@ -87,8 +85,9 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
                 type: NotificationType::SessionRescheduled,
                 variables: [
                     'title' => $session->title,
-                    'from_time' => $from,
-                    'to_time' => $to,
+                    // Per holder: two holders of one lesson may be in two zones.
+                    'from_time' => $this->local($request->from_starts_at, $student),
+                    'to_time' => $this->local($request->to_starts_at, $student),
                 ],
                 actionUrl: '/schedule',
                 subject: $student,
@@ -97,8 +96,9 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
         }
     }
 
-    private function local(Carbon $at): string
+    /** The reader's own clock, zone named — never the platform's (2026-09-25). */
+    private function local(Carbon $at, User $reader): string
     {
-        return $at->copy()->setTimezone($this->settings->timezone())->format('Y-m-d H:i');
+        return $this->settings->formatFor($reader, $at);
     }
 }

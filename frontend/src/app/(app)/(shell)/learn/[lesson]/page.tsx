@@ -27,6 +27,7 @@ import { curriculum, neighboursOf, type Curriculum } from "@/lib/curriculum";
 import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 import { formatSessionTime } from "@/lib/session-format";
 import { arabicNumber } from "@/lib/numerals";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 interface StudentLesson {
   uuid: string;
@@ -699,9 +700,10 @@ function SessionSlot({
 }: {
   reference: LessonReference;
 }) {
+  const zone = useViewerTimeZone();
   if (!("state" in reference)) return null;
 
-  const when = formatSessionTime(reference.starts_at, reference.timezone);
+  const when = formatSessionTime(reference.starts_at, zone);
 
   if (reference.state === "upcoming") {
     return (

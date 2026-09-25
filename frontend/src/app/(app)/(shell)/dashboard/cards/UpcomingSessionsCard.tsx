@@ -10,6 +10,7 @@ import { formatSessionClock, formatSessionDay } from "@/lib/session-format";
 import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** «يبدأ بعد ساعتين و١٥ دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها. */
 function untilLabel(seconds: number): string {
@@ -97,6 +98,7 @@ export function UpcomingSessionsCard() {
 }
 
 export function SessionRow({ session, tick }: { session: ClassSession; tick: number }) {
+  const zone = useViewerTimeZone();
   const untilStart = Math.max(0, session.seconds_until_start - tick);
   const untilOpen =
     session.seconds_until_join_open === null
@@ -119,8 +121,8 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
       </div>
 
       <p className="text-xs text-ink-muted">
-        {formatSessionDay(session.starts_at, session.timezone)} ·{" "}
-        {formatSessionClock(session.starts_at, session.timezone)}
+        {formatSessionDay(session.starts_at, zone)} ·{" "}
+        {formatSessionClock(session.starts_at, zone)}
         {session.course === undefined || session.course === null
           ? ""
           : ` · ${session.course.title}`}

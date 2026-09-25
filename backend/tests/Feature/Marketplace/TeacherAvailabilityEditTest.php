@@ -13,7 +13,7 @@ use Laravel\Sanctum\Sanctum;
 | else in the tree — once, at submission, for the life of the account. Meanwhile
 | `GenerateSessionsFromAvailability` builds a teacher's whole schedule from it,
 | `RequestPrivateSession` refuses anything outside it, `ReadPublicCourse` and
-| `PublicTeacherDetailResource` publish it, and `AvailabilitySlot::coversUtc()`
+| `PublicTeacherDetailResource` publish it, and `AvailabilitySlot::covers()`
 | answers with it. A teacher whose week changed had no screen and no route.
 |
 | Same family as `photo_path`, found the day before.

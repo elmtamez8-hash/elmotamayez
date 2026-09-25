@@ -52,14 +52,10 @@ class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
             variables: [
                 'student_name' => $student->name,
                 'course_title' => $course->title,
-                // Rendered in the platform's declared timezone, the
-                // `NotifySeatHolders` spelling: the row is a UTC instant and a
-                // student reading «18:00» in a message must see the hour their
-                // teacher meant.
-                'session_time' => $request->starts_at
-                    ->copy()
-                    ->setTimezone($this->settings->timezone())
-                    ->format('Y-m-d H:i'),
+                // Rendered on the TEACHER's own clock with the zone named: the
+                // row is a UTC instant, and the student who asked may be in
+                // another country — the label says which clock the number is on.
+                'session_time' => $this->settings->formatFor($teacher, $request->starts_at),
                 'duration' => (string) $request->duration_minutes,
             ],
             // The queue itself: the teacher opens this to press one of two

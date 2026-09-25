@@ -11,7 +11,11 @@ import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import { errorCode, userMessage } from "@/lib/errors";
 import { privateSessions } from "@/lib/private-sessions";
 import type { AvailabilityItem } from "@/lib/public-api";
-import { counted, NOUNS } from "@/lib/labels";
+import { startsWithin } from "@/lib/availability";
+import { formatSessionClock } from "@/lib/session-format";
+import { weekdayIn } from "@/lib/timezone";
+import { counted, NOUNS, timezoneLabel } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «أريد حصّة خاصّة» — the student picks an hour the teacher already declared.
@@ -47,64 +51,19 @@ const DAYS = [
  */
 type Enrolment = "checking" | "enrolled" | "not-enrolled" | "signed-out" | "teaches";
 
-/**
- * Every start this student could ask for: each declared window, cut into slots
- * that FIT — the whole duration, never merely its first minute (FR-016ب).
- *
- * Derived here from the same two facts the server checks against, and the server
- * checks again: this is what stops the reader being offered an hour that will be
- * refused, not what decides whether it is allowed.
- *
- * ⚠️ BUILT IN UTC — `getUTCDay` AND `setUTCHours`, NEVER THE LOCAL PAIR.
- * `availability_slots` stores `day_of_week`, `start_time` and `end_time` in UTC,
- * and `RequestPrivateSession` compares `starts_at->utc()->format('H:i:s')`
- * against those columns. Built with `setHours()` on a browser at UTC+3, a
- * 14:00–18:00 window renders as slots at local 14:00 and submits them as 11:00Z
- * — so the form OFFERS five hours and the server refuses four of them with «هذا
- * الوقت خارج مواعيد المدرّس المعلَنة», which is the pressed-then-refused shape
- * FR-015أ exists to forbid.
- *
- * ⚠️ AND ONLY A UTC-EXPLICIT ASSERTION CAN SEE IT. A test that compares
- * `getHours()` against the window's own numbers reads both sides in local time,
- * so it agrees with itself on every machine — including a broken build. The
- * guard is `toISOString()`.
- *
- * The DISPLAY below stays local, and that is correct: a window declared at 14:00
- * UTC is 17:00 to a student in Qatar, and that is the hour they turn up.
+/*
+ | Every start this student could ask for lives in `lib/availability`
+ | (`startsWithin`): each declared window, cut into slots that FIT, built PER
+ | DATE in the window's own zone (2026-09-25). The server checks the ask the same
+ | way (`AvailabilitySlot::containsSpan()`), so an hour offered here is accepted
+ | there on both sides of a DST change.
+ |
+ | ⚠️ AND THE BUTTONS ARE DRAWN ON THE VIEWER'S CLOCK, WITH THE CLOCK NAMED. They
+ | used to be drawn on the browser's clock while «حصصي» drew the same lesson on
+ | Doha's — so from 2026-10-29 a Cairo student picked 17:00 here and saw 18:00
+ | there. Both now read `useViewerTimeZone()`, and the teacher may be in another
+ | country, so the zone is printed beside the hours.
  */
-export function startsWithin(
-  windows: AvailabilityItem[],
-  minutes: number,
-  from: Date,
-  weeks = 2,
-): Date[] {
-  const out: Date[] = [];
-
-  for (let day = 0; day < weeks * 7; day += 1) {
-    const date = new Date(from);
-    date.setUTCDate(date.getUTCDate() + day);
-
-    for (const window of windows) {
-      if (date.getUTCDay() !== window.day_of_week) continue;
-
-      const [openHour, openMinute] = window.start_time.split(":").map(Number);
-      const [closeHour, closeMinute] = window.end_time.split(":").map(Number);
-
-      const close = new Date(date);
-      close.setUTCHours(closeHour, closeMinute, 0, 0);
-
-      const slot = new Date(date);
-      slot.setUTCHours(openHour, openMinute, 0, 0);
-
-      while (slot.getTime() + minutes * 60_000 <= close.getTime()) {
-        if (slot.getTime() > from.getTime()) out.push(new Date(slot));
-        slot.setUTCMinutes(slot.getUTCMinutes() + minutes);
-      }
-    }
-  }
-
-  return out.sort((a, b) => a.getTime() - b.getTime());
-}
 
 export function PrivateSessionRequestForm({
   courseUuid,
@@ -135,6 +94,7 @@ export function PrivateSessionRequestForm({
    */
   leadMinutes: number;
 }) {
+  const zone = useViewerTimeZone();
   const [enrolment, setEnrolment] = useState<Enrolment>("checking");
   const [teaches, setTeaches] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -326,7 +286,7 @@ export function PrivateSessionRequestForm({
     <div className="flex flex-col gap-4">
       <p className="text-sm text-ink-muted">
         مدة الحصة الخاصة في هذا الكورس {counted(length, NOUNS.minutes)}، يحدّدها المدرّس. اختر موعداً
-        من مواعيده المعلَنة.
+        من مواعيده المعلَنة. المواعيد بـ<bdi>{timezoneLabel(zone)}</bdi>.
       </p>
 
       {error && <Alert tone="danger" title="لم يُرسل الطلب">{error}</Alert>}
@@ -347,13 +307,10 @@ export function PrivateSessionRequestForm({
                     : "border-line text-ink hover:border-primary"
                 }`}
               >
-                {DAYS[slot.getDay()]}{" "}
-                {slot.toLocaleDateString("ar-QA", { day: "numeric", month: "long" })}
+                {DAYS[weekdayIn(slot, zone)]}{" "}
+                {slot.toLocaleDateString("ar", { day: "numeric", month: "long", timeZone: zone })}
                 {" · "}
-                {slot.toLocaleTimeString("ar-QA", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatSessionClock(value, zone)}
               </button>
             </li>
           );

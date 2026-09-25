@@ -1,10 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  PrivateSessionRequestForm,
-  startsWithin,
-} from "./PrivateSessionRequestForm";
+import { PrivateSessionRequestForm } from "./PrivateSessionRequestForm";
+import { startsWithin } from "@/lib/availability";
 import { ApiError } from "@/lib/api";
 import type { AvailabilityItem } from "@/lib/public-api";
 

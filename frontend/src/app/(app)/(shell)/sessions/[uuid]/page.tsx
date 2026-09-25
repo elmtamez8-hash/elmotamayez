@@ -19,6 +19,7 @@ import {
 import { classSessions, type ClassSession } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { formatSessionDay, formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * ٠٣٥ · T047 — صفحةُ الحصّةِ للطالب.
@@ -43,6 +44,7 @@ export default function SessionPage({
 }: {
   params: Promise<{ uuid: string }>;
 }) {
+  const zone = useViewerTimeZone();
   const { uuid } = use(params);
 
   const [session, setSession] = useState<ClassSession | null>(null);
@@ -106,8 +108,8 @@ export default function SessionPage({
         title={session.title}
         description={
           <>
-            {formatSessionDay(session.starts_at, session.timezone)} ·{" "}
-            {formatSessionTime(session.starts_at, session.timezone)}
+            {formatSessionDay(session.starts_at, zone)} ·{" "}
+            {formatSessionTime(session.starts_at, zone)}
             {session.course ? ` · ${session.course.title}` : ""}
             {session.teacher_name ? ` · ${session.teacher_name}` : ""}
           </>
@@ -156,7 +158,6 @@ export default function SessionPage({
                 <CancelBookingButton
                   bookingUuid={session.my_booking.uuid}
                   mayCancelUntil={session.my_booking.may_cancel_until}
-                  timezone={session.timezone}
                   onCancelled={() => void load()}
                 />
               )}

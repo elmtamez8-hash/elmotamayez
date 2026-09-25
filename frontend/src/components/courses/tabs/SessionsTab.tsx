@@ -177,7 +177,6 @@ function BookButton({ session }: { session: ClassSession }) {
           <CancelBookingButton
             bookingUuid={booking.uuid}
             mayCancelUntil={booking.may_cancel_until}
-            timezone={session.timezone}
             onCancelled={(result) => setBooking({ ...booking, ...result })}
           />
         )}

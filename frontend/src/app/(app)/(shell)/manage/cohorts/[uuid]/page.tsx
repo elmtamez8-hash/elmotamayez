@@ -35,6 +35,7 @@ import {
 } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
 import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * One group: its week, its students, its history, and its own settings.
@@ -57,6 +58,7 @@ export default function ManageCohortPage({
 }: {
   params: Promise<{ uuid: string }>;
 }) {
+  const zone = useViewerTimeZone();
   const { uuid: cohortUuid } = use(params);
 
   const [group, setGroup] = useState<
@@ -433,7 +435,7 @@ export default function ManageCohortPage({
                     // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive
                     // wall clock and the API runs on UTC, so the string alone
                     // moves the lesson by the operator's own offset.
-                    starts_at: localDateTimeToIso(oneOff.startsAt),
+                    starts_at: localDateTimeToIso(oneOff.startsAt, zone),
                     duration_minutes: Number(oneOff.duration),
                     seats_total: group.capacity ?? 30,
                   }),
@@ -479,7 +481,7 @@ export default function ManageCohortPage({
                   <p className="truncate text-sm font-medium text-ink underline-offset-4 hover:underline">
                     {session.title}
                   </p>
-                  <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at)}</p>
+                  <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at, zone)}</p>
                 </Link>
                 <div className="flex items-center gap-2">
                   <Badge tone={statusTone(session.status)}>{statusLabel(session.status)}</Badge>

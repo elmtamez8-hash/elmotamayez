@@ -55,9 +55,12 @@ class PublicTeacherDetailResource extends PublicTeacherCardResource
                     ->sortBy(['day_of_week', 'start_time'])
                     ->map(fn (AvailabilitySlot $slot) => [
                         'day_of_week' => $slot->day_of_week,
-                        // UTC: the client renders these in the visitor's timezone.
+                        // Wall-clock time on the TEACHER's clock, named by `timezone`
+                        // (2026-09-25): the client renders each on the visitor's
+                        // own clock, per date, so DST moves nothing.
                         'start_time' => substr($slot->start_time, 0, 5),
                         'end_time' => substr($slot->end_time, 0, 5),
+                        'timezone' => $slot->zone(),
                     ])
                     ->values(),
                 [],

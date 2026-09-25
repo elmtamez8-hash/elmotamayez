@@ -5,6 +5,7 @@ import { MultiSelectField, SelectField } from "@/components/ui/Field";
 import { classSessions, type ClassSession } from "@/lib/class-sessions";
 import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «لمن هذا العنصرُ ومتى يظهر» — المفتاحانِ الصريحانِ بيدِ المدرّس
@@ -36,6 +37,7 @@ export function LessonAudienceFields({
   onChangeRelease: (next: string | null) => void;
   disabled?: boolean;
 }) {
+  const zone = useViewerTimeZone();
   const [cohorts, setCohorts] = useState<CohortOption[] | null>(null);
   const [sessions, setSessions] = useState<ClassSession[] | null>(null);
 
@@ -79,7 +81,7 @@ export function LessonAudienceFields({
     .filter((session) => session.status !== "cancelled")
     .map((session) => ({
       value: session.uuid,
-      label: `${session.title} — ${formatSessionTime(session.starts_at, session.timezone)}`,
+      label: `${session.title} — ${formatSessionTime(session.starts_at, zone)}`,
     }));
 
   /*

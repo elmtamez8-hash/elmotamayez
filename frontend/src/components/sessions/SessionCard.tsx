@@ -7,6 +7,7 @@ import { SessionOwners } from "@/components/sessions/SessionOwners";
 import type { ClassSession } from "@/lib/class-sessions";
 import { formatSessionClock, formatSessionTime } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * One session in a list.
@@ -60,6 +61,7 @@ export function SessionCard({
    */
   variant?: "listing" | "timetable";
 }) {
+  const zone = useViewerTimeZone();
   return (
     <article
       className="group relative isolate rounded-3xl border border-line bg-surface-raised p-5 transition-colors duration-200 hover:border-primary/40 focus-within:border-primary/40"
@@ -90,8 +92,8 @@ export function SessionCard({
         <ClockIcon className="h-4 w-4 shrink-0" />
         <span>
           {time === "clock"
-            ? formatSessionClock(session.starts_at, session.timezone)
-            : formatSessionTime(session.starts_at, session.timezone)}{" "}
+            ? formatSessionClock(session.starts_at, zone)
+            : formatSessionTime(session.starts_at, zone)}{" "}
           · {counted(session.duration_minutes, NOUNS.minutes)}
         </span>
       </p>

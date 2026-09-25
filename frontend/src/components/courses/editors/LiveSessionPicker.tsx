@@ -7,6 +7,7 @@ import { SelectField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/api";
 import { courses, type LessonDetail, type ReferenceTargets } from "@/lib/courses";
 import { formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * Holding a place in the sequence for a session that has not happened yet.
@@ -34,6 +35,7 @@ export function LiveSessionPicker({
   disabled: boolean;
   onSave: (patch: { reference_uuid: string }) => void;
 }) {
+  const zone = useViewerTimeZone();
   const [targets, setTargets] = useState<ReferenceTargets | null>(null);
   const [error, setError] = useState("");
 
@@ -81,7 +83,7 @@ export function LiveSessionPicker({
         placeholder="— اختر حصة —"
         options={targets.sessions.map((session) => ({
           value: session.uuid,
-          label: `${session.title} — ${formatSessionTime(session.starts_at, session.timezone)} · ${session.status_label}`,
+          label: `${session.title} — ${formatSessionTime(session.starts_at, zone)} · ${session.status_label}`,
         }))}
         onChange={(value) => {
           setSelected(value);

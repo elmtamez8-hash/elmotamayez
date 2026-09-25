@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { ClassSession } from "@/lib/class-sessions";
 import { formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * The next lesson of THIS course, at the top of its page (US2 · FR-015).
@@ -37,6 +38,7 @@ export function NextSessionHeader({
   /** `0` open now · `null` never again (closed room, or window already past). */
   secondsUntilJoinOpen?: number | null;
 }) {
+  const zone = useViewerTimeZone();
   const [remaining, setRemaining] = useState(secondsUntilStart);
   const [untilOpen, setUntilOpen] = useState(secondsUntilJoinOpen);
 
@@ -110,7 +112,7 @@ export function NextSessionHeader({
           <p className="flex items-center gap-1.5 text-sm text-ink-muted">
             {/* `className` REPLACES the icon's default size, so h-4 w-4 is repeated. */}
             <ClockIcon className="h-4 w-4 shrink-0" />
-            {formatSessionTime(session.starts_at, session.timezone)}
+            {formatSessionTime(session.starts_at, zone)}
           </p>
         </div>
 
@@ -135,7 +137,7 @@ export function NextSessionHeader({
       <div
         className="mt-4 text-sm text-ink"
         role="timer"
-        aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, session.timezone)}`}
+        aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, zone)}`}
       >
         {remaining === 0 ? (
           <span className="font-semibold">بدأت الآن</span>

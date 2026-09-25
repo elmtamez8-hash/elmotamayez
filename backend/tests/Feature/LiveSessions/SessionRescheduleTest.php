@@ -14,7 +14,6 @@ use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
-use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Testing\TestResponse;
@@ -288,7 +287,7 @@ it('sends the declared session timezone on the teacher queue', function (): void
 
     askToMove($fixture)->assertStatus(201);
 
-    PlatformSettings::set('sessions.timezone', 'Asia/Riyadh', null);
+    config()->set('sessions.timezone', 'Asia/Riyadh');
 
     Sanctum::actingAs($fixture['owner']);
 

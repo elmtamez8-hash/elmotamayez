@@ -216,8 +216,9 @@
 │ is_publicly_listed  ◄── derived from (approval × workspace participation)
 │ trust_score (null = building)│        ┌──────────────────────┐
 │ trust_score_factors (JSON)   │───────►│ availability_slots   │
-│ trust_score_calculated_at    │        │ day_of_week · UTC    │
+│ trust_score_calculated_at    │        │ day_of_week (local)  │
 │ reviews_count · average_rating         │ start_time/end_time │
+│                              │        │ timezone (IANA)      │
 │ completed/cancelled_sessions │        └──────────────────────┘
 │ students_taught · rates      │
 │ first_session_at             │        ┌──────────────────────┐

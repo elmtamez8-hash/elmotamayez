@@ -114,7 +114,14 @@ final class PlatformSettings
         'media.watched_share' => 'media.watched_share',
         'media.watched_fallback_seconds' => 'media.watched_fallback_seconds',
         'media.reconcile_ceiling_hours' => 'media.reconcile_ceiling_hours',
-        'sessions.timezone' => 'sessions.timezone',
+        /*
+        | ⛔ `sessions.timezone` IS NOT HERE, ON PURPOSE. It was, and the panel
+        | wrote a row the scheduler could never read (`routes/console.php` boots
+        | before the database may be reachable and reads `SESSIONS_TIMEZONE`), so
+        | a save in `/admin` moved the display and the billing day and left the
+        | nightly sweeps on the old clock. `SessionSettings::timezone()` reads the
+        | environment now, and a row under this key is ignored.
+        */
         'sessions.grace_minutes' => 'sessions.grace_minutes',
         'sessions.absence_threshold_ratio' => 'sessions.absence_threshold_ratio',
         'sessions.required_stay_ratio' => 'sessions.required_stay_ratio',

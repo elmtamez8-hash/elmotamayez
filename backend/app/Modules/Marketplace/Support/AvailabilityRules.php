@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Support;
 
 use App\Modules\Marketplace\Data\TeacherStepFourData;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 
 /**
  * قاعدةُ نافذةِ التوفّرِ الأسبوعيّة، وهجاؤها واحدٌ مهما اختلفَ الباب.
@@ -19,9 +20,16 @@ use App\Modules\Marketplace\Data\TeacherStepFourData;
  * تجميدٍ (`FreezePeriod`) لا مسحُ الجدول: التجميدُ يُقرَأُ ولا يُكتَبُ عليه شيء،
  * فتعودُ المواعيدُ بقيمِها بعدَه بلا سطرِ استئناف.
  *
- * ⚠️ ولا تحويلَ منطقةٍ زمنيّةٍ هنا ولا في المتحكّم: العمودُ UTC وخمسةُ قرّاءٍ
- * يقرؤونَه كذلك، والعميلُ يحوّلُ بـ`toUtcSlot` قبلَ الإرسال. تحويلٌ «مساعِدٌ» على
- * الخادمِ يُزيحُ كلَّ فترةٍ مرّتَين.
+ * ⛔ ولا تحويلَ منطقةٍ زمنيّةٍ هنا ولا في العميل (٢٠٢٦-٠٩-٢٥): الفترةُ تُخزَّنُ
+ * **كما كتبَها المدرّسُ على ساعتِه** ومعها اسمُ ساعتِه (`timezone`، اسمُ IANA
+ * يرسلُه المتصفّح). كانتْ تُخزَّنُ UTC بإزاحةِ الأسبوعِ الحاليّ، وفترةٌ أسبوعيّةٌ
+ * بتوقيتٍ عالميٍّ لا تقدرُ على منطقةٍ فيها توقيتٌ صيفيّ: مدرّسٌ في القاهرة كتبَ
+ * «الثلاثاء ١٧:٠٠» فصارتْ حصصُه ١٦:٠٠ على ساعتِه من ٢٠٢٦-١٠-٢٩. كلُّ قارئٍ يحوّلُ
+ * الآنَ لكلِّ تاريخٍ على حدة ({@see AvailabilitySlot}).
+ *
+ * ⚠️ و`timezone` **مطلوبٌ** لا اختياريّ: نسخةُ واجهةٍ قديمةٌ في تبويبٍ مفتوحٍ
+ * ترسلُ قيمَ UTC بلا منطقة، وقَبولُها يعني قراءتَها ساعاتٍ محلّيّةً — إزاحةٌ بثلاثِ
+ * ساعاتٍ بصمت. رفضٌ بـ٤٢٢ يطلبُ تحديثَ الصفحةِ أرخصُ بكثير.
  */
 final class AvailabilityRules
 {
@@ -33,6 +41,7 @@ final class AvailabilityRules
             $key.'.*.day_of_week' => ['required', 'integer', 'between:0,6'],
             $key.'.*.start_time' => ['required', 'date_format:H:i,H:i:s'],
             $key.'.*.end_time' => ['required', 'date_format:H:i,H:i:s'],
+            'timezone' => ['required', 'string', 'max:64', 'timezone'],
         ];
     }
 
@@ -79,6 +88,8 @@ final class AvailabilityRules
             $key.'.min' => 'أضف فترة توفّر واحدة على الأقل.',
             $key.'.*.start_time.date_format' => 'صيغة الوقت غير صحيحة.',
             $key.'.*.end_time.date_format' => 'صيغة الوقت غير صحيحة.',
+            'timezone.required' => 'حدّث الصفحة ثم أعد الحفظ — لم تصل منطقتك الزمنية.',
+            'timezone.timezone' => 'المنطقة الزمنية غير معروفة.',
         ];
     }
 }

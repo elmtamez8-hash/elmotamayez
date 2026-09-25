@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
@@ -26,7 +25,7 @@ it('sends the declared session timezone on the student own list', function (): v
         'starts_at' => $fx['startsAt']->toIso8601String(),
     ])->assertCreated();
 
-    PlatformSettings::set('sessions.timezone', 'Asia/Riyadh', null);
+    config()->set('sessions.timezone', 'Asia/Riyadh');
 
     // The state a real self-registered student is in: no workspace context.
     app()->forgetInstance(WorkspaceContext::class);

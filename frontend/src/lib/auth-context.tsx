@@ -1,9 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { auth, setToken, setSessionUuid, clearToken, type SignedIn } from "@/lib/api";
 import { twoFactor } from "@/lib/two-factor";
 import { isLearner } from "@/lib/dashboard-audience";
+import { browserTimeZone, isValidTimeZone } from "@/lib/timezone";
+import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 import type { User } from "@/lib/types";
 
 /**
@@ -134,6 +136,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  /*
+   * The account's clock, in the two directions it travels (2026-09-25).
+   *
+   * ⚠️ PUSHED INTO THE VIEWER-ZONE STORE, so every time on every screen is drawn
+   * on it — including leaf components rendered with no provider above them.
+   *
+   * ⚠️ AND STAMPED ONCE WHEN EMPTY. The server formats notification times on
+   * `users.timezone`, which only the quiet-hours form used to write — so nearly
+   * every account read Doha's clock, an hour wrong for a Cairo family for half
+   * the year. `onlyIfUnset` makes the server refuse to overwrite a zone somebody
+   * chose, and the failure is swallowed: the screen already uses the browser's
+   * zone when the column is empty, so a lost stamp costs nothing visible here.
+   */
+  const stampedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    setStoredViewerTimeZone(user?.timezone ?? null);
+
+    // Once per account per page load — an answer that somehow still carries
+    // no zone must not become a request loop.
+    if (user === null || user.timezone || stampedFor.current === user.uuid) return;
+
+    const zone = browserTimeZone();
+
+    if (!isValidTimeZone(zone)) return;
+
+    stampedFor.current = user.uuid;
+
+    auth
+      .setTimezone(zone, true)
+      .then((updated) => setUser((current) => (current?.uuid === updated.uuid ? updated : current)))
+      .catch(() => {});
+  }, [user]);
 
   const finishSignIn = ({ user, token, session_uuid }: SignedIn) => {
     setToken(token);

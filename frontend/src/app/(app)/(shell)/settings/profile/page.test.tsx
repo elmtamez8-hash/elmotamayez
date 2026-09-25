@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProfileSettingsPage from "./page";
 import type { User } from "@/lib/types";
+import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /*
 | ⚠️ THERE WAS NO SCREEN AT ALL — reported 2026-09-06.
@@ -41,7 +42,7 @@ vi.mock("@/lib/profile", () => ({
     teacher: () => teacher(),
     saveTeacher: (body: unknown) => saveTeacher(body),
     saveStudent: (body: unknown) => saveStudent(body),
-    saveAvailability: (slots: unknown) => saveAvailability(slots),
+    saveAvailability: (slots: unknown, timezone: unknown) => saveAvailability(slots, timezone),
     savePhoto: vi.fn(),
     removePhoto: vi.fn(),
   },
@@ -86,7 +87,7 @@ const TEACHER_PROFILE = {
   grade_levels: ["secondary"],
   // ⚠️ `H:i:s` كما يرسلُها الخادم، لا `H:i`: العميلُ يقتطعُ الثواني، وتجهيزةٌ
   // ترسلُ ما افترضتُه لا ما يُرسَلُ فعلاً هي التي جعلتْ `years.map` ينفجرُ حيّاً.
-  availability: [{ day_of_week: 1, start_time: "09:00:00", end_time: "11:00:00" }],
+  availability: [{ day_of_week: 1, start_time: "09:00:00", end_time: "11:00:00", timezone: "Asia/Qatar" }],
 };
 
 /*
@@ -234,13 +235,17 @@ describe("the teacher's weekly availability", () => {
   | ever since by the session generator, the private-session guard and the public
   | profile. A teacher whose week changed had no screen and no route.
   |
-  | ⚠️ AND THE COLUMN IS UTC WHILE THE FIELD IS THE TEACHER'S OWN CLOCK. The
-  | round trip is asserted here rather than a concrete offset: an assertion naming
-  | one passes on a machine in that zone alone, which is what `availability.test.ts`
-  | already records.
+  | ⚠️ AND THE ROW IS WALL-CLOCK TIME ON A NAMED CLOCK (2026-09-25). The viewer's
+  | zone is pinned here — it is the account's stored zone in the product — so the
+  | assertions name hours without depending on the machine running them.
   */
   beforeEach(() => {
     teacher.mockResolvedValue(TEACHER_PROFILE);
+    setStoredViewerTimeZone("Asia/Qatar");
+  });
+
+  afterEach(() => {
+    setStoredViewerTimeZone(null);
   });
 
   it("sends back exactly what the server gave, when nothing was touched", async () => {
@@ -258,11 +263,40 @@ describe("the teacher's weekly availability", () => {
       expect(saveAvailability).toHaveBeenCalled();
     });
 
-    // The seconds are gone (the column sends `H:i:s`, the field takes `H:i`) and
-    // the hour has been through UTC and back, so it is the one the server holds.
+    // The seconds are gone (the column sends `H:i:s`, the field takes `H:i`), the
+    // hour is the one typed, and the clock it is on is named beside it.
     expect(saveAvailability.mock.calls[0][0]).toEqual([
       { day_of_week: 1, start_time: "09:00", end_time: "11:00" },
     ]);
+    expect(saveAvailability.mock.calls[0][1]).toBe("Asia/Qatar");
+  });
+
+  it("shows a week saved on another clock on this teacher's own, and saves it on theirs", async () => {
+    // Saved from Doha (UTC+3), read in Cairo in winter (UTC+2): an hour earlier.
+    setStoredViewerTimeZone("Africa/Cairo");
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-10T12:00:00Z") });
+    saveAvailability.mockResolvedValue(TEACHER_PROFILE);
+
+    try {
+      render(<ProfileSettingsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText("مواعيدي الأسبوعية")).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "احفظ مواعيدي" }));
+
+      await waitFor(() => {
+        expect(saveAvailability).toHaveBeenCalled();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(saveAvailability.mock.calls[0][0]).toEqual([
+      { day_of_week: 1, start_time: "08:00", end_time: "10:00" },
+    ]);
+    expect(saveAvailability.mock.calls[0][1]).toBe("Africa/Cairo");
   });
 
   it("adds a period and removes one without leaving the week empty", async () => {

@@ -188,6 +188,8 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - «The previous session» means the previous one IN THIS STUDENT'S GROUP.
 - Hiding an unassigned session from discovery must never swallow a seat that was paid for.
 - THE HEARTBEAT ASKS WHAT CAN EVICT, NOT WHAT LET YOU IN — AND CONFLATING THE TWO COST 15 QUERIES A BEAT AND THREW PAYING STUDENTS OUT OF LESSONS.
+- EVERY TIME IS SHOWN ON THE READER'S OWN CLOCK (`useViewerTimeZone()` · `UserClock`), AND THE PLATFORM ZONE DECIDES ONLY WHERE A DAY BEGINS.
+- A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._
@@ -273,7 +275,7 @@ _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo
 - A reversal that shares its original's idempotency key is swallowed for ever.
 - A cause that was reversed is REINSTATED by negating the chain's head, never re-awarded — and a duplicate award gives its daily slot back.
 - The gamification catalogue is reference data, so an empty one awards nothing and every assertion passes against zero.
-- The day and week boundary lives in `GamificationCalendar` and reads the EXISTING `sessions.timezone` row.
+- The day and week boundary lives in `GamificationCalendar` and reads the ONE platform zone — `SESSIONS_TIMEZONE` since 2026-09-25, when the panel-editable row that disagreed with the scheduler was removed.
 - A picker is derived from the AUTHORISER'S OWN PREDICATE, never assembled beside it.
 - A middleware list given to `withBroadcasting()` REPLACES the `api` group, and the thing it drops is spatie's team id.
 - pusher-js unbinds BY FUNCTION REFERENCE, and removes every entry matching it — so two subscribers passing the SAME function are both killed by the first cleanup.

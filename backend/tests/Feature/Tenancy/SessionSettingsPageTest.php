@@ -45,7 +45,10 @@ function sessionFormFieldNames(): array
             | and the walker returns an empty list. Which reads as «the page
             | declares no fields» rather than as a broken test.
             */
-            if ($component instanceof Field) {
+            // A DISABLED field is shown, never written — the platform zone is
+            // read from `SESSIONS_TIMEZONE` and drawn read-only — so it has no
+            // key to declare.
+            if ($component instanceof Field && ! $component->isDisabled()) {
                 $names[] = $component->getName();
             }
 
@@ -124,7 +127,6 @@ it('saves every field and reads it back through the real reader', function (): v
 
     Livewire::test(ManageSessionSettings::class)
         ->assertOk()
-        ->set('data.timezone', 'Asia/Riyadh')
         ->set('data.grace_minutes', 7)
         ->set('data.absence_threshold_ratio', 0.25)
         ->set('data.required_stay_ratio', 0.6)
@@ -150,8 +152,7 @@ it('saves every field and reads it back through the real reader', function (): v
     // a teacher to prove one multiplication.
     $session = new ClassSession(['duration_minutes' => 100]);
 
-    expect($settings->timezone())->toBe('Asia/Riyadh')
-        ->and($settings->graceMinutes())->toBe(7)
+    expect($settings->graceMinutes())->toBe(7)
         ->and($settings->absenceThresholdSeconds($session))->toBe(1500)
         ->and($settings->requiredStaySeconds($session))->toBe(3600)
         ->and($settings->teacherRequiredStaySeconds($session))->toBe(5400)
@@ -230,4 +231,29 @@ it('is a platform screen and not a teacher one', function (): void {
     actAsPlatformAdmin();
 
     expect(ManageSessionSettings::canAccess())->toBeTrue();
+});
+
+/*
+| The platform zone is SHOWN here and written nowhere.
+|
+| It used to be a row this page saved, while `routes/console.php` read
+| `SESSIONS_TIMEZONE` — so a save moved the billing day and the display and left
+| the nightly schedule on the old clock. The environment is the one source now,
+| and a stale row under the old key must not win over it either.
+*/
+it('shows the platform zone read-only and reads it from the environment alone', function (): void {
+    config()->set('sessions.timezone', 'Asia/Riyadh');
+    PlatformSettings::set('sessions.timezone', 'Africa/Cairo', null);
+
+    actAsPlatformAdmin();
+
+    Livewire::test(ManageSessionSettings::class)
+        ->assertOk()
+        ->assertSet('data.timezone', 'Asia/Riyadh')
+        ->assertFormFieldIsDisabled('timezone')
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(SessionSettings::class)->timezone())->toBe('Asia/Riyadh')
+        ->and(array_key_exists('sessions.timezone', PlatformSettings::KEYS))->toBeFalse();
 });

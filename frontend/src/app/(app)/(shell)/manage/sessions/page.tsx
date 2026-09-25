@@ -26,6 +26,7 @@ import { localDateTimeToIso, counted, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The local date, as `YYYY-MM-DD`. */
 function today(): string {
@@ -171,6 +172,7 @@ function queryFrom(filters: Filters): Record<string, string> {
  * producer that was missing.
  */
 export default function ManageSessionsPage() {
+  const zone = useViewerTimeZone();
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   // Opens on today, which is what the shortcut of the same name writes.
   const [filters, setFilters] = useState<Filters>(() =>
@@ -315,7 +317,7 @@ export default function ManageSessionsPage() {
         // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive wall clock
         // and the API runs on UTC, so the string alone moved a lesson by the
         // operator's own offset — three hours, on the screen that schedules it.
-        starts_at: localDateTimeToIso(oneOff.startsAt),
+        starts_at: localDateTimeToIso(oneOff.startsAt, zone),
         duration_minutes: Number(oneOff.duration),
         seats_total: seats,
       });

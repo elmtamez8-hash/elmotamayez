@@ -6,8 +6,12 @@ namespace App\Modules\Marketplace\Data;
 
 use App\Modules\Marketplace\Support\AvailabilityRules;
 use App\Shared\Data\DataTransferObject;
+use App\Shared\Support\UserClock;
 
-/** Step 4 — price and weekly availability. Times are UTC. */
+/**
+ * Step 4 — price and weekly availability: wall-clock hours on the teacher's own
+ * clock, named by `timezone` (2026-09-25; they were UTC before).
+ */
 class TeacherStepFourData extends DataTransferObject
 {
     /** @param list<array{day_of_week: int, start_time: string, end_time: string}> $availability */
@@ -15,6 +19,7 @@ class TeacherStepFourData extends DataTransferObject
         public readonly string $hourlyRate,
         public readonly string $currency,
         public readonly array $availability,
+        public readonly string $timezone,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -27,6 +32,11 @@ class TeacherStepFourData extends DataTransferObject
             // (`PUT /teacher/availability`) يكتبُ الصفوفَ نفسَها، ونسختانِ من
             // قاعدةِ التسويةِ تفترقانِ عندَ أوّلِ تعديل.
             availability: AvailabilityRules::normalise((array) ($data['availability'] ?? [])),
+            // A draft saved before the zone existed was converted and stamped by
+            // the 2026-09-25 migration; the platform zone is the last resort.
+            timezone: is_string($data['timezone'] ?? null) && UserClock::isValid($data['timezone'])
+                ? $data['timezone']
+                : UserClock::platformZone(),
         );
     }
 
@@ -41,6 +51,7 @@ class TeacherStepFourData extends DataTransferObject
             'hourly_rate' => $this->hourlyRate,
             'currency' => $this->currency,
             'availability' => $this->availability,
+            'timezone' => $this->timezone,
         ];
     }
 }
