@@ -34,6 +34,8 @@ class CreateCourseDTO extends DataTransferObject
          * instead, so the seeders and the panel meet the rule too.
          */
         public readonly ?string $courseType = null,
+        /** The teacher's explicit «كورس مجاني». Never inferred from a price. */
+        public readonly bool $isFreeEnrollment = false,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -51,6 +53,7 @@ class CreateCourseDTO extends DataTransferObject
             subjectUuid: isset($data['subject']) && is_string($data['subject']) ? $data['subject'] : null,
             gradeLevel: isset($data['grade_level']) && is_string($data['grade_level']) ? $data['grade_level'] : null,
             courseType: isset($data['course_type']) && is_string($data['course_type']) ? $data['course_type'] : null,
+            isFreeEnrollment: (bool) ($data['is_free_enrollment'] ?? false),
         );
     }
 }

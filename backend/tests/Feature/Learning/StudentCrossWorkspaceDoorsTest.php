@@ -46,6 +46,8 @@ beforeEach(function (): void {
         'workspace_id' => $this->home->getKey(),
         'created_by' => $this->teacher->getKey(),
         'price_minor' => 0,
+        // «كورس مجاني» — the only thing that makes a course free (2026-09-25).
+        'is_free_enrollment' => true,
     ]));
 
     $ctx->forWorkspace($this->home, fn (): Cohort => Cohort::factory()->create([
@@ -99,19 +101,12 @@ it('lists the groups of a course at another teacher', function (): void {
     $this->getJson('/api/v1/courses/'.$this->course->uuid.'/cohorts')->assertOk();
 });
 
-it('lets the student buy from a second teacher', function (): void {
-    /*
-    | ⚠️ **وهذا هو بابُ المال.** السوقُ كلُّه قائمٌ على أنّ الطالبَ يشتري من أيِّ
-    | مدرّس، وهذا الطالبُ لم يكنْ يستطيع.
-    */
-    asStampedStudent();
-
-    $this->postJson('/api/v1/courses/'.$this->course->uuid.'/orders')
-        ->assertCreated()
-        // بلا `data.`: `response()->json(Resource::make(...))` لا يستدعي
-        // `toResponse()`، فلا غِلافَ في الجواب.
-        ->assertJsonPath('status', 'pending');
-});
+/*
+| ⛔ «lets the student buy from a second teacher» walked `POST /courses/{course}/orders`,
+| the one-off course purchase REMOVED on 2026-09-25 (owner decision: a course is
+| sold through a plan only). The cross-teacher money door is now the
+| subscription, which `PurchaseSubscription` resolves without the scope.
+*/
 
 it('lets the student take a free course from a second teacher', function (): void {
     asStampedStudent();

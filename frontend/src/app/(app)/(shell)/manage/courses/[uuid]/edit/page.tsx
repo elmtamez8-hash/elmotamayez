@@ -47,6 +47,7 @@ export default function EditCoursePage({
     description: "",
     currency: "QAR",
     is_sequential: true,
+    is_free_enrollment: false,
     subject: "",
     grade_level: "",
     course_type: "",
@@ -88,6 +89,7 @@ export default function EditCoursePage({
           description: c.description ?? "",
           currency: c.currency,
           is_sequential: c.is_sequential,
+          is_free_enrollment: c.is_free_enrollment ?? false,
           subject: c.subject?.uuid ?? "",
           grade_level: c.grade_level ?? "",
           /*
@@ -323,6 +325,18 @@ export default function EditCoursePage({
             student can buy. The column stays; this screen no longer writes it, and
             an edit leaves an existing value untouched because the key is not sent.
           */}
+
+          {/*
+            ⛔ «مجاني» is the teacher's decision and nothing else (owner decision
+            2026-09-25). Unticked, the course is entered through a plan only; with
+            no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
+          */}
+          <CheckboxField
+            id="is_free_enrollment"
+            label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
+            checked={form.is_free_enrollment}
+            onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
+          />
 
           <CheckboxField
             id="is_sequential"

@@ -241,7 +241,10 @@ export interface Course {
   status: string;
   visibility: string;
   is_sequential: boolean;
+  /** `Course::isFree()` — the same answer as `is_free_enrollment`. */
   is_free: boolean;
+  /** The teacher's explicit «كورس مجاني» — the only thing that makes a course free. */
+  is_free_enrollment?: boolean;
   language: string;
   duration_seconds: number;
   created_at: string;

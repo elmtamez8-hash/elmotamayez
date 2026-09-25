@@ -95,7 +95,8 @@ export default function CourseDetailPage({
               who published every item read the tree as live while the course
               itself was still a draft. */}
           <StatusBadge status={course.status} />
-          {/* ⛔ No price and no «مجاني» here — see the course list. */}
+          {/* No price; «مجاني» only when the teacher ticked it — see the list. */}
+          {course.is_free && <Badge tone="success">مجاني</Badge>}
           <span className="text-sm text-ink-muted">
             {course.is_sequential ? "تسلسل إجباري للدروس" : "ترتيب مرن للدروس"}
           </span>

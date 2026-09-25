@@ -49,7 +49,8 @@ beforeEach(function (): void {
     | for a reason that has nothing to do with this rule.
     */
     $this->course = courseWithRate((int) $this->workspace->getKey());
-    $this->course->forceFill(['status' => 'published', 'price_minor' => 0])->save();
+    // Free because its teacher SAID so — the only thing that makes a course free.
+    $this->course->forceFill(['status' => 'published', 'price_minor' => 0, 'is_free_enrollment' => true])->save();
 
     $this->paidCourse = courseWithRate((int) $this->workspace->getKey());
     $this->paidCourse->forceFill(['status' => 'published', 'price_minor' => 50_000])->save();

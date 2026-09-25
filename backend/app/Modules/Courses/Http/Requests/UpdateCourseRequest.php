@@ -64,6 +64,8 @@ class UpdateCourseRequest extends FormRequest
             'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],
+            // «كورس مجاني» — the only thing that makes a course free.
+            'is_free_enrollment' => ['sometimes', 'boolean'],
             /*
             | The private session's length (023 · FR-016أ). Bounded because the
             | column is an `unsignedSmallInteger`: SQLite stores any integer in

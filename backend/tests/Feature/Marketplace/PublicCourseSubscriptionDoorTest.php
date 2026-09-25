@@ -242,14 +242,19 @@ it('costs the same number of queries whatever the number of groups', function ()
 
 /*
 | ⛔ «سجّل مجاناً» IS DRAWN ON THE ENROL DOOR'S OWN PREDICATE, NEVER ON THE PRICE.
-| `courses.price` defaults to 0 and prices the one-off purchase alone, so a
-| course sold by plan reads as free — a button drawn on `price_minor === 0`
-| would be pressed and refused with `purchase_required`.
+| Since 2026-09-25 that predicate is the teacher's explicit «كورس مجاني»: a
+| course with no price and no plan is NOT free unless its teacher said so.
 */
-it('offers free enrolment on a course with no price and no plan', function (): void {
-    $this->course->forceFill(['price_minor' => 0])->save();
+it('offers free enrolment on a course its teacher marked free', function (): void {
+    $this->course->forceFill(['price_minor' => 0, 'is_free_enrollment' => true])->save();
 
     expect(doorPayload($this->course)['free_enrollment'])->toBeTrue();
+});
+
+it('does not offer free enrolment on an unmarked course with no price and no plan', function (): void {
+    $this->course->forceFill(['price_minor' => 0, 'is_free_enrollment' => false])->save();
+
+    expect(doorPayload($this->course)['free_enrollment'])->toBeFalse();
 });
 
 it('does not offer free enrolment on a course sold by a plan at price zero', function (): void {

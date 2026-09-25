@@ -119,6 +119,7 @@ class CourseResource extends JsonResource
             'promo_video_id' => $this->promo_video_id,
             'promo_video_status' => $this->promo_video_status,
             'is_free' => $this->isFree(),
+            'is_free_enrollment' => (bool) $this->is_free_enrollment,
             'language' => $this->language,
             'duration_seconds' => $this->duration_seconds,
             'created_at' => $this->created_at,

@@ -19,6 +19,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -26,6 +27,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -177,6 +179,16 @@ class CourseResource extends Resource
                             ->options(Currency::options())
                             ->required()
                             ->default((string) config('billing.currency')),
+                        /*
+                        | ⛔ «مجاني» قرارٌ صريحٌ لا استنتاجٌ من السعر (قرارُ المالك
+                        | ٢٠٢٦-٠٩-٢٥): الكورسُ يُباعُ بالباقاتِ وحدَها، وكلُّ كورسٍ
+                        | جديدٍ يولَدُ بسعرِ صفر — فالاستنتاجُ كانَ يفتحُه مجّاناً.
+                        */
+                        Checkbox::make('is_free_enrollment')
+                            ->label('كورس مجاني')
+                            ->helperText('يسجّل فيه أي طالب بلا دفع. بدونه لا يُدخَل الكورس إلا بباقة.')
+                            ->default(false)
+                            ->columnSpanFull(),
                     ]),
             ]);
     }
@@ -211,6 +223,10 @@ class CourseResource extends Resource
                         'archived' => 'danger',
                         default => 'gray',
                     }),
+                IconColumn::make('is_free_enrollment')
+                    ->label('مجاني')
+                    ->boolean()
+                    ->sortable(),
                 TextColumn::make('price_minor')
                     ->label('السعر')
                     ->money(fn (Course $record): string => $record->currency, divideBy: 100)

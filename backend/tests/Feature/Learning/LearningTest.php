@@ -33,6 +33,8 @@ function createCourseWithLessons(int $workspaceId, int $lessonCount = 3, bool $s
         | fails by the same chance. `SelfEnrollmentClosedTest` owns the other side.
         */
         'price_minor' => 0,
+        // «كورس مجاني» — the only thing that makes a course free (2026-09-25).
+        'is_free_enrollment' => true,
     ]);
 
     // Published at every level, explicitly. Since 016 a node that does not say

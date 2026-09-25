@@ -33,6 +33,7 @@ use Laravel\Scout\Searchable;
  * @property string $course_type
  * @property string|null $cover_path
  * @property int $price_minor
+ * @property bool $is_free_enrollment
  * @property int|null $price_before_discount_minor
  * @property int|null $private_session_minutes
  * @property string|null $promo_video_id
@@ -164,6 +165,9 @@ class Course extends BaseModel
         */
         'price_minor',
         'currency',
+        // The teacher's explicit «كورس مجاني» — the ONLY thing that makes a
+        // course free (owner decision 2026-09-25). See `isFree()`.
+        'is_free_enrollment',
         // The three pricing keys (spec 006, Q-7). teacher_profile_id is the one
         // without which the approved-rate lookup cannot run at all: RateResolver
         // starts from it, and `created_by` is nullable because a course may
@@ -222,6 +226,7 @@ class Course extends BaseModel
             'price_minor' => 'integer',
             'price_before_discount_minor' => 'integer',
             'is_sequential' => 'boolean',
+            'is_free_enrollment' => 'boolean',
             'duration_seconds' => 'integer',
             'private_session_minutes' => 'integer',
             'structure_version' => 'integer',
@@ -421,9 +426,20 @@ class Course extends BaseModel
             });
     }
 
+    /**
+     * Whether anyone may enrol in this course without paying — THE one helper.
+     *
+     * ⛔ THE TEACHER'S EXPLICIT FLAG AND NOTHING ELSE (owner decision
+     * 2026-09-25). It used to be inferred from `price_minor === 0` (and, at
+     * the enrolment door, «and no sellable plan») — but a course is sold
+     * through plans only now and every new course is born at price 0, so the
+     * inference opened each one for free until its teacher made a plan.
+     * Plans do not enter into it: a flagged course is free, an unflagged one
+     * is never free, whatever is or is not on sale.
+     */
     public function isFree(): bool
     {
-        return $this->price_minor === 0;
+        return (bool) $this->is_free_enrollment;
     }
 
     public function searchableAs(): string

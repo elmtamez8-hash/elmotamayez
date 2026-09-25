@@ -259,9 +259,9 @@ export default function ManageCoursesPage() {
                 <div className="p-5 pb-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Badge tone={statusTone(course.status)}>{statusLabel(course.status)}</Badge>
-                    {/* ⛔ No price and no «مجاني» (owner decision 2026-09-25): a course
-                        is sold through a plan, and `is_free` is `price_minor === 0`,
-                        true of every plan-sold course too. */}
+                    {/* No price (a course is sold through a plan); «مجاني» only when
+                        the teacher ticked it — `is_free` is that flag since 2026-09-25. */}
+                    {course.is_free && <Badge tone="success">مجاني</Badge>}
                   </div>
                   <h3 className="mb-1 font-semibold text-ink group-hover:text-primary-ink">
                     {course.title}

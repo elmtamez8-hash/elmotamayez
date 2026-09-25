@@ -39,9 +39,15 @@ beforeEach(function (): void {
  * purpose — that is the whole point of these cases: a course whose one-off price
  * is 0 is what `isFree()` calls free, and what a plan can nonetheless be selling.
  */
-function publishAtPrice(Course $course, int $priceMinor = 0): Course
+function publishAtPrice(Course $course, int $priceMinor = 0, bool $markedFree = false): Course
 {
-    $course->forceFill(['status' => 'published', 'price_minor' => $priceMinor])->save();
+    // ⛔ `$markedFree` is the teacher's explicit «كورس مجاني» — since 2026-09-25
+    // the ONLY thing that makes a course free; a zero price alone never does.
+    $course->forceFill([
+        'status' => 'published',
+        'price_minor' => $priceMinor,
+        'is_free_enrollment' => $markedFree,
+    ])->save();
 
     return $course->refresh();
 }
@@ -67,7 +73,8 @@ it('refuses a course sold by a plan even though its one-off price is zero', func
     | spec 027 exists to sell, and SC-008 passes green over the top of it.
     */
     $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()));
-    expect($course->isFree())->toBeTrue();
+    // Since 2026-09-25 `isFree()` IS the teacher's flag, and it is not set here.
+    expect($course->isFree())->toBeFalse();
 
     Plan::factory()->create([
         'workspace_id' => $this->workspace->getKey(),
@@ -104,7 +111,7 @@ it('refuses a course carrying a one-off price', function (): void {
 it('still lets anyone enrol in a genuinely free course', function (): void {
     // The route is narrowed, not deleted: a free course is a real case and it is
     // the only one that still passes.
-    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()));
+    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()), markedFree: true);
 
     postSelfEnrollment($this->student, $course)->assertCreated();
 
@@ -112,8 +119,9 @@ it('still lets anyone enrol in a genuinely free course', function (): void {
 });
 
 it('is not fooled by an unpriced or switched-off plan', function (): void {
-    // A plan awaiting a price sells nothing, so the course is still free today.
-    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()));
+    // A flagged course stays free whatever plans hang off it — plans do not
+    // enter into «free» at all since 2026-09-25.
+    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()), markedFree: true);
 
     Plan::factory()->create([
         'workspace_id' => $this->workspace->getKey(),
@@ -141,7 +149,7 @@ it('does not let another teacher’s plan close this teacher’s free course', f
     | clause would publish every priced plan on the platform as covering this
     | course, and a one-workspace fixture could never see it.
     */
-    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()));
+    $course = publishAtPrice(courseWithRate((int) $this->workspace->getKey()), markedFree: true);
 
     [$otherWorkspace] = $this->createWorkspaceWithOwner();
 

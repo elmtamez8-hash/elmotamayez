@@ -119,6 +119,7 @@ class CourseFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'price_minor' => 0,
+            'is_free_enrollment' => true,
         ]);
     }
 
