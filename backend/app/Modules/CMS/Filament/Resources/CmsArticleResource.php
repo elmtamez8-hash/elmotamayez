@@ -26,6 +26,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use UnitEnum;
 
 /**
@@ -197,6 +199,14 @@ class CmsArticleResource extends Resource
                         ->label('صورة الغلاف')
                         ->helperText('تظهر في بطاقة المقال وفي أعلى الصفحة وفي بطاقة المشاركة. الأفضل ١٦:٩.')
                         ->image()
+                        // ⚠️ `image()` alone is `image/*` — GIF and SVG pass — and the
+                        // stored name keeps the CLIENT's extension, so a GIF polyglot
+                        // saved as `.html` was served as a page on our own origin. A
+                        // closed list and a server-guessed extension close both halves.
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                        ->getUploadedFileNameForStorageUsing(
+                            fn (TemporaryUploadedFile $file): string => Str::ulid().'.'.($file->guessExtension() ?? 'jpg'),
+                        )
                         ->imageEditor()
                         ->imageCropAspectRatio('16:9')
                         ->disk('public')

@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { arabicDecimal, arabicNumber } from "@/lib/numerals";
+import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { cardPeriodLabel, GRADE_COMPONENTS, reportCards, type ReportCard } from "@/lib/reviews";
 
@@ -55,11 +56,12 @@ export default function ReportCardPage() {
   if (state === "loading" || card === null) return <RowsSkeleton />;
 
   /*
-   * ⚠️ FETCH THEN NAVIGATE, never a bare `<a href>`. The download endpoint sits
-   * behind `auth:sanctum` and the token lives in `localStorage`, so a link the
-   * browser follows on its own carries no `Authorization` header and is answered
-   * `401`. The URL it hands back is signed and lasts five minutes, which is why
-   * it is minted per click rather than held in the payload.
+   * ⚠️ FETCH THE FILE TOO, never navigate to it. Both the URL request AND the
+   * file route sit behind `auth:sanctum`, and the token lives in `localStorage`,
+   * so `window.location` / `<a href>` reach the file with no `Authorization`
+   * header and are answered `401` — which is what this button did for every
+   * student and guardian until 2026-09-25. `api.download()` sends the bearer.
+   * The URL is signed and lasts five minutes, so it is minted per click.
    */
   async function openFile() {
     setDownloading(true);
@@ -67,7 +69,7 @@ export default function ReportCardPage() {
 
     try {
       const { url } = await reportCards.fileUrl(card!.uuid);
-      window.location.assign(url);
+      await api.download(url, `report-card-${card!.uuid}.pdf`);
     } catch (error) {
       setDownloadError(userMessage(error));
     } finally {

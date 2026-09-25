@@ -257,6 +257,7 @@ services:
         NEXT_PUBLIC_REVERB_HOST: ${REVERB_PUBLIC_HOST}
         NEXT_PUBLIC_REVERB_PORT: ${REVERB_PUBLIC_PORT}
         NEXT_PUBLIC_REVERB_SCHEME: ${REVERB_PUBLIC_SCHEME}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     image: elmotamayez-frontend:latest
     restart: unless-stopped
     logging: *logging
