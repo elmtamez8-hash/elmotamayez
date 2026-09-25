@@ -7,7 +7,7 @@ namespace App\Modules\Gamification\Listeners;
 use App\Modules\Assessments\Events\MistakeResolved;
 use App\Modules\Gamification\Actions\AwardPoints;
 use App\Modules\Gamification\Data\AwardRequest;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A question they had got wrong, answered right ⇒ points.
@@ -21,7 +21,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * is fixed once. Keying on the answer would pay again every time the student
  * revisited it.
  */
-class AwardOnMistakeResolved implements ShouldQueue
+class AwardOnMistakeResolved implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly AwardPoints $award) {}
 
