@@ -9,13 +9,12 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «يطلب سامي حصة خاصة الثلاثاء ٦م» (FR-018).
  *
- * ⚠️ `ShouldHandleEventsAfterCommit`. The row is written by a conditional INSERT
+ * ⚠️ `ShouldQueueAfterCommit`. The row is written by a conditional INSERT
  * and the event fires straight after it; without this a real queue worker picks
  * the job up before the commit lands, reads no row, and the teacher's queue never
  * lights up — invisibly, and only on the `redis` connection production runs, not
@@ -26,7 +25,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * who could plausibly be «the teacher», and the one who built the course is the
  * one whose availability the request was picked from.
  */
-class NotifyTeacherPrivateSessionRequested implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

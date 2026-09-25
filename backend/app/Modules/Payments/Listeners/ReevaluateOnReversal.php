@@ -8,8 +8,7 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Events\PaymentReversed;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A reversal takes money back, so what that money unlocked is reconsidered.
@@ -25,7 +24,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * nobody else automatically — a reversal is a dispute, and disputes are handled
  * by a person reading the audit log.
  */
-class ReevaluateOnReversal implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ReevaluateOnReversal implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly DispatchNotification $dispatch) {}
 

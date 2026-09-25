@@ -13,8 +13,7 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Contracts\CohortScheduleDirectory;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «أُسنِدتَ إلى مجموعة، وهذه مواعيدُها» (٠٣٤ · FR-006).
@@ -42,7 +41,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * إطلاقاً، و`null` من علاقةٍ مُنطَّقةٍ **بعدَ** أن كُتِبَت العضويّةُ إشعارٌ لا
  * يصلُ أحداً بلا سطرِ خطأ — وهي الطبقةُ الصامتةُ من طبقاتِ ٠٢٤.
  */
-class NotifyStudentCohortAssigned implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentCohortAssigned implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

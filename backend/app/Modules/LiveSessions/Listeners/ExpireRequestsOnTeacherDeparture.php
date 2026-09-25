@@ -8,8 +8,7 @@ use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\LiveSessions\Events\PrivateSessionExpired;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Support\PendingPrivateRequest;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Throwable;
 
 /**
@@ -31,7 +30,7 @@ use Throwable;
  * access until their term ends, so a lesson already scheduled stays scheduled —
  * only the unanswered asks end here.
  */
-class ExpireRequestsOnTeacherDeparture implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ExpireRequestsOnTeacherDeparture implements ShouldQueueAfterCommit
 {
     public function handle(TeacherOffboardingCompleted $event): void
     {

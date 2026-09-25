@@ -10,8 +10,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Events\AssignmentItemOpened;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -34,7 +33,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * the set is every student of a course, which is not a number this code gets
  * to assume.
  */
-class CompleteAssignmentLessonsAlreadySubmitted implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CompleteAssignmentLessonsAlreadySubmitted implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

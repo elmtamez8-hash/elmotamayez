@@ -11,8 +11,7 @@ use App\Modules\Courses\Events\ExamItemOpened;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\ExamGateSatisfaction;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -41,7 +40,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * the item was live with an arbitrary prefix of students credited and the rest
  * capped below 100% for good. The failure mode was worse than the latency.
  */
-class CompleteExamLessonsAlreadyAnswered implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CompleteExamLessonsAlreadyAnswered implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

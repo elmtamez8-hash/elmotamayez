@@ -10,8 +10,7 @@ use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «سقطَ طلبُ انتقالِك، وهذا لماذا» (٠٣٤ · FR-008).
@@ -25,7 +24,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * والإسقاطُ أنّ حركةً أخرى جعلَته بلا محلّ — والطالبُ الذي يقرأُ «لم يوافقْ
  * مدرّسك» عن طلبٍ أسقطَته الإدارةُ يذهبُ يسألُ مدرّساً لم يقرأْ طلبَه أصلاً.
  */
-class NotifyStudentTransferRequestDropped implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentTransferRequestDropped implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

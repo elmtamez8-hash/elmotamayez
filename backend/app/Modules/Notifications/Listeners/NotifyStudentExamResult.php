@@ -8,7 +8,7 @@ use App\Modules\Assessments\Events\AttemptFinalized;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The result is final — say so, once (FR-030).
@@ -18,7 +18,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * Without it every self-set revision paper pings its own author with a result
  * they watched being marked on screen a second earlier.
  */
-class NotifyStudentExamResult implements ShouldQueue
+class NotifyStudentExamResult implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

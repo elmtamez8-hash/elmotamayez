@@ -6,8 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -20,7 +19,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * be reached from this event, because that period was written long ago; it is
  * done by `ActivateSubscription` itself.
  *
- * ⚠️ `ShouldHandleEventsAfterCommit`, because `CreateFreezePeriod` writes inside
+ * ⚠️ `ShouldQueueAfterCommit`, because `CreateFreezePeriod` writes inside
  * a transaction and releases seats in the same breath. A queued job that started
  * before that commit would read the period as absent and compute an extension of
  * zero — reporting success, and leaving every subscription in the workspace one
@@ -31,7 +30,7 @@ use Illuminate\Queue\InteractsWithQueue;
  * worker handles next. Nothing here needs a context at all: every read declares
  * `withoutWorkspaceScope()` and filters by the id the event carried.
  */
-class RecomputeSubscriptionEnds implements ShouldHandleEventsAfterCommit, ShouldQueue
+class RecomputeSubscriptionEnds implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

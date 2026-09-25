@@ -8,13 +8,12 @@ use App\Modules\Learning\Events\CohortTransferRequested;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «يطلب سامي الانتقال إلى الأحد ٦م» (FR-028ح).
  *
- * ⚠️ `ShouldHandleEventsAfterCommit`, BECAUSE THE EVENT FIRES INSIDE THE
+ * ⚠️ `ShouldQueueAfterCommit`, BECAUSE THE EVENT FIRES INSIDE THE
  * TRANSACTION THAT WRITES THE REQUEST. Without it a real queue worker picks the
  * job up before the commit lands, reads no row, and the teacher's queue never
  * lights up — invisibly, and only on the `redis` connection production runs, not
@@ -25,7 +24,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * who could plausibly be «the teacher», and the one who built the course is the
  * one who made its groups.
  */
-class NotifyTeacherCohortTransferRequested implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyTeacherCohortTransferRequested implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
