@@ -94,6 +94,47 @@ class SubscriptionAccess
     }
 
     /**
+     * Close ONE subscription enrolment by hand — the panel's «منتهٍ» on a single
+     * row — with the same consequence `close()` has for a whole order.
+     *
+     * ⚠️ THE PANEL WROTE THE COLUMN RAW. `EditEnrollment` saved `status =
+     * expired` through `$record->update()`, so `SubscriptionEnded` never fired,
+     * `ReleaseSeatsOnSubscriptionEnd` never ran, and the student kept a month of
+     * booked seats in a course they could no longer open — and was then CHARGED
+     * for each one at delivery, because billing reads seat holders by status
+     * alone (the defect that listener's own docblock describes).
+     *
+     * One row, not the order: the officer pressed «منتهٍ» on one course, and
+     * closing every course the subscription covers would be a decision they did
+     * not make. The subscription itself stays as it is — ending THAT is
+     * `CancelSubscription`, which also returns the money.
+     *
+     * @return bool whether the row was actually closed (false: not a granting
+     *              subscription enrolment any more — somebody closed it first)
+     */
+    public static function closeEnrollment(Enrollment $enrollment): bool
+    {
+        $closed = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($enrollment->getKey())
+            ->where('source', 'subscription')
+            ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
+            ->update(['status' => EnrollmentStatus::Expired->value]);
+
+        if ($closed === 0) {
+            return false;
+        }
+
+        SubscriptionEnded::dispatch(
+            (int) $enrollment->workspace_id,
+            (int) $enrollment->student_user_id,
+            [(int) $enrollment->course_id],
+        );
+
+        return true;
+    }
+
+    /**
      * Give the cancelled subscription's courses back to a subscription of the
      * same student that is still running today, instead of closing them.
      *

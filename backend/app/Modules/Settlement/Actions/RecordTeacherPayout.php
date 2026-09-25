@@ -14,6 +14,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Money leaves. Once per period, never negative.
@@ -63,69 +64,96 @@ class RecordTeacherPayout extends Action
             throw new DomainException('لا صافي مستحقّاً في هذه الفترة. الرصيد السالب يُرحَّل إلى الفترة التالية.');
         }
 
-        try {
-            $payout = TeacherPayout::query()->create([
-                'workspace_id' => (int) $period->workspace_id,
-                'teacher_profile_id' => (int) $period->teacher_profile_id,
-                'settlement_period_id' => (int) $period->getKey(),
-                'amount_minor' => $period->net_minor,
-                'currency' => (string) $period->currency,
-                'reference' => $reference,
-                'method' => $method,
-                'executed_at' => now(),
-                'executed_by' => $by->getKey(),
-            ]);
-        } catch (QueryException $e) {
-            // The unique index did its job: someone else paid this period, or the
-            // cycle ran twice. Distinguishing "already paid" from a real database
-            // failure by inspecting driver codes would be a per-driver guess, so
-            // re-read instead: a payout exists ⇒ the constraint fired.
-            if ($this->existingPayout($period) !== null) {
-                return null;
+        /*
+        | ⚠️ ONE TRANSACTION: THE PAYOUT ROW, ITS LEDGER LINE, THE STATUS AND THE
+        | AUDIT ENTRY LAND TOGETHER OR NOT AT ALL.
+        |
+        | Written as four separate statements, a throw at the ledger left the
+        | payout row behind with no negative entry beside it — and the fast path
+        | above then answered «already paid» to every retry, so the entry was
+        | never written: the balance kept saying the teacher is owed money that
+        | already left, and the period stayed «مغلقة» for ever. Inside the
+        | transaction a failure takes the payout row with it, and the retry finds
+        | nothing and pays properly.
+        |
+        | The duplicate-key catch stays INSIDE: a unique violation does not poison
+        | the transaction on MySQL or SQLite, and returning null from the closure
+        | commits nothing.
+        */
+        $payout = DB::transaction(function () use ($period, $by, $reference, $method): ?TeacherPayout {
+            try {
+                $payout = TeacherPayout::query()->create([
+                    'workspace_id' => (int) $period->workspace_id,
+                    'teacher_profile_id' => (int) $period->teacher_profile_id,
+                    'settlement_period_id' => (int) $period->getKey(),
+                    'amount_minor' => $period->net_minor,
+                    'currency' => (string) $period->currency,
+                    'reference' => $reference,
+                    'method' => $method,
+                    'executed_at' => now(),
+                    'executed_by' => $by->getKey(),
+                ]);
+            } catch (QueryException $e) {
+                // The unique index did its job: someone else paid this period, or the
+                // cycle ran twice. Distinguishing "already paid" from a real database
+                // failure by inspecting driver codes would be a per-driver guess, so
+                // re-read instead: a payout exists ⇒ the constraint fired.
+                if ($this->existingPayout($period) !== null) {
+                    return null;
+                }
+
+                throw $e;
             }
 
-            throw $e;
+            // Negative, so the running balance falls to zero rather than leaving the
+            // teacher owed what they were just paid. Stamped with the period, so the
+            // open window's total does not see it.
+            $this->ledger->handle(
+                workspaceId: (int) $period->workspace_id,
+                teacherProfileId: (int) $period->teacher_profile_id,
+                type: LedgerEntryType::Payout,
+                amountMinor: -$payout->amount_minor,
+                currency: (string) $payout->currency,
+                settlementPeriodId: (int) $period->getKey(),
+                payoutId: (int) $payout->getKey(),
+                reason: $reference,
+                createdBy: $by->getKey(),
+            );
+
+            // Conditional, like the close: the state machine only ever moves forward,
+            // and the payout row above is what already made the money idempotent.
+            //
+            // ⚠️ Unscoped, because the payer is a PLATFORM officer and
+            // `WorkspaceContext::id()` falls back to their own `last_workspace_id`:
+            // scoped, this matched zero rows on every other teacher's period, so the
+            // money left and the period still read «مغلقة» — the third layer of the
+            // defect spec 024 found in the order approval chain.
+            SettlementPeriod::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($period->getKey())
+                ->where('status', SettlementPeriodStatus::Closed->value)
+                ->update(['status' => SettlementPeriodStatus::Paid->value]);
+
+            // Only on the path that actually moved money. Both early returns above
+            // are no-ops — logging them would fill the auditor's list with entries
+            // for a cycle that was re-run, which is the noise that makes an audit
+            // log stop being read.
+            $this->logActivity('settlement.payout.executed', $payout, [
+                'amount_minor' => $payout->amount_minor,
+                'reference' => $payout->reference,
+                'method' => $payout->method,
+            ]);
+
+            return $payout;
+        });
+
+        if ($payout === null) {
+            return null;
         }
 
-        // Negative, so the running balance falls to zero rather than leaving the
-        // teacher owed what they were just paid. Stamped with the period, so the
-        // open window's total does not see it.
-        $this->ledger->handle(
-            workspaceId: (int) $period->workspace_id,
-            teacherProfileId: (int) $period->teacher_profile_id,
-            type: LedgerEntryType::Payout,
-            amountMinor: -$payout->amount_minor,
-            currency: (string) $payout->currency,
-            settlementPeriodId: (int) $period->getKey(),
-            payoutId: (int) $payout->getKey(),
-            reason: $reference,
-            createdBy: $by->getKey(),
-        );
-
-        // Conditional, like the close: the state machine only ever moves forward,
-        // and the payout row above is what already made the money idempotent.
-        //
-        // ⚠️ Unscoped, because the payer is a PLATFORM officer and
-        // `WorkspaceContext::id()` falls back to their own `last_workspace_id`:
-        // scoped, this matched zero rows on every other teacher's period, so the
-        // money left and the period still read «مغلقة» — the third layer of the
-        // defect spec 024 found in the order approval chain.
-        SettlementPeriod::query()
-            ->withoutWorkspaceScope()
-            ->whereKey($period->getKey())
-            ->where('status', SettlementPeriodStatus::Closed->value)
-            ->update(['status' => SettlementPeriodStatus::Paid->value]);
-
-        // Only on the path that actually moved money. Both early returns above
-        // are no-ops — logging them would fill the auditor's list with entries
-        // for a cycle that was re-run, which is the noise that makes an audit
-        // log stop being read.
-        $this->logActivity('settlement.payout.executed', $payout, [
-            'amount_minor' => $payout->amount_minor,
-            'reference' => $payout->reference,
-            'method' => $payout->method,
-        ]);
-
+        // AFTER the commit, never inside it: `NotifyPayoutIssued` is a plain
+        // synchronous listener, and a notification that fails must not roll back
+        // a payout whose money has already left the bank.
         TeacherPayoutIssued::dispatch($payout);
 
         return $payout;

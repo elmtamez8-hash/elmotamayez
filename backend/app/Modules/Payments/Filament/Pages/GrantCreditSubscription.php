@@ -21,6 +21,7 @@ use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\CountedNoun;
 use BackedEnum;
 use Carbon\CarbonInterface;
+use DomainException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
@@ -40,6 +41,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\HtmlString;
 use Throwable;
@@ -91,6 +93,9 @@ class GrantCreditSubscription extends Page implements HasTable
      * drained queue; short enough that the list stays a queue.
      */
     private const ACTIVATION_WATCH_DAYS = 14;
+
+    /** What the officer reads when the failure was not written for them. */
+    public const GENERIC_FAILURE = 'تعذّر إتمامُ العملية. حاول مرّةً أخرى، وإن تكرّر فأبلِغ الدعم الفنّي.';
 
     use InteractsWithTable;
 
@@ -592,11 +597,25 @@ class GrantCreditSubscription extends Page implements HasTable
 
                 return $order;
             });
-        } catch (Throwable $e) {
+        } catch (DomainException $e) {
             // The Actions' own Arabic sentences, unchanged: they name the reason
             // (a retired package, an unpriceable course, a ceiling reached) and
             // a generic message here would hide which.
             Notification::make()->danger()->title($e->getMessage())->send();
+
+            return;
+        } catch (Throwable $e) {
+            /*
+            | ⚠️ ANYTHING ELSE IS NOT A SENTENCE FOR A READER. A `QueryException`'s
+            | message carries its BOUND VALUES — a student's email, an amount —
+            | and a notification title is the one place in the panel guaranteed
+            | to be read. Only a `DomainException` was written for a person; the
+            | class is logged, never the message, which may carry the same
+            | bindings into a line that leaves the building.
+            */
+            Log::error('payments.grant_credit_subscription.failed', ['exception' => $e::class]);
+
+            Notification::make()->danger()->title(self::GENERIC_FAILURE)->send();
 
             return;
         }
@@ -658,8 +677,14 @@ class GrantCreditSubscription extends Page implements HasTable
 
         try {
             $offers = app(ListCreditPackages::class)->handle($student, $course, $officer);
-        } catch (Throwable $e) {
+        } catch (DomainException $e) {
             return $e->getMessage();
+        } catch (Throwable $e) {
+            // The preview is printed inside the form — the same leak as the
+            // save's notification, on a line re-rendered at every change.
+            Log::error('payments.grant_credit_subscription.preview_failed', ['exception' => $e::class]);
+
+            return self::GENERIC_FAILURE;
         }
 
         foreach ($offers as $offer) {
