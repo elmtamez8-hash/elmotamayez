@@ -157,7 +157,7 @@ $COMPOSE run --rm --no-deps -T -u www-data backend php artisan migrate --force
 # و`-h` كي لا يتبعَ رابطاً رمزيّاً إلى خارجِ المجلّد.
 echo "▸ ملكيّةُ المرفوعاتِ لـwww-data"
 $COMPOSE run --rm --no-deps -T -u root backend \
-    find storage/app ! -user www-data -exec chown -h www-data:www-data {} +
+    find storage/app storage/logs ! -user www-data -exec chown -h www-data:www-data {} +
 
 # ⛔ **وnginx يُعادُ إنشاؤُه حينَ يتغيّرُ ملفُّه — وحينَها فقط.**
 #

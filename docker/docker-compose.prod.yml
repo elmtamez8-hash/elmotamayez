@@ -17,6 +17,10 @@ name: elmotamayez
 # ⚠️ بلا تدوير يكبرُ سجلُّ كلِّ حاويةٍ على القرصِ إلى أن يمتلئ — وسجلُّ Laravel
 # صار يذهبُ إلى stderr (أدناه) بدلَ ملفٍّ داخلَ الحاوية يضيعُ مع كلِّ نشرة.
 # اقرأه بـ `docker compose logs -f backend horizon scheduler`.
+# ⚠️ لكنّ سجلَّ الحاويةِ يُمحى معها، وكلُّ نشرةٍ تُعيدُ إنشاءَها — فلم يكن يُرى خطأٌ
+# أقدمُ من آخرِ نشرة. لذلك يكتبُ Laravel أيضاً ملفّاً يوميّاً في المجلّدِ `logs`
+# (يبقى ١٤ يوماً، `LOG_DAILY_DAYS`):
+#   docker compose … exec backend sh -c 'tail -n 200 storage/logs/laravel-*.log'
 x-logging: &logging
   driver: json-file
   options: { max-size: "20m", max-file: "5" }
@@ -64,10 +68,12 @@ services:
       start_period: 40s
     volumes:
       - storage:/var/www/html/storage/app
+      - logs:/var/www/html/storage/logs
     env_file: .env
     environment:
       DB_HOST: mysql
-      LOG_CHANNEL: stderr
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr,daily
       LOG_LEVEL: info
       REDIS_HOST: redis
       # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
@@ -107,6 +113,13 @@ services:
     # root على مجلّدِ `storage` يُصلِحُه `deploy.sh` قبلَ رفعِ الخدمات.
     user: www-data
     command: php artisan horizon
+    # ⚠️ مهلةُ الإيقافِ الافتراضيّةُ في Docker عشرُ ثوانٍ ثمّ SIGKILL، وكلُّ نشرةٍ
+    # تُعيدُ تشغيلَ هذه الحاوية. فمهمّةٌ تعملُ لحظتَها تُقتَلُ في منتصفِها، ومع
+    # `tries: 1` لا تُعادُ أبداً — مقيسٌ: `ReleasePendingUnitsJob` فشلَ ٠٩:٤٦ في
+    # ٢٠٢٦-٠٩-٢٤ بعدَ نشرةٍ انتهت ٠٩:٤٥. وHorizon يستقبلُ SIGTERM فيُكمِلُ ما بيدِه
+    # ثمّ يخرج؛ ٩٠ ثانيةً تتجاوزُ مهلةَ `supervisor-1` (٦٠). المهامُّ الأطولُ
+    # (الصيانةُ والامتثال) مجدولةٌ وتُستأنَفُ في دورتِها التالية.
+    stop_grace_period: 90s
     # ⚠️ `horizon:status` يُرجعُ ٠ يعمل · ١ موقوف · ٢ خامل — مقيسٌ من مصدرِ
     # الحزمةِ لا من وثيقةٍ فوقَه. و«موقوف» يُعَدُّ اعتلالاً عمداً: Horizon
     # الموقوفُ لا يُصرّفُ شيئاً، وهي بالضبطِ الحالةُ التي يُراقَبُ من أجلِها.
@@ -121,10 +134,12 @@ services:
       start_period: 60s
     volumes:
       - storage:/var/www/html/storage/app
+      - logs:/var/www/html/storage/logs
     env_file: .env
     environment:
       DB_HOST: mysql
-      LOG_CHANNEL: stderr
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr,daily
       LOG_LEVEL: info
       REDIS_HOST: redis
       # ⚠️ `MEILISEARCH_HOST` هو ما يقرؤه `config/scout.php` حرفيّاً. كان هنا
@@ -175,10 +190,12 @@ services:
       start_period: 150s
     volumes:
       - storage:/var/www/html/storage/app
+      - logs:/var/www/html/storage/logs
     env_file: .env
     environment:
       DB_HOST: mysql
-      LOG_CHANNEL: stderr
+      LOG_CHANNEL: stack
+      LOG_STACK: stderr,daily
       LOG_LEVEL: info
       REDIS_HOST: redis
       MEILISEARCH_HOST: http://meilisearch:7700
@@ -439,3 +456,4 @@ volumes:
   certbot-www:
   certbot-conf:
   next-static:
+  logs:
