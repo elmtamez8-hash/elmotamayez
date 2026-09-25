@@ -58,8 +58,9 @@ class RedeemCoupon extends Action
         | pending order outright (`PurchaseSubscription::guardNoPendingOrder()`);
         | the store and credits doors take any number of pending orders, which
         | is legitimate — two different books, two packages — so the rule lives
-        | HERE, narrowed to the coupon: it bites only on the order that would
-        | take a SECOND place for the same buyer while the first is undecided.
+        | HERE, narrowed to the coupon and the teacher: it bites only on the
+        | order that would take a SECOND place for the same buyer at the same
+        | teacher while the first is undecided.
         |
         | ⚠️ AND THE PLACE IS STILL NEVER GIVEN BACK ON A REJECTION. A rejected
         | order is not dead: `acceptsReceipt()` lets its buyer upload a new
@@ -75,6 +76,10 @@ class RedeemCoupon extends Action
         $undecided = CouponRedemption::query()
             ->where('coupon_id', $coupon->getKey())
             ->where('user_id', (int) $order->user_id)
+            // Per TEACHER as well: a platform code is spendable at every
+            // teacher's shop (`CouponScopeTest`), and buying from two of them
+            // at once is two purchases, not a drain.
+            ->where('workspace_id', (int) $order->workspace_id)
             ->where('order_id', '!=', $order->getKey())
             ->whereIn('order_id', Order::query()
                 ->withoutWorkspaceScope()
