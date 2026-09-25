@@ -8,7 +8,9 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Jobs\ClaimSubscriptionSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Models\Notification;
@@ -26,6 +28,7 @@ use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 
 /*
@@ -325,7 +328,8 @@ it('starts a renewal where the running month ends, not today', function (): void
         ->and(CarbonImmutable::parse($renewal->starts_on)->toDateString())
         ->toBe($runningEnd->addDay()->toDateString())
         ->and(CarbonImmutable::parse($renewal->ends_on)->toDateString())
-        ->toBe($runningEnd->addDay()->addDays(30)->toDateString());
+        // Inclusive end: thirty days starting the day after is +29.
+        ->toBe($runningEnd->addDay()->addDays(29)->toDateString());
 });
 
 it('extends a renewal across a plan the teacher repriced', function (): void {
@@ -404,16 +408,18 @@ it('dates a subscription approved after local midnight from the platform day', f
     $subscription = Subscription::query()->where('order_id', $order->getKey())->firstOrFail();
 
     expect(CarbonImmutable::parse($subscription->starts_on)->toDateString())->toBe('2026-10-15')
-        ->and(CarbonImmutable::parse($subscription->ends_on)->toDateString())->toBe('2026-11-14');
+        // Thirty days INCLUSIVE: the 15th of October through the 13th of
+        // November. It was the 14th — a 31st day nobody paid for.
+        ->and(CarbonImmutable::parse($subscription->ends_on)->toDateString())->toBe('2026-11-13');
 
     $enrollment = Enrollment::query()->withoutWorkspaceScope()
         ->where('student_user_id', $this->student->getKey())
         ->where('course_id', $this->course->getKey())
         ->firstOrFail();
 
-    // The last instant of 2026-11-14 in Doha is 20:59:59 UTC — not 23:59:59.
+    // The last instant of 2026-11-13 in Doha is 20:59:59 UTC — not 23:59:59.
     expect(CarbonImmutable::parse($enrollment->expires_at)->utc()->toDateTimeString())
-        ->toBe('2026-11-14 20:59:59');
+        ->toBe('2026-11-13 20:59:59');
 });
 
 it('expires a subscription when its last day has ended in Doha, not three hours later', function (): void {
@@ -429,4 +435,35 @@ it('expires a subscription when its last day has ended in Doha, not three hours 
     (new ExpireSubscriptionsJob)->handle(app(DispatchNotification::class));
 
     expect($subscription->refresh()->status)->toBe(SubscriptionStatus::Expired);
+});
+
+it('claims the group seats of the extension days when a later freeze moves the end', function (): void {
+    /*
+    | Spec 027's quickstart: «تُحجَزُ حصصُ أيّامِ التمديد كذلك». At approval the
+    | seat claim runs to the end the subscription had THEN; a freeze declared
+    | afterwards moved the end and nothing claimed the week it added.
+    */
+    $this->travelTo(CarbonImmutable::parse('2026-10-15 09:00:00', 'UTC'));
+
+    $order = approveIt(orderForCohort());
+    $subscription = Subscription::query()->where('order_id', $order->getKey())->firstOrFail();
+
+    Queue::fake([ClaimSubscriptionSeatsJob::class]);
+
+    FreezePeriod::create([
+        'workspace_id' => $this->workspace->getKey(),
+        'student_user_id' => null,
+        'starts_on' => CarbonImmutable::parse('2026-10-20'),
+        'ends_on' => CarbonImmutable::parse('2026-10-26'),
+        'reason' => 'إجازة',
+        'created_by' => $this->teacher->getKey(),
+    ]);
+
+    $end = $subscription->refresh()->effective_ends_on->toDateString();
+
+    expect($end)->toBe('2026-11-20');
+
+    $windowEnd = new ReflectionProperty(ClaimSubscriptionSeatsJob::class, 'windowEnd');
+
+    Queue::assertPushed(ClaimSubscriptionSeatsJob::class, fn (ClaimSubscriptionSeatsJob $job): bool => $windowEnd->getValue($job) === $end);
 });
