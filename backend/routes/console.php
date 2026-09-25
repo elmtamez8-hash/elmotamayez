@@ -36,6 +36,27 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
+/*
+| The platform's calendar — «Sunday dawn», «the day is over», «a birthday» — for
+| every schedule below that answers a question about a DATE rather than a moment.
+|
+| ⚠️ ONE DECLARATION, READ FROM `config('sessions.timezone')` (`SESSIONS_TIMEZONE`,
+| default Asia/Qatar). This file used to spell the zone as a literal on eight
+| lines, beside `config/sessions.php` and `config/notifications.php` each declaring
+| it again — four places for one fact, which agree until the first one moves.
+| `ScheduleTimezoneTest` fails the build if a literal zone comes back here.
+|
+| ⚠️ CONFIG, NOT THE `platform_settings` ROW `SessionSettings::timezone()` READS.
+| This file is loaded when `schedule:work` BOOTS — a long-lived process — and by
+| every artisan command, `migrate` on an empty database included. A database or
+| cache read here would take the scheduler (and a fresh deploy) down with the
+| store, and a panel edit would change nothing until the process restarted
+| anyway. So the panel row governs how times are displayed and counted; the
+| schedule follows the environment, and moving it means changing
+| `SESSIONS_TIMEZONE` and restarting the scheduler.
+*/
+$platformTimezone = (string) config('sessions.timezone');
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
@@ -348,7 +369,7 @@ Schedule::job(new MarkMissedSubmissionsJob, 'maintenance')
 | Gamification (spec 009)
 |--------------------------------------------------------------------------
 |
-| ⚠️ THREE OF THESE FOUR CARRY `->timezone('Asia/Qatar')` EXPLICITLY, and it is
+| ⚠️ THREE OF THESE FOUR CARRY `->timezone($platformTimezone)` EXPLICITLY, and it is
 | not decoration. The scheduler runs on `config/app.timezone`, which is UTC and
 | stays UTC — stored timestamps are not being moved. What these three answer is a
 | question about a QATARI CALENDAR EDGE: "Sunday dawn" and "the day is over".
@@ -365,14 +386,14 @@ Schedule::job(new MarkMissedSubmissionsJob, 'maintenance')
 // grouped scan over the fastest-growing table in the module.
 Schedule::job(new RollUpLeaderboardsJob, 'maintenance')
     ->hourlyAt(35)
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();
 
 // The week that ended, sealed. 00:10 Sunday Doha: ten minutes past the boundary,
 // so every award of the closing week has certainly landed.
 Schedule::job(new CloseLeaderboardWeekJob, 'maintenance')
     ->weeklyOn(0, '00:10')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();
 
 // Retention on the derived table (FR-026). 03:15, ahead of the notification
@@ -380,7 +401,7 @@ Schedule::job(new CloseLeaderboardWeekJob, 'maintenance')
 // a lock contention nobody planned for.
 Schedule::job(new PruneOldLeaderboardsJob, 'maintenance')
     ->dailyAt('03:15')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();
 
 // Does the aggregate still equal the sum of its entries? Bounded by movement,
@@ -417,7 +438,7 @@ Schedule::job(new RetryStalledDataRequestsJob, 'maintenance')
 */
 Schedule::job(new PruneExpiredExportsJob, 'maintenance')
     ->dailyAt('05:35')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();
 
 /*
@@ -465,7 +486,7 @@ Schedule::job(new EnforceAuthSessionCapJob, 'compliance')->dailyAt('04:15');
 /*
 | A student who turned eighteen owns their own data (FR-009).
 |
-| ⚠️ `->timezone('Asia/Qatar')` BECAUSE A BIRTHDAY IS A CALENDAR QUESTION, not a
+| ⚠️ `->timezone($platformTimezone)` BECAUSE A BIRTHDAY IS A CALENDAR QUESTION, not a
 | moment. On UTC the sweep runs at 09:05 Doha, so somebody whose eighteenth
 | birthday is today is told about it after most of that day has gone — and the
 | boundary the job compares against and the boundary the student lives in are two
@@ -480,7 +501,7 @@ Schedule::job(new EnforceAuthSessionCapJob, 'compliance')->dailyAt('04:15');
 */
 Schedule::job(new TransferDataOwnershipJob, 'compliance')
     ->dailyAt('06:25')
-    ->timezone('Asia/Qatar');
+    ->timezone($platformTimezone);
 
 /*
 | The cumulative report card for the month that has just ended (010 · FR-036).
@@ -500,8 +521,8 @@ Schedule::job(new TransferDataOwnershipJob, 'compliance')
 | 05:40 Doha: after the 03:30 retention sweep and clear of the quarter-hourly
 | billing sweeps on :05/:20/:35/:50 UTC.
 */
-Schedule::call(function (): void {
-    $lastMonth = now('Asia/Qatar')->subMonthNoOverflow();
+Schedule::call(function () use ($platformTimezone): void {
+    $lastMonth = now($platformTimezone)->subMonthNoOverflow();
 
     BuildReportCardsJob::dispatch(
         $lastMonth->copy()->startOfMonth()->toDateString(),
@@ -509,7 +530,7 @@ Schedule::call(function (): void {
     );
 })
     ->monthlyOn(2, '05:40')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->name('build-report-cards')
     ->withoutOverlapping();
 
@@ -529,7 +550,7 @@ Schedule::call(function (): void {
 */
 Schedule::job(new RollUpPlatformMetricsJob, 'maintenance')
     ->dailyAt('05:30')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();
 
 /*
@@ -542,5 +563,5 @@ Schedule::job(new RollUpPlatformMetricsJob, 'maintenance')
 */
 Schedule::job(new SendScheduledReportsJob, 'maintenance')
     ->dailyAt('06:00')
-    ->timezone('Asia/Qatar')
+    ->timezone($platformTimezone)
     ->withoutOverlapping();

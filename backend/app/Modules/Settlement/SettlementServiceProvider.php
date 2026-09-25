@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Settlement;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
+use App\Modules\Settlement\Console\RepairUnledgeredUnits;
 use App\Modules\Settlement\Events\SettlementPeriodClosed;
 use App\Modules\Settlement\Events\SettlementRateApproved;
 use App\Modules\Settlement\Events\TeacherPayoutIssued;
@@ -121,5 +122,12 @@ class SettlementServiceProvider extends Module
         // — and by then the question is an argument instead of a query.
         Event::listen(SettlementPeriodClosed::class, NotifyPeriodClosed::class);
         Event::listen(TeacherPayoutIssued::class, NotifyPayoutIssued::class);
+
+        // The repair for units accrued with no ledger line before accrual became
+        // one transaction. A module's command is its provider's job to register;
+        // without this line `artisan` does not know it exists.
+        if ($this->app->runningInConsole()) {
+            $this->commands([RepairUnledgeredUnits::class]);
+        }
     }
 }

@@ -140,6 +140,3 @@ export async function platformName(): Promise<string> {
 
 export const CURRENCY = "QAR";
 export const CURRENCY_LABEL = "ر.ق";
-
-/** Reference timezone for teaching hours; the UI converts to the visitor's zone. */
-export const PLATFORM_TIMEZONE = "Asia/Qatar";

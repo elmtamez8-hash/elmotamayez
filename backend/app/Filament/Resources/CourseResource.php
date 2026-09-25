@@ -72,8 +72,20 @@ class CourseResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        /*
+                        | ⚠️ UNIQUE ACROSS THE PLATFORM, DELETED COURSES INCLUDED —
+                        | the same rule the API's requests carry. Without it a slug
+                        | another course holds reached the unique index and answered
+                        | a raw integrity error. Filament's `unique()` is a raw
+                        | `Rule::unique`, so a soft-deleted course still holds its
+                        | address: a deleted course's public URL must never start
+                        | serving somebody else's course. Required because the
+                        | column is NOT NULL — an emptied field was the same 500.
+                        */
                         TextInput::make('slug')
                             ->label('المُعرِّف')
+                            ->required()
+                            ->unique(ignoreRecord: true)
                             ->maxLength(255),
                         Select::make('subject_id')
                             ->label('المادّة')

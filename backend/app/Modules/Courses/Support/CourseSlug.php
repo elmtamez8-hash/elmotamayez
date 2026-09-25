@@ -101,6 +101,16 @@ final class CourseSlug
     {
         return Course::query()
             ->withoutWorkspaceScope()
+            /*
+            | ⚠️ withTrashed: A DELETED COURSE KEEPS ITS ADDRESS. The unique index
+            | on `slug` counts soft-deleted rows, and so does `Rule::unique` in
+            | both requests — deliberately, so a deleted course's public URL can
+            | never start serving another teacher's course. This check was the one
+            | that disagreed: the SoftDeletes scope hid the deleted row, `for()`
+            | handed its slug to a new course, and the insert died on the index
+            | with a raw integrity error while a teacher was creating a course.
+            */
+            ->withTrashed()
             ->where('slug', $slug)
             ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
             ->exists();
