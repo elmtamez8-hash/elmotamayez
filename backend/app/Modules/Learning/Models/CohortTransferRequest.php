@@ -7,6 +7,7 @@ namespace App\Modules\Learning\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Learning\CohortTransferRequestFactory;
@@ -57,16 +58,27 @@ class CohortTransferRequest extends BaseModel
         ];
     }
 
+    /*
+    | ⛔ UNSCOPED ON THE RELATION, like `Enrollment::course()`. `WorkspaceContext::id()`
+    | falls back to `users.last_workspace_id`, stamped on every student a teacher,
+    | an invitation or a seeder ever added to a workspace — so for a student who
+    | bought from a DIFFERENT teacher the scope ANDs the wrong workspace onto this
+    | relation and it answers null about a row that exists.
+    |
+    | It opens no door: the parent row is already filtered or authorised by
+    | whoever read it, and this follows the foreign key that row carries — never
+    | a row the reader chose. Nothing in the tree uses it as a `whereHas` guard.
+    */
     /** @return BelongsTo<Cohort, $this> */
     public function toCohort(): BelongsTo
     {
-        return $this->belongsTo(Cohort::class, 'to_cohort_id');
+        return $this->belongsTo(Cohort::class, 'to_cohort_id')->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<Cohort, $this> */
     public function fromCohort(): BelongsTo
     {
-        return $this->belongsTo(Cohort::class, 'from_cohort_id');
+        return $this->belongsTo(Cohort::class, 'from_cohort_id')->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /**

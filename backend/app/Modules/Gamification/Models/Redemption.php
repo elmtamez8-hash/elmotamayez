@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -59,10 +60,21 @@ class Redemption extends BaseModel
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    /*
+    | ⛔ UNSCOPED ON THE RELATION, like `Enrollment::course()`. `WorkspaceContext::id()`
+    | falls back to `users.last_workspace_id`, stamped on every student a teacher,
+    | an invitation or a seeder ever added to a workspace — so for a student who
+    | bought from a DIFFERENT teacher the scope ANDs the wrong workspace onto this
+    | relation and it answers null about a row that exists.
+    |
+    | It opens no door: the parent row is already filtered or authorised by
+    | whoever read it, and this follows the foreign key that row carries — never
+    | a row the reader chose. Nothing in the tree uses it as a `whereHas` guard.
+    */
     /** @return BelongsTo<Reward, $this> */
     public function reward(): BelongsTo
     {
-        return $this->belongsTo(Reward::class);
+        return $this->belongsTo(Reward::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<Workspace, $this> */

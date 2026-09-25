@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonImmutable;
@@ -80,10 +81,21 @@ class Subscription extends BaseModel
         ];
     }
 
+    /*
+    | ⛔ UNSCOPED ON THE RELATION, like `Enrollment::course()`. `WorkspaceContext::id()`
+    | falls back to `users.last_workspace_id`, stamped on every student a teacher,
+    | an invitation or a seeder ever added to a workspace — so for a student who
+    | bought from a DIFFERENT teacher the scope ANDs the wrong workspace onto this
+    | relation and it answers null about a row that exists.
+    |
+    | It opens no door: the parent row is already filtered or authorised by
+    | whoever read it, and this follows the foreign key that row carries — never
+    | a row the reader chose. Nothing in the tree uses it as a `whereHas` guard.
+    */
     /** @return BelongsTo<Plan, $this> */
     public function plan(): BelongsTo
     {
-        return $this->belongsTo(Plan::class);
+        return $this->belongsTo(Plan::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<User, $this> */
@@ -95,7 +107,7 @@ class Subscription extends BaseModel
     /** @return BelongsTo<Order, $this> */
     public function order(): BelongsTo
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(Order::class)->withoutGlobalScope(WorkspaceScope::class);
     }
 
     /** @return BelongsTo<Workspace, $this> */
