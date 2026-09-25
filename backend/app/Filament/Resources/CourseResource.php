@@ -21,6 +21,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -29,6 +30,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use UnitEnum;
 
 class CourseResource extends Resource
@@ -302,7 +304,27 @@ class CourseResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    /*
+                    | The refusal lives in `Course::booted()`; this names it
+                    | before anything is deleted, so a selection holding one
+                    | bought course deletes nothing rather than a silent part of
+                    | it. Never add `fetchSelectedRecords(false)` here — that is
+                    | a query delete, which never reaches the model hook.
+                    */
+                    DeleteBulkAction::make()
+                        ->before(function (DeleteBulkAction $action, Collection $records): void {
+                            $refused = $records->first(
+                                fn (mixed $record): bool => $record instanceof Course && $record->deletionRefusal() !== null,
+                            );
+
+                            if ($refused instanceof Course) {
+                                Notification::make()
+                                    ->danger()
+                                    ->title('لم يُحذف شيء: «'.$refused->title.'» — '.$refused->deletionRefusal())
+                                    ->send();
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ]);
     }

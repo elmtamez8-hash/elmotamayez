@@ -59,6 +59,17 @@ class EnrollmentController extends Controller
                 $validated['status'] ?? null,
                 fn ($query, string $status) => $query->where('status', $status),
             )
+            /*
+            | ⛔ `enrollments.course_id` HAS NO FOREIGN KEY, and until courses were
+            | soft-deleted a deleted course left its enrolments pointing at no row
+            | at all — `EnrollmentResource` then read `->uuid` on null and this
+            | whole list answered 500 for every buyer of that one course. Those
+            | rows still exist on a live database, so they are left out here
+            | rather than taking everyone's list down. A SOFT-deleted course still
+            | resolves (`Enrollment::course()` carries `withTrashed()`), so a buyer
+            | keeps seeing what they bought.
+            */
+            ->whereHas('course')
             // The workspace comes with it: `EnrollmentResource` names the teacher
             // so a student can open the one private conversation with them, and a
             // Resource runs once per row — a query inside it is an N+1 by
