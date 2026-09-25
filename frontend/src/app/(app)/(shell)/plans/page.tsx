@@ -17,6 +17,7 @@ import { userMessage } from "@/lib/errors";
 import { formatDate, formatMinorMoney } from "@/lib/labels";
 import {
   plans as plansApi,
+  planCheckoutHref,
   planShape,
   SESSION_TYPE_LABELS,
   type Plan,
@@ -31,11 +32,11 @@ import {
  * the raw tenant key does not travel — so the picker is built from the balances
  * the student already has, exactly as `/billing/purchase` builds its own.
  *
- * ⚠️ AND BUYING ANSWERS WITH AN ORDER, NOT A SUBSCRIPTION. A manual bank
- * transfer takes days, so the screen must say «ستبدأ عند اعتماد الدفعة» rather
- * than showing a month that has not started — the same rule the store's checkout
- * follows, and for the same reason: a page that shows access it has not got
- * generates the support ticket the day after.
+ * ⛔ AND BUYING HAPPENS ON `/subscribe`, NOT HERE. «اشترِ» is a link
+ * ({@link planCheckoutHref}). This page used to post its own order with
+ * `plans.buy`, which sent no `mode` and was refused with 422 on every press from
+ * 2026-09-05 until it was removed: one purchase screen builds the whole body and
+ * takes the receipt, and a second one beside it is how this one broke unnoticed.
  *
  * ⚠️ THE END DATE PRINTED IS THE EFFECTIVE ONE. A freeze moves it, and the expiry
  * notice reads the same column — a card showing the sold date would contradict
@@ -48,8 +49,6 @@ export default function PlansPage() {
   const [offers, setOffers] = useState<Plan[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
-  const [ordered, setOrdered] = useState<string | null>(null);
-  const [buying, setBuying] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState("loading");
@@ -95,21 +94,6 @@ export default function PlansPage() {
     };
   }, [courseUuid]);
 
-  async function buy(plan: Plan) {
-    setBuying(plan.uuid);
-    setProblem(null);
-
-    try {
-      await plansApi.buy(plan.uuid);
-      setOrdered(plan.title);
-      await load();
-    } catch (error) {
-      setProblem(userMessage(error));
-    } finally {
-      setBuying(null);
-    }
-  }
-
   if (state === "loading") return <RowsSkeleton />;
   if (state === "error") {
     return <ErrorState description={problem ?? undefined} onRetry={() => void load()} />;
@@ -129,12 +113,6 @@ export default function PlansPage() {
         </Alert>
       )}
 
-      {ordered !== null && (
-        <Alert tone="info" title="سُجِّل طلبك">
-          طلبتَ «{ordered}». ترفع إيصال التحويل من صفحة «الطلبات»، وتبدأ الباقة عند اعتماد
-          الدفعة — لا قبله.
-        </Alert>
-      )}
 
       <Card as="section">
         <div className="space-y-3">
@@ -229,13 +207,13 @@ export default function PlansPage() {
                     : formatMinorMoney(plan.price_minor, plan.currency)}
                 </span>
 
-                <Button
-                  type="button"
-                  onClick={() => void buy(plan)}
-                  disabled={buying !== null || !plan.is_sellable}
-                >
-                  اشترِ
-                </Button>
+                {plan.is_sellable ? (
+                  <Button href={planCheckoutHref(courseUuid, plan)}>اشترِ</Button>
+                ) : (
+                  <Button type="button" disabled>
+                    اشترِ
+                  </Button>
+                )}
               </div>
             </div>
           ))}
