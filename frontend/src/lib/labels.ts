@@ -644,7 +644,7 @@ export const UNREAD_NOTIFICATIONS: CountedForms = {
 /**
  * «٥ سنوات خبرة» — the marketplace card and the profile's description read the
  * same count, so they read the same forms. The profile spelled it as a template
- * literal and printed «١ سنوات خبرة».
+ * literal and printed «1 سنوات خبرة».
  *
  * ⚠️ «أقل من سنة»، لا «لا سنوات خبرة». الصفرُ هنا مدرّسٌ مُعتمَدٌ في أوّلِ عامِه،
  * وجملةُ النفيِ تقرأُ حكماً عليه على صفحةٍ تُعرَضُ في السوق.
