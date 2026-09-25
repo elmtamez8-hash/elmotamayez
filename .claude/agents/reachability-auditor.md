@@ -42,3 +42,7 @@ Write `audit/04-REACHABILITY.md` and `audit/04-ROUTE-GRAPH.md`.
 ROUTE-GRAPH contains: the full route inventory table (METHOD | URI | middleware |
 controller@action for Laravel; path | file | linked-from for Next.js) and a
 mermaid graph of the main navigation paths.
+
+## Project gotchas
+
+Before reporting, read `docs/gotchas/frontend.md` — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.

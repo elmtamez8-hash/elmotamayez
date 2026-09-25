@@ -46,3 +46,7 @@ Write `audit/02-CLEANCODE.md`:
 2. Per finding: why it hurts, before/after sketch.
 3. A short "structural debt" section: the 3 patterns that, if fixed once, remove
    the most repeated findings.
+
+## Project gotchas
+
+Before reporting, read the `docs/gotchas/<area>.md` file for each area you review — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.
