@@ -167,7 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     auth
       .setTimezone(zone, true)
-      .then((updated) => setUser((current) => (current?.uuid === updated.uuid ? updated : current)))
+      // Only the one field: the rest of `/auth/me` (permissions, workspaces) stays as loaded.
+      .then((updated) =>
+        setUser((current) => (current?.uuid === updated.uuid ? { ...current, timezone: updated.timezone } : current)),
+      )
       .catch(() => {});
   }, [user]);
 

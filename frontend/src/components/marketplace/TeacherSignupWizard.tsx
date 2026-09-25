@@ -150,7 +150,6 @@ export function TeacherSignupWizard({
     if (week.length > 0) setSlots(week);
   }, [storedWeek, zone]);
 
-
   const idempotencyKey = useMemo(
     () => globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
     [],

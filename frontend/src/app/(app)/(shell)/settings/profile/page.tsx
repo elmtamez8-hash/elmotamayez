@@ -112,7 +112,6 @@ export default function ProfileSettingsPage() {
     if (storedWeek !== null) showWeek(storedWeek, zone);
   }, [storedWeek, zone, showWeek]);
 
-
   const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
 
   const [fields, setFields] = useState<Record<string, string>>({});

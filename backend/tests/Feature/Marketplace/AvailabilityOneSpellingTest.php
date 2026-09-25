@@ -49,7 +49,7 @@ it('does not revert the week the teacher just set when the application is re-sub
 
     Sanctum::actingAs($this->teacher->user);
 
-    $this->putJson('/api/v1/teacher/availability', ['availability' => tuesdayNine()])
+    $this->putJson('/api/v1/teacher/availability', ['availability' => tuesdayNine(), 'timezone' => 'Asia/Qatar'])
         ->assertOk();
 
     $this->postJson('/api/v1/teacher/application/submit')->assertOk();
@@ -83,7 +83,7 @@ it('leaves a decided application exactly as the reviewer left it', function (): 
 
     Sanctum::actingAs($this->teacher->user);
 
-    $this->putJson('/api/v1/teacher/availability', ['availability' => tuesdayNine()])
+    $this->putJson('/api/v1/teacher/availability', ['availability' => tuesdayNine(), 'timezone' => 'Asia/Qatar'])
         ->assertOk();
 
     // الصفوفُ تتحرّك — الشاشةُ بابٌ مشروعٌ بعدَ الاعتماد — والطلبُ لا.
@@ -134,6 +134,7 @@ it('stores one time whichever door wrote it', function (): void {
     Sanctum::actingAs($this->teacher->user);
 
     $this->putJson('/api/v1/teacher/availability', [
+        'timezone' => 'Asia/Qatar',
         'availability' => [['day_of_week' => 4, 'start_time' => '07:30', 'end_time' => '09:00']],
     ])->assertOk();
 
