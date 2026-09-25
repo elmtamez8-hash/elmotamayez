@@ -41,24 +41,36 @@ class CloseSettlementPeriod extends Action
     /** @return SettlementPeriod|null the closed period, or null if someone else closed it first */
     public function handle(SettlementPeriod $period, ?User $by = null): ?SettlementPeriod
     {
-        // The claim, before anything is computed. Whoever wins this row does the
-        // arithmetic; whoever loses does nothing at all.
-        $claimed = SettlementPeriod::query()
-            ->whereKey($period->getKey())
-            ->where('status', SettlementPeriodStatus::Open->value)
-            ->update([
-                'status' => SettlementPeriodStatus::Closed->value,
-                'closed_at' => now(),
-                // Null when the schedule closed it, which is the honest value:
-                // no person made this decision.
-                'closed_by' => $by?->getKey(),
-            ]);
+        /*
+        | ⛔ THE CLAIM IS INSIDE THE TRANSACTION, WITH THE ARITHMETIC. It used to
+        | commit on its own first: a throw anywhere in the stamping left the period
+        | `closed` with no units stamped and no totals frozen, and every retry lost
+        | its own claim («someone else closed it») — a teacher's month shut at
+        | zero for ever, with nothing left that could finish it. The lesson
+        | `claimForGrading()` taught in assessments, reached from settlement.
+        |
+        | Inside, a failure rolls the claim back with everything else and the
+        | same close runs again. A concurrent second caller still loses cleanly:
+        | it waits on the row the winner claimed and then updates zero rows.
+        */
+        $closed = DB::transaction(function () use ($period, $by): ?SettlementPeriod {
+            // The claim, before anything is computed. Whoever wins this row does
+            // the arithmetic; whoever loses does nothing at all.
+            $claimed = SettlementPeriod::query()
+                ->whereKey($period->getKey())
+                ->where('status', SettlementPeriodStatus::Open->value)
+                ->update([
+                    'status' => SettlementPeriodStatus::Closed->value,
+                    'closed_at' => now(),
+                    // Null when the schedule closed it, which is the honest value:
+                    // no person made this decision.
+                    'closed_by' => $by?->getKey(),
+                ]);
 
-        if ($claimed === 0) {
-            return null;
-        }
+            if ($claimed === 0) {
+                return null;
+            }
 
-        $closed = DB::transaction(function () use ($period): SettlementPeriod {
             // Re-read, because the conditional UPDATE above wrote round the
             // instance: the in-memory copy still says `open`.
             $fresh = $period->refresh();
@@ -69,6 +81,10 @@ class CloseSettlementPeriod extends Action
 
             return $fresh;
         });
+
+        if ($closed === null) {
+            return null;
+        }
 
         // Logged AFTER the totals are frozen, so the audit entry carries the
         // numbers that were actually written rather than the ones that were

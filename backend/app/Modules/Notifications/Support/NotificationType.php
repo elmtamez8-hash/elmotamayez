@@ -447,6 +447,23 @@ enum NotificationType: string
     case SessionPlanActivated = 'session_plan_activated';
 
     /*
+    | A renewal's window MOVED to start today, because the month running before
+    | it was cancelled and refunded (owner decision 2026-09-25). The student was
+    | told the old dates by `SubscriptionActivated`; without this they read a
+    | start date weeks away while their month is already running.
+    |
+    | Its own type rather than `SubscriptionActivated` again: that message says
+    | «تم تفعيل» about a purchase that was activated long ago.
+    |
+    | ⚠️ THE STUDENT ALONE, ON PURPOSE. A guardian-targeting type picks up the
+    | WhatsApp channel, and every WhatsApp message must be a template approved at
+    | the provider — a new type there is a message that fails until somebody
+    | registers it. The student's own feed is what the owner asked for; widening
+    | it to guardians is one line in `targetsGuardians()` plus that approval.
+    */
+    case SubscriptionRedated = 'subscription_redated';
+
+    /*
     | ٠٣٦ — قرارُ المنصّةِ في طلبِ تعديلِ باقةٍ مسعَّرة. نوعانِ لا واحدٌ بعلَم،
     | كما في `settlement_rate_approved`/`settlement_rate_rejected`: القبولُ
     | يقولُ ماذا صارَت الباقةُ تبيع، والرفضُ يقولُ السبب — ونصَّانِ مختلفانِ
@@ -591,6 +608,7 @@ enum NotificationType: string
             self::SubscriptionExpiring => 'قرب انتهاء اشتراك',
             self::SubscriptionActivated => 'تفعيل اشتراك',
             self::SessionPlanActivated => 'تفعيل باقة حصص',
+            self::SubscriptionRedated => 'تغيير موعد اشتراك',
             self::PlanChangeApproved => 'قبول تعديل باقة',
             self::PlanChangeRejected => 'رفض تعديل باقة',
             self::SubscriptionSeatUnavailable => 'مقعد غير متاح',
