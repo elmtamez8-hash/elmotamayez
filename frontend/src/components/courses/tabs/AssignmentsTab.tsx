@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { stateLabel, type Assignment } from "@/lib/assignments";
-import { formatDateTime } from "@/lib/labels";
+import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 
 /**
  * This course's homework: what is due, what went in, and what being late costs
@@ -71,7 +71,7 @@ export function AssignmentsTab({ assignments }: { assignments: Assignment[] }) {
 
               <div className="mb-3 flex flex-wrap gap-2">
                 <Badge>
-                  <bdi>{assignment.points}</bdi>&nbsp;درجة
+                  {counted(assignment.points, NOUNS.points)}
                 </Badge>
                 {assignment.late_policy === "reject" && (
                   <Badge tone="warning">لا يُقبل بعد الموعد</Badge>

@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { counted, NOUNS } from "@/lib/labels";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -26,14 +27,6 @@ interface AttemptResponse {
 /** An essay carries no options; the teacher marks it by hand after submission. */
 function isEssay(q: AttemptResponse["questions"][number]): boolean {
   return q.type === "essay";
-}
-
-/** "درجة / درجتان / N درجات" — Arabic duals and plurals, not an English "s". */
-function pointsLabel(points: number): string {
-  if (points === 1) return "درجة واحدة";
-  if (points === 2) return "درجتان";
-  if (points >= 3 && points <= 10) return `${points} درجات`;
-  return `${points} درجة`;
 }
 
 export default function TakeExamPage({
@@ -160,7 +153,7 @@ export default function TakeExamPage({
               </span>
               <div className="flex-1">
                 <p className="font-medium text-ink">{q.content}</p>
-                <p className="mt-1 text-xs text-ink-muted">{pointsLabel(q.points)}</p>
+                <p className="mt-1 text-xs text-ink-muted">{counted(q.points, NOUNS.points)}</p>
               </div>
             </div>
 
