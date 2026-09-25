@@ -127,6 +127,15 @@ describe("one classifier for «which side is this account»", () => {
       side: "student",
     },
     { name: "a null-role account holding nothing", user: payload({}), side: "student" },
+    {
+      // Teaching is asked BEFORE the `student` role — the order `homePathFor`
+      // already had. The server never sends this shape today
+      // (`UserResource::workplaces()` returns [] for a `student` role), but the
+      // sidebar and the landing path used to answer it differently.
+      name: "a student-role account that teaches",
+      user: payload({ platform_role: "student", workspaces: teaching }),
+      side: "teacher",
+    },
   ];
 
   it.each(table)("classifies $name", ({ user, side }) => {
