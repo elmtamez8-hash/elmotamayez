@@ -252,6 +252,18 @@ it('starts the renewal today when the running month is cancelled, and cancels it
 });
 
 /*
+| #5 — `CancelSubscription` reversed the payment and left the order reading
+| «معتمَد», while `ReverseCourseOrder` writes `cancelled`. One word for one act.
+*/
+it('cancels the order of a cancelled subscription', function (): void {
+    $only = moneyAuditMonth();
+
+    app(CancelSubscription::class)->handle($only, 'استرداد');
+
+    expect(moneyAuditOrder((int) $only->order_id)->status)->toBe('cancelled');
+});
+
+/*
 | #4 — the listeners run after commit on a worker, carrying the order as it was
 | at approval. A reversal landing in that gap cancelled an order with nothing
 | yet to close, and the listener then opened access on it for ever.
