@@ -6,10 +6,12 @@ namespace App\Modules\Media\Actions;
 
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
+use App\Modules\Media\Events\PlaybackSustained;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Scopes\WorkspaceScope;
+use Carbon\CarbonInterface;
 use DomainException;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -43,6 +45,10 @@ class RenewPlaybackGrant extends Action
 
         $ttl = (int) PlatformSettings::get('media.grant_ttl_seconds', 300);
 
+        // Read BEFORE the write below moves it: the previous renewal is one edge
+        // of the interval this call covers, and the crossing is judged on it.
+        $previousSeenAt = $grant->last_seen_at ?? $grant->created_at;
+
         $grant->forceFill([
             'expires_at' => now()->addSeconds($ttl),
             'renewed_count' => $grant->renewed_count + 1,
@@ -53,7 +59,58 @@ class RenewPlaybackGrant extends Action
             $this->rememberPosition($grant, $positionSeconds);
         }
 
+        $this->announceIfSustained($grant, $previousSeenAt);
+
         return $grant;
+    }
+
+    /**
+     * Says «this viewing counts as watched» — once per grant, on the renewal that
+     * crosses the line.
+     *
+     * ⚠️ THE CLOCK IS OURS. The age is `now − created_at` of a row this server
+     * wrote, so reaching it takes real time with the watermark renewing; the
+     * `position_seconds` beside it is whatever the client typed and is never
+     * read here. `renewed_count` is not a clock either — nothing enforces a
+     * minimum gap between renewals, so a script could run it to any number in a
+     * second.
+     *
+     * The window is (previous renewal, this renewal], so exactly one renewal of
+     * a grant can satisfy it however irregular the loop is — a viewer with the
+     * page open for two hours announces once, not once a minute. A second grant
+     * (the page reopened) may announce again; the listener's own write is
+     * conditional, which is what makes the fact once per PERSON.
+     */
+    private function announceIfSustained(PlaybackGrant $grant, ?CarbonInterface $previousSeenAt): void
+    {
+        if ($previousSeenAt === null) {
+            return;
+        }
+
+        $threshold = $this->watchedAfterSeconds($grant->asset->duration_seconds);
+        $issuedAt = $grant->created_at;
+
+        if ($issuedAt === null) {
+            return;
+        }
+
+        $before = $issuedAt->diffInSeconds($previousSeenAt, true);
+        $now = $issuedAt->diffInSeconds(now(), true);
+
+        if ($before < $threshold && $now >= $threshold) {
+            PlaybackSustained::dispatch((int) $grant->media_asset_id, (int) $grant->user_id);
+        }
+    }
+
+    private function watchedAfterSeconds(?int $durationSeconds): int
+    {
+        if ($durationSeconds !== null && $durationSeconds > 0) {
+            $share = (float) PlatformSettings::get('media.watched_share', 0.5);
+
+            return max(1, (int) ceil($durationSeconds * $share));
+        }
+
+        return max(1, (int) PlatformSettings::get('media.watched_fallback_seconds', 600));
     }
 
     /**
