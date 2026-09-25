@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Actions;
 
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Enums\SubscriptionStatus;
+use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Subscription;
+use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
 use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
@@ -48,7 +51,10 @@ class CancelSubscription extends Action
 {
     use LogsActivity;
 
-    public function __construct(private readonly ReversePayment $reverse) {}
+    public function __construct(
+        private readonly ReversePayment $reverse,
+        private readonly EffectiveSubscriptionEnd $ends,
+    ) {}
 
     public function handle(Subscription $subscription, string $reason): Subscription
     {
@@ -99,6 +105,30 @@ class CancelSubscription extends Action
             // 2026-09-25). Only rows no live subscription covers are closed below.
             SubscriptionAccess::handBackToRunning($subscription);
             SubscriptionAccess::close($subscription);
+
+            /*
+            | ⛔ AND THE MIRROR: CANCELLING THE RUNNING MONTH AFTER ITS RENEWAL WAS
+            | BOUGHT (owner decision 2026-09-25). The renewal already holds the
+            | enrolment row, so nothing above closes anything — but its window was
+            | dated from the end of THIS month, which no longer exists. It now
+            | starts today, same length: no gap in access, no free month, and no
+            | seat in between charged to credits as «not covered».
+            */
+            $this->ends->startRenewalsOfCancelled($subscription);
+
+            /*
+            | ⚠️ THE ORDER IS CANCELLED TOO, as `ReverseCourseOrder` cancels its
+            | own: a reversed payment on an order still reading «معتمَد» is two
+            | screens disagreeing about one purchase. A gateway order never moved
+            | to `approved` (the capture door does not pass through
+            | `ApproveOrder`), so any order still standing is taken; the claim on
+            | the subscription above already decided the race.
+            */
+            Order::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($subscription->order_id)
+                ->whereIn('status', [OrderStatus::Approved->value, ...Order::awaitingDecisionStatuses()])
+                ->update(['status' => OrderStatus::Cancelled->value]);
 
             $this->logActivity('subscription.cancelled', $subscription, [
                 'order_id' => $subscription->order_id,

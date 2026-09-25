@@ -133,6 +133,12 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             return;
         }
 
+        // Reversed between the approval and this worker: no month, no hours,
+        // no enrolment — `Order::wasWithdrawn()` says why it is re-read.
+        if ($order->wasWithdrawn()) {
+            return;
+        }
+
         $plan = $this->planFor($order);
 
         if ($plan === null) {

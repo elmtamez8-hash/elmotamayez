@@ -239,6 +239,7 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - A BOOLEAN THAT ANSWERS A QUESTION WHICH HAS QUIETLY GROWN A THIRD ANSWER SWALLOWS THAT ANSWER AT EVERY READER, AND IT WAS SEVEN OF THEM.
 - A LOT IS OPENED BY THE SIGN OF A MOVEMENT, NEVER BY ITS TYPE — and a type list left two credits with no batch behind them.
 - `subscriptions.ends_on` IS INCLUSIVE — the last day that opens — so N days end on `starts + N − 1`, and a renewal already bought moves when a later freeze extends the month before it.
+- A GATEWAY-CAPTURED ORDER NEVER READS `approved`, so «has this order been taken back?» is `cancelled`/`rejected`, never «not approved».
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._
