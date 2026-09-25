@@ -7,6 +7,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Actions\BookSeat;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Jobs\IngestSessionRecordingJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
@@ -103,7 +104,7 @@ it('publishes a ready recording as a lesson tied to the session', function (): v
         'status' => $this->session->refresh()->recording_status,
         'attempts' => $this->session->recording_attempts,
         'assets' => MediaAsset::query()->withoutWorkspaceScope()->count(),
-    ])->toBe(['status' => 'published', 'attempts' => 0, 'assets' => 1]);
+    ])->toBe(['status' => RecordingStatus::Published, 'attempts' => 0, 'assets' => 1]);
 
     $lesson = Lesson::query()->where('class_session_id', $this->session->getKey())->first();
 
@@ -113,7 +114,7 @@ it('publishes a ready recording as a lesson tied to the session', function (): v
         // and this answers to a seat.
         ->and($lesson->is_free)->toBeFalse()
         ->and($lesson->is_preview)->toBeFalse()
-        ->and($this->session->refresh()->recording_status)->toBe('published');
+        ->and($this->session->refresh()->recording_status)->toBe(RecordingStatus::Published);
 
     $asset = MediaAsset::query()->where('owner_id', $lesson->getKey())->first();
 
@@ -129,7 +130,7 @@ it('waits quietly while the recording is still being assembled', function (): vo
     ingest();
 
     expect(Lesson::query()->where('class_session_id', $this->session->getKey())->count())->toBe(0)
-        ->and($this->session->refresh()->recording_status)->toBe('pending')
+        ->and($this->session->refresh()->recording_status)->toBe(RecordingStatus::Pending)
         ->and($this->session->recording_attempts)->toBe(1);
 });
 
@@ -143,7 +144,7 @@ it('tells the teacher once it has given up', function (): void {
         ingest();
     }
 
-    expect($this->session->refresh()->recording_status)->toBe('failed')
+    expect($this->session->refresh()->recording_status)->toBe(RecordingStatus::Failed)
         ->and(Notification::query()->where('type', 'session_recording_failed')->count())->toBe(1);
 });
 

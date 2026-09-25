@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Jobs;
 
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -86,7 +87,7 @@ class RetryPendingRecordingsJob implements ShouldQueue
             ->where(fn (Builder $q): Builder => $q
                 // Written by a job that already decided this recording is worth
                 // asking about again, so it needs no provider test of its own.
-                ->where('recording_status', 'pending')
+                ->where('recording_status', RecordingStatus::Pending)
                 // The two states a crash leaves behind, and both are only worth
                 // re-dispatching when THIS session's own provider records.
                 // `'ingesting'` means the hand-off had begun — re-dispatching is
@@ -99,7 +100,7 @@ class RetryPendingRecordingsJob implements ShouldQueue
                         ->when($configuredRecords, fn (Builder $legacy): Builder => $legacy
                             ->orWhereNull('broadcast_provider')))
                     ->where(fn (Builder $state): Builder => $state
-                        ->where('recording_status', 'ingesting')
+                        ->where('recording_status', RecordingStatus::Ingesting)
                         ->orWhereNull('recording_status'))))
             /*
              * ⚠️ A SESSION THE INGEST JOB NEVER TOUCHED IS THE WIDER DOOR, AND IT
@@ -188,7 +189,7 @@ class RetryPendingRecordingsJob implements ShouldQueue
 
         $failures = ClassSession::query()
             ->withoutWorkspaceScope()
-            ->where('recording_status', 'failed')
+            ->where('recording_status', RecordingStatus::Failed)
             ->where('room_closed_at', '>=', now()->subHours($settings->recordingFailureAlertWindowHours()))
             ->count();
 

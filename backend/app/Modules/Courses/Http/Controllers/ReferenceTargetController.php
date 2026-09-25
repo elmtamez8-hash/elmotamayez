@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Models\Course;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Illuminate\Http\JsonResponse;
@@ -68,7 +69,7 @@ class ReferenceTargetController extends Controller
                 'timezone' => $timezone,
                 'status' => $session->status->value,
                 'status_label' => $session->status->label(),
-                'has_recording' => $session->recording_status === 'published',
+                'has_recording' => $session->recording_status === RecordingStatus::Published,
             ]);
 
         /*
