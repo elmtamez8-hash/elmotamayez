@@ -73,6 +73,21 @@ beforeEach(function (): void {
     ]);
 
     $this->windowEnd = CarbonImmutable::now()->addDays(30);
+
+    /*
+    | ⚠️ A MEMBER OF THE GROUP, because production only ever claims for one:
+    | `ActivateSubscription::joinCohort()` opens the membership and only then
+    | dispatches the claim. Since the booking door asks for a CURRENT membership
+    | of the session's group (owner decision 2026-09-25), a fixture without it
+    | measures a seat nobody outside the group may take.
+    */
+    CohortMembership::query()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => $this->cohort->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+        'joined_at' => now(),
+    ]);
 });
 
 function cohortSessionAt(CarbonImmutable $startsAt, ?int $seatsTotal = 8, ?int $billableSeats = null): ClassSession
@@ -318,14 +333,6 @@ it('books the subscriber into a session that joins the group afterwards', functi
             'seats_taken' => 0,
         ]),
     );
-
-    CohortMembership::query()->create([
-        'workspace_id' => $this->workspace->getKey(),
-        'cohort_id' => $this->cohort->getKey(),
-        'course_id' => $this->course->getKey(),
-        'student_user_id' => $this->student->getKey(),
-        'joined_at' => now(),
-    ]);
 
     app(AssignSessionsToCohort::class)->handle($this->course, (string) $this->cohort->uuid, [(string) $unassigned->uuid]);
 

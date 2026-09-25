@@ -69,6 +69,12 @@ class CancelSubscription extends Action
         // The same shutting the nightly sweep does, through the same file:
         // cancelled and expired are two reasons for one act, and two spellings
         // of it drift silently in the direction of access that never stops.
+        //
+        // ⛔ BUT FIRST, HAND BACK WHAT A STILL-RUNNING MONTH PAID FOR. A renewal
+        // takes the enrolment row at APPROVAL, before its own start date, so
+        // cancelling it closed the month the student is still inside (verified
+        // 2026-09-25). Only rows no live subscription covers are closed below.
+        SubscriptionAccess::handBackToRunning($subscription);
         SubscriptionAccess::close($subscription);
 
         $this->logActivity('subscription.cancelled', $subscription, [

@@ -12,6 +12,7 @@ use App\Modules\Store\Actions\IssueStoreAccess;
 use App\Modules\Store\Actions\PurchaseStoreItem;
 use App\Modules\Store\Actions\RefundStorePurchase;
 use App\Modules\Store\Data\PurchaseData;
+use App\Modules\Store\Http\Resources\StoreOrderResource;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
 use App\Shared\Support\WorkspaceContext;
@@ -120,10 +121,18 @@ it('refuses a stranger the refund of somebody else purchase', function (): void 
     expect($purchase->refresh()->refunded_at)->toBeNull();
 });
 
-it('puts a printed copy back on the shelf and never invents one', function (): void {
-    $printed = StoreItem::factory()->physical(2)->create(['workspace_id' => $this->workspace->getKey()]);
+/*
+| ⛔ OWNER DECISION 2026-09-25 — A PRINTED COPY THAT HAS LEFT THE SHELF IS NOT
+| REFUNDED THROUGH THE SITE. «Not opened» means nothing for a book, so the old
+| rule let a buyer receive the parcel, keep it, press «استرداد» inside the window
+| and get the money back — while the stock count gained a copy that was sitting
+| in their house. The site now sends them to the administration.
+*/
+function printedAndFulfilled(): array
+{
+    $printed = StoreItem::factory()->physical(2)->create(['workspace_id' => test()->workspace->getKey()]);
 
-    $purchase = app(PurchaseStoreItem::class)->handle($this->buyer, PurchaseData::fromArray([
+    $purchase = app(PurchaseStoreItem::class)->handle(test()->buyer, PurchaseData::fromArray([
         'item_uuid' => $printed->uuid,
         'recipient_name' => 'نورة',
         'phone' => '+97455512345',
@@ -134,11 +143,56 @@ it('puts a printed copy back on the shelf and never invents one', function (): v
         Order::query()->whereKey($purchase->order_id)->firstOrFail(),
     );
 
-    expect((int) $printed->refresh()->stock)->toBe(1);
+    return [$printed, $purchase->refresh()];
+}
 
-    app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
+it('refuses to refund a fulfilled printed copy and sends the buyer to the administration', function (): void {
+    [$printed, $purchase] = printedAndFulfilled();
 
-    expect((int) $printed->refresh()->stock)->toBe(2);
+    expect((int) $printed->refresh()->stock)->toBe(1)
+        // Well inside the window and never «opened» — so neither of the file's
+        // two conditions can be what refuses it.
+        ->and($purchase->first_accessed_at)->toBeNull();
+
+    expect(fn (): StoreOrder => app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer))
+        ->toThrow(DomainException::class, RefundStorePurchase::PRINTED_REFUSAL);
+
+    expect($purchase->refresh()->refunded_at)->toBeNull()
+        ->and(Order::query()->whereKey($purchase->order_id)->value('status'))->not->toBe('refund_due')
+        // No copy invented on the shelf.
+        ->and((int) $printed->refresh()->stock)->toBe(1);
+});
+
+it('does not offer the refund button on a printed copy on its way', function (): void {
+    [, $purchase] = printedAndFulfilled();
+
+    $payload = (new StoreOrderResource($purchase->load('shipment')))->toArray(request());
+
+    expect($payload['is_refundable'])->toBeFalse();
+});
+
+it('refuses it for a buyer whose context names another workspace too', function (): void {
+    [, $purchase] = printedAndFulfilled();
+
+    // The student a teacher once added to ANOTHER workspace: the scope resolves
+    // that workspace, and a scoped read of the shipment would find no parcel.
+    [$elsewhere, $otherOwner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($elsewhere, $otherOwner);
+
+    expect(fn (): StoreOrder => app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer))
+        ->toThrow(DomainException::class, RefundStorePurchase::PRINTED_REFUSAL);
+});
+
+it('still refunds a file inside the window, unopened, and offers the button for it', function (): void {
+    $purchase = boughtAndPaid();
+
+    expect($purchase->shipment)->toBeNull();
+
+    $payload = (new StoreOrderResource($purchase->load('shipment')))->toArray(request());
+
+    expect($payload['is_refundable'])->toBeTrue();
+
+    expect(app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer)->refunded_at)->not->toBeNull();
 });
 
 it('never restocks a purchase that was never delivered', function (): void {

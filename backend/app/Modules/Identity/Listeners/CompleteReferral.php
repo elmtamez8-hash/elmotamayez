@@ -80,6 +80,12 @@ class CompleteReferral implements ShouldHandleEventsAfterCommit, ShouldQueue
             ->update([
                 'status' => ReferralStatus::Completed->value,
                 'completed_at' => now(),
+                // ⚠️ WRITTEN IN THE SAME STATEMENT AS THE FLIP (owner decision
+                // 2026-09-25). `ReverseReferralAward` undoes the award only when
+                // THIS order's payment comes back — never on an unrelated order
+                // of the same student — and this is the one moment the answer to
+                // «which order completed it» is known rather than guessed.
+                'completing_order_id' => $order->getKey(),
             ]);
 
         if ($claimed === 0) {

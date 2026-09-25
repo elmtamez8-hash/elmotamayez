@@ -29,7 +29,11 @@ use Illuminate\Support\Facades\DB;
  */
 class RefundStorePurchase extends Action
 {
-    public function __construct(private readonly ClaimStock $stock) {}
+    /**
+     * The refusal a printed copy gets once it has left the shelf (owner decision
+     * 2026-09-25). A constant so the screen's flag and this door cannot drift.
+     */
+    public const PRINTED_REFUSAL = 'هذه نسخة مطبوعة دخلت مرحلة الشحن، ولا يُسترَدّ ثمنها من الموقع. تواصل مع إدارة المنصة لترتيب الإرجاع.';
 
     public function handle(string $purchaseUuid, User $buyer): StoreOrder
     {
@@ -50,6 +54,23 @@ class RefundStorePurchase extends Action
             throw new DomainException('استُرِدَّ ثمن هذا الطلب من قبل.');
         }
 
+        /*
+        | ⛔ A PRINTED COPY THAT HAS LEFT THE SHELF IS NOT REFUNDED FROM THE SITE
+        | (owner decision 2026-09-25). The two conditions below were written for a
+        | FILE: «not opened» is meaningless for a book, so a buyer could be sent
+        | the parcel, keep it, and press «استرداد» inside the window — money back
+        | and the book in hand, while the old code put a copy «back on the shelf»
+        | that was sitting in their house. A physical return needs a person: the
+        | parcel has to come back before the money does, so the site sends the
+        | buyer to the administration instead.
+        |
+        | Before fulfilment nothing has moved — no stock was taken and no parcel
+        | packed — so the ordinary refund still applies there.
+        */
+        if ($purchase->printedCopyHasLeftTheShelf()) {
+            throw new DomainException(self::PRINTED_REFUSAL);
+        }
+
         if ($purchase->first_accessed_at !== null) {
             throw new DomainException('فُتِح هذا الملف، ولم يعد الاسترداد متاحاً.');
         }
@@ -60,9 +81,7 @@ class RefundStorePurchase extends Action
             throw new DomainException('انتهت مهلة الاسترداد لهذا الطلب.');
         }
 
-        $item = $purchase->item()->withoutWorkspaceScope()->first();
-
-        DB::transaction(function () use ($purchase, $item): void {
+        DB::transaction(function () use ($purchase): void {
             /*
             | ⚠️ CLAIMED, NOT ASSIGNED. Two taps on «استرداد» would otherwise both
             | read `refunded_at` as null, both write, and both put the stock back
@@ -87,11 +106,15 @@ class RefundStorePurchase extends Action
                 ->whereKey($purchase->order_id)
                 ->update(['status' => 'refund_due']);
 
-            // Only a fulfilled purchase ever took stock. Releasing against one
-            // that was never delivered would add a copy to the shelf.
-            if ($item !== null && $purchase->fulfilled_at !== null) {
-                $this->stock->release($item, $purchase->quantity);
-            }
+            /*
+            | ⚠️ NOTHING GOES BACK ON THE SHELF, AND THAT IS NOW TRUE BY
+            | CONSTRUCTION. Only a fulfilled printed purchase ever took stock, and
+            | that purchase is refused above — so every refund that reaches this
+            | line either never took a copy (not yet fulfilled) or is a file with
+            | no stock at all. A restock here would add a book that does not
+            | exist; a copy that really comes back is put back by whoever
+            | receives the parcel.
+            */
         });
 
         return $purchase->refresh();

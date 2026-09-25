@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Shared\Contracts\AccountStanding;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\UnlockDirectory;
@@ -33,6 +34,7 @@ class BookingEligibility
         private readonly AccountStanding $standing,
         private readonly UnlockDirectory $unlock,
         private readonly SessionCreditHolds $holds,
+        private readonly CohortDirectory $cohorts,
     ) {}
 
     /**
@@ -60,6 +62,53 @@ class BookingEligibility
         }
 
         return $this->withholdingRefusal($session, $student);
+    }
+
+    /**
+     * Which sessions a student may TAKE A SEAT in — the course and the group
+     * (owner decision 2026-09-25).
+     *
+     * ⚠️ `refusalReason()` ASKS ONLY «ARE YOU STUDYING WITH THIS TEACHER AT
+     * ALL», and that let a student enrolled in maths book the physics sessions,
+     * and a member of the Saturday group book the Sunday group's lesson — a seat
+     * in a room they were never placed in, found by uuid rather than by any
+     * screen (discovery already hides both). The booking door now asks what the
+     * session actually belongs to:
+     *
+     * - a session with NO course keeps the workspace-level rule above, and only
+     *   that: there is no course to be enrolled in, and those are historic
+     *   one-offs (a course is required on every schedulable session since Q-7);
+     * - a session in a course needs an enrolment in THAT course that still grants
+     *   access (`active` or `completed` — `Enrollment::GRANTING_STATUSES`);
+     * - a session filed under a group needs a CURRENT membership of that group,
+     *   and one filed under a one-to-one group needs to be that student's own
+     *   ({@see CohortDirectory::mayHoldSeatIn()}).
+     *
+     * ⚠️ A SEPARATE METHOD, ASKED AT THE BOOKING DOOR ONLY — `BookSeat`'s three
+     * entries, which is also the door `ClaimSubscriptionSeats` walks through.
+     * It is deliberately NOT inside `refusalReason()`, which the room's door
+     * (`IssueJoinTicket` → `maySit`) also asks: the owner's rule is about who may
+     * BOOK, and folding it into the door would evict a student from a seat they
+     * already hold the moment a teacher moves them between groups — the thing
+     * `GetStudentSchedule` promises never to take back. Visibility is untouched
+     * too: this narrows who may book, it widens nothing anyone can see.
+     */
+    public function bookingScopeRefusal(ClassSession $session, User $student): ?string
+    {
+        if ($session->course_id === null) {
+            return null;
+        }
+
+        if (! $this->enrollments->hasActiveEnrollment($student, (int) $session->course_id)) {
+            return 'هذه الحصة تابعة لكورس لست مسجّلاً فيه.';
+        }
+
+        if ($session->cohort_id !== null
+            && ! $this->cohorts->mayHoldSeatIn($student, (int) $session->cohort_id)) {
+            return 'هذه الحصة لمجموعة لست عضواً فيها.';
+        }
+
+        return null;
     }
 
     /**

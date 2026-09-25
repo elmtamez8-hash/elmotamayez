@@ -7,6 +7,9 @@ namespace App\Modules\Store\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Store\Actions\RefundStorePurchase;
+use App\Modules\Store\Enums\ShipmentStatus;
+use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
@@ -98,9 +101,39 @@ class StoreOrder extends BaseModel
         return $this->belongsTo(User::class, 'buyer_user_id');
     }
 
-    /** @return HasOne<Shipment, $this> */
+    /**
+     * ⚠️ UNSCOPED, because a buyer reads it. `Shipment` carries
+     * `BelongsToWorkspace`, and a student a teacher once added to ANOTHER
+     * workspace resolves a context that is not this order's — under the scope
+     * the parcel reads as absent, and the refund rule below would take a book
+     * already on its way for one that never shipped. The row is reached by its
+     * own order's key, so there is nothing for the scope to protect.
+     *
+     * @return HasOne<Shipment, $this>
+     */
     public function shipment(): HasOne
     {
-        return $this->hasOne(Shipment::class);
+        return $this->hasOne(Shipment::class)->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * Whether this is a printed copy that has left the shelf — fulfilled, or its
+     * parcel already moving (owner decision 2026-09-25). Such a purchase is not
+     * refunded through the site; see {@see RefundStorePurchase}.
+     *
+     * Asked of the SHIPMENT rather than of the item's kind: every printed
+     * purchase gets its `pending` shipment at the moment of sale, and no file
+     * ever gets one — so the row is the fact, and reading it spares every list
+     * that already eager-loads `shipment` a second relation per row.
+     */
+    public function printedCopyHasLeftTheShelf(): bool
+    {
+        $shipment = $this->shipment;
+
+        if ($shipment === null) {
+            return false;
+        }
+
+        return $this->fulfilled_at !== null || $shipment->status !== ShipmentStatus::Pending;
     }
 }
