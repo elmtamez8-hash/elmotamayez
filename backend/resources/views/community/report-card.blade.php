@@ -132,9 +132,9 @@
     <table width="100%" cellpadding="6" style="border-collapse: collapse; margin-bottom: 7mm; border: 0.3mm solid #e8dfd4;">
         <thead>
             <tr style="background-color: #f7ebef;">
-                <th align="right" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">المكوّن</th>
-                <th align="center" width="25%" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">النتيجة</th>
-                <th align="center" width="25%" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">الوزن</th>
+                <th align="right" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">جانب التقييم</th>
+                <th align="center" width="25%" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">درجة الطالب</th>
+                <th align="center" width="25%" style="color: #8a1538; font-weight: bold; border-bottom: 0.3mm solid #e8dfd4;">نسبته من التقدير</th>
             </tr>
         </thead>
         <tbody>
@@ -164,7 +164,7 @@
 <table width="100%" cellpadding="6" style="margin-top: 4mm;">
     <tr>
         <td style="border-right: 0.8mm solid #956d2f; background-color: #faf6f0; font-size: 8.5pt; color: #6e625e;">
-            مكوّن بلا بيانات في الفترة يُستبعَد من الحساب وتُعاد موازنة الباقي — ولا يُحتسب صفراً.
+            إن لم يُقيَّم أحد الجوانب في هذه الفترة فلا يُحسب صفراً، بل تُوزَّع نسبته على الجوانب الأخرى.
         </td>
     </tr>
 </table>

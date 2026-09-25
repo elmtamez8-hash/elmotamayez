@@ -156,7 +156,7 @@ export default function ReportCardPage() {
                           {/* The weight AS RE-WEIGHTED, so the shown shares add
                               up to 100 and the reader can check the arithmetic
                               that produced the grade above them. */}
-                          <span className="ms-2 text-xs">({arabicNumber(Math.round(row.weight))}٪)</span>
+                          <span className="ms-2 text-xs">(نسبته من التقدير {arabicNumber(Math.round(row.weight))}٪)</span>
                         </dt>
                         <dd className="font-semibold text-ink">{arabicDecimal(row.pct)}٪</dd>
                       </div>
@@ -170,7 +170,7 @@ export default function ReportCardPage() {
       )}
 
       <p className="text-xs text-ink-muted">
-        مكوّن بلا بيانات في الفترة يُستبعَد من الحساب وتُعاد موازنة الباقي — ولا يُحتسب صفراً.
+        إن لم يُقيَّم أحد الجوانب في هذه الفترة فلا يُحسب صفراً، بل تُوزَّع نسبته على الجوانب الأخرى.
       </p>
     </div>
   );
