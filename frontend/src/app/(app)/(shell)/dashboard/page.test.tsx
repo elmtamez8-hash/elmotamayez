@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import DashboardPage from "./page";
+import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 import { UNKNOWN_MESSAGE } from "@/lib/errors";
 
 /*
@@ -924,6 +925,10 @@ describe("DashboardPage · الرسوم", () => {
   });
 
   it("names each column by DATE as well as weekday, and opens that day on a tap", async () => {
+    // The columns are the VIEWER's days (2026-09-25); pinned so the date below is
+    // computed on the same clock whatever machine runs this.
+    setStoredViewerTimeZone("Asia/Qatar");
+    onTestFinished(() => setStoredViewerTimeZone(null));
     asTeacher(HOST);
 
     render(<DashboardPage />);
