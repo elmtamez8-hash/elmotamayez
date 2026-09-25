@@ -40,7 +40,11 @@ use RuntimeException;
  * `CreditLedger::post()`.
  *
  * Returns null when nothing was awarded — an unknown or disabled action, the cap
- * already reached, or the same event arriving twice. **None of those is a failure
+ * already reached, or the same event arriving twice (which spends no slot).
+ *
+ * ⚠️ A CAUSE THAT WAS REVERSED IS NOT RE-PAID HERE. Its original still holds the
+ * idempotency key, so a second call is a duplicate by design; the way back is
+ * `ReinstateAward`, which the listeners choose between. **None of those is a failure
  * of the operation that triggered it** (FR-006): a student who has hit their cap
  * still attends the session.
  */
@@ -78,7 +82,11 @@ class AwardPoints extends Action
         }
 
         return DB::transaction(function () use ($request, $action): ?AwardEntry {
-            if (! $this->claimDailyAllowance($request, $action)) {
+            // Read once: the claim and any give-back must name the same day, even
+            // when the transaction straddles midnight.
+            $dayKey = $this->calendar->dayKey();
+
+            if (! $this->claimDailyAllowance($request, $action, $dayKey)) {
                 return null;
             }
 
@@ -96,6 +104,22 @@ class AwardPoints extends Action
             $entry = $this->writeEntry($request, $xp, $coins, $this->bands->for($progress->level));
 
             if ($entry === null) {
+                /*
+                | ⚠️ A DUPLICATE GIVES ITS SLOT BACK, INSIDE THIS TRANSACTION. The
+                | claim above had to come first (see its docblock), and returning
+                | null is a normal return — the transaction COMMITS. Without this
+                | line every re-fire of an event that already paid spends one of
+                | today's slots and pays nothing: `ReviseGrade` re-runs
+                | `FinalizeAttempt`, re-grading re-fires `SubmissionGraded`, so two
+                | revisions of one passed paper used to exhaust `exam_passed`'s cap
+                | and the student's genuine next pass that day earned nothing.
+                |
+                | Safe under concurrency: the increment row-locked the counter
+                | until commit, so this decrement nets our own claim and nobody
+                | else's.
+                */
+                $this->releaseDailyAllowance($request, $action, $dayKey);
+
                 return null;
             }
 
@@ -157,13 +181,11 @@ class AwardPoints extends Action
      *
      * The seat idiom, and never `lockForUpdate()` — a no-op on SQLite.
      */
-    private function claimDailyAllowance(AwardRequest $request, GamificationAction $action): bool
+    private function claimDailyAllowance(AwardRequest $request, GamificationAction $action, string $dayKey): bool
     {
         if ($action->daily_cap === null) {
             return true;
         }
-
-        $dayKey = $this->calendar->dayKey();
 
         DB::table('award_daily_counters')->insertOrIgnore([
             // Explicit, for the reason written in ProgressWriter: no model is
@@ -183,6 +205,23 @@ class AwardPoints extends Action
             ->where('action_key', $request->actionKey)
             ->where('count', '<', $action->daily_cap)
             ->update(['count' => DB::raw('count + 1'), 'updated_at' => now()]) > 0;
+    }
+
+    /**
+     * Undo our own claim — only ever after a claim that succeeded.
+     */
+    private function releaseDailyAllowance(AwardRequest $request, GamificationAction $action, string $dayKey): void
+    {
+        if ($action->daily_cap === null) {
+            return;
+        }
+
+        DB::table('award_daily_counters')
+            ->where('student_user_id', $request->studentUserId)
+            ->where('day_key', $dayKey)
+            ->where('action_key', $request->actionKey)
+            ->where('count', '>', 0)
+            ->update(['count' => DB::raw('count - 1'), 'updated_at' => now()]);
     }
 
     /**

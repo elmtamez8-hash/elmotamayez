@@ -18,8 +18,8 @@ use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnReferralCompleted;
 use App\Modules\Gamification\Listeners\AwardOnStudyRoomFinished;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
-use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
 use App\Modules\Gamification\Listeners\ReverseOnReferralReversed;
+use App\Modules\Gamification\Listeners\SettleOnAttendanceOverridden;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
 use App\Modules\Gamification\Models\Level;
@@ -105,7 +105,7 @@ class GamificationServiceProvider extends Module
         |   three courses.
         */
         Event::listen(AttendanceConfirmed::class, AwardOnAttendanceConfirmed::class);
-        Event::listen(AttendanceOverridden::class, ReverseOnAttendanceOverridden::class);
+        Event::listen(AttendanceOverridden::class, SettleOnAttendanceOverridden::class);
         Event::listen(AttemptFinalized::class, AwardOnAttemptFinalized::class);
         Event::listen(MistakeResolved::class, AwardOnMistakeResolved::class);
         Event::listen(SubmissionGraded::class, AwardOnSubmissionGraded::class);

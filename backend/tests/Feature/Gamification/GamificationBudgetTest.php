@@ -7,7 +7,7 @@ use App\Modules\Gamification\Listeners\AwardOnAttemptFinalized;
 use App\Modules\Gamification\Listeners\AwardOnAttendanceConfirmed;
 use App\Modules\Gamification\Listeners\AwardOnMistakeResolved;
 use App\Modules\Gamification\Listeners\AwardOnSubmissionGraded;
-use App\Modules\Gamification\Listeners\ReverseOnAttendanceOverridden;
+use App\Modules\Gamification\Listeners\SettleOnAttendanceOverridden;
 use App\Modules\Gamification\Models\LeaderboardEntry;
 use App\Modules\Gamification\Support\GamificationCalendar;
 use App\Modules\Identity\Support\PlatformRole;
@@ -175,7 +175,7 @@ it('keeps every award listener off the request that triggered it', function (): 
         AwardOnAttemptFinalized::class,
         AwardOnMistakeResolved::class,
         AwardOnSubmissionGraded::class,
-        ReverseOnAttendanceOverridden::class,
+        SettleOnAttendanceOverridden::class,
     ];
 
     foreach ($listeners as $listener) {

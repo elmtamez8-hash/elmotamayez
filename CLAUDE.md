@@ -267,6 +267,7 @@ _Read before touching `Modules/Notifications/`, templates, WhatsApp, push, guard
 _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo, feature flags._
 
 - A reversal that shares its original's idempotency key is swallowed for ever.
+- A cause that was reversed is REINSTATED by negating the chain's head, never re-awarded — and a duplicate award gives its daily slot back.
 - The gamification catalogue is reference data, so an empty one awards nothing and every assertion passes against zero.
 - The day and week boundary lives in `GamificationCalendar` and reads the EXISTING `sessions.timezone` row.
 - A picker is derived from the AUTHORISER'S OWN PREDICATE, never assembled beside it.
