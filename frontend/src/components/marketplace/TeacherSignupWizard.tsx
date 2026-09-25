@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, auth, errorMessage, fieldErrors } from "@/lib/api";
+import { api, ApiError, auth, errorMessage, fieldErrors } from "@/lib/api";
+import { userMessage } from "@/lib/errors";
 import { useAuth } from "@/lib/auth-context";
 import {
   BLANK_TIME_MESSAGE,
@@ -154,7 +155,17 @@ export function TeacherSignupWizard({
         setStep(application.current_step);
         hydrate(application);
       })
-      .catch(() => undefined)
+      /*
+       | ⚠️ ONLY THE 404 IS «NOTHING TO RESUME». A signed-in account that never
+       | started an application gets 404 and a blank step 1 is the right answer;
+       | anything else (a 500, a 429, a dropped connection) used to be swallowed
+       | the same way, so an applicant with three saved steps saw an empty form
+       | and no hint that their draft still existed.
+       */
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 404) return;
+        setBanner(userMessage(err));
+      })
       .finally(() => setRestoring(false));
     // Runs once on mount; hydrate only writes state.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { counted, NOUNS } from "@/lib/labels";
+
 /** Matches `MediaLimits::maxVoiceNoteSeconds()`; the server refuses beyond it. */
 const MAX_VOICE_SECONDS = 300;
 
@@ -132,13 +134,19 @@ export function Composer({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={pending.preview} alt="" className="h-14 w-14 rounded-xl object-cover" />
           ) : (
-            <span className="grid h-14 w-14 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+            <span
+              aria-hidden="true"
+              className="grid h-14 w-14 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+            >
               🎤
             </span>
           )}
 
           <span className="flex-1 truncate text-xs text-ink-muted">
-            {pending.kind === "image" ? "صورة جاهزة للإرسال" : `تسجيل ${pending.seconds} ثانية`}
+            {pending.kind === "image"
+              ? "صورة جاهزة للإرسال"
+              : // «تسجيلُ ثانيتين»: مضافٌ إليه، فالمثنّى مجرورٌ لا «ثانيتان».
+                `تسجيل ${counted(pending.seconds, { ...NOUNS.seconds, two: "ثانيتين", zero: "أقل من ثانية" })}`}
           </span>
 
           <button
@@ -196,7 +204,10 @@ export function Composer({
         {/* A picture. `capture` is deliberately absent: on a phone its presence
             opens the camera and hides the gallery, and most of what a student
             sends is a photograph they already took of their exercise book. */}
-        <label className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-ink-muted hover:bg-surface-raised">
+        {/* `sr-only`, never `hidden`: `display:none` takes the input out of the
+            tab order, so a keyboard could not attach a picture at all. The
+            label draws the focus ring the input can no longer show itself. */}
+        <label className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-ink-muted hover:bg-surface-raised focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary">
           <span className="sr-only">أرفق صورة</span>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -206,7 +217,7 @@ export function Composer({
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
-            className="hidden"
+            className="sr-only"
             disabled={disabled}
             onChange={(event) => {
               const file = event.target.files?.[0];

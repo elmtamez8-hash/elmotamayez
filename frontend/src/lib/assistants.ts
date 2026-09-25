@@ -33,7 +33,7 @@ export const assistants = {
 
   /** An empty array takes the confinement off — it does not remove every course. */
   setScope: (uuid: string, courseUuids: string[]) =>
-    api.put<{ data: AssistantAssignment }>(`/manage/assistants/${uuid}/scope`, {
+    api.put<AssistantAssignment>(`/manage/assistants/${uuid}/scope`, {
       courses: courseUuids,
     }),
 

@@ -5,8 +5,8 @@ import { useState } from "react";
 import { AssetRow, AssetUploader } from "./AssetUploader";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { userMessage } from "@/lib/errors";
 import { media, type Caption, type MediaAsset } from "@/lib/media";
 
@@ -141,9 +141,13 @@ function CaptionsCard({ assetUuid }: { assetUuid: string }) {
 
         {caption !== null && (
           <div>
-            <Button variant="danger" onClick={detach} disabled={busy}>
+            <ConfirmButton
+              disabled={busy}
+              confirmLabel="اضغط مجدداً لحذف النصّ"
+              onConfirm={() => void detach()}
+            >
               حذف النصّ
-            </Button>
+            </ConfirmButton>
           </div>
         )}
       </div>

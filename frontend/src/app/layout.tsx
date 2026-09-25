@@ -6,6 +6,7 @@ import { StaleChunkRecovery } from "@/components/app/StaleChunkRecovery";
 import { AuthProvider } from "@/lib/auth-context";
 import { PlatformProvider } from "@/lib/platform-context";
 import { platformIdentity, platformName } from "@/lib/platform";
+import { siteUrl } from "@/lib/site";
 
 // Self-hosted by next/font — no runtime request to Google, which would otherwise
 // block first paint on the very metric SC-007 measures.
@@ -35,6 +36,19 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description:
       "منصة عربية تربط الطلاب بأفضل المدرّسين لحصص خصوصية فردية وجماعية، مباشرة ومسجّلة، مع نظام تقييم ودرجة ثقة لكل مدرّس.",
+    /*
+     * ⚠️ A DEFAULT SHARE CARD FOR EVERY PAGE THAT NAMES NONE. A link pasted into
+     * a chat app with no `og:image` renders as a grey strip. Next does not
+     * deep-merge `openGraph`, so a page that declares its own (the home page, a
+     * teacher, a course, an article) names its image itself; this covers the
+     * rest. Absolute, because a crawler resolves nothing relative.
+     */
+    openGraph: {
+      siteName: name,
+      type: "website",
+      locale: "ar_QA",
+      images: [{ url: siteUrl("/marketplace/banner-about.webp") }],
+    },
   };
 }
 
