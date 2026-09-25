@@ -90,6 +90,8 @@ class ManagePlatformSettings extends Page
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
             'max_renewals' => PlatformSettings::get('media.max_renewals'),
+            'watched_share' => PlatformSettings::get('media.watched_share'),
+            'watched_fallback_seconds' => PlatformSettings::get('media.watched_fallback_seconds'),
             /*
             | ⚠️ يُقرَأُ من {@see BillingSettings} لا من `PlatformSettings::get()`
             | مباشرةً: تلك الطرقُ تحملُ الارتدادَ إلى `config/billing.php` وحدَّ
@@ -231,6 +233,13 @@ class ManagePlatformSettings extends Page
                             TextInput::make('max_renewals')
                                 ->label('أقصى عدد تجديدات لجلسة مشاهدة واحدة')
                                 ->numeric()->minValue(1)->required(),
+                            TextInput::make('watched_share')
+                                ->label('نسبة المشاهدة التي تُعدّ «شاهد التسجيل» (من ٠٫٠٥ إلى ١)')
+                                ->helperText('تُقاس بساعة الخادم منذ فتح الفيديو، لا بموضع المشغّل. تظهر للمدرّس في كشف الحضور ولا تغيّر الحالة.')
+                                ->numeric()->minValue(0.05)->maxValue(1)->step(0.05)->required(),
+                            TextInput::make('watched_fallback_seconds')
+                                ->label('مدة «شاهد التسجيل» حين لا تُعرف مدة الفيديو (ثانية)')
+                                ->numeric()->minValue(1)->required(),
                         ]),
                     /*
                     | ⛔ **هذه الأرقامُ هي «حصّةُ المنصّة»، ولم تكنْ لها شاشةٌ قطّ.**
@@ -343,6 +352,8 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);
         PlatformSettings::set('media.max_renewals', (int) $data['max_renewals'], $userId);
+        PlatformSettings::set('media.watched_share', (float) $data['watched_share'], $userId);
+        PlatformSettings::set('media.watched_fallback_seconds', (int) $data['watched_fallback_seconds'], $userId);
 
         // المفاتيحُ بنصِّها كما يقرؤها `BillingSettings` — هجاءٌ ثانٍ هنا يكتبُ
         // صفّاً لا يقرؤه أحدٌ وشاشةً تُظهِرُ ما لا يُسعِّرُ به المنتَج.
