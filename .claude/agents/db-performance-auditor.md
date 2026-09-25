@@ -46,3 +46,7 @@ Write `audit/03-DATABASE.md` and `audit/03-INDEXES.sql`.
 The .sql file is a ready-to-review migration draft, ordered by impact, each
 statement preceded by a comment naming the query it serves and the expected
 plan change. Include the DOWN statements.
+
+## Project gotchas
+
+Before reporting, read `docs/gotchas/database.md` — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.

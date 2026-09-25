@@ -69,3 +69,7 @@ Write `audit/01-SECURITY.md`:
 2. One section per finding: evidence snippet, attack scenario, impact, minimal fix
    (max 15 lines of code), effort S/M/L.
 3. "Not verified" section listing what you could not read or confirm.
+
+## Project gotchas
+
+Before reporting, read `docs/gotchas/tenancy.md` and `docs/gotchas/http-and-security.md` — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.

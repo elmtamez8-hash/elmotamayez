@@ -31,3 +31,7 @@ Write `audit/05-CONFLICTS.md`: table of ID | type | severity | the two conflicti
 locations (file:line each) | which one currently wins at runtime | recommended
 resolution. Where you cannot determine the winner statically, say so and give the
 command that would prove it (for example `php artisan route:list --path=...`).
+
+## Project gotchas
+
+Before reporting, read `docs/gotchas/database.md` and `docs/gotchas/deploy-ops.md` — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.

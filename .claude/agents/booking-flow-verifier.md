@@ -72,3 +72,7 @@ Write `audit/06-BOOKING-FLOW.md` containing:
    concurrency cases (two approvals at capacity-1, two bookings on one slot).
 4. For anything missing or partial: the minimum correct implementation, described
    in at most 20 lines of code per gap.
+
+## Project gotchas
+
+Before reporting, read `docs/gotchas/live-sessions.md`, `docs/gotchas/billing.md` and `docs/gotchas/courses.md` — the full stories behind the CLAUDE.md headlines for this area. A finding that contradicts one of them needs to say why.
