@@ -277,9 +277,10 @@ class StartAttempt extends Action
      *
      * ⚠️ EVERY PLACEMENT, NOT THE FIRST. One exam may sit in a tree twice under
      * two gates, so the student may start it when ANY of its placements in their
-     * course is open to them. A placement the student cannot see at all
-     * (`not_visible`: a draft chapter above a published item) is not a placement
-     * in their course, and gates nothing.
+     * course is open to them. A placement hidden from the student
+     * (`LessonAccess::hidesRow()`: a draft, another group's item, an unreleased
+     * or unheld session) is not a placement in their course: it gates nothing,
+     * and its sentence is never the one they read.
      *
      * ⚠️ THE AUTHOR IS EXEMPT, and the predicate is the pivot ROLE in the EXAM'S
      * workspace — not `teachesOnPlatform()`, which is platform-wide and would
@@ -312,7 +313,11 @@ class StartAttempt extends Action
                 return;
             }
 
-            if ($access->code === LessonAccess::NOT_VISIBLE) {
+            // A placement hidden from this student (a draft, another group's
+            // item, an unreleased or unheld session) is not in their tree, and
+            // its sentence must never be the one they read — the same codes the
+            // curriculum drops rather than words.
+            if (LessonAccess::hidesRow($access->code)) {
                 continue;
             }
 

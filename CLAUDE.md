@@ -150,6 +150,8 @@ _Read before touching `Modules/Assessments/`, exams, the question bank, practice
 - The practice pool subtracts the exam not yet sat, and the notebook deliberately does NOT filter practice.
 - `claimForGrading()` outside the transaction strands the attempt for ever, and the refusal must stand BEFORE the claim.
 - `PracticePool::withheldQuestionIds()` is computed PER STUDENT, so a room's door is «my own pool contains every question in it», never «I am enrolled here».
+- The course certificate issues on `CourseCompleted` ALONE, and an exam reaches it only by completing its item — and `ShouldHandleEventsAfterCommit` does NOTHING for a queued listener.
+- Starting an exam asks the course's sequence, and the attempt allowance is a claim.
 
 ### Live sessions, the broadcast room and attendance → [`docs/gotchas/live-sessions.md`](docs/gotchas/live-sessions.md)
 _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room UI, attendance._
