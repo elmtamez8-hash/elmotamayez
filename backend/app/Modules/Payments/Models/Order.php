@@ -162,10 +162,14 @@ class Order extends BaseModel implements HasMedia
     | سياسة)، والكورسُ هنا هو الكورسُ الذي يُشيرُ إليه المفتاحُ الأجنبيُّ لا كورسٌ
     | يختارُه القارئ. وهي القاعدةُ المكتوبةُ في CLAUDE.md: التجاوزُ **لكلِّ نموذجٍ
     | على حِدة**، و`->with('course')` يُعيدُ تشغيلَ نطاقِ الكورسِ داخلَ العلاقة.
+    |
+    | ⚠️ و`withTrashed()` لأنّ الكورسَ يُحذَفُ حذفاً ليّناً: الإيصالُ يُسمّي ما
+    | دُفِعَ ثمنُه ولو حُذِف. `Course::booted()` يرفضُ حذفَ كورسٍ عليه طلب، فلا
+    | يصلُ إلى هنا كورسٌ محذوفٌ إلا ما سبقَ ذلك الحارس.
     */
     public function course(): BelongsTo
     {
-        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class);
+        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class)->withTrashed();
     }
 
     /** @return BelongsTo<Product, $this> */

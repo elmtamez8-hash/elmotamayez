@@ -141,6 +141,8 @@ describe('course CRUD', function (): void {
         Sanctum::actingAs($owner);
 
         $this->deleteJson("/api/v1/courses/{$course->uuid}")->assertNoContent();
+        // Soft: the row stays, out of every Eloquent read.
+        $this->assertSoftDeleted('courses', ['id' => $course->id]);
         expect(Course::where('id', $course->id)->exists())->toBeFalse();
     });
 

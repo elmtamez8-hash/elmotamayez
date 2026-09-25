@@ -67,10 +67,14 @@ class Enrollment extends BaseModel
     | سياسة)، والكورسُ هنا هو الكورسُ الذي يُشيرُ إليه المفتاحُ الأجنبيُّ لا كورسٌ
     | يختارُه القارئ. وهي القاعدةُ المكتوبةُ في CLAUDE.md: التجاوزُ **لكلِّ نموذجٍ
     | على حِدة**، و`->with('course')` يُعيدُ تشغيلَ نطاقِ الكورسِ داخلَ العلاقة.
+    |
+    | ⚠️ **و`withTrashed()`**: الكورسُ صارَ يُحذَفُ حذفاً ليّناً، والمشتري يرى ما
+    | اشتراه ولو حُذِف. `Course::booted()` يرفضُ حذفَ كورسٍ له تسجيل، فهذا لا يقعُ
+    | إلا لصفٍّ سبقَ ذلك الحارس — وهو بالضبطِ الصفُّ الذي كانَ يُسقِطُ «تعلّمي».
     */
     public function course(): BelongsTo
     {
-        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class);
+        return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class)->withTrashed();
     }
 
     /** @return BelongsTo<User, $this> */

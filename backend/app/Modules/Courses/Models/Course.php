@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\Courses\Exceptions\CourseDeletionRefused;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
@@ -20,8 +21,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
 
 /**
@@ -45,7 +48,69 @@ use Laravel\Scout\Searchable;
 class Course extends BaseModel
 {
     /** @use HasFactory<CourseFactory> */
-    use BelongsToWorkspace, HasFactory, HasUuid, IsPubliclyListed, IsPublishable, Searchable;
+    use BelongsToWorkspace, HasFactory, HasUuid, IsPubliclyListed, IsPublishable, Searchable, SoftDeletes;
+
+    /*
+    | ⛔ A COURSE SOMEBODY BOUGHT IS NEVER DELETED — AND THIS HOOK IS THE ONLY
+    | PLACE THAT SAYS SO, BECAUSE IT IS THE ONLY PLACE EVERY DOOR REACHES.
+    |
+    | `enrollments.course_id` and `orders.course_id` carry no foreign key, so a
+    | deleted course used to leave its enrolments pointing at nothing, and
+    | `EnrollmentResource` read `$this->course->uuid` on null: one deleted course
+    | and «تعلّمي» answered 500 for EVERY one of its buyers.
+    |
+    | Three doors delete a course — `CourseController::destroy`, the panel's
+    | `DeleteAction` and its `DeleteBulkAction` — and all three end in
+    | `$course->delete()`, so a hook here guards all three (and whatever door is
+    | added next) without anyone having to remember an Action. The panel also asks
+    | {@see self::deletionRefusal()} in a `before()` so the sentence arrives as a
+    | notification instead of an error page — presentation, not a second guard.
+    |
+    | ⚠️ `DeleteBulkAction::fetchSelectedRecords(false)` routes AROUND this hook
+    | (one query `delete()`, which boots no model). Never set it on a course table.
+    |
+    | And soft deletes (the column has existed since the table did): even a course
+    | nobody bought keeps its row, so nothing hanging off it by id is orphaned.
+    */
+    protected static function booted(): void
+    {
+        static::deleting(function (Course $course): void {
+            $refusal = $course->deletionRefusal();
+
+            if ($refusal !== null) {
+                throw new CourseDeletionRefused($refusal);
+            }
+        });
+    }
+
+    /**
+     * Why this course may not be deleted, or null when it may.
+     *
+     * ⚠️ RAW TABLES, NOT MODELS. `Enrollment` and `Order` are workspace-scoped,
+     * and a platform officer deleting from `/admin` resolves a context from their
+     * own `users.last_workspace_id` — the scope would AND that workspace on, count
+     * zero rows about another teacher's course, and wave the deletion through.
+     * Every enrolment counts whatever its status: a cancelled or expired one is
+     * still somebody's record of what they bought.
+     */
+    public function deletionRefusal(): ?string
+    {
+        $id = $this->getKey();
+
+        if (DB::table('enrollments')->where('course_id', $id)->exists()) {
+            return 'لا يمكن حذف هذا الكورس لأنّ طلاباً سُجِّلوا فيه، وحذفُه يُفقدُهم ما اشتروه.';
+        }
+
+        // A credit balance is value a student holds against THIS course, and
+        // `CreditBalanceResource` reads its course unguarded — asked on its own
+        // rather than assumed to travel with an order.
+        if (DB::table('orders')->where('course_id', $id)->exists()
+            || DB::table('credit_balances')->where('course_id', $id)->exists()) {
+            return 'لا يمكن حذف هذا الكورس لأنّ عليه طلباتِ شراءٍ أو أرصدةً للطلاب.';
+        }
+
+        return null;
+    }
 
     public const TYPE_INDIVIDUAL = 'individual';
 
