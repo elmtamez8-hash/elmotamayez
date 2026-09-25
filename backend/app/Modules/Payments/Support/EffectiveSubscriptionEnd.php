@@ -156,6 +156,7 @@ class EffectiveSubscriptionEnd
         $moved = 0;
         $students = [];
         $this->shortened = [];
+        $this->redated = [];
 
         Subscription::query()
             ->withoutWorkspaceScope()
