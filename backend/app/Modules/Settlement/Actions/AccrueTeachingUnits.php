@@ -15,6 +15,7 @@ use App\Modules\Settlement\Support\RateResolver;
 use App\Modules\Settlement\Support\SettlementSettings;
 use App\Shared\Actions\Action;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 
 /**
  * One unit per frozen seat, for a session the teacher actually delivered.
@@ -68,6 +69,14 @@ class AccrueTeachingUnits extends Action
         | The seat holders are the fact; the frozen count is an optimisation of it.
         */
         if ($billableSeats === 0) {
+            // Logged like its twin, and NOT flagged for review: the gap is the
+            // booking rule's, not anything the teacher did, and `needs_review`
+            // is a question about the teacher's hour.
+            Log::warning('settlement: accruing a delivered session whose frozen seat count is missing', [
+                'class_session_id' => $session->getKey(),
+                'seat_holders' => count($seatHolderIds),
+            ]);
+
             $billableSeats = count($seatHolderIds);
         }
 
