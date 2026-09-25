@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Tenancy\Filament\Resources;
 
 use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\Filament\Resources\PlatformStaffResource\Pages;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Support\Permissions;
@@ -16,6 +17,7 @@ use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -177,6 +179,13 @@ class PlatformStaffResource extends Resource
                     ->label('سحب التفويض')
                     ->modalHeading('سحب تفويض المنصّة')
                     ->modalDescription('تسري الصلاحيات فوراً بعد السحب. لا يمسّ هذا حسابه ولا عضويّاته.')
+                    // Revoking standing is the same decision as granting it, so
+                    // it carries the same second factor.
+                    ->before(function (DeleteAction $action): void {
+                        if (self::refusedForTwoFactor()) {
+                            $action->cancel();
+                        }
+                    })
                     ->after(fn (PlatformStaff $record) => self::forgetStanding($record)),
             ]);
     }
@@ -215,6 +224,28 @@ class PlatformStaffResource extends Resource
         }
 
         return $options;
+    }
+
+    /**
+     * The panel's second factor for granting or revoking platform standing.
+     *
+     * ⚠️ `/admin` IS SESSION-AUTHENTICATED AND NEVER PASSES THROUGH
+     * `2fa.required`. A standing IS the platform's money authority (approvals,
+     * payouts, pricing), so handing it out behind the password alone made the
+     * second factor on every one of those routes decorative. Same sentence as
+     * the API, from `TwoFactorMandate`; told, never hidden.
+     */
+    public static function refusedForTwoFactor(): bool
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User || ($refusal = TwoFactorMandate::refusalFor($actor)) === null) {
+            return false;
+        }
+
+        Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
+
+        return true;
     }
 
     public static function canEdit(Model $record): bool

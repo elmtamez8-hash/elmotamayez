@@ -153,6 +153,42 @@ it('spends a recovery code once, and says so', function (): void {
         ->toBeGreaterThanOrEqual(1);
 });
 
+it('asks for the password and a live code before issuing a new set of recovery codes', function (): void {
+    /*
+    | ⛔ It asked for neither. A borrowed session could mint eight codes of its
+    | own — each a complete second factor — and the owner's printed sheet stopped
+    | working the moment it did. The same pair switching the factor off asks for.
+    */
+    $user = teacherAccount();
+    $old = enrolTwoFactor($user);
+
+    $this->postJson('/api/v1/auth/2fa/recovery-codes')->assertStatus(422);
+
+    $this->postJson('/api/v1/auth/2fa/recovery-codes', [
+        'current_password' => 'wrong',
+        'code' => currentCode($user),
+    ])->assertStatus(422);
+
+    $this->postJson('/api/v1/auth/2fa/recovery-codes', [
+        'current_password' => 'password',
+        'code' => twoFactorWrongCode($user),
+    ])->assertStatus(422);
+
+    // Nothing above replaced the sheet the owner holds.
+    expect(app(TwoFactorCodes::class)->remainingRecoveryCodes($user->fresh()))->toBe(8);
+
+    // Past `throttle:two-factor` (five a minute): enrolling spent two of them.
+    $this->travel(2)->minutes();
+
+    $fresh = $this->postJson('/api/v1/auth/2fa/recovery-codes', [
+        'current_password' => 'password',
+        'code' => currentCode($user),
+    ])->assertOk()->json('recovery_codes');
+
+    expect($fresh)->toHaveCount(8)
+        ->and(array_intersect($fresh, $old))->toBe([]);
+});
+
 it('never returns the secret or the codes when asked for the state', function (): void {
     $user = teacherAccount();
     $codes = enrolTwoFactor($user);

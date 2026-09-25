@@ -55,7 +55,14 @@ class MarkLessonComplete extends Action
             // the teacher what that publish will do. Three copies of one formula
             // would be three answers to "what percentage is this student at", and
             // `SC-018` is the promise that the preview's answer is the real one.
-            $shouldComplete = CourseProgress::sync($enrollment);
+            //
+            // ⛔ `CourseCompleted` fires on the TRANSITION only. `sync()` answers
+            // «is it complete now», not «did it just become so» — and since a
+            // `completed` enrolment may keep completing lessons the teacher adds
+            // later, reaching 100% a second time must not announce the course
+            // finished again. `ResyncCourseProgress` guards the same way.
+            $wasComplete = $enrollment->isCompleted();
+            $shouldComplete = CourseProgress::sync($enrollment) && ! $wasComplete;
 
             // Dispatch events after the transaction commits so listeners
             // (certificate issuance, notifications) don't run inside the open transaction.

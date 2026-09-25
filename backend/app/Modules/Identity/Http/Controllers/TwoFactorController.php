@@ -76,10 +76,21 @@ class TwoFactorController extends Controller
         return response()->json(null, 204);
     }
 
-    public function recoveryCodes(Request $request, RegenerateRecoveryCodes $action): JsonResponse
+    /**
+     * A fresh set — behind the same password AND live code that switching the
+     * factor off asks for.
+     *
+     * ⚠️ IT ASKED FOR NEITHER. A borrowed session could mint eight codes of its
+     * own and keep them: each one is a complete second factor, so the thief holds
+     * the account through the owner's next password change, and the owner's own
+     * printed sheet stops working the moment the new set is issued.
+     */
+    public function recoveryCodes(TwoFactorDisableRequest $request, RegenerateRecoveryCodes $action): JsonResponse
     {
+        $request->ensureCurrentPasswordIsValid();
+
         return response()->json([
-            'recovery_codes' => $action->handle($this->currentUser($request)),
+            'recovery_codes' => $action->handle($this->currentUser($request), (string) $request->validated('code')),
         ]);
     }
 

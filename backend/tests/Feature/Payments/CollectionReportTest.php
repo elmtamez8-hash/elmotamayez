@@ -7,6 +7,7 @@ use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\CsvCell;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -152,4 +153,46 @@ it('exports the same rows the screen shows, under the same filter', function ():
 
     expect(count($lines))->toBe($onScreen + 1)
         ->and($lines[0])->toContain('amount_minor');
+});
+
+it('never hands the spreadsheet a formula a buyer typed as their name', function (): void {
+    /*
+    | ⛔ CSV FORMULA INJECTION. `student_name` is whatever the buyer typed, and
+    | this file is opened in Excel by the finance officer — a cell starting with
+    | `=` or `@` is executed there, not shown. `CsvCell::safe()` quotes it into
+    | text. ASCII needles: `str_getcsv` reads the raw bytes either way.
+    */
+    $this->owner->forceFill(['first_name' => '=HYPERLINK("http://evil.test","open")', 'last_name' => 'X'])->save();
+    $this->otherOwner->forceFill(['first_name' => '@SUM(1+1)', 'last_name' => 'Y'])->save();
+
+    seedCollection(6);
+
+    Sanctum::actingAs($this->reader);
+
+    $csv = $this->get('/api/v1/admin/payments/collection/export?from='.now()->subWeek()->toDateString().'&to='.now()->toDateString())
+        ->assertOk()
+        ->streamedContent();
+
+    $lines = array_values(array_filter(explode("\n", trim(substr($csv, 3)))));
+    $column = array_search('student_name', str_getcsv($lines[0]), true);
+
+    $names = array_map(
+        fn (string $line): string => (string) str_getcsv($line)[$column],
+        array_slice($lines, 1),
+    );
+
+    expect($names)->toContain('\'=HYPERLINK("http://evil.test","open") X')
+        ->toContain("'@SUM(1+1) Y")
+        ->not->toContain('=HYPERLINK("http://evil.test","open") X')
+        ->not->toContain('@SUM(1+1) Y');
+});
+
+it('leaves a negative amount a number, because a quoted one is text no SUM adds', function (): void {
+    expect(CsvCell::safe('-500'))->toBe('-500')
+        ->and(CsvCell::safe('-12.50'))->toBe('-12.50')
+        ->and(CsvCell::safe('-cmd'))->toBe("'-cmd")
+        ->and(CsvCell::safe('+1+1'))->toBe("'+1+1")
+        ->and(CsvCell::safe("\t=1+1"))->toBe("'\t=1+1")
+        ->and(CsvCell::safe('Noura'))->toBe('Noura')
+        ->and(CsvCell::safe(''))->toBe('');
 });

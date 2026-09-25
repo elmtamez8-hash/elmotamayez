@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/auth-context";
+import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { billing } from "@/lib/billing";
 import { can, P } from "@/lib/permissions";
 import { CreditsIcon } from "@/components/icons";
@@ -50,7 +50,7 @@ export function WithheldStudentsCard() {
       href="/manage/billing/students"
       linkLabel="أرصدة الطلاب"
       label="طالب لا يستطيع الحجز"
-      granted={can(user, P.billingBalanceView) && (user?.workspaces?.length ?? 0) > 0}
+      granted={can(user, P.billingBalanceView) && teachesOnPlatform(user)}
       empty="لا طالب محجوب."
       load={countWithheldStudents}
     />

@@ -77,8 +77,10 @@ class CompleteAssignmentLessonOnSubmission implements ShouldQueueAfterCommit
             ->where('student_user_id', $submission->student_user_id)
             ->get()
             // A student may hold an old expired row beside a renewed one; the
-            // live one is the one this hand-in belongs to.
-            ->first(static fn (Enrollment $row): bool => $row->isActive());
+            // live one is the one this hand-in belongs to. «Live» is `active` OR
+            // `completed` — a completed student keeps the course, and homework
+            // the teacher added afterwards must still count.
+            ->first(static fn (Enrollment $row): bool => $row->grantsContentAccess());
 
         if ($enrollment === null) {
             // Expired or cancelled: completing a lesson there would tip the

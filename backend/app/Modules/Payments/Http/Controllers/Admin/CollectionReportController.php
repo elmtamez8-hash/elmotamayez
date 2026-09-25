@@ -9,6 +9,7 @@ use App\Modules\Payments\Actions\BuildCollectionReport;
 use App\Modules\Payments\Http\Requests\CollectionReportRequest;
 use App\Modules\Payments\Http\Resources\CollectionRowResource;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Shared\Support\CsvCell;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -105,7 +106,9 @@ class CollectionReportController extends Controller
         return array_map(function (string $column) use ($flat): string|int|null {
             $value = $flat[$column] ?? null;
 
-            return is_string($value) || is_int($value) ? $value : null;
+            // `CsvCell::safe()`: `student_name` is whatever the student typed,
+            // and this file is opened in a spreadsheet by the finance officer.
+            return is_string($value) ? CsvCell::safe($value) : (is_int($value) ? $value : null);
         }, $columns);
     }
 }

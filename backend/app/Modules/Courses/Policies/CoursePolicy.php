@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Policies;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
 use App\Policies\BasePolicy;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
@@ -28,8 +29,9 @@ class CoursePolicy extends BasePolicy
     | طالبٍ أُضيفَ يوماً إلى مساحةِ عمل. فطالبٌ مختومٌ كانَ يُمنَعُ من كورسٍ
     | **منشورٍ** يراهُ في السوقِ ويقرأُ صفحتَه، لمجرَّدِ أنّ مدرِّسَه غيرُ مدرِّسِه.
     |
-    | والمساحةُ سؤالٌ عن المسوَّدات، لا عن المنشور: فرعُ `COURSES_VIEW` أدناه
-    | يبقى خلفَ الفحصِ كما كان، وهو الفرعُ الوحيدُ الذي يفتحُ غيرَ المنشور.
+    | The workspace is a question about drafts, not about the published: the
+    | draft branch below stays behind the check, and since 2026-09-26 it asks
+    | COURSES_UPDATE or the author, never COURSES_VIEW (a student holds that).
     */
     public function view(User $user, Course $course): Response
     {
@@ -41,9 +43,31 @@ class CoursePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::COURSES_VIEW)
-            ? Response::allow()
-            : Response::deny();
+        /*
+        | ⛔ **AN UNPUBLISHED COURSE IS FOR WHOEVER WRITES IT, NOT FOR WHOEVER MAY
+        | LOOK.** This branch used to ask `COURSES_VIEW` — and the student role
+        | holds it, so a student member of the workspace opened any DRAFT by uuid
+        | at `GET /courses/{course}` and `/courses/{course}/sections`, the doors
+        | `CourseController::index` stopped listing it on. Now: `COURSES_UPDATE`,
+        | or the author — the pivot ROLE, never mere membership (docs/gotchas/
+        | courses.md «THE AUTHOR IS THE PIVOT ROLE»), asked in the negative so an
+        | unknown custom role falls toward refusal. `/learn/lessons/{uuid}` and
+        | `IssuePlaybackGrant::mayWatch()` ask the same predicate.
+        */
+        if ($user->can(Permissions::COURSES_UPDATE) || $this->authors($user, $course)) {
+            return Response::allow();
+        }
+
+        return Response::deny();
+    }
+
+    /** A non-student pivot role in the course's own workspace. */
+    private function authors(User $user, Course $course): bool
+    {
+        return $user->workspaces()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->where('workspaces.id', $course->workspace_id)
+            ->exists();
     }
 
     public function create(User $user): Response

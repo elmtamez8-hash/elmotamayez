@@ -71,12 +71,14 @@ class CompleteExamLessonsAlreadyAnswered implements ShouldQueueAfterCommit
         Enrollment::query()
             ->where('course_id', $item->course_id)
             ->whereIn('student_user_id', $studentIds)
-            // Active only — the condition `accessTo` applies and the controller
-            // path returns 422 over. Without it this credited an expired or
-            // cancelled enrolment, `MarkLessonComplete` flipped it to `completed`,
-            // `CourseCompleted` fired and a certificate issued to someone the API
-            // refuses to let finish a single lesson.
-            ->where('status', 'active')
+            // Granting statuses only (`active` or `completed`) — the condition the
+            // lesson gate and the complete button apply. Without it this credited
+            // an expired or cancelled enrolment, `MarkLessonComplete` flipped it
+            // to `completed`, `CourseCompleted` fired and a certificate issued to
+            // someone the API refuses to let finish a single lesson. `completed`
+            // is IN: the student keeps the course, and an exam published after
+            // they reached 100% must bring them back there.
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             // Nobody has a completed row for this item yet, so the ones that do
             // are already done — and `MarkLessonComplete` costs a transaction each
             // to discover that. Filtering here makes a re-publish nearly free.
