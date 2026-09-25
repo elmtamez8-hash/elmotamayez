@@ -10,8 +10,7 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\PlatformSettings;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -49,7 +48,7 @@ use Illuminate\Support\Facades\DB;
  * Queued and after commit: `FinalizeAttempt` fires the event inside its
  * transaction, and a warning about a score that rolled back is a lie.
  */
-class WarnOnConsecutiveFailures implements ShouldHandleEventsAfterCommit, ShouldQueue
+class WarnOnConsecutiveFailures implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

@@ -10,8 +10,7 @@ use App\Modules\LiveSessions\Actions\CancelBooking;
 use App\Modules\LiveSessions\Actions\ClaimSubscriptionSeats;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\SessionBooking;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A student who moved to another group gives up the seats they held in the one
@@ -37,11 +36,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * cancellation deadline and never recomputed, so a transfer after that moment
  * moves no money — and must not try to.
  *
- * Queued with `ShouldHandleEventsAfterCommit`: the membership move is a
+ * Queued with `ShouldQueueAfterCommit`: the membership move is a
  * transaction, and a listener that ran inside it would cancel seats against a
  * transfer that had not committed yet.
  */
-class ReleaseSeatsOnTransfer implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ReleaseSeatsOnTransfer implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly CancelBooking $cancel,

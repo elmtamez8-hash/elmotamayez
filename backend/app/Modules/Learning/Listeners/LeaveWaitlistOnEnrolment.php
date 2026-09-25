@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Learning\Listeners;
 
 use App\Modules\Learning\Events\EnrollmentCreated;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +28,7 @@ use Illuminate\Support\Facades\DB;
  * نماذجَ أصلاً، فلا شيءَ من طبقةِ النموذجِ يجري هنا. وهي قاعدةُ
  * `LedgerEntry` من بابٍ آخر.
  */
-class LeaveWaitlistOnEnrolment implements ShouldHandleEventsAfterCommit, ShouldQueue
+class LeaveWaitlistOnEnrolment implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

@@ -9,8 +9,7 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «لم يصل ردّ، وانتهت المهلة» (FR-023 · FR-026).
@@ -24,7 +23,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * student who is not told so assumes an expired request cost them a credit —
  * which is the support ticket the whole no-hold design exists to avoid.
  */
-class NotifyStudentPrivateSessionExpired implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentPrivateSessionExpired implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

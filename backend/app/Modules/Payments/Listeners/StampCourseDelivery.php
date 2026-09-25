@@ -6,8 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Events\SessionDelivered;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * Record that this course delivered something (FR-021ط).
@@ -23,7 +22,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * "stopped delivering" — which refuses new purchases. That is the safe
  * direction: the failure sells nothing rather than selling into a hole.
  */
-class StampCourseDelivery implements ShouldHandleEventsAfterCommit, ShouldQueue
+class StampCourseDelivery implements ShouldQueueAfterCommit
 {
     public function handle(SessionDelivered $event): void
     {

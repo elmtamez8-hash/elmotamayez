@@ -9,8 +9,7 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * «لم يصل ردّ، وبقي موعدُ الحصّة كما هو».
@@ -26,7 +25,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * ⚠️ AND THE TIME IS THE REQUEST'S `from_starts_at`, which is the session's hour
  * as it was asked about — and, because an expiry moves nothing, still its hour.
  */
-class NotifyStudentSessionRescheduleExpired implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentSessionRescheduleExpired implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

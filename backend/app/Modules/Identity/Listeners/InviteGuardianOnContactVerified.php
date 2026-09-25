@@ -10,8 +10,7 @@ use App\Modules\Identity\Models\StudentProfile;
 use App\Modules\Identity\Support\GuardianInvitation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Notifications\Events\ContactVerified;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A guardian who signs up AFTER their child is found the moment they prove the
@@ -43,7 +42,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * Queued and after-commit: a failure here must never turn a successful
  * verification into an error on the screen that confirmed it.
  */
-class InviteGuardianOnContactVerified implements ShouldHandleEventsAfterCommit, ShouldQueue
+class InviteGuardianOnContactVerified implements ShouldQueueAfterCommit
 {
     /** A bound, not a feature: one number naming more children than this is not a family. */
     private const MAX_CHILDREN = 20;

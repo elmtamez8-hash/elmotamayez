@@ -9,8 +9,7 @@ use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The answer, either way (FR-018 · FR-019).
@@ -25,7 +24,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * the whole message, so a single template holding `{{ decision_reason }}` would
  * drop every acceptance on the platform in silence.
  */
-class NotifyStudentPrivateSessionDecided implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyStudentPrivateSessionDecided implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,

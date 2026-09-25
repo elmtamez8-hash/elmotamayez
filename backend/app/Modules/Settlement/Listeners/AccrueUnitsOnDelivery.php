@@ -7,8 +7,7 @@ namespace App\Modules\Settlement\Listeners;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Settlement\Actions\AccrueTeachingUnits;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The bridge, and the only one.
@@ -38,12 +37,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * nothing that re-fires them and no sweep that notices.
  *
  * Queued, the failure lands in `failed_jobs` where it belongs and the rest of the
- * close runs. `ShouldHandleEventsAfterCommit` for the same reason its Payments
+ * close runs. `ShouldQueueAfterCommit` for the same reason its Payments
  * sibling carries it — and the two are now the same shape, which is the point:
  * one event with one synchronous listener among queued ones is a hazard that is
  * invisible until the day that listener throws.
  */
-class AccrueUnitsOnDelivery implements ShouldHandleEventsAfterCommit, ShouldQueue
+class AccrueUnitsOnDelivery implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly AccrueTeachingUnits $action,

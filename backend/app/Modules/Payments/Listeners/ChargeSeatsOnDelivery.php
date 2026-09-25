@@ -6,8 +6,7 @@ namespace App\Modules\Payments\Listeners;
 
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\Payments\Actions\ChargeSessionSeats;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * The bridge from teaching to money, and the only one.
@@ -30,11 +29,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * Written down because a subscription that is merely absent gets proposed again
  * in six months. Precedent: SettlementServiceProvider.php:54.
  *
- * `ShouldHandleEventsAfterCommit` because CloseClassSession writes the register
+ * `ShouldQueueAfterCommit` because CloseClassSession writes the register
  * and the status inside a transaction — a listener that ran before it committed
  * would charge against a session that can still roll back.
  */
-class ChargeSeatsOnDelivery implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ChargeSeatsOnDelivery implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly ChargeSessionSeats $action,

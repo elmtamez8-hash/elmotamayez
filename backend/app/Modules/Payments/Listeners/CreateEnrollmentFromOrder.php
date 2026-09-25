@@ -13,8 +13,7 @@ use App\Modules\Payments\Models\Order;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -24,14 +23,14 @@ use Illuminate\Support\Facades\Log;
  * Reuses the EnrollStudent action so the same EnrollmentCreated event pipeline fires
  * (notifications, activity log, etc.).
  *
- * ShouldHandleEventsAfterCommit because ApproveOrder fires PaymentApproved from
+ * ShouldQueueAfterCommit because ApproveOrder fires PaymentApproved from
  * INSIDE its own DB::transaction. Without it this job is pushed to the queue
  * while that transaction is still open, a worker picks it up within
  * milliseconds, and it reads the order as `pending` — or does not find it at
  * all. The student has paid and got nothing, with no retry, because the job
  * "succeeded". Same reason as CompleteExamLessonOnSubmission.
  */
-class CreateEnrollmentFromOrder implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CreateEnrollmentFromOrder implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 

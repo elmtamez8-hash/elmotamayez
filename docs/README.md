@@ -2994,7 +2994,7 @@ scheduling door alone is a green test over half a silent feature.
 
 ⚠️ **`ActivateSubscription` opens no transaction, and none may be added.** All four
 connections are `after_commit => false` and `NotifyStudentEnrolled` is `ShouldQueue`
-without `ShouldHandleEventsAfterCommit`, so wrapping the three writes would send
+without `ShouldQueueAfterCommit`, so wrapping the three writes would send
 «أهلاً بك في الكورس» about an enrolment that can still roll back. FR-027 is
 therefore satisfied by **convergence**: a retry reads the committed subscription
 back and carries on, instead of returning at `unique(order_id)` before the access

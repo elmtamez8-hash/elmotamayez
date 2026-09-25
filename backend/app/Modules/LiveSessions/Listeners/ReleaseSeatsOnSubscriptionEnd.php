@@ -11,8 +11,7 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Events\CourseAccessWithdrawn;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A subscription that ended gives back the seats it was holding (027 · FR-045).
@@ -52,11 +51,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * release seats outside the freeze as well as inside it. Release on the fact
  * that happened — this subscription ended — and nothing wider.
  *
- * Queued and `ShouldHandleEventsAfterCommit`: the expiry sweep claims each row
+ * Queued and `ShouldQueueAfterCommit`: the expiry sweep claims each row
  * inside its own statement, and a worker reading before commit would find the
  * enrolment still active and release nothing.
  */
-class ReleaseSeatsOnSubscriptionEnd implements ShouldHandleEventsAfterCommit, ShouldQueue
+class ReleaseSeatsOnSubscriptionEnd implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly CancelBooking $bookings,

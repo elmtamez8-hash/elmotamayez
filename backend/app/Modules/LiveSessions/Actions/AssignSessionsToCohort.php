@@ -84,7 +84,7 @@ class AssignSessionsToCohort extends Action
         | is silent when an existing one joins the group — and the subscribers
         | who paid for that group simply never appear in it, with nothing
         | reporting a fault. Dispatched after the transaction: the listener is
-        | `ShouldHandleEventsAfterCommit`, and a worker reading before the commit
+        | `ShouldQueueAfterCommit`, and a worker reading before the commit
         | would find `cohort_id` still null on every row.
         */
         if ($assigned > 0) {

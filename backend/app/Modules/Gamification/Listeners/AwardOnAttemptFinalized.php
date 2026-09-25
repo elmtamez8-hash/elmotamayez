@@ -7,7 +7,7 @@ namespace App\Modules\Gamification\Listeners;
 use App\Modules\Assessments\Events\AttemptFinalized;
 use App\Modules\Gamification\Actions\AwardPoints;
 use App\Modules\Gamification\Data\AwardRequest;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
  * A paper is marked and passed ⇒ points.
@@ -18,7 +18,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
  * for one turns the leaderboard into a measure of how many times a student
  * pressed a button. The self-practice action is a separate, capped row.
  */
-class AwardOnAttemptFinalized implements ShouldQueue
+class AwardOnAttemptFinalized implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly AwardPoints $award) {}
 

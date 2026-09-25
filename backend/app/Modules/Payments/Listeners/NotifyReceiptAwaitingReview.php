@@ -14,8 +14,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Models\PlatformStaff;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Support\Permissions;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Collection;
 
 /**
@@ -41,7 +40,7 @@ use Illuminate\Support\Collection;
  * ⚠️ NO AMOUNT, for the reason `NotifyPaymentOutcome` gives, and because the
  * amount is on the screen where the decision is taken.
  */
-class NotifyReceiptAwaitingReview implements ShouldHandleEventsAfterCommit, ShouldQueue
+class NotifyReceiptAwaitingReview implements ShouldQueueAfterCommit
 {
     public function __construct(private readonly DispatchNotification $dispatch) {}
 
