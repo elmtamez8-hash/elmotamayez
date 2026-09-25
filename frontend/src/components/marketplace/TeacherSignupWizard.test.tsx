@@ -113,3 +113,31 @@ describe("the last step of the teacher application", () => {
     expect(screen.getByText("أكمل وقتَي البداية والنهاية في كلّ فترة قبل الحفظ.")).toBeDefined();
   });
 });
+
+describe("resuming a saved application", () => {
+  it("treats a 404 as «nothing to resume» and says nothing", async () => {
+    get.mockRejectedValue(new ApiError("لا يوجد طلب تدريس لهذا الحساب.", 404, null));
+
+    await act(async () => {
+      render(<TeacherSignupWizard subjects={[]} gradeLevels={[]} />);
+    });
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says so when the saved application could not be read", async () => {
+    // A 500 used to be swallowed like the 404: an applicant with three saved
+    // steps saw a blank form and no hint that their draft still existed.
+    get.mockRejectedValue(new ApiError("Server Error", 500, null));
+
+    await act(async () => {
+      render(<TeacherSignupWizard subjects={[]} gradeLevels={[]} />);
+    });
+
+    const alert = await screen.findByRole("alert");
+
+    expect(alert.textContent).not.toBe("");
+    // Never the framework's English string.
+    expect(alert.textContent).not.toContain("Server Error");
+  });
+});

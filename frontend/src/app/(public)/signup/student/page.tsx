@@ -2,17 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { publicApi } from "@/lib/public-api";
 import { StudentSignupForm } from "@/components/marketplace/StudentSignupForm";
-import { platformName } from "@/lib/platform";
 import { sanitiseReferralCode } from "@/lib/referral-link";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const name = await platformName();
-
-  return {
-    title: `تسجيل طالب — ${name}`,
-    description: "أنشئ حساب طالب واحجز حصصك مع أفضل المدرسين.",
-  };
-}
+export const metadata: Metadata = {
+  title: "تسجيل طالب",
+  description: "أنشئ حساب طالب واحجز حصصك مع أفضل المدرسين.",
+};
 
 type Search = { teacher?: string; trial?: string; next?: string; ref?: string };
 

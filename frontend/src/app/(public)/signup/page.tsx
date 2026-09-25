@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AcademicCapIcon, UserPlusIcon, UsersIcon } from "@/components/icons";
-import { platformName } from "@/lib/platform";
 import { sanitiseReferralCode } from "@/lib/referral-link";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const name = await platformName();
-
-  return {
-    title: `إنشاء حساب — ${name}`,
-    description: "اختر صفتك: طالب أو وليّ أمر أو مدرّس.",
-  };
-}
+export const metadata: Metadata = {
+  title: "إنشاء حساب",
+  description: "اختر صفتك: طالب أو وليّ أمر أو مدرّس.",
+};
 
 /**
  * The role chooser, and the door `/login` sends a visitor with no invitation to.
