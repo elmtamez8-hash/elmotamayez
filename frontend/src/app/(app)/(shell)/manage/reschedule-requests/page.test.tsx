@@ -31,6 +31,7 @@ const ROW = {
   status: "pending" as const,
   from_starts_at: "2026-10-10T13:00:00Z",
   to_starts_at: "2026-10-11T15:00:00Z",
+  timezone: "Asia/Qatar",
   student_reason: "عندي امتحان",
   decision_reason: null,
   decided_at: null,

@@ -98,6 +98,14 @@ export default function MyPrivateSessionsPage() {
 
       {loadError !== null && requests === null && <ErrorState onRetry={load} />}
 
+      {/* A re-read that fails after a withdraw leaves the old list on screen —
+          which may still show a button that no longer works — so it says so. */}
+      {loadError !== null && requests !== null && (
+        <Alert tone="danger" title="تعذّر تحديث القائمة">
+          {loadError}
+        </Alert>
+      )}
+
       {loadError === null && requests === null && <RowsSkeleton count={3} />}
 
       {requests !== null && requests.length === 0 && (
