@@ -49,13 +49,13 @@ class AttemptPolicy extends BasePolicy
         return $this->teaches($attempt) ? Response::allow() : Response::deny();
     }
 
-    /** Does this workspace currently have an active enrolment for that student? */
+    /** Does this workspace still teach that student — `completed` keeps full access, so it counts. */
     private function teaches(Attempt $attempt): bool
     {
         return Enrollment::query()
             ->where('workspace_id', $attempt->workspace_id)
             ->where('student_user_id', $attempt->student_user_id)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
     }
 

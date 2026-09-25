@@ -28,6 +28,7 @@ use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Identity\Support\TwoFactorChallenges;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -221,19 +222,22 @@ class AuthController extends Controller
         return response()->json(['message' => 'Verification link sent.']);
     }
 
-    public function verifyEmail(Request $request): JsonResponse
+    /**
+     * Reached from a mail client, so it answers with a redirect to the site, never
+     * JSON: the person clicking it is looking at a browser tab, not an API client.
+     * The account comes from the SIGNED `{id}`, because there is no token here.
+     */
+    public function verifyEmail(Request $request): RedirectResponse
     {
-        if (! hash_equals((string) $request->route('hash'), sha1((string) $this->currentUser($request)->getEmailForVerification()))) {
-            throw ValidationException::withMessages(['hash' => __('Invalid verification hash.')]);
+        $user = User::query()->find((int) $request->route('id'));
+        $valid = $user !== null
+            && hash_equals((string) $request->route('hash'), sha1((string) $user->getEmailForVerification()));
+
+        if ($valid && ! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
         }
 
-        if ($this->currentUser($request)->hasVerifiedEmail()) {
-            return response()->json(['message' => 'Email already verified.']);
-        }
-
-        $this->currentUser($request)->markEmailAsVerified();
-
-        return response()->json(['message' => 'Email verified.']);
+        return redirect()->away(config('cms.site_url').'/login?verified='.($valid ? '1' : '0'));
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
