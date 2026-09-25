@@ -272,7 +272,10 @@ export default async function TeacherProfilePage({
           it, which is the runway the sticky panel needs. Invisible either way:
           the aside paints nothing of its own. `discovery.spec.ts` measures it,
           because no unit test can see a computed layout. */}
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      {/* `grid-cols-1` is `minmax(0,1fr)`: without it the one implicit column
+          on a phone grows to the tab strip's full width and the page scrolls
+          sideways (measured 563px on a 360px screen). */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
         {/* Sticky booking panel (FR-054): spans both content rows so it stays put
             while the tabs scroll. On mobile it sits between the identity block and
             the tabs, which is where a price belongs on a phone. */}
