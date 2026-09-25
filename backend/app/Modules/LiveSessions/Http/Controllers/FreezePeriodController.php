@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\LiveSessions\Actions\CreateFreezePeriod;
+use App\Modules\LiveSessions\Actions\DeleteFreezePeriod;
 use App\Modules\LiveSessions\Http\Requests\StoreFreezePeriodRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Http\Resources\FreezePeriodResource;
@@ -73,24 +74,35 @@ class FreezePeriodController extends Controller
             | screen that needs the answer asks the student's own endpoint for it.
             */
             'suspended' => ClassSessionResource::collection($result['suspended']),
+            // A freeze on one student takes their seat out of a group session
+            // and leaves the lesson running for everyone else — still a cost the
+            // teacher should see, so it is listed beside the suspensions.
+            'released' => ClassSessionResource::collection($result['released']),
             'notified' => $result['notified'],
         ], 201);
     }
 
     /**
-     * Lifting a freeze removes the period and nothing else.
+     * Lifting a freeze hands its still-future sessions back to the calendar.
      *
-     * The sessions it suspended stay suspended: they were announced as not
-     * happening and their seats went back, so quietly reviving them would put
-     * students in a room nobody told them about again (FR-043 is about counters,
-     * which never moved in the first place).
+     * The SESSIONS come back, never their seats: those were released and every
+     * holder was told the hour was off, so seating them again unasked would put
+     * students in a room nobody told them about. A restored session is bookable
+     * again and whoever still wants it books it. The ones that could not come
+     * back — started already, still under another freeze, or clashing with
+     * something the teacher scheduled since — are listed, so the teacher sees
+     * what the lift did and did not undo (see DeleteFreezePeriod).
      */
-    public function destroy(Request $request, FreezePeriod $period): JsonResponse
+    public function destroy(Request $request, FreezePeriod $period, DeleteFreezePeriod $action): JsonResponse
     {
         $this->authorize('delete', $period);
 
-        $period->delete();
+        $result = $action->handle($period);
 
-        return response()->json(['deleted' => true]);
+        return response()->json([
+            'deleted' => true,
+            'restored' => ClassSessionResource::collection($result['restored']),
+            'kept_suspended' => ClassSessionResource::collection($result['kept']),
+        ]);
     }
 }

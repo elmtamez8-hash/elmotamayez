@@ -175,22 +175,100 @@ it('counts no absence inside a freeze', function (): void {
     expect(Attendance::query()->count())->toBe(0);
 });
 
-// A freeze on one student is theirs alone (FR-039, scenario 5).
-it('leaves the teacher other students alone when one is frozen', function (): void {
+function scheduleIndividualFreezeSlot(CarbonImmutable $startsAt): ClassSession
+{
+    return app(ScheduleClassSession::class)->handle(
+        new ScheduleSessionData(
+            teacherProfileId: (int) test()->teacher->getKey(),
+            courseId: (int) test()->course->getKey(),
+            title: 'حصة فردية',
+            type: ClassSessionType::Individual,
+            startsAt: $startsAt,
+            durationMinutes: 60,
+            seatsTotal: 1,
+        ),
+        test()->owner,
+    );
+}
+
+function sessionCancelledCount(?User $recipient = null): int
+{
+    return Notification::query()
+        ->where('type', NotificationType::SessionCancelled->value)
+        ->when($recipient !== null, fn ($query) => $query->forRecipient($recipient))
+        ->count();
+}
+
+/*
+| ⛔ A freeze on one student is theirs alone (FR-039, scenario 5) — and until this
+| was fixed it was the WHOLE CLASS'S. The selection asked for the sessions the
+| student held a seat in, and then suspended each one outright: every classmate's
+| booking released, `seats_taken = 0`, every credit hold returned, and «لن تُعقد»
+| sent to each of them about a group lesson that was still being taught.
+|
+| The test this replaces asserted exactly that — a group session `Suspended` by a
+| freeze on one of its students — which is why the defect sat green.
+*/
+it('takes only the frozen student\'s seat out of a group session', function (): void {
     $session = scheduleAt($this->holidayStart->addDays(2)->setHour(10));
+
+    $frozen = frozenLearner();
+    $classmateA = frozenLearner();
+    $classmateB = frozenLearner();
+
+    foreach ([$frozen, $classmateA, $classmateB] as $student) {
+        app(BookSeat::class)->handle($session->refresh(), $student);
+        $this->setCurrentWorkspace($this->workspace, $this->owner);
+    }
+
+    expect($session->refresh()->seats_taken)->toBe(3);
+
+    $result = freeze($frozen);
+
+    $statusOf = fn (User $student): BookingStatus => $session->bookings()
+        ->where('student_user_id', $student->getKey())
+        ->firstOrFail()
+        ->status;
+
+    expect($session->refresh()->status)->toBe(ClassSessionStatus::Scheduled)
+        ->and($session->seats_taken)->toBe(2)
+        ->and($statusOf($frozen))->toBe(BookingStatus::Released)
+        ->and($statusOf($classmateA))->toBe(BookingStatus::Booked)
+        ->and($statusOf($classmateB))->toBe(BookingStatus::Booked)
+        // Not suspended — listed as a released seat, so the teacher still sees it.
+        ->and($result['suspended'])->toBe([])
+        ->and($result['released'])->toHaveCount(1)
+        ->and($result['notified'])->toBe(1)
+        // Exactly one message on the platform, and it is the frozen student's.
+        ->and(sessionCancelledCount())->toBe(1)
+        ->and(sessionCancelledCount($frozen))->toBe(1);
+
+    // The released seat is non-billable: the student did nothing.
+    expect($session->bookings()->where('student_user_id', $frozen->getKey())->firstOrFail()->is_billable)
+        ->toBeFalse();
+});
+
+// An individual session IS the student's alone, so it is suspended whole — and
+// the teacher's other classes still carry on.
+it('suspends the frozen student\'s individual session and nothing else', function (): void {
+    $individual = scheduleIndividualFreezeSlot($this->holidayStart->addDays(2)->setHour(10));
 
     $frozen = frozenLearner();
     $other = frozenLearner();
 
-    app(BookSeat::class)->handle($session->refresh(), $frozen);
+    app(BookSeat::class)->handle($individual->refresh(), $frozen);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $second = scheduleAt($this->holidayStart->addDays(3)->setHour(10));
     app(BookSeat::class)->handle($second->refresh(), $other);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
-    freeze($frozen);
+    $result = freeze($frozen);
 
-    expect($session->refresh()->status)->toBe(ClassSessionStatus::Suspended)
-        ->and($second->refresh()->status)->toBe(ClassSessionStatus::Scheduled);
+    expect($individual->refresh()->status)->toBe(ClassSessionStatus::Suspended)
+        ->and($second->refresh()->status)->toBe(ClassSessionStatus::Scheduled)
+        ->and($result['suspended'])->toHaveCount(1)
+        ->and($result['released'])->toBe([])
+        ->and(sessionCancelledCount())->toBe(1)
+        ->and(sessionCancelledCount($frozen))->toBe(1);
 });
