@@ -64,36 +64,37 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 # حيّة — كلُّ نشرةٍ تُنشئُ حاويةً جديدة. **لكنّ `artisan config:cache` يدويّاً داخلَ حاويةٍ
 # عاملةٍ لا يراه FPM** حتى تُعادَ (`docker compose … restart backend`). وCLI لا يتأثّر:
 # `opcache.enable_cli` مطفأٌ افتراضيّاً.
-COPY <<EOF /usr/local/etc/php/conf.d/zz-app.ini
-upload_max_filesize = 20M
-post_max_size = 21M
-memory_limit = 512M
-expose_php = Off
-display_errors = Off
-display_startup_errors = Off
-log_errors = On
-variables_order = "EGPCS"
-opcache.enable = 1
-opcache.memory_consumption = 256
-opcache.interned_strings_buffer = 32
-opcache.max_accelerated_files = 32531
-opcache.validate_timestamps = 0
-EOF
+RUN printf '%s\n' \
+        'upload_max_filesize = 20M' \
+        'post_max_size = 21M' \
+        'memory_limit = 512M' \
+        'expose_php = Off' \
+        'display_errors = Off' \
+        'display_startup_errors = Off' \
+        'log_errors = On' \
+        'variables_order = "EGPCS"' \
+        'opcache.enable = 1' \
+        'opcache.memory_consumption = 256' \
+        'opcache.interned_strings_buffer = 32' \
+        'opcache.max_accelerated_files = 32531' \
+        'opcache.validate_timestamps = 0' \
+    > /usr/local/etc/php/conf.d/zz-app.ini
 
 # ⚠️ خمسةُ عمّالٍ كانت سقفَ الموقعِ كلِّه. ٤٠ على ١٦ غيغا: عاملُ Laravel يستهلكُ عادةً
 # ٥٠–٨٠ ميغا، فـ٤٠ نحوَ ٣ غيغا في الذروة، ويبقى الباقي لـMySQL وRedis وMeilisearch وNext.
 # و`memory_limit` سقفٌ لطلبٍ واحدٍ شاذّ، لا ما يستهلكُه كلُّ عامل.
 # `pm.max_requests` يُعيدُ العاملَ بعدَ ألفِ طلبٍ فلا يتراكمُ تسرّبٌ بطيء.
-# والاسمُ `zz-` كي يُقرَأَ بعدَ `www.conf` و`zz-docker.conf` فيغلبَهما.
-COPY <<EOF /usr/local/etc/php-fpm.d/zz-app.conf
-[www]
-pm = dynamic
-pm.max_children = 40
-pm.start_servers = 8
-pm.min_spare_servers = 4
-pm.max_spare_servers = 12
-pm.max_requests = 1000
-EOF
+# والاسمُ `zz-` كي يُقرَأَ بعدَ `www.conf` (خمسةُ العمّالِ منه) فيغلبَه. و`printf` لا
+# `COPY <<EOF`: ذاكَ يحتاجُ BuildKit حديثاً لا نعرفُ أنّ دوكر الخادمِ يحملُه.
+RUN printf '%s\n' \
+        '[www]' \
+        'pm = dynamic' \
+        'pm.max_children = 40' \
+        'pm.start_servers = 8' \
+        'pm.min_spare_servers = 4' \
+        'pm.max_spare_servers = 12' \
+        'pm.max_requests = 1000' \
+    > /usr/local/etc/php-fpm.d/zz-app.conf
 
 COPY --from=composer:2.10.3 /usr/bin/composer /usr/bin/composer
 
