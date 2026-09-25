@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Models\User;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\CouponValueKind;
 use App\Modules\Payments\Filament\Resources\CouponResource\Pages;
@@ -13,6 +15,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -201,6 +204,29 @@ class CouponResource extends Resource
             'create' => Pages\CreateCoupon::route('/create'),
             'edit' => Pages\EditCoupon::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * The panel's second factor for a coupon write — the sentence
+     * `TwoFactorMandate` gives the API, told rather than hidden.
+     *
+     * ⚠️ `/admin` IS SESSION-AUTHENTICATED AND NEVER PASSES THROUGH
+     * `2fa.required`, so a coupon — money out of the platform's own commission —
+     * was a money write an overdue account could still make. Asked by both pages
+     * that write (`CreateCoupon`, `EditCoupon`), the way `OrderResource` asks
+     * before every decision.
+     */
+    public static function refusedForTwoFactor(): bool
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User || ($refusal = TwoFactorMandate::refusalFor($actor)) === null) {
+            return false;
+        }
+
+        Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
+
+        return true;
     }
 
     public static function canDelete(Model $record): bool

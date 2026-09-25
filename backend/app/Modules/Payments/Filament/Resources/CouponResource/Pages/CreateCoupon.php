@@ -11,6 +11,13 @@ class CreateCoupon extends CreateRecord
 {
     protected static string $resource = CouponResource::class;
 
+    protected function beforeCreate(): void
+    {
+        if (CouponResource::refusedForTwoFactor()) {
+            $this->halt();
+        }
+    }
+
     /**
      * Who wrote it, recorded without asking.
      *

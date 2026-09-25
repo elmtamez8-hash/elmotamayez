@@ -332,7 +332,9 @@ function TwoFactorSection() {
               size="sm"
               onClick={() =>
                 run("codes", async () => {
-                  const result = await twoFactor.regenerateRecoveryCodes();
+                  const result = await twoFactor.regenerateRecoveryCodes(password, code);
+                  setPassword("");
+                  setCode("");
                   setCodes(result.recovery_codes);
                   load();
                 })

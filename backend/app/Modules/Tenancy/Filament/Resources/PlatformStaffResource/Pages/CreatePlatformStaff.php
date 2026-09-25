@@ -26,6 +26,12 @@ class CreatePlatformStaff extends CreateRecord
      */
     protected function handleRecordCreation(array $data): Model
     {
+        // Granting platform standing hands out the platform's money authority,
+        // and `/admin` never passes through `2fa.required` — so it is asked here.
+        if (PlatformStaffResource::refusedForTwoFactor()) {
+            $this->halt();
+        }
+
         $data['assigned_by'] = (int) Filament::auth()->id();
 
         /** @var PlatformStaff $staff */

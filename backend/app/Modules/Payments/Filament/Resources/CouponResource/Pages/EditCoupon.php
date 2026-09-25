@@ -15,4 +15,12 @@ use Filament\Resources\Pages\EditRecord;
 class EditCoupon extends EditRecord
 {
     protected static string $resource = CouponResource::class;
+
+    /** Switching a code on, widening it or raising its value is the same money write. */
+    protected function beforeSave(): void
+    {
+        if (CouponResource::refusedForTwoFactor()) {
+            $this->halt();
+        }
+    }
 }

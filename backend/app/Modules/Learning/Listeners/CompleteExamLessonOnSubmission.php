@@ -103,7 +103,7 @@ class CompleteExamLessonOnSubmission implements ShouldQueueAfterCommit
 
         $enrollment = $this->enrollmentFor($attempt->enrollment_id, $attempt->exam_id, (int) $attempt->student_user_id);
 
-        if ($enrollment === null || ! $enrollment->isActive()) {
+        if ($enrollment === null || ! $enrollment->grantsContentAccess()) {
             // An exam sat outside any enrolment — a standalone quiz, or a teacher
             // previewing their own. There is no progress to move.
             //
@@ -111,6 +111,9 @@ class CompleteExamLessonOnSubmission implements ShouldQueueAfterCommit
             // reason the controller refuses it: completing a lesson there would
             // tip the enrolment to `completed` and issue a certificate to someone
             // the API will not let finish anything.
+            //
+            // ⛔ A `completed` one is NOT refused: the teacher added an exam after
+            // the student reached 100%, and sitting it must bring them back.
             return;
         }
 

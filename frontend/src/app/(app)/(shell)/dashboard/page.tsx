@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { openAdminPanel } from "@/lib/admin-panel";
 
-import { useAuth } from "@/lib/auth-context";
+import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { dashboardAudience } from "@/lib/dashboard-audience";
 import { GuardianDashboard } from "./GuardianDashboard";
 import { StudentDashboard } from "./StudentDashboard";
@@ -42,7 +42,7 @@ export default function DashboardPage() {
    | بـ`sort(-1)`، والقائمةُ الجانبيّةُ هنا تحملُ «لوحة المنصّة» — والرابطانِ
    | معاً هما ما يجعلُ هذا تحويلاً لا حبساً.
    */
-  const toPanel = user?.may_access_admin_panel === true && (user?.workspaces?.length ?? 0) === 0;
+  const toPanel = user?.may_access_admin_panel === true && !teachesOnPlatform(user);
 
   useEffect(() => {
     if (!toPanel) return;
