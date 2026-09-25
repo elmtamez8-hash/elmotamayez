@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { AssignmentIcon } from "@/components/icons";
+import { ExtensionForm } from "@/components/assignments/ExtensionForm";
 import { NumberField, TextareaField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -183,21 +184,29 @@ function SubmissionList({ assignmentUuid, points }: { assignmentUuid: string; po
   if (failed) return <ErrorState onRetry={load} />;
   if (rows === null) return <RowsSkeleton count={2} />;
 
-  if (rows.length === 0) {
-    return <p className="mt-4 text-sm text-ink-muted">لم يسلّم أحدٌ بعد.</p>;
-  }
-
+  /*
+   | ⚠️ THE EXTENSION FORM SITS ABOVE THE LIST, AND IS THERE WHEN IT IS EMPTY.
+   | The student who most needs more time is the one who has handed nothing in
+   | — and before the sweep runs they have no row here at all. The grant
+   | creates it, which is why the list reloads afterwards.
+   */
   return (
     <div className="mt-4 space-y-4 border-t border-line pt-4">
-      {rows.map((row) => (
-        <SubmissionRow
-          key={row.uuid}
-          assignmentUuid={assignmentUuid}
-          row={row}
-          points={points}
-          onGraded={load}
-        />
-      ))}
+      <ExtensionForm assignmentUuid={assignmentUuid} onGranted={load} />
+
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-muted">لم يسلّم أحدٌ بعد.</p>
+      ) : (
+        rows.map((row) => (
+          <SubmissionRow
+            key={row.uuid}
+            assignmentUuid={assignmentUuid}
+            row={row}
+            points={points}
+            onGraded={load}
+          />
+        ))
+      )}
     </div>
   );
 }
@@ -291,6 +300,10 @@ function SubmissionRow({
 
       {row.submitted_at != null && (
         <p className="text-xs text-ink-muted">سُلّم {formatDateTime(row.submitted_at)}</p>
+      )}
+
+      {row.extension_until != null && (
+        <p className="text-xs text-ink-muted">مُنح مهلةً حتى {formatDateTime(row.extension_until)}</p>
       )}
 
       {row.answer_text !== null && row.answer_text !== "" && (

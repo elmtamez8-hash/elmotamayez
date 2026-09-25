@@ -1952,7 +1952,7 @@ A question used to belong to one exam. It now belongs to the **bank**, and an ex
 | GET · POST · DELETE | `/manage/accommodations[/{uuid}]` | `accommodations.manage` | |
 | GET | `/submissions/{uuid}/file` | owner or `submissions.grade` | `signed` **and** `auth:sanctum`, five-minute TTL, policy re-run at open |
 | GET · POST | `/manage/unlock-rules` | `unlock_rules.manage` | |
-| POST | `/manage/class-sessions/{uuid}/unlock-exemptions` | `unlock_rules.manage` | |
+| GET · POST | `/manage/class-sessions/{uuid}/unlock-exemptions` | `unlock_rules.manage` | read + grant from the session page; no revoke |
 
 The **student's** side of the unlock gate is not here: it is
 `/class-sessions/{uuid}/eligibility`, owned by LiveSessions because that module binds the

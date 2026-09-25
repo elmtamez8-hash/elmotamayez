@@ -204,6 +204,20 @@ export const assignments = {
     api.patch<{ data: Assignment }>(`/manage/assignments/${uuid}`, body),
 
   publish: (uuid: string) => api.post<{ data: Assignment }>(`/manage/assignments/${uuid}/publish`),
+
+  /**
+   * A later deadline for ONE student on this assignment (FR-047).
+   *
+   * ⚠️ `until` IS AN ISO INSTANT, converted from the wall clock by the caller —
+   * the same rule as `due_at`. There is no revoke endpoint: a second grant
+   * overwrites the date, which is how a mistaken one is corrected.
+   *
+   * ⚠️ A 404 MEANS «NOT YOUR STUDENT» AS WELL AS «NOBODY»: the server answers
+   * both identically so a uuid cannot be probed, which is why the picker offers
+   * the teacher's own students only.
+   */
+  extend: (assignmentUuid: string, body: { student_uuid: string; until: string }) =>
+    api.post<{ data: Submission }>(`/manage/assignments/${assignmentUuid}/extensions`, body),
 };
 
 /** What the student is looking at, said in words rather than a colour. */
