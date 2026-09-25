@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Jobs;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Enums\RecordingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -57,7 +58,7 @@ class IngestSessionRecordingJob implements ShouldQueue
     ): void {
         $session = ClassSession::query()->withoutWorkspaceScope()->find($this->classSessionId);
 
-        if ($session === null || $session->recording_status === 'published') {
+        if ($session === null || $session->recording_status === RecordingStatus::Published) {
             return;
         }
 
@@ -191,7 +192,7 @@ class IngestSessionRecordingJob implements ShouldQueue
                     ->whereNull('media_asset_id')
                     ->update([
                         'media_asset_id' => $asset->getKey(),
-                        'recording_status' => 'ingesting',
+                        'recording_status' => RecordingStatus::Ingesting,
                     ]);
 
                 if ($claimed === 0) {
@@ -309,7 +310,7 @@ class IngestSessionRecordingJob implements ShouldQueue
         ClassSession::query()
             ->withoutWorkspaceScope()
             ->whereKey($session->getKey())
-            ->update(['recording_status' => 'pending']);
+            ->update(['recording_status' => RecordingStatus::Pending]);
     }
 
     /**
@@ -352,7 +353,7 @@ class IngestSessionRecordingJob implements ShouldQueue
         $attempts = (int) $session->recording_attempts;
 
         $session->forceFill([
-            'recording_status' => $attempts >= $limit ? 'failed' : 'pending',
+            'recording_status' => $attempts >= $limit ? RecordingStatus::Failed : RecordingStatus::Pending,
         ])->save();
 
         if ($attempts < $limit) {
