@@ -204,7 +204,13 @@ describe('certificate generation', function (): void {
             ->and(Certificate::where('enrollment_id', $enrollment->id)->count())->toBe(1);
     });
 
-    it('issues a certificate when an exam is passed', function (): void {
+    /*
+    | ⛔ Owner decision, 2026-09-25: the course certificate follows course
+    | completion ALONE. This test used to assert the opposite — a passed exam
+    | linked to the course issued the whole-course certificate on its own, a
+    | week-one quiz at 10% progress included.
+    */
+    it('issues no course certificate on an exam pass alone', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
         $course = Course::factory()->published()->create(['workspace_id' => $workspace->id, 'is_sequential' => false]);
 
@@ -228,12 +234,11 @@ describe('certificate generation', function (): void {
             $answers[] = ['question_id' => $qId, 'selected_option_ids' => [$optId]];
         }
 
-        app(GradeAttempt::class)->handle($attempt, $answers);
+        $graded = app(GradeAttempt::class)->handle($attempt, $answers);
 
-        $cert = Certificate::where('enrollment_id', $enrollment->id)->first();
-        expect($cert)->not->toBeNull()
-            ->and($cert->issue_reason)->toBe('exam_passed')
-            ->and($cert->exam_attempt_id)->toBe($attempt->id);
+        // The pass is real — the absence below is not a paper that failed.
+        expect($graded->passed)->toBeTrue()
+            ->and(Certificate::where('enrollment_id', $enrollment->id)->exists())->toBeFalse();
     });
 });
 

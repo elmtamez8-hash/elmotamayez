@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Listeners;
 
+use App\Modules\Assessments\Events\ExamPassed;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Enums\ExamGate;
@@ -12,8 +13,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Actions\MarkLessonComplete;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Support\ExamGateSatisfaction;
-use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
-use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Queue\InteractsWithQueue;
 
 /**
@@ -28,11 +28,25 @@ use Illuminate\Queue\InteractsWithQueue;
  * firing and no certificate issued. Not slowly — never. Exactly the shape of the
  * recording bug `FR-026أ` was written for, arriving through a different door.
  *
- * It listens to `ExamSubmitted` and not to `ExamPassed`, because which of the
- * two counts is the ITEM's decision (`FR-041`): under "يكفي أن يُحاول" sitting
- * it is the work, and a failing mark completes the item while still telling the
- * student they got it wrong. Under "يجب أن ينجح" only a pass does. Listening to
- * `ExamPassed` would silently impose the strict reading on every item.
+ * It listens to `ExamSubmitted` rather than ONLY to `ExamPassed`, because which
+ * of the two counts is the ITEM's decision (`FR-041`): under "يكفي أن يُحاول"
+ * sitting it is the work, and a failing mark completes the item while still
+ * telling the student they got it wrong. Under "يجب أن ينجح" only a pass does.
+ * Listening to `ExamPassed` alone would silently impose the strict reading on
+ * every item.
+ *
+ * ⛔ **AND IT LISTENS TO `ExamPassed` AS WELL — a second trigger, not a
+ * replacement.** A paper carrying an essay is submitted as `pending_grading`
+ * with `passed = false`, so at `ExamSubmitted` a pass-gated item is unmet; the
+ * pass arrives later, when a person marks the essay and `FinalizeAttempt` fires
+ * `ExamPassed` (or `ReviseGrade` turns a fail into a pass). Nothing re-ran the
+ * item then — and that was invisible while `IssueCertificateIfEligible` issued a
+ * certificate on the pass itself. Since 2026-09-25 the course certificate issues
+ * on `CourseCompleted` alone (owner decision), so without this trigger a course
+ * ending in a pass-gated essay exam could never reach 100%: no completion, no
+ * certificate, for ever. Both triggers are idempotent — the gate is re-read
+ * through `ExamGateSatisfaction`, and `MarkLessonComplete` claims its row with
+ * `firstOrCreate`.
  *
  * One exam may be placed more than once in a course; each placement is its own
  * item with its own gate, so all of them are answered.
@@ -43,10 +57,24 @@ use Illuminate\Queue\InteractsWithQueue;
  * insert failing, a deadlock on `enrollments` — rolled the submission back. They
  * sat the exam, it was marked, and they got a 500 with nothing stored and possibly
  * an attempt spent. Bookkeeping must not be able to destroy the thing it is
- * bookkeeping for. `ShouldHandleEventsAfterCommit` also means the job never sees a
- * transaction that was rolled back after it was dispatched.
+ * bookkeeping for.
+ *
+ * ⛔ **`ShouldQueueAfterCommit`, NOT `ShouldQueue` + `ShouldHandleEventsAfterCommit`
+ * — measured against the framework, 2026-09-25.** For a QUEUED listener
+ * `Illuminate\Events\Dispatcher` never consults `ShouldHandleEventsAfterCommit`:
+ * `createClassCallable()` takes the queued branch before the after-commit
+ * wrapper is reached, and `propagateListenerOptions()` sets `afterCommit` only
+ * for `ShouldQueueAfterCommit` (every connection in `config/queue.php` has
+ * `after_commit => false`). So the job was pushed from INSIDE `GradeAttempt`'s
+ * transaction, before `FinalizeAttempt` had written `passed = true`: on `sync`
+ * it ran there and then and read `passed = false`, so a pass-gated exam item was
+ * never completed by its own pass (measured: `CertificateOnCompletionOnlyTest`'s
+ * machine-marked case failed with the `ExamPassed` trigger removed, and passes
+ * with it removed once this interface is in place); on Redis it raced the
+ * commit. It went unseen because the certificate used to
+ * issue on `ExamPassed` directly.
  */
-class CompleteExamLessonOnSubmission implements ShouldHandleEventsAfterCommit, ShouldQueue
+class CompleteExamLessonOnSubmission implements ShouldQueueAfterCommit
 {
     use InteractsWithQueue;
 
@@ -54,7 +82,7 @@ class CompleteExamLessonOnSubmission implements ShouldHandleEventsAfterCommit, S
         private readonly MarkLessonComplete $markComplete,
     ) {}
 
-    public function handle(ExamSubmitted $event): void
+    public function handle(ExamSubmitted|ExamPassed $event): void
     {
         $attempt = $event->attempt;
 

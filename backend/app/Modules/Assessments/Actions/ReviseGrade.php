@@ -85,7 +85,8 @@ class ReviseGrade extends Action
 
             /*
             | The total is recomputed and the result re-issued (FR-032). Passing
-            | twice is harmless — `IssueCertificateIfEligible` is idempotent, and
+            | twice is harmless — `CompleteExamLessonOnSubmission` (the item
+            | completion that leads to the certificate) is idempotent, and
             | `WarnOnConsecutiveFailures` (the only `ExamFailed` listener) claims
             | `academic_warning_at` and refuses a run that already holds one, so a
             | re-finalized failure cannot warn a family a second time.

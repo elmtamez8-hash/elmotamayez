@@ -34,6 +34,18 @@ class SubmissionFileController extends Controller
     /** Five minutes, declared once, and the only place it is decided. */
     public const TTL_MINUTES = 5;
 
+    /**
+     * ⚠️ SIGNED RELATIVE (`absolute: false`, checked by `signed:relative` on the
+     * route). The link is fetched by the frontend with the bearer token through
+     * its own `/api` rewrite, so the host the request arrives on is not the host
+     * `APP_URL` names — and nginx answers both the bare and the `www` domain. A
+     * signature over the absolute url 403s from the other host; over the path
+     * and query it holds on either. `LocalMediaProvider` signs its upload ticket
+     * the same way for the same reason.
+     *
+     * The value is a PATH (`/api/v1/submissions/…/file?…`), which is what the
+     * client's `api.download()` needs once the `/api/v1` prefix is taken off.
+     */
     public static function linkFor(Submission $submission, string $readerUuid): string
     {
         return URL::temporarySignedRoute(
@@ -43,6 +55,7 @@ class SubmissionFileController extends Controller
                 'submission' => $submission->uuid,
                 'reader' => $readerUuid,
             ],
+            absolute: false,
         );
     }
 
