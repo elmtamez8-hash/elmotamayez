@@ -45,7 +45,7 @@ Model factories currently live centrally in `backend/database/factories/Modules/
 Cross-module coupling goes through **events**, not direct calls into another module's actions. Listeners are wired with `Event::listen()` in the subscribing module's provider `boot()` — there is no `EventServiceProvider`. Key chains:
 
 - `PaymentApproved` → `Payments\Listeners\CreateEnrollmentFromOrder` → `EnrollmentCreated` → `Notifications\Listeners\NotifyStudentEnrolled` → `DispatchNotification`
-- `CourseCompleted` / `ExamPassed` → `Certificates\Listeners\IssueCertificateIfEligible` (idempotent) → `CertificateIssued` → notification
+- `CourseCompleted` → `Certificates\Listeners\IssueCertificateIfEligible` (idempotent) → `CertificateIssued` → notification. **Only** course completion issues the course certificate (owner decision 2026-09-25); a passed exam reaches it by completing its exam item — `ExamSubmitted` / `ExamPassed` → `Learning\Listeners\CompleteExamLessonOnSubmission` → `CourseCompleted` on the last item
 - `WorkspaceCreated` → `Tenancy\Listeners\SeedDefaultRoles`
 
 ### Multi-tenancy
@@ -150,6 +150,8 @@ _Read before touching `Modules/Assessments/`, exams, the question bank, practice
 - The practice pool subtracts the exam not yet sat, and the notebook deliberately does NOT filter practice.
 - `claimForGrading()` outside the transaction strands the attempt for ever, and the refusal must stand BEFORE the claim.
 - `PracticePool::withheldQuestionIds()` is computed PER STUDENT, so a room's door is «my own pool contains every question in it», never «I am enrolled here».
+- The course certificate issues on `CourseCompleted` ALONE, and an exam reaches it only by completing its item — and `ShouldHandleEventsAfterCommit` does NOTHING for a queued listener.
+- Starting an exam asks the course's sequence, and the attempt allowance is a claim.
 
 ### Live sessions, the broadcast room and attendance → [`docs/gotchas/live-sessions.md`](docs/gotchas/live-sessions.md)
 _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room UI, attendance._

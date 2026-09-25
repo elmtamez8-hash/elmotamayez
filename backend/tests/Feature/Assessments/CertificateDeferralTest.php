@@ -16,8 +16,10 @@ use Laravel\Sanctum\Sanctum;
 | it exists. `ExamPassed` used to fire at submission, when every question was
 | machine-marked and the score at submission WAS the final score. An essay breaks
 | that equality: a handed-in paper can be holding half its marks. Firing then
-| issues a certificate for half an exam — and `IssueCertificateIfEligible` is
-| idempotent, so it will not issue a second one, but nothing withdraws the first.
+| ticks a pass-gated exam item — and, on the course's last item, completes the
+| course and issues its certificate — for half an exam, and nothing withdraws a
+| certificate. (Since 2026-09-25 `ExamPassed` no longer issues a certificate
+| directly; it reaches one only through `CourseCompleted`.)
 */
 
 it('emits no pass or fail while an essay is still waiting on a person', function (): void {

@@ -42,6 +42,9 @@ class Attempt extends BaseModel
         'student_user_id',
         'status',
         'is_practice',
+        // The n-th official sitting; the unique index on it IS the attempt
+        // allowance's claim (see `StartAttempt`). NULL on a practice run.
+        'attempt_number',
         'duration_minutes',
         'finalized_at',
         'score',
@@ -61,6 +64,7 @@ class Attempt extends BaseModel
             'passed' => 'boolean',
             'random_seed' => 'integer',
             'is_practice' => 'boolean',
+            'attempt_number' => 'integer',
             'duration_minutes' => 'integer',
             'finalized_at' => 'datetime',
             'started_at' => 'datetime',
@@ -144,8 +148,8 @@ class Attempt extends BaseModel
      * ⚠️ TWO GRADERS FINISHING THE LAST TWO ESSAYS BOTH SEE ZERO LEFT. Each
      * counts the ungraded answers, each finds none, and each finalizes: two
      * `AttemptFinalized` events and two "your result is out" messages to one
-     * student. `ExamPassed` is absorbed — its certificate listener is idempotent
-     * — but a notification has no such defence, and the student reads the same
+     * student. `ExamPassed` is absorbed — its item-completion listener is
+     * idempotent — but a notification has no such defence, and the student reads the same
      * result twice with two different graders' names behind it.
      *
      * The false return is the refusal, and it is not an error: it means the

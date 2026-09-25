@@ -15,15 +15,16 @@ use Illuminate\Support\Facades\DB;
 /**
  * The single place a score becomes final, and the only place `ExamPassed` fires.
  *
- * ⚠️ THIS EXISTS BECAUSE OF THE CERTIFICATE CONTRACT. Before spec 008 the pass
- * event fired at submission, when every question was machine-marked and the
- * score at submission WAS the final score. Essays break that equality: a
- * submitted attempt can hold half its marks. Firing then issues a certificate
- * for half an exam — and `IssueCertificateIfEligible` is idempotent, so it will
- * not issue a second one, but nothing withdraws the first.
+ * ⚠️ THIS EXISTS BECAUSE A PASS IS A VERDICT ON THE WHOLE PAPER. Before spec 008
+ * the pass event fired at submission, when every question was machine-marked and
+ * the score at submission WAS the final score. Essays break that equality: a
+ * submitted attempt can hold half its marks, and a pass fired then ticks a
+ * pass-gated exam item — and so completes a course — on half an exam.
  *
- * The event's shape does not change. Only the moment it fires does, so no
- * listener in Certificates or Notifications is touched.
+ * (Until 2026-09-25 `ExamPassed` also issued the course certificate directly.
+ * It no longer does: the certificate issues on `CourseCompleted` alone, and a
+ * pass reaches it by completing the exam item through
+ * `CompleteExamLessonOnSubmission`, which listens here too.)
  */
 class FinalizeAttempt extends Action
 {

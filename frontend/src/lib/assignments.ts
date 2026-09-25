@@ -1,4 +1,15 @@
-import { api } from "./api";
+import { api, ApiError } from "./api";
+
+/**
+ * The server signs the file link RELATIVE (`/api/v1/submissions/…`), while
+ * `api.download()` prepends `/api/v1` itself — so the prefix comes off once,
+ * here, rather than being doubled into a 404.
+ */
+function apiRelative(path: string): string {
+  const prefix = "/api/v1";
+
+  return path.startsWith(prefix) ? path.slice(prefix.length) : path;
+}
 
 /**
  * Homework: what is due, what came in, and what it scored.
@@ -22,6 +33,14 @@ export interface Submission {
   student: { uuid: string; name: string } | null;
   answer_text: string | null;
   has_file: boolean;
+  /**
+   * The handed-in file, for whoever MARKS it — absent from the student's own
+   * payload by design (`AssessmentFieldAllowlist::forbidden()`). A five-minute
+   * signed PATH under `/api/v1` that sits behind `auth:sanctum`: fetch it with
+   * `assignments.openFile()`, never navigate to it.
+   */
+  file_url?: string;
+  file_name?: string;
   score: number | null;
   feedback: string | null;
   graded_at: string | null;
@@ -132,6 +151,33 @@ export const assignments = {
 
   submissions: (uuid: string) =>
     api.get<{ data: Submission[] }>(`/manage/assignments/${uuid}/submissions`),
+
+  /**
+   * Download the file a student handed in — the teacher's side only.
+   *
+   * ⚠️ FETCH, NEVER NAVIGATE. The file route sits behind `auth:sanctum` as well
+   * as the signature and compares the `reader` the signature names against the
+   * caller; `window.location`, `<a href>` and a new tab all send no
+   * `Authorization` header and answer 401. `api.download()` fetches with the
+   * bearer and hands the blob to the browser's downloader.
+   *
+   * ⚠️ AND THE LIST IS FETCHED AGAIN FIRST. The signed url lives five minutes,
+   * and a teacher marking a pile of worksheets opens the eighth one long after
+   * the page loaded — the url in the row they are looking at has expired. The
+   * fresh list mints a fresh url for exactly the row clicked.
+   */
+  openFile: async (assignmentUuid: string, submissionUuid: string): Promise<void> => {
+    const { data } = await api.get<{ data: Submission[] }>(
+      `/manage/assignments/${assignmentUuid}/submissions`,
+    );
+    const row = (data ?? []).find((submission) => submission.uuid === submissionUuid);
+
+    if (row?.file_url === undefined) {
+      throw new ApiError("Submission file is not available", 404, null);
+    }
+
+    await api.download(apiRelative(row.file_url), row.file_name ?? `submission-${submissionUuid}`);
+  },
 
   // FormData rather than JSON: the hand-in may carry a file, and one call site
   // for both keeps the two paths from drifting.

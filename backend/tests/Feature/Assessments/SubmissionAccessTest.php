@@ -211,3 +211,52 @@ it('refuses a grader the coursework of somebody the workspace no longer teaches'
 
     expect($assistant->can('view', $orphan))->toBeFalse();
 });
+
+/*
+| The teacher could not open a handed-in file at all: `linkFor()` had no caller
+| and the list carried only `has_file`. The grader's payload now carries a
+| five-minute RELATIVE signed path that opens with their bearer; the student's
+| own payload carries none (`AssessmentFieldAllowlist::forbidden()`).
+*/
+it('hands the grader a working file link on the submissions list, and the student none', function (): void {
+    Storage::fake('local');
+
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+
+    [$assignment] = courseAssignment($workspace, $owner, $student, [
+        'due_at' => now()->addDay(),
+        'submission_type' => Assignment::TYPE_FILE,
+    ]);
+
+    app(SubmitAssignment::class)->handle(
+        $assignment,
+        $student,
+        null,
+        UploadedFile::fake()->create('homework.pdf', 20, 'application/pdf'),
+    );
+
+    Sanctum::actingAs($owner);
+
+    $row = $this->getJson("/api/v1/manage/assignments/{$assignment->uuid}/submissions")
+        ->assertOk()
+        ->json('data.0');
+
+    // Relative, so it holds on whichever host the request arrives through.
+    expect($row['file_name'])->toBe('homework.pdf')
+        ->and($row['file_url'])->toStartWith('/api/v1/submissions/');
+
+    $this->get($row['file_url'])->assertOk();
+
+    Sanctum::actingAs($student);
+
+    $mine = $this->getJson("/api/v1/assignments/{$assignment->uuid}")
+        ->assertOk()
+        ->json('data.my_submission');
+
+    expect($mine['has_file'])->toBeTrue()
+        ->and($mine)->not->toHaveKey('file_url')
+        ->and($mine)->not->toHaveKey('file_name');
+});

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Learning;
 
 use App\Modules\Assessments\Events\AssignmentSubmitted;
+use App\Modules\Assessments\Events\ExamPassed;
 use App\Modules\Assessments\Events\ExamSubmitted;
 use App\Modules\Courses\Events\AssignmentItemOpened;
 use App\Modules\Courses\Events\CourseStructureChanged;
@@ -97,6 +98,13 @@ class LearningServiceProvider extends Module
         // Learning's business — which is the only reason an exam placed in a
         // tree can ever be completed at all.
         Event::listen(ExamSubmitted::class, CompleteExamLessonOnSubmission::class);
+
+        // ⛔ And again on the PASS, because a paper carrying an essay passes only
+        // once a person marks it — after `ExamSubmitted` has already found a
+        // pass-gated item unmet. Since the course certificate issues on
+        // `CourseCompleted` alone, dropping this line leaves every course that
+        // ends in a pass-gated essay exam permanently below 100%.
+        Event::listen(ExamPassed::class, CompleteExamLessonOnSubmission::class);
 
         // And the other half of the same problem: students who answered the exam
         // BEFORE the teacher placed it. No submission event will ever fire for

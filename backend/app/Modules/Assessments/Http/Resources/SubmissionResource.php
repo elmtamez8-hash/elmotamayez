@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Assessments\Http\Resources;
 
+use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\Request;
@@ -38,6 +39,25 @@ class SubmissionResource extends JsonResource
             || $reader->can(Permissions::SUBMISSIONS_GRADE)
         );
 
+        $file = $this->file();
+
+        /*
+        | ⛔ THE LINK TO THE HANDED-IN FILE IS FOR WHOEVER MARKS IT, AND FOR NOBODY
+        | ELSE. `SubmissionFileController::linkFor()` had no caller, so the teacher
+        | saw «has_file» on a row and had no way to open the file — marking a
+        | worksheet they could not read.
+        |
+        | ⚠️ `SUBMISSIONS_GRADE` AND NOT THE OWNER — not `$isPrivileged`, which
+        | includes the owner. `AssessmentFieldAllowlist::forbidden()` names
+        | `file_url` for every student-facing payload: a signed url in the
+        | student's own feed is a link that travels. The signature carries the
+        | reader's uuid and the policy runs again at open, so what reaches a
+        | grader cannot be replayed by anybody else either.
+        */
+        $grader = $reader !== null
+            && $this->student_user_id !== $reader->getKey()
+            && $reader->can(Permissions::SUBMISSIONS_GRADE);
+
         return [
             'uuid' => $this->uuid,
             'assignment' => $this->relationLoaded('assignment') && $this->assignment !== null
@@ -47,7 +67,13 @@ class SubmissionResource extends JsonResource
                 ? ['uuid' => $this->student->uuid, 'name' => $this->student->name]
                 : null,
             'answer_text' => $isPrivileged ? $this->answer_text : null,
-            'has_file' => $this->file() !== null,
+            'has_file' => $file !== null,
+            ...($grader && $file !== null ? [
+                // Five minutes; the screen refetches the list on click rather
+                // than trusting a url minted when the page loaded.
+                'file_url' => SubmissionFileController::linkFor($this->resource, (string) $reader->uuid),
+                'file_name' => $file->file_name,
+            ] : []),
             'score' => $this->score === null ? null : (float) $this->score,
             'feedback' => $this->feedback,
             'graded_at' => $this->graded_at,

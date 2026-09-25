@@ -143,10 +143,10 @@ class GradeAttempt extends Action
 
         $attempt->update([
             // ⚠️ AN ESSAY-BEARING ATTEMPT NEITHER PASSES NOR FAILS YET, and no
-            // ExamPassed is emitted. That event is the certificate contract:
-            // firing it on a partial score issues a certificate for half an exam,
-            // and the listener is idempotent so it will not issue twice — but it
-            // cannot withdraw one that went out.
+            // ExamPassed is emitted. A pass ticks a pass-gated exam item, and
+            // completing the last item issues the course certificate: firing it
+            // on a partial score would certify half an exam, and nothing
+            // withdraws a certificate that went out.
             'status' => $needsGrading ? Attempt::STATUS_PENDING_GRADING : Attempt::STATUS_GRADED,
             'score' => $scorePct,
             'max_score' => 100,

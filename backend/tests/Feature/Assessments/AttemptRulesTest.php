@@ -180,12 +180,20 @@ describe('attempt rules', function (): void {
 
         $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
             ->assertStatus(422)
-            ->assertJsonPath('message', 'You have used all 1 attempts for this exam.');
+            ->assertJsonPath('message', 'استنفدتَ عددَ المحاولاتِ المسموحِ به لهذا الاختبار (1).');
 
         expect(Attempt::where('exam_id', $exam->id)->count())->toBe(1);
     });
 
-    it('links the student enrollment so passing a course exam issues a certificate', function (): void {
+    /*
+    | ⛔ Owner decision, 2026-09-25: this test used to end in a certificate with
+    | reason `exam_passed`. The course here still has an unread article, so a
+    | pass is a week-one quiz at partial progress — exactly the certificate the
+    | decision forbids. The enrolment link is still asserted: it is what lets a
+    | pass on the course's LAST item complete the course (and certify it) through
+    | `CourseCompleted`, covered in `CertificateOnCompletionOnlyTest`.
+    */
+    it('links the student enrollment and issues no certificate while the course is unfinished', function (): void {
         [$workspace] = $this->createWorkspaceWithOwner();
         $course = attemptRulesCourse($workspace->id);
 
@@ -210,11 +218,7 @@ describe('attempt rules', function (): void {
             ])->values()->all(),
         ])->assertOk()->assertJsonPath('passed', true);
 
-        $certificate = Certificate::where('enrollment_id', $enrollment->id)->first();
-
-        expect($certificate)->not->toBeNull()
-            ->and($certificate->issue_reason)->toBe('exam_passed')
-            ->and($certificate->exam_attempt_id)->toBe($attempt->id);
+        expect(Certificate::where('enrollment_id', $enrollment->id)->exists())->toBeFalse();
     });
 
     it('keeps option ids when a question is edited so graded answers stay resolvable', function (): void {

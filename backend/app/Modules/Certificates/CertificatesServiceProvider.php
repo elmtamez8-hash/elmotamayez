@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Certificates;
 
-use App\Modules\Assessments\Events\ExamPassed;
 use App\Modules\Certificates\Listeners\IssueCertificateIfEligible;
 use App\Modules\Certificates\Models\CertificateDesign;
 use App\Modules\Certificates\Policies\CertificateDesignPolicy;
@@ -44,7 +43,10 @@ class CertificatesServiceProvider extends Module
         */
         Gate::policy(CertificateDesign::class, CertificateDesignPolicy::class);
 
+        // Course completion is the ONLY trigger (owner decision, 2026-09-25): a
+        // passed exam never issues the course certificate on its own. An exam
+        // that is the course's last item reaches here through `CourseCompleted`
+        // like every other item — see `CompleteExamLessonOnSubmission`.
         Event::listen(CourseCompleted::class, [IssueCertificateIfEligible::class, 'handleCourseCompleted']);
-        Event::listen(ExamPassed::class, [IssueCertificateIfEligible::class, 'handleExamPassed']);
     }
 }
