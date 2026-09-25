@@ -20,9 +20,11 @@ export type RescheduleStatus = "pending" | "approved" | "rejected" | "expired";
 export interface RescheduleRequest {
   uuid: string;
   status: RescheduleStatus;
-  /** Absolute instants. Rendered in the reader's own timezone. */
+  /** Absolute instants, rendered in `timezone` — never the browser's own zone. */
   from_starts_at: string;
   to_starts_at: string;
+  /** The declared session zone, the same one the lesson being moved carries. */
+  timezone: string;
   student_reason: string | null;
   /** ⚠️ Mandatory on a rejection, and shown — the student reads it. */
   decision_reason: string | null;

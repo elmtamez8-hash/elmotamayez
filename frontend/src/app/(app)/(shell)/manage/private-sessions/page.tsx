@@ -10,7 +10,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { userMessage } from "@/lib/errors";
-import { counted } from "@/lib/labels";
+import { formatSessionTime } from "@/lib/session-format";
+import { counted, NOUNS } from "@/lib/labels";
 import {
   privateSessions,
   type PrivateSessionRequest,
@@ -65,15 +66,6 @@ export default function PrivateSessionQueuePage() {
       .finally(() => setPending(null));
   };
 
-  const when = (iso: string) =>
-    new Date(iso).toLocaleString("ar-QA", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -101,18 +93,12 @@ export default function PrivateSessionQueuePage() {
                 {request.student?.name ?? "طالب"} — {request.course?.title ?? "كورس"}
               </h3>
               <span className="text-xs text-ink-muted">
-                تنتهي المهلة {when(request.expires_at)}
+                تنتهي المهلة {formatSessionTime(request.expires_at, request.timezone)}
               </span>
             </div>
 
             <p className="text-sm text-ink">
-              {when(request.starts_at)} · {counted(request.duration_minutes, {
-                one: "دقيقة",
-                two: "دقيقتان",
-                few: "دقائق",
-                many: "دقيقة",
-                other: "دقيقة",
-              })}
+              {formatSessionTime(request.starts_at, request.timezone)} · {counted(request.duration_minutes, NOUNS.minutes)}
             </p>
 
             {rejecting === request.uuid ? (

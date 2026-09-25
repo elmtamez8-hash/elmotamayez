@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Resources;
 
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -37,6 +38,12 @@ class PrivateSessionRequestResource extends JsonResource
             'status' => $this->status,
             'starts_at' => $this->starts_at,
             'duration_minutes' => $this->duration_minutes,
+            // The zone every time on this row is shown in — the same declared zone
+            // `ClassSessionResource` sends, so a request and the lesson it becomes
+            // read the same hour. Without it the screen falls back to the
+            // browser's own zone, which is a different hour on a laptop still set
+            // to last holiday's timezone.
+            'timezone' => app(SessionSettings::class)->timezone(),
             'expires_at' => $this->expires_at,
             'decision_reason' => $this->decision_reason,
             'decided_at' => $this->decided_at,

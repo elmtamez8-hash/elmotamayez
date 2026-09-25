@@ -293,8 +293,15 @@ export function PrivateSessionRequestForm({
   if (sent) {
     return (
       <Alert tone="success" title="وصل طلبك">
-        سيصل ردّ المدرّس إلى إشعاراتك. لم يُخصم من رصيدك شيء حتى الآن — الخصم عند
-        القبول.
+        <p>
+          سيصل ردّ المدرّس إلى إشعاراتك. لم يُخصم من رصيدك شيء حتى الآن — الخصم عند
+          القبول.
+        </p>
+        <p className="mt-3">
+          <Link href="/private-sessions" className="font-bold underline">
+            تابع طلباتك في «حصصي الخاصة»
+          </Link>
+        </p>
       </Alert>
     );
   }

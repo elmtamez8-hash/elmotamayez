@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
+import { counted, NOUNS } from "@/lib/labels";
 import { gamification, type Progress } from "@/lib/gamification";
 
 /**
@@ -79,7 +80,13 @@ export default function ProgressPage() {
         />
         <StatTile
           label="السلسلة"
-          value={`${progress.current_streak} يوماً`}
+          value={counted(progress.current_streak, {
+            ...NOUNS.days,
+            // ⚠️ «يوماً» after a bare number is right from 11 to 99 alone — it
+            // printed «١ يوماً» and «٣ يوماً». And zero is a decision, not
+            // «لا أيام»: a streak that has not started yet says so.
+            zero: "لم تبدأ بعد",
+          })}
           Icon={StarIcon}
           hint={
             <>

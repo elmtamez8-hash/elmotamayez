@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Http\Resources;
 
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,6 +33,12 @@ class SessionRescheduleRequestResource extends JsonResource
             'status' => $this->status,
             'from_starts_at' => $this->from_starts_at,
             'to_starts_at' => $this->to_starts_at,
+            // The zone every time on this row is shown in — the same declared zone
+            // `ClassSessionResource` sends, so a request and the lesson it becomes
+            // read the same hour. Without it the screen falls back to the
+            // browser's own zone, which is a different hour on a laptop still set
+            // to last holiday's timezone.
+            'timezone' => app(SessionSettings::class)->timezone(),
             'student_reason' => $this->student_reason,
             'decision_reason' => $this->decision_reason,
             'decided_at' => $this->decided_at,
