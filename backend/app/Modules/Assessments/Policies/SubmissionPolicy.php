@@ -58,7 +58,7 @@ class SubmissionPolicy extends BasePolicy
         $active = Enrollment::query()
             ->where('workspace_id', $submission->workspace_id)
             ->where('student_user_id', $submission->student_user_id)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
 
         if ($active) {

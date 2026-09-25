@@ -78,7 +78,12 @@ class RefundStorePurchase extends Action
                 return;
             }
 
-            Order::query()
+            // ⚠️ `withoutWorkspaceScope()`: this runs in the BUYER's request, and a
+            // student stamped with another teacher's `last_workspace_id` would AND
+            // that workspace on — 0 rows, while `refunded_at` above still commits,
+            // so the buyer reads «refunded» over an order that never moved. The
+            // purchase row was already proven the buyer's; the order is its key.
+            Order::withoutWorkspaceScope()
                 ->whereKey($purchase->order_id)
                 ->update(['status' => 'refund_due']);
 

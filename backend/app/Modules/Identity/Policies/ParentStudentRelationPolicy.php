@@ -96,7 +96,7 @@ class ParentStudentRelationPolicy
         return Enrollment::query()
             ->where('workspace_id', $workspaceId)
             ->where('student_user_id', $relation->student_user_id)
-            ->where('status', 'active')
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
     }
 }

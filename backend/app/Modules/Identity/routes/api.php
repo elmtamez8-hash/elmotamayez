@@ -27,6 +27,17 @@ Route::post('/auth/register/parent', [ParentController::class, 'register'])
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 
 /*
+| ⛔ OUTSIDE `auth:sanctum`, AND THE SIGNATURE IS THE GUARD. The link is opened from
+| a mail client — a browser tab with no token in it — so behind `auth:sanctum` it
+| answered 401 to every person who registered (measured 2026-09-25, the day after
+| real mail went live). `signed` covers `{id}` and `{hash}`: neither can be edited
+| without invalidating the URL, which is exactly what makes the id safe to trust.
+*/
+Route::get('/auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+    ->middleware(['signed', 'throttle:public'])
+    ->name('verification.verify');
+
+/*
 | جسرُ لوحةِ الإدارة — يُطلَبُ بالرمزِ القائمِ ويُصرَفُ مرّةً واحدة.
 |
 | `auth:sanctum` لأنّه لا يُسأَلُ إلّا بالمفتاحِ الذي في اليد، ومحدِّدٌ مسمّى
@@ -93,9 +104,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/auth/sessions', [SessionController::class, 'index']);
     Route::delete('/auth/sessions/{uuid}', [SessionController::class, 'destroy']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail']);
-    Route::get('/auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-        ->middleware('signed')
-        ->name('verification.verify');
 
     // Guardians and the students they follow. Replaces /parent/children, which
     // could only express "linked", not who may see what (spec 003).
