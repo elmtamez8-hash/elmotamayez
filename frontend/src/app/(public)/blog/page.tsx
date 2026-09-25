@@ -265,7 +265,7 @@ export default async function BlogIndexPage({
               خالص، ولا `z-index`: البطاقةُ بعدَهما في ترتيبِ المصدرِ و`relative`،
               فتُرسَمُ فوقَهما بلا سياقِ تكديسٍ جديدٍ يُربِكُ ما تحتَه.
             */
-            <div className="relative mb-6">
+            <div className="relative mb-6 overflow-x-clip">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -top-16 -start-10 h-56 w-56 rounded-full bg-primary-soft blur-3xl"
