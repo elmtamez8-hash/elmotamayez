@@ -27,6 +27,13 @@ export interface UnlockRule {
   is_active: boolean;
 }
 
+export interface UnlockExemption {
+  uuid: string;
+  student: { uuid: string; name: string } | null;
+  reason: string;
+  granted_at: string | null;
+}
+
 export interface UnlockRuleInput {
   course_uuid?: string | null;
   requires_attendance: boolean;
@@ -39,6 +46,13 @@ export const unlockRules = {
   list: () => api.get<{ data: UnlockRule[] }>("/manage/unlock-rules"),
 
   save: (input: UnlockRuleInput) => api.post<{ data: UnlockRule }>("/manage/unlock-rules", input),
+
+  /**
+   * Who was let past on one session, and why (FR-040). There is no revoke: a
+   * second grant for the same student rewrites the reason in place.
+   */
+  exemptions: (sessionUuid: string) =>
+    api.get<{ data: UnlockExemption[] }>(`/manage/class-sessions/${sessionUuid}/unlock-exemptions`),
 
   exempt: (sessionUuid: string, studentUuid: string, reason: string) =>
     api.post<{ data: { uuid: string } }>(

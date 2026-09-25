@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Filament\Resources;
 
+use App\Models\User;
+use App\Modules\Compliance\Actions\ReleaseLegalHold;
 use App\Modules\Compliance\Filament\Resources\LegalHoldResource\Pages;
 use App\Modules\Compliance\Models\LegalHold;
 use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -20,9 +23,15 @@ use UnitEnum;
 /**
  * التعليقاتُ القانونيّة: مَن تُمنَعُ بياناتُه من الحذف، ولماذا، ومنذ متى.
  *
- * ⚠️ الشاشةُ للقراءةِ وحدَها. وضعُ التعليقِ ورفعُه فعلانِ لهما حرّاسُهما
- * (`PlaceLegalHold` و`ReleaseLegalHold`)، ورفعٌ من نموذجِ لوحةٍ هو إذنٌ بحذفٍ لا
- * يُعكَس — يمرُّ من غيرِ سببٍ مكتوبٍ ومن غيرِ الفعلِ الذي يملكُ القرار.
+ * ⚠️ لا نموذجَ إنشاءٍ ولا تعديلٍ ولا حذفٍ هنا، وهذا باقٍ. وضعُ التعليقِ ورفعُه
+ * فعلانِ لهما حرّاسُهما (`PlaceLegalHold` و`ReleaseLegalHold`)، ونموذجُ Filament
+ * الافتراضيُّ يكتبُ الصفَّ بـ`new Model($data)` فيتخطّاهما — فلا يُعلِّقُ طلبَ حذفٍ
+ * مفتوحاً، ولا يُعيدُه إلى الطابورِ عندَ الرفع.
+ *
+ * ⚠️ والزرّانِ الوحيدانِ هما «وضع تعليق» في رأسِ القائمة (`ListLegalHolds`) و«رفع
+ * التعليق» على الصفّ، وكلٌّ منهما يستدعي الفعلَ نفسَه الذي يستدعيه
+ * `POST|DELETE /manage/compliance/holds` — وقبلَهما لم يكن لهذين المسارَينِ مُستدعٍ
+ * في أيِّ شاشة، فكانَ التعليقُ القانونيُّ ميزةً لا يملكُها أحد.
  *
  * ⚠️ وقيمةُ الشاشةِ في القراءةِ نفسِها: كنسُ الاحتفاظِ وتنفيذُ الحذفِ يقرآنِ هذا
  * الجدولَ في رأسِ كلِّ دفعة، فالمُشغِّلُ الذي يوشكُ أن ينفِّذَ طلبَ حذفٍ يحتاجُ أن
@@ -59,6 +68,17 @@ class LegalHoldResource extends Resource
 
     /** بابٌ صريح: افتراضُ Filament هو السماح، والقائمةُ لا تسألُ سياسةَ الصفِّ أبداً. */
     public static function canViewAny(): bool
+    {
+        return self::canManage();
+    }
+
+    /**
+     * صلاحيّةٌ واحدةٌ للاتّجاهَين، كما في `LegalHoldPolicy::manage()`.
+     *
+     * ⚠️ ويُسألُ عنها كلُّ زرٍّ صراحةً: القائمةُ لا تستدعي سياسةَ الصفِّ، و`visible()`
+     * هو البابُ الوحيدُ بين الزرِّ ومَن يراه.
+     */
+    public static function canManage(): bool
     {
         return auth()->user()?->can(Permissions::COMPLIANCE_HOLDS_MANAGE) ?? false;
     }
@@ -116,6 +136,30 @@ class LegalHoldResource extends Resource
                 Filter::make('in_force')
                     ->label('السارية وحدَها')
                     ->query(self::inForceOnly(...)),
+            ])
+            ->recordActions([
+                /*
+                | ⚠️ رفعٌ لا حذف، ويسألُ قبلَ أن يمضي. رفعُ آخرِ تعليقٍ عن شخصٍ يُعيدُ
+                | طلبَ حذفِه الموقوفَ إلى الطابور، والحذفُ حين يُنفَّذُ لا يُعكَس —
+                | فالتأكيدُ يقولُ ذلك بجملةٍ لا بلونِ الزرّ وحدَه.
+                */
+                Action::make('release')
+                    ->label('رفع التعليق')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('رفع التعليق القانونيّ')
+                    ->modalDescription('إن لم يبقَ على صاحب البيانات تعليقٌ آخر، يعود طلب حذفه الموقوف — إن وُجد — '
+                        .'إلى طابور «طلبات حقوق البيانات» بانتظار من ينفّذه. ولا يُحذف صفّ التعليق: يبقى سجلّاً بمن رفعه ومتى.')
+                    ->modalSubmitActionLabel('ارفع التعليق')
+                    ->visible(fn (LegalHold $record): bool => $record->released_at === null && self::canManage())
+                    ->action(function (LegalHold $record): void {
+                        abort_unless(self::canManage(), 403);
+
+                        /** @var User $officer */
+                        $officer = auth()->user();
+
+                        app(ReleaseLegalHold::class)->handle($record, $officer);
+                    }),
             ]);
     }
 

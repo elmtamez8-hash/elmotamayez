@@ -67,7 +67,22 @@ class GrantExtension extends Action
             ],
         );
 
-        $submission->forceFill(['extension_until' => $until])->save();
+        /*
+        | ⚠️ AND A ROW THE SWEEP ALREADY MARKED `missed` GOES BACK TO `pending`.
+        | `firstOrCreate` sets the state on INSERT only — so the commonest case,
+        | the student who missed the deadline and then asked for more time, kept
+        | `missed` under a fresh extension: the teacher's list said «لا شيء سُلّم»
+        | beside the date they had just granted, and US7's gate, which reads
+        | `state`, still shut the next session on them. Only a row with no hand-in
+        | is touched; a real submission's verdict is a record of an event.
+        */
+        $fill = ['extension_until' => $until];
+
+        if ($submission->state === Submission::STATE_MISSED && $submission->submitted_at === null) {
+            $fill['state'] = Submission::STATE_PENDING;
+        }
+
+        $submission->forceFill($fill)->save();
 
         $this->logActivity('assignment.extension_granted', $submission, [
             'until' => CarbonImmutable::instance($until)->toIso8601String(),

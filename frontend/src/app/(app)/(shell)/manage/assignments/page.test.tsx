@@ -26,6 +26,12 @@ vi.mock("@/lib/assignments", async (importOriginal) => ({
   },
 }));
 
+// The extension form above the list reads the teacher's students; this file
+// is about grading, so the picker is simply empty.
+vi.mock("@/lib/use-teacher-students", () => ({
+  useTeacherStudents: () => ({ canPick: true, students: [], failed: false }),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
   grade.mockResolvedValue({});

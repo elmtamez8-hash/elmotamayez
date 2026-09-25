@@ -64,6 +64,17 @@ export default function UnlockRulesPage() {
         description="ما الذي يجب أن يفعله الطالب في الحصة السابقة قبل أن تُفتح له التالية. قاعدةٌ عامّة لكلّ كورساتك، ويجوز أن يغلبها تخصيصٌ لكورسٍ بعينه."
       />
 
+      {/* The exemption is one student on one session, so it lives on the
+          session's own page — this screen has no session to name. */}
+      <Alert tone="info" title="استثناء طالبٍ بعينه">
+        لتسمح لطالبٍ واحد بحصّةٍ لم يستوفِ شرطها، افتح الحصة من «حصصي» واستعمل «استثناء من شرط الفتح» مع ذكر السبب.
+        <div className="mt-2">
+          <Button href="/manage/sessions" variant="secondary" size="sm">
+            حصصي
+          </Button>
+        </div>
+      </Alert>
+
       <Card as="section">
         <div className="mb-3">
           <SectionHeading id="fallback-rule" Icon={LockIcon} title="القاعدة العامّة" />
