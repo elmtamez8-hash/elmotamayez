@@ -42,6 +42,7 @@ const COLUMNS = [
     links: [
       { href: "/terms", label: "الشروط والأحكام", Icon: DocumentIcon },
       { href: "/privacy", label: "سياسة الخصوصية", Icon: ShieldIcon },
+      { href: "/privacy#breach-report", label: "الإبلاغ عن تسرّب بيانات", Icon: ShieldIcon },
       { href: "/refunds", label: "سياسة الاسترجاع", Icon: RefundIcon },
     ],
   },
