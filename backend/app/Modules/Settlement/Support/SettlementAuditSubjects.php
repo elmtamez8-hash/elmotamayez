@@ -10,6 +10,10 @@ use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Models\TeacherPayout;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Shared\Scopes\WorkspaceScope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * What the settlement audit trail is allowed to be about.
@@ -57,5 +61,33 @@ final class SettlementAuditSubjects
     public static function slugFor(?string $class): ?string
     {
         return $class === null ? null : (self::MAP[$class] ?? null);
+    }
+
+    /**
+     * The audit trail itself — one spelling, read by the API and by /admin.
+     *
+     * ⚠️ THE `whereIn` IS UNCONDITIONAL, and a screen narrowing it further (a
+     * filter on one subject type) narrows INSIDE these six, never around them.
+     *
+     * ⚠️ AND THE SUBJECT IS LOADED WITHOUT THE WORKSPACE SCOPE. Five of the six
+     * subject models carry `BelongsToWorkspace`, and the reader is a platform
+     * officer whose context falls back to their own `last_workspace_id` — so a
+     * bare `->with('subject')` answered `subject_uuid: null` for every act in
+     * any other workspace, and the audit read as «the subject is gone» about
+     * rows that were standing. PLURAL `withoutGlobalScopes([...])` on purpose:
+     * `MorphTo` buffers that call and replays it on each type's query, and it
+     * does NOT buffer the singular `withoutGlobalScope()`.
+     *
+     * @return Builder<Activity>
+     */
+    public static function entries(): Builder
+    {
+        return Activity::query()
+            ->whereIn('subject_type', self::types())
+            ->with([
+                'subject' => fn (Relation $subject) => $subject->withoutGlobalScopes([WorkspaceScope::class]),
+                'causer',
+            ])
+            ->latest('id');
     }
 }
