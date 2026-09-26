@@ -267,3 +267,41 @@ describe("an assignment item", () => {
     );
   });
 });
+
+/*
+| ⛔ «نشر كل المسودّات» من الشجرة تركَ رأسَ المحرِّرِ المفتوحِ يقولُ «مقالة — مسودّة»
+| بينما الشجرةُ بجانبِه تقولُ «منشور» (2026-09-26). الصفحةُ ترفعُ `revision` بعدَ
+| النشر، فيُعيدُ المحرِّرُ قراءةَ العنصرِ — ولا يمسُّ ما يكتبُه المدرّسُ في الحقل.
+*/
+describe("a publish from the tree", () => {
+  it("re-reads the item's status and keeps the text being typed", async () => {
+    lessonFetch.mockResolvedValue(BASE);
+
+    const view = await act(async () =>
+      render(
+        <LessonEditor courseUuid="c" lessonUuid="l-1" revision={0} onSaved={() => {}} onClose={() => {}} />,
+      ),
+    );
+
+    expect(screen.getByText(/مقالة — مسودّة/)).toBeTruthy();
+
+    const field = screen.getByLabelText(/نصّ المقالة/) as HTMLTextAreaElement;
+
+    await act(async () => {
+      fireEvent.change(field, { target: { value: "نصّ لم يُحفظ بعد" } });
+    });
+
+    lessonFetch.mockResolvedValue({ ...BASE, status: "published", status_label: "منشور" });
+
+    await act(async () => {
+      view.rerender(
+        <LessonEditor courseUuid="c" lessonUuid="l-1" revision={1} onSaved={() => {}} onClose={() => {}} />,
+      );
+    });
+
+    expect(screen.getByText(/مقالة — منشور/)).toBeTruthy();
+    expect((screen.getByLabelText(/نصّ المقالة/) as HTMLTextAreaElement).value).toBe(
+      "نصّ لم يُحفظ بعد",
+    );
+  });
+});

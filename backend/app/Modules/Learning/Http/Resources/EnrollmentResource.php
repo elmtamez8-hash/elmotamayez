@@ -36,6 +36,9 @@ class EnrollmentResource extends JsonResource
             'workspace_uuid' => $this->workspace?->uuid,
             'teacher_name' => $this->workspace?->name,
             'status' => $this->status,
+            // The door's own answer (`GRANTING_STATUSES`), so a screen deciding
+            // «may I read the curriculum» never restates the status list.
+            'grants_access' => $this->resource->grantsContentAccess(),
             'source' => $this->source,
             'progress_pct' => $this->progress_pct,
             'enrolled_at' => $this->enrolled_at,

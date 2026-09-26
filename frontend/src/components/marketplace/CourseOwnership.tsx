@@ -11,6 +11,7 @@ import {
 import { CheckIcon } from "@/components/icons";
 import { ApiError } from "@/lib/api";
 import { isLearner, useAuth } from "@/lib/auth-context";
+import { grantsCourseAccess } from "@/lib/course-enrollment";
 import { curriculum, type Curriculum } from "@/lib/curriculum";
 
 /**
@@ -75,9 +76,17 @@ export function CourseOwnershipProvider({
 
     let live = true;
 
-    curriculum(courseUuid)
+    /*
+      ⛔ ASKED FIRST, SO A LEARNER WHO HAS NOT BOUGHT THE COURSE IS NEVER SENT TO
+      A DOOR THAT WILL ONLY REFUSE THEM (2026-09-26) — a 403 on every visit to
+      every course they were browsing. See `grantsCourseAccess`.
+    */
+    grantsCourseAccess(courseUuid)
+      .then((granted) => (granted ? curriculum(courseUuid) : null))
       .then((data) => {
-        if (live) setOwnership({ state: "owner", data });
+        if (!live) return;
+
+        setOwnership(data === null ? { state: "visitor" } : { state: "owner", data });
       })
       .catch((error: unknown) => {
         /*

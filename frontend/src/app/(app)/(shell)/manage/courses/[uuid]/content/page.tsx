@@ -105,6 +105,9 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
     permanent deletion in exactly the voice they ask for a new item's title.
   */
   const [ask, setAsk] = useState<PendingAsk | null>(null);
+  // Bumped after a publish from the tree, so the open `LessonEditor` re-reads
+  // its item's status instead of showing the one it opened with.
+  const [editorRevision, setEditorRevision] = useState(0);
   const [newTitle, setNewTitle] = useState("");
   const [askError, setAskError] = useState("");
 
@@ -369,7 +372,11 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             void run(
               () => courses.publishTree(uuid, preview.structure_version, preview.items),
               pending.message,
-            );
+            ).then((wrote) => {
+              // The open editor read its item before this publish; tell it to
+              // read the status again (its draft text is left alone).
+              if (wrote) setEditorRevision((n) => n + 1);
+            });
           }}
         />
       )}
@@ -414,6 +421,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         <LessonEditor
           courseUuid={uuid}
           lessonUuid={editing}
+          revision={editorRevision}
           onSaved={() => void run(async () => undefined)}
           onClose={() => setEditing(null)}
         />

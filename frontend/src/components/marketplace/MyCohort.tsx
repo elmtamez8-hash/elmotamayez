@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { auth, hasAuthToken } from "@/lib/api";
 import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import { cohorts } from "@/lib/cohorts";
+import { grantsCourseAccess } from "@/lib/course-enrollment";
 import { TONE_CLASSES } from "@/lib/labels";
 
 /**
@@ -112,10 +113,16 @@ export function MyCohortProvider({
 
     let alive = true;
 
-    cohorts
-      .forCourse(courseUuid)
+    /*
+      ⛔ AND ONLY FOR A READER WHOSE ENROLMENT OPENS THE COURSE (2026-09-26). The
+      route refuses everyone else with a 403, which the catch below swallowed —
+      correct on the screen and a refusal in the log on every visit. The same
+      question `CourseOwnershipProvider` asks, and the same one request.
+    */
+    grantsCourseAccess(courseUuid)
+      .then((granted) => (granted ? cohorts.forCourse(courseUuid) : null))
       .then((res) => {
-        if (alive) setMine(res.membership?.cohort_uuid ?? null);
+        if (alive) setMine(res?.membership?.cohort_uuid ?? null);
       })
       /*
         Swallowed on purpose, and this is one of the few places that is right: a

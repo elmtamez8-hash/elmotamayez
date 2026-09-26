@@ -66,7 +66,7 @@ class RequestPlanChange extends Action
         // ⚠️ THE WRITER'S OWN SPELLING, asked of the REQUESTED values.
         [$duration, $sessionCount] = $this->plans->resolveShape($data, $coverage, $sessionType);
 
-        $coverageUuid = $this->plans->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, (int) $plan->workspace_id);
+        $coverageUuid = $this->plans->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, (int) $plan->workspace_id, $plan->coverage_uuid);
 
         $price = $this->positiveOrNull($data['requested_price_minor'] ?? null);
 

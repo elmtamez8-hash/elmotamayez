@@ -118,11 +118,17 @@ function typeOptionsFor(lesson: LessonDetail) {
 export function LessonEditor({
   courseUuid,
   lessonUuid,
+  revision = 0,
   onSaved,
   onClose,
 }: {
   courseUuid: string;
   lessonUuid: string;
+  /**
+   * Bumped by the page when something OUTSIDE this editor moved the item — a
+   * publish from the tree. See the effect that reads it.
+   */
+  revision?: number;
   onSaved: () => void;
   onClose: () => void;
 }) {
@@ -166,6 +172,38 @@ export function LessonEditor({
   }, [courseUuid, lessonUuid]);
 
   useEffect(load, [load]);
+
+  /*
+    ⛔ «نشر كل المسودّات» LEFT THIS HEADER SAYING «مسودّة» (2026-09-26). The tree
+    beside it was redrawn from the server and read «منشور»; the editor had read
+    its item once, on open, and kept that — two answers on one screen, and the
+    stale one also left the type picker enabled on a published item.
+
+    ⚠️ THE ITEM IS RE-READ, THE DRAFT IS NOT. Only `lesson` is replaced — the
+    status, its label and everything the header and the pickers derive from it.
+    `content`, `url` and `duration` are what the teacher may be halfway through
+    typing, and a publish elsewhere is no reason to throw their words away;
+    remounting the editor with a `key` would have done exactly that.
+  */
+  useEffect(() => {
+    if (revision === 0) return;
+
+    let alive = true;
+
+    courses
+      .lesson(courseUuid, lessonUuid)
+      .then((detail) => {
+        if (alive) setLesson(detail);
+      })
+      // The header keeps its last answer; the tree beside it is already right,
+      // and a banner about a background refresh would be noise over a save
+      // that worked.
+      .catch(() => undefined);
+
+    return () => {
+      alive = false;
+    };
+  }, [revision, courseUuid, lessonUuid]);
 
   if (loading) return <RowsSkeleton count={3} />;
   if (lesson === null) {

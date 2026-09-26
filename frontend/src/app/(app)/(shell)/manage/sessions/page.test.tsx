@@ -49,8 +49,22 @@ vi.mock("@/lib/api", () => ({
   fieldErrors: () => ({}),
 }));
 
+/*
+  ⛔ «لا يوجد ملفّ مدرّس لحسابك» was the LAST thing a workspace owner with no
+  teacher profile read, after filling both forms (2026-09-26). The page asks
+  `/auth/me` up front now, so every case below names whose session it is.
+*/
+let mockUser: { uuid: string; teacher_profile_uuid: string | null } | null = null;
+let mockAuthLoading = false;
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ user: mockUser, loading: mockAuthLoading }),
+}));
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { uuid: "u-1", teacher_profile_uuid: "p-1" };
+  mockAuthLoading = false;
   list.mockResolvedValue({ data: [] });
   create.mockResolvedValue({});
   cohortList.mockResolvedValue({ data: [] });
@@ -311,9 +325,12 @@ describe("a group lesson names its group", () => {
       return found as HTMLSelectElement;
     });
 
-    // Nothing chosen yet: the button is the guard, not a 422 the teacher reads
-    // after typing four fields.
-    expect(screen.getByRole("button", { name: "إنشاء الحصة" }).hasAttribute("disabled")).toBe(true);
+    // Nothing chosen yet: a press is answered HERE, beside the field — not by a
+    // 422 after the round trip, and not by a grey button that says nothing.
+    await userEvent.click(screen.getByRole("button", { name: "إنشاء الحصة" }));
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/اختر المجموعة التي تنتمي إليها الحصة/).length).toBeGreaterThan(0);
 
     await userEvent.selectOptions(picker, "g-1");
     await userEvent.click(screen.getByRole("button", { name: "إنشاء الحصة" }));
@@ -330,8 +347,57 @@ describe("a group lesson names its group", () => {
     await fillOneOff("6");
 
     expect(await screen.findByText("أنشئ مجموعة لهذا الكورس")).toBeTruthy();
-    // No picker to choose from, so the button stays shut rather than sending a
-    // payload the server will refuse.
-    expect(screen.getByRole("button", { name: "إنشاء الحصة" }).hasAttribute("disabled")).toBe(true);
+
+    // No picker to choose from: a press sends nothing the server will refuse,
+    // and SAYS why rather than doing nothing.
+    await userEvent.click(screen.getByRole("button", { name: "إنشاء الحصة" }));
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getByText(/لا مجموعة في هذا الكورس بعد\./)).toBeTruthy();
+  });
+});
+
+describe("a press before the form is complete says what is missing", () => {
+  it("names the course, the title and the start instead of a dead button", async () => {
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    const button = screen.getByRole("button", { name: "إنشاء الحصة" });
+
+    // ⛔ It was disabled until every field was full, with nothing saying why.
+    expect(button.hasAttribute("disabled")).toBe(false);
+
+    await userEvent.click(button);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(screen.getByText("تعذّر الإنشاء")).toBeTruthy();
+    expect(screen.getAllByText(/اختر الكورس من الحقل أعلى الصفحة/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("اكتب عنوان الحصة.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("اختر موعد البدء.").length).toBeGreaterThan(0);
+  });
+});
+
+describe("an account with no teacher profile", () => {
+  it("is told up front, and is never shown the two forms", async () => {
+    mockUser = { uuid: "o-1", teacher_profile_uuid: null };
+
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    expect(screen.getByText("لا يمكن إنشاء حصص من هذا الحساب بعد")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "إنشاء الحصة" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "توليد" })).toBeNull();
+    // The workspace's sessions are still listed below.
+    expect(await screen.findByText("لا حصص هنا")).toBeTruthy();
+  });
+
+  it("decides nothing while the session is still being restored", async () => {
+    mockUser = null;
+    mockAuthLoading = true;
+
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    expect(screen.queryByText("لا يمكن إنشاء حصص من هذا الحساب بعد")).toBeNull();
   });
 });

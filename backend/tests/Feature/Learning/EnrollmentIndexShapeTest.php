@@ -130,3 +130,51 @@ it('answers an empty page with a zero total, not with an error', function (): vo
         ->assertJsonCount(0, 'data')
         ->assertJsonPath('meta.total', 0);
 });
+
+/*
+| 2026-09-26 — «هل أنا مسجَّلٌ في هذا الكورس؟» يُسألُ من صفوفِ القارئِ نفسِه.
+|
+| الصفحةُ العامّةُ للكورسِ كانت تقرأُ المنهجَ والمجموعاتِ لكلِّ طالبٍ مسجَّلِ
+| الدخول، والبابانِ يرفضانِ غيرَ المسجَّلِ بـ٤٠٣ — فكلُّ زيارةٍ لكورسٍ لم يشترِه
+| ٤٠٣ مرّتين. `?course=` يُجيبُ السؤالَ نفسَه بـ٢٠٠ وصفٍّ أو لا شيء، و
+| `grants_access` هو جوابُ البابِ لا قائمةُ حالاتٍ تُعادُ كتابتُها في الواجهة.
+*/
+it('narrows the list to one course, for the reader and nobody else', function (): void {
+    $other = Course::factory()->published()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'created_by' => $this->teacher->getKey(),
+    ]);
+
+    Enrollment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+    ]);
+    Enrollment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $other->getKey(),
+        'student_user_id' => $this->student->getKey(),
+    ]);
+    // Another reader's CANCELLED row: listed for them, and it grants nothing.
+    Enrollment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $other->getKey(),
+        'student_user_id' => $this->other->getKey(),
+        'status' => 'cancelled',
+    ]);
+
+    readEnrollments($this->student, '?course='.$this->course->uuid)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.course_uuid', $this->course->uuid)
+        ->assertJsonPath('data.0.grants_access', true);
+
+    readEnrollments($this->other, '?course='.$this->course->uuid)
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+
+    readEnrollments($this->other, '?course='.$other->uuid)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.grants_access', false);
+});
