@@ -16,9 +16,14 @@ use RuntimeException;
  */
 final class PermanentDeliveryException extends RuntimeException
 {
-    public static function invalidRecipient(string $reason): self
+    /**
+     * `$providerCode` rides in the exception CODE so a caller can log it: the
+     * message may echo what the provider was sent (a phone number), the code
+     * never does.
+     */
+    public static function invalidRecipient(string $reason, int $providerCode = 0): self
     {
-        return new self($reason);
+        return new self($reason, $providerCode);
     }
 
     public static function templateMissing(string $key): self

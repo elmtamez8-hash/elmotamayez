@@ -104,9 +104,16 @@ class ContactVerificationController extends Controller
             // is surfaced — but as our sentence, not the provider's: a raw
             // upstream message on a screen is the rule this product does not
             // break, and it would leak what we send through.
+            //
+            // ⚠️ THE CLASS AND THE CODE, NEVER `getMessage()`. The message is the
+            // provider's free text, and a provider refusing a number says which
+            // number — this one, unverified, typed a second ago (see
+            // docs/gotchas/http-and-security.md). The channel logs its own
+            // masked detail before it throws.
             Log::warning('[notifications] verification code not delivered', [
                 'channel' => $channel->value,
-                'reason' => $e->getMessage(),
+                'exception' => $e::class,
+                'code' => $e->getCode(),
             ]);
 
             // The second sentence is not padding. Requesting a code retires the

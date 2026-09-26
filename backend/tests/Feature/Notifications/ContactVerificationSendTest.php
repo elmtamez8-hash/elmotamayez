@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Notifications\Exceptions\PermanentDeliveryException;
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\MessageTemplate;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationChannel;
+use Illuminate\Log\Events\MessageLogged;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
@@ -136,4 +139,38 @@ it('does not send when the channel is switched off', function (): void {
     ])->assertCreated();
 
     expect(MessageTemplate::query()->where('type', 'contact_verification')->exists())->toBeTrue();
+});
+
+it('never writes the phone number to the log when the provider refuses it', function (): void {
+    // The provider's refusal quotes the number it refused, as real ones do. The
+    // message is free text and is not ours to forward to a log vendor; the class
+    // and the provider's numeric code are.
+    Http::fake(['provider.test/*' => Http::response([
+        'error' => ['message' => '(#131026) Message undeliverable to 97433123456', 'code' => 131026],
+    ], 400)]);
+
+    /** @var list<array{message: string, context: array<string, mixed>}> $lines */
+    $lines = [];
+    Event::listen(MessageLogged::class, function (MessageLogged $event) use (&$lines): void {
+        $lines[] = ['message' => $event->message, 'context' => $event->context];
+    });
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $this->postJson('/api/v1/contact-verifications', [
+        'channel' => NotificationChannel::WhatsApp->value,
+        'contact_value' => '+97433123456',
+    ])->assertStatus(422);
+
+    $controllerLine = collect($lines)->firstWhere('message', '[notifications] verification code not delivered');
+
+    // Not vacuous: the failure WAS logged, with what a reader needs.
+    expect($controllerLine)->not->toBeNull()
+        ->and($controllerLine['context']['exception'])->toBe(PermanentDeliveryException::class)
+        ->and($controllerLine['context']['code'])->toBe(131026);
+
+    // Neither the whole number nor its local part, in any line.
+    $written = json_encode($lines, JSON_THROW_ON_ERROR);
+    expect($written)->not->toContain('33123456')
+        ->and($written)->not->toContain('undeliverable');
 });
