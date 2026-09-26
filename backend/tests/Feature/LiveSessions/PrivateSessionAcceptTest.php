@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
+use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
@@ -149,4 +151,57 @@ it('demands a written reason before it refuses, and writes nothing without one',
 
     // Still pending: a refusal that could not be explained did not happen.
     expect($request->refresh()->status)->toBe(PrivateSessionRequest::PENDING);
+});
+
+/*
+| Found in local E2E (2026-09-26): the student cancelled their granted private
+| hour, the booking went but the 1:1 session stayed `scheduled` with no seat —
+| the teacher's hour stayed blocked, «احجز» took it back without a request, and
+| a new request for the same slot died at the teacher's «قبول» with «لديك حصة
+| أخرى». Owner decision: giving the only seat back in time cancels the session.
+*/
+it('cancels a granted private session when its student cancels in time, and frees the hour', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    ['request' => $request] = acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+
+    Sanctum::actingAs($fx['student']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    $session = ClassSession::query()->withoutWorkspaceScope()->findOrFail($request->class_session_id);
+    expect($session->status)->toBe(ClassSessionStatus::Cancelled)
+        ->and((int) $session->seats_taken)->toBe(0);
+
+    // Nobody books a called-off hour back through «احجز».
+    $this->postJson("/api/v1/class-sessions/{$session->uuid}/book")
+        ->assertStatus(409)
+        ->assertJsonPath('message', 'هذه الحصة لم تعد متاحة للحجز.');
+
+    // The same slot can be asked for again, and this time the teacher can grant it.
+    ['request' => $again] = acceptedPrivateRequest($fx);
+
+    expect($again->status)->toBe(PrivateSessionRequest::ACCEPTED)
+        ->and((int) $again->class_session_id)->not->toBe((int) $session->getKey());
+});
+
+it('leaves a private session standing when its student cancels late, because that seat is still charged', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    ['request' => $request] = acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+
+    // Past the cancellation deadline: the seat and its frozen credit stay.
+    $this->travelTo($fx['startsAt']->subHours(2));
+
+    Sanctum::actingAs($fx['student']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    $session = ClassSession::query()->withoutWorkspaceScope()->findOrFail($request->class_session_id);
+    expect($session->status)->toBe(ClassSessionStatus::Scheduled)
+        ->and($booking->refresh()->status)->toBe(BookingStatus::CancelledLate);
 });
