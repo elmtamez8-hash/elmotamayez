@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Http\Resources;
 
+use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\BillingAuditSubjects;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -54,6 +56,9 @@ class BillingAuditEntryResource extends JsonResource
             // than dropped: "this happened and the subject is gone" is precisely
             // what an audit exists to still be able to say.
             'subject_uuid' => $subject?->getAttribute('uuid'),
+            // The payment whose chain `GET /admin/payments/audit/{transaction}`
+            // walks — so a row can open it. See `paymentUuid()`.
+            'payment_uuid' => $this->paymentUuid($subject),
             // Null when nobody did it — a sweep corrects a payment with no person
             // behind it, and standing in the first super admin would put a name
             // on a decision nobody took.
@@ -63,5 +68,32 @@ class BillingAuditEntryResource extends JsonResource
             'properties' => (object) $properties,
             'occurred_at' => $this->created_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * The payment behind this row, or null when there is none to open.
+     *
+     * A payment row names itself. An ORDER row names its settled payment — the
+     * money that actually arrived — and, before any has, the latest attempt, so
+     * a rejected receipt still opens the attempt it was about. Read only from
+     * what the controller eager-loaded: never a query here, since a Resource
+     * runs once per row. Every other subject has no payment, and says so.
+     */
+    private function paymentUuid(?Model $subject): ?string
+    {
+        if ($subject instanceof PaymentTransaction) {
+            return $subject->uuid;
+        }
+
+        if (! $subject instanceof Order || ! $subject->relationLoaded('transactions')) {
+            return null;
+        }
+
+        $payments = $subject->transactions->sortByDesc(fn (PaymentTransaction $payment): int => (int) $payment->getKey());
+
+        $chosen = $payments->first(fn (PaymentTransaction $payment): bool => $payment->settled_at !== null)
+            ?? $payments->first();
+
+        return $chosen?->uuid;
     }
 }

@@ -17,8 +17,12 @@ use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\BillingAuditSubjects;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Models\ActivityEntry;
+use App\Shared\Scopes\WorkspaceScope;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,7 +61,7 @@ class PaymentAuditController extends Controller
             // Morph-eager-loaded: a Resource runs once per row, so reading the
             // subject's uuid inside one is an N+1 by construction — the lesson
             // ClassSessionResource paid for in 005.
-            ->with(['subject', 'causer'])
+            ->with(self::auditEagerLoads())
             ->latest('id')
             ->paginate(50);
 
@@ -151,7 +155,10 @@ class PaymentAuditController extends Controller
         // different collection type: a payment with no lot costs one refused
         // query and keeps the shape below single.
         $allocations = CreditAllocation::query()
-            ->with('consumption')
+            // The consumption is a `CreditTransaction`, which is workspace-owned:
+            // scoped here, every entry of a payment outside the officer's own
+            // workspace came back with `entry_uuid: null`.
+            ->with(['consumption' => fn ($query) => $query->withoutWorkspaceScope()])
             ->whereIn('lot_transaction_id', $lot === null ? [] : [$lot->credit_transaction_id])
             ->get();
 
@@ -205,8 +212,40 @@ class PaymentAuditController extends Controller
                         ->where('subject_id', $id));
                 }
             })
-            ->with(['subject', 'causer'])
+            ->with(self::auditEagerLoads())
             ->oldest('id')
             ->get();
+    }
+
+    /**
+     * What an audit row needs beside itself, for the list and the trail alike.
+     *
+     * ⚠️ WITHOUT THE WORKSPACE SCOPE, AT EVERY LEVEL. The reader is a platform
+     * officer whose context falls back to their own `last_workspace_id`, and the
+     * subjects carry `BelongsToWorkspace` — so a bare `->with('subject')` gave
+     * `subject_uuid: null` for every decision taken in any other workspace, and
+     * the screen read «the subject is gone» about an order that was standing.
+     * PLURAL `withoutGlobalScopes([...])`: `MorphTo` buffers and replays that one
+     * on each type's query, and does NOT buffer the singular form.
+     *
+     * An order's payments ride along (`payment_uuid` in the Resource), because
+     * the decisions an auditor opens — approve, reject, receipt — are logged on
+     * the ORDER, while the chain behind them (`show()`) is addressed by the
+     * PAYMENT. Without them the rows worth clicking are the rows with no link.
+     *
+     * @return array<int|string, Closure|string>
+     */
+    private static function auditEagerLoads(): array
+    {
+        return [
+            'subject' => fn (MorphTo $subject) => $subject
+                ->withoutGlobalScopes([WorkspaceScope::class])
+                ->morphWith([
+                    Order::class => [
+                        'transactions' => fn (HasMany $transactions) => $transactions->withoutGlobalScopes([WorkspaceScope::class]),
+                    ],
+                ]),
+            'causer',
+        ];
     }
 }
