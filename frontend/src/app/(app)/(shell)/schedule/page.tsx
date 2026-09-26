@@ -7,6 +7,7 @@ import { NextSessionCountdown } from "@/components/sessions/NextSessionCountdown
 import { RescheduleAskButton } from "@/components/sessions/RescheduleAskButton";
 import { CancelBookingButton } from "@/components/sessions/CancelBookingButton";
 import { SessionCard } from "@/components/sessions/SessionCard";
+import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -111,9 +112,16 @@ export default function SchedulePage() {
           <NextSessionCountdown booking={next} secondsUntilStart={secondsUntilStart} />
 
           {days.length === 0 ? (
+            /* ⚠️ «من صفحة مدرّسك» named a page and gave no way to it (reported
+               2026-09-26). The teachers' index is where that page is found. */
             <EmptyState
               title="لا حصص محجوزة"
               description="احجز مقعدك من صفحة مدرّسك لتظهر حصصك هنا."
+              action={
+                <Button href="/teachers" variant="secondary">
+                  تصفّح المدرّسين
+                </Button>
+              }
             />
           ) : (
             <div className="space-y-6">

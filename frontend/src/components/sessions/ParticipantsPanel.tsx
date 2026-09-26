@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { classSessions, type RoomParticipant } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
+import { arabicNumber } from "@/lib/numerals";
 
 /** How long a burst of arrivals is allowed to collapse into one roster fetch. */
 const COALESCE_MS = 2000;
@@ -224,14 +225,14 @@ export function ParticipantsPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-ink">
           <span>
-            المشاركون (<bdi>{participants.length}</bdi>)
+            المشاركون (<bdi>{arabicNumber(participants.length)}</bdi>)
           </span>
 
           {/* The count, not the names: a teacher mid-explanation needs to know
               THAT four people are lost, and the names are one glance down. */}
           {confusedCount > 0 && (
             <Badge tone="warning">
-              🤔 <bdi>{confusedCount}</bdi> لم يفهموا
+              🤔 <bdi>{arabicNumber(confusedCount)}</bdi> لم يفهموا
             </Badge>
           )}
         </h3>

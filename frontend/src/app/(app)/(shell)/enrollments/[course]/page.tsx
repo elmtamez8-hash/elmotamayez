@@ -32,6 +32,7 @@ import { curriculum, type Curriculum } from "@/lib/curriculum";
 import { userMessage } from "@/lib/errors";
 import type { Assignment } from "@/lib/assignments";
 import type { Certificate } from "@/lib/types";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One course: its curriculum, and everything else about it behind a tab.
@@ -309,8 +310,8 @@ export default function CourseCurriculumPage({
 
           <p className="text-sm text-white/85">
             {/* `bdi` so the digits do not drag the surrounding Arabic around. */}
-            أتممتَ <bdi>{course.completed_count}</bdi> من <bdi>{course.countable_count}</bdi>{" "}
-            — <bdi>{course.progress_pct}%</bdi>
+            أتممتَ <bdi>{arabicNumber(course.completed_count)}</bdi> من <bdi>{arabicNumber(course.countable_count)}</bdi>{" "}
+            — <bdi>{arabicNumber(course.progress_pct)}٪</bdi>
           </p>
 
           {/*

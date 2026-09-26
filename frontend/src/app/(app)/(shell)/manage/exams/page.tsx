@@ -13,6 +13,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
 import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The papers a teacher WROTE. The student's list is `/exams`.
@@ -96,7 +97,7 @@ export default function ManageExamsPage() {
       key: "passing",
       header: "درجة النجاح",
       numeric: true,
-      render: (row) => <bdi>{row.passing_score}%</bdi>,
+      render: (row) => <bdi>{arabicNumber(row.passing_score)}٪</bdi>,
     },
     {
       key: "open",

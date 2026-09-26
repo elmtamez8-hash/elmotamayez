@@ -11,6 +11,7 @@ import { CreditsIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { arabicNumber } from "@/lib/numerals";
 
 type Finding = {
   type: string;
@@ -136,11 +137,11 @@ export default function PaymentReconciliationPage() {
               </div>
               <div>
                 <dt className="text-sm text-ink-muted">عمليات فُحصت</dt>
-                <dd className="mt-1 text-2xl font-bold text-ink">{run.checked_count}</dd>
+                <dd className="mt-1 text-2xl font-bold text-ink">{arabicNumber(run.checked_count)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-ink-muted">صُحّحت آلياً</dt>
-                <dd className="mt-1 text-2xl font-bold text-secondary-ink">{run.corrected_count}</dd>
+                <dd className="mt-1 text-2xl font-bold text-secondary-ink">{arabicNumber(run.corrected_count)}</dd>
               </div>
               <div>
                 <dt className="text-sm text-ink-muted">تحتاج قراراً</dt>
@@ -149,7 +150,7 @@ export default function PaymentReconciliationPage() {
                     run.unresolved_count > 0 ? "text-danger-ink" : "text-ink"
                   }`}
                 >
-                  {run.unresolved_count}
+                  {arabicNumber(run.unresolved_count)}
                 </dd>
               </div>
             </dl>
@@ -161,7 +162,7 @@ export default function PaymentReconciliationPage() {
 
           {run.unresolved_count > run.findings.length && (
             <Alert tone="warning" title="القائمة عيّنة وليست كل شيء">
-              عدد ما يحتاج قراراً {run.unresolved_count}، والمعروض أدناه {run.findings.length}.
+              عدد ما يحتاج قراراً {arabicNumber(run.unresolved_count)}، والمعروض أدناه {arabicNumber(run.findings.length)}.
             </Alert>
           )}
 

@@ -230,7 +230,7 @@ export default function StudyRoomsPage() {
                   {room.score !== null && (
                     <span className="text-xs text-ink-muted">
                       <bdi>
-                        {room.answered}/{room.question_count}
+                        {arabicNumber(room.answered ?? 0)}/{arabicNumber(room.question_count)}
                       </bdi>
                     </span>
                   )}

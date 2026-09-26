@@ -292,18 +292,36 @@ export function planShape(plan: Pick<Plan, "duration_days" | "session_count">): 
  */
 export function planCheckoutHref(
   courseUuid: string,
-  plan: Pick<Plan, "session_type" | "coverage_type" | "coverage_uuid">,
+  plan: Pick<Plan, "uuid" | "session_type" | "coverage_type" | "coverage_uuid">,
+  courseSlug: string | null = null,
 ): string {
   const course = encodeURIComponent(courseUuid);
+  // `/subscribe` preselects it when its own list for that mode still has it.
+  const chosen = `&plan=${encodeURIComponent(plan.uuid)}`;
 
-  if (plan.session_type === "individual") return `/subscribe?course=${course}&mode=private`;
+  if (plan.session_type === "individual") return `/subscribe?course=${course}&mode=private${chosen}`;
 
   if (plan.coverage_type === "cohort" && plan.coverage_uuid !== null) {
-    return `/subscribe?course=${course}&cohort=${encodeURIComponent(plan.coverage_uuid)}`;
+    return `/subscribe?course=${course}&cohort=${encodeURIComponent(plan.coverage_uuid)}${chosen}`;
   }
 
-  // The uuid opens the public course page (it 308s to the slug).
-  return `/courses/${course}`;
+  /*
+   * ⚠️ STRAIGHT TO THE GROUPS TAB, BY THE SLUG (reported 2026-09-26: the
+   * student landed on «عن الكورس» and had to find the groups themselves).
+   * `?tab=groups` is what `useTabParam` reads — but the uuid address 308s to
+   * the slug through `permanentRedirect`, which drops the query, and the page
+   * is ISR so it cannot read `searchParams` to keep it. So the slug when the
+   * caller has it; otherwise the uuid with `#groups` too, the fragment
+   * `CourseTabs` reads on arrival and a browser carries across a redirect.
+   *
+   * The plan itself is not carried: the course page is a cached server render
+   * and its group cards link to `/subscribe` with no knowledge of a query.
+   */
+  if (courseSlug !== null && courseSlug !== "") {
+    return `/courses/${encodeURIComponent(courseSlug)}?tab=groups`;
+  }
+
+  return `/courses/${course}?tab=groups#groups`;
 }
 
 export const SESSION_TYPE_LABELS: Record<SessionType, string> = {

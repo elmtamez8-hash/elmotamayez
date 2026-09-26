@@ -53,11 +53,17 @@ function buckets(rows: ClassSession[], now: Date, zone: string): Array<{ key: st
   return days;
 }
 
-/** «١٠/٠٩» — اليومُ والشهرُ بلا سنة: الأسبوعُ القادمُ لا يعبرُ سنتَين. */
+/**
+ * «26/09» — the day and month with no year: next week never spans two years.
+ * ⚠️ `latn` IS PINNED, as in `formatDate()`: a bare `"ar"` answers Arabic-Indic
+ * or Latin digits by the visitor's ICU version, and dates in this product are
+ * Latin by decision (see `numerals.ts`).
+ */
 function dateLabel(dayKey: string, timeZone: string): string {
   return new Date(`${dayKey}T12:00:00Z`).toLocaleDateString("ar", {
     day: "2-digit",
     month: "2-digit",
+    numberingSystem: "latn",
     timeZone,
   });
 }
@@ -66,6 +72,7 @@ function clock(session: ClassSession, timeZone: string): string {
   return new Date(session.starts_at).toLocaleTimeString("ar", {
     hour: "2-digit",
     minute: "2-digit",
+    numberingSystem: "latn",
     timeZone,
   });
 }

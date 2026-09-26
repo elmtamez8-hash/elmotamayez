@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
 import { grading, type GradingAnswer, type GradingPaper, type MarkInput } from "@/lib/grading";
 import { formatDateTime, counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One paper, marked.
@@ -258,7 +259,7 @@ function AnswerCard({
           {answer.is_graded ? "عدّل الدرجة" : "اعتمد الدرجة"}
         </Button>
         <p className="text-sm text-ink-muted">
-          المجموع <bdi>{total}</bdi> من <bdi>{answer.points_possible}</bdi>
+          المجموع <bdi>{arabicNumber(total)}</bdi> من <bdi>{arabicNumber(answer.points_possible)}</bdi>
         </p>
       </div>
     </Card>

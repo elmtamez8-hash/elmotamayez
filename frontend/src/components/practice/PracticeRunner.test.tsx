@@ -58,7 +58,7 @@ describe("PracticeRunner", () => {
 
     // And the count the student reads has to agree: two "selected" options on a
     // one-answer question would still say «أجبت عن ١».
-    expect(screen.getByText(/أجبت عن/).textContent).toContain("1");
+    expect(screen.getByText(/أجبت عن/).textContent).toContain("١");
   });
 
   /*
@@ -75,6 +75,6 @@ describe("PracticeRunner", () => {
     await user.click(optionButton("الخيار الأوّل"));
 
     expect(optionButton("الخيار الأوّل").getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByText(/أجبت عن/).textContent).toContain("0");
+    expect(screen.getByText(/أجبت عن/).textContent).toContain("٠");
   });
 });

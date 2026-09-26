@@ -10,6 +10,7 @@ import { fieldErrors } from "@/lib/api";
 import { bank, type BankQuestion } from "@/lib/bank";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 type Draft = { key: number; label: string; max_points: string };
 
@@ -141,7 +142,7 @@ export function RubricEditor({ question }: { question: BankQuestion }) {
             أضف معياراً
           </Button>
           <p className={`text-sm ${over ? "text-danger-ink" : "text-ink-muted"}`}>
-            المجموع <bdi>{total}</bdi> من <bdi>{question.points}</bdi>
+            المجموع <bdi>{arabicNumber(total)}</bdi> من <bdi>{arabicNumber(question.points)}</bdi>
             {rows.length > 0 &&
               ` · ${counted(rows.length, { one: "معيار واحد", two: "معياران", few: "معايير", many: "معياراً", other: "معيار" })}`}
           </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { TransferDestination } from "@/components/billing/TransferDestination";
+import { TABLE_HINT, TransferDestination } from "@/components/billing/TransferDestination";
 import {
   useCallback,
   useEffect,
@@ -299,6 +299,18 @@ export default function OrdersPage() {
     whose rows happen to be the officer's own would otherwise drop the column
     they are reading the page for, and bring it back when they widen again.
   */
+  /*
+   * Does any of the reader's own open orders still wait for a receipt?
+   *
+   * `rejected` counts even with an image on file: that image was refused, the
+   * «عرض الإيصال» link is hidden on it, and the row offers «استبدل الإيصال» —
+   * a new receipt is exactly what the order is waiting for.
+   */
+  const awaitsReceipt = orders.some(
+    (o) =>
+      o.is_mine && OPEN_STATUSES.includes(o.status) && (!o.has_receipt || o.status === "rejected"),
+  );
+
   const seesPayer = orders.some((o) => o.payer_name != null || o.payer_email != null);
 
   /*
@@ -613,7 +625,10 @@ export default function OrdersPage() {
 
       {/* ⚠️ هنا تحديداً يُرفَعُ الإيصال — و`‎/billing/pay` تُحيلُ إلى هذه الصفحةِ
           بنصِّها. فالوجهةُ تُقرأُ حيثُ يُنفَّذُ التحويل، لا حيثُ يُوصَفُ فقط. */}
-      <TransferDestination />
+      {/* ⚠️ «ارفع الإيصال من الجدول» only while a row of the reader's own still
+          needs one — reported 2026-09-26 beside «عرض الإيصال» on an order whose
+          receipt was already in. */}
+      <TransferDestination hint={awaitsReceipt ? TABLE_HINT : null} />
 
       {/*
         ⚠️ RENDERED ONLY OVER ROWS THAT EXIST. A filter strip above an empty

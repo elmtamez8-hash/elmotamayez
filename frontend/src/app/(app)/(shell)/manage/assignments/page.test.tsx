@@ -92,7 +92,7 @@ describe("grading a submission", () => {
   it("sends the score once one is typed", async () => {
     await openSubmissions();
 
-    fireEvent.change(await screen.findByLabelText("الدرجة (10)"), { target: { value: "7" } });
+    fireEvent.change(await screen.findByLabelText("الدرجة (١٠)"), { target: { value: "7" } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "اعتمد الدرجة" }));
@@ -166,5 +166,17 @@ describe("the handed-in file", () => {
     await screen.findByText("سارة");
 
     expect(screen.queryByRole("button", { name: "نزّل الملف المرفق" })).toBeNull();
+  });
+});
+
+describe("the assignment row", () => {
+  // «من 10 درجة» shipped: a Latin digit and the singular where 3–10 takes the plural.
+  it("counts the full mark in Arabic, with the noun agreeing", async () => {
+    await act(async () => {
+      render(<ManageAssignmentsPage />);
+    });
+
+    expect(await screen.findByText(/من ١٠ درجات/)).toBeTruthy();
+    expect(screen.queryByText(/10/)).toBeNull();
   });
 });
