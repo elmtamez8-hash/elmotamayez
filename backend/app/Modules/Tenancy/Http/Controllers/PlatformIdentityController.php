@@ -12,12 +12,12 @@ use Illuminate\Http\JsonResponse;
  * What the product calls itself and how to reach it — the platform settings a
  * visitor may read.
  *
- * ⚠️ AN ALLOWLIST OF TWO FIELDS, NEVER `PlatformSettings::all()`. That table holds
+ * ⚠️ AN ALLOWLIST, NEVER `PlatformSettings::all()`. That table holds
  * the device limit, the grant TTL, the operating fee and the gateway's basis
  * points; a «settings» endpoint that returned the map would put the platform's
  * half of the price on a public URL, and every key added afterwards would join it
- * silently. `PublicFieldAllowlist` is what fails the build if a THIRD field ever
- * appears here — and the second one earned its place: a support number is
+ * silently. `PublicFieldAllowlist` is what fails the build if a field nobody
+ * decided on appears here — and the second one earned its place: a support number is
  * published by design, while `billing.transfer` is read by somebody about to pay
  * and stays behind authentication.
  *
@@ -44,6 +44,11 @@ class PlatformIdentityController extends Controller
                  * field» by guessing; an empty string says it in one shape.
                  */
                 'support_whatsapp' => (string) PlatformSettings::get('platform.support_whatsapp'),
+                // The legal pages' identity. Empty strings, never absent keys,
+                // for the reason given above.
+                'legal_name' => (string) PlatformSettings::get('platform.legal_name'),
+                'postal_address' => (string) PlatformSettings::get('platform.postal_address'),
+                'contact_email' => (string) PlatformSettings::get('platform.contact_email'),
             ],
         ]);
     }

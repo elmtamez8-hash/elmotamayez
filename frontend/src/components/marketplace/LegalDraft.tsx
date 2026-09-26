@@ -30,6 +30,9 @@ export function LegalDraft({
   updatedAt,
   platformName,
   supportWhatsapp,
+  legalName = "",
+  postalAddress = "",
+  contactEmail = "",
   children,
 }: {
   title: string;
@@ -40,6 +43,9 @@ export function LegalDraft({
   updatedAt: string;
   platformName: string;
   supportWhatsapp: string;
+  legalName?: string;
+  postalAddress?: string;
+  contactEmail?: string;
   children: ReactNode;
 }) {
   return (
@@ -67,6 +73,21 @@ export function LegalDraft({
             <li>
               المنصّة: <bdi>{platformName}</bdi>
             </li>
+            {legalName !== "" && (
+              <li>
+                الجهة المسؤولة: <bdi>{legalName}</bdi>
+              </li>
+            )}
+            {postalAddress !== "" && (
+              <li>
+                العنوان: <bdi>{postalAddress}</bdi>
+              </li>
+            )}
+            {contactEmail !== "" && (
+              <li>
+                البريد الإلكتروني: <bdi dir="ltr">{contactEmail}</bdi>
+              </li>
+            )}
             {supportWhatsapp !== "" && (
               <li>
                 واتساب الدعم: <bdi dir="ltr">+{supportWhatsapp}</bdi>

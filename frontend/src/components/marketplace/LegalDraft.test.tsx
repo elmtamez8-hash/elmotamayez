@@ -48,6 +48,36 @@ describe("LegalDraft", () => {
     expect(screen.queryByText(/واتساب الدعم/)).toBeNull();
   });
 
+  it("names who is responsible, and drops each line that is unset", () => {
+    render(
+      <LegalDraft
+        icon={Icon}
+        image="/x.webp"
+        title="سياسة الاسترجاع"
+        summary="ملخّص"
+        updatedAt="٢٦ سبتمبر ٢٠٢٦"
+        platformName="المتميّز"
+        supportWhatsapp=""
+        legalName="شركة المتميّز للتعليم"
+        postalAddress=""
+        contactEmail="privacy@example.com"
+      >
+        <p>نصّ</p>
+      </LegalDraft>,
+    );
+
+    expect(screen.getByText("شركة المتميّز للتعليم")).toBeDefined();
+    expect(screen.getByText("privacy@example.com")).toBeDefined();
+    expect(screen.queryByText(/العنوان:/)).toBeNull();
+  });
+
+  it("prints no legal lines at all when none is set", () => {
+    draft("");
+
+    expect(screen.queryByText(/الجهة المسؤولة/)).toBeNull();
+    expect(screen.queryByText(/البريد الإلكتروني:/)).toBeNull();
+  });
+
   it("prints the support number when one is set", () => {
     draft("97455501234");
 

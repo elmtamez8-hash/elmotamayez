@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * ⚠️ AND NO PROCESSING TIME IS PROMISED, because nothing enforces one.
  */
 export default async function RefundsPage() {
-  const { name, supportWhatsapp } = await platformIdentity();
+  const identity = await platformIdentity();
 
   return (
     <LegalDraft
@@ -30,8 +30,11 @@ export default async function RefundsPage() {
       title="سياسة الاسترجاع"
       summary="متى يحقّ لك استرداد قيمة حصة أو كورس، وكيف تُقدَّم الطلبات."
       updatedAt="٢٦ سبتمبر ٢٠٢٦"
-      platformName={name}
-      supportWhatsapp={supportWhatsapp}
+      platformName={identity.name}
+      supportWhatsapp={identity.supportWhatsapp}
+      legalName={identity.legalName}
+      postalAddress={identity.postalAddress}
+      contactEmail={identity.contactEmail}
     >
       <p>
         الدفع على المنصّة حالياً بالتحويل، فالاسترداد كذلك: تراجع إدارة المنصّة كل حالةٍ بنفسها، وتردّ

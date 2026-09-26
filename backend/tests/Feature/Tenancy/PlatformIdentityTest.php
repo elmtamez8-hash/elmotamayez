@@ -75,7 +75,9 @@ it('sends the name and nothing else from the settings table', function (): void 
     $payload = $this->getJson('/api/v1/platform')->assertOk()->json('data');
 
     expect(array_keys($payload))->toBe(PublicFieldAllowlist::PLATFORM_IDENTITY)
-        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe(['name', 'support_whatsapp']);
+        // ⚠️ Widened on purpose (2026-09-26, owner decision): the legal pages'
+        // controller identity. Any further field is a deliberate edit here too.
+        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe(['name', 'support_whatsapp', 'legal_name', 'postal_address', 'contact_email']);
 });
 
 /*

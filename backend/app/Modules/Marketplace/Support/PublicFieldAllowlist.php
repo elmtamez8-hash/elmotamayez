@@ -478,6 +478,11 @@ final class PublicFieldAllowlist
      * it opens nothing. `billing.transfer` beside it in `PlatformSettings::KEYS`
      * is the counter-example and stays off this list: an account number is read
      * by somebody about to pay, and its door is behind authentication.
+     *
+     * ⚠️ AND THE LAST THREE ARE THE LEGAL PAGES' (2026-09-26, owner decision). A
+     * privacy policy that does not say who is responsible and how to reach them
+     * is not a privacy policy; they are published on /privacy, /terms and
+     * /refunds by design, exactly as the support number is on every page.
      */
-    public const PLATFORM_IDENTITY = ['name', 'support_whatsapp'];
+    public const PLATFORM_IDENTITY = ['name', 'support_whatsapp', 'legal_name', 'postal_address', 'contact_email'];
 }

@@ -44,3 +44,15 @@ it('travels with the version a signature must name', function (): void {
     expect($this->getJson('/api/v1/privacy/policy')->json('version'))
         ->toBe('1.1');
 });
+
+it('names who is responsible from the settings, and drops what is unset', function (): void {
+    PlatformSettings::set('platform.legal_name', 'شركة المتميّز للتعليم');
+    PlatformSettings::set('platform.postal_address', '');
+    PlatformSettings::set('platform.contact_email', 'privacy@example.com');
+
+    $html = (string) $this->getJson('/api/v1/privacy/policy')->json('body_html');
+
+    expect($html)->toContain('الجهةُ المسؤولة: شركة المتميّز للتعليم')
+        ->toContain('privacy@example.com')
+        ->not->toContain('العنوان:');
+});

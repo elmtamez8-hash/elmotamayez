@@ -74,6 +74,9 @@ class ManagePlatformSettings extends Page
         $this->form->fill([
             'platform_name' => PlatformSettings::get('platform.name'),
             'support_whatsapp' => PlatformSettings::get('platform.support_whatsapp'),
+            'legal_name' => PlatformSettings::get('platform.legal_name'),
+            'postal_address' => PlatformSettings::get('platform.postal_address'),
+            'contact_email' => PlatformSettings::get('platform.contact_email'),
             ...self::transferFormState(),
             'student_device_limit' => $limits['student'] ?? 1,
             'two_factor_grace_days' => PlatformSettings::get('auth.two_factor_grace_days'),
@@ -159,6 +162,21 @@ class ManagePlatformSettings extends Page
                                 ->helperText('بالصيغة الدوليّة بلا «+» — مثال: 97455512345. اتركه فارغاً ليختفي زرّ الواتساب من الموقع.')
                                 ->tel()
                                 ->maxLength(20),
+                            /*
+                            | ⚠️ ثلاثتُها اختياريّة، والفراغُ يُسقِطُ السطرَ من صفحاتِ
+                            | الخصوصيّةِ والشروطِ والاسترجاع — لا تسميةً بلا قيمة.
+                            */
+                            TextInput::make('legal_name')
+                                ->label('الاسم القانوني')
+                                ->helperText('يظهر في سياسة الخصوصية والشروط وسياسة الاسترجاع بوصفه الجهة المسؤولة.')
+                                ->maxLength(160),
+                            TextInput::make('postal_address')
+                                ->label('العنوان البريدي')
+                                ->maxLength(300),
+                            TextInput::make('contact_email')
+                                ->label('إيميل التواصل')
+                                ->email()
+                                ->maxLength(160),
                         ]),
                     /*
                     | ⛔ **المنتَجُ كانَ يطلبُ تحويلاً إلى مكانٍ لا يُسمّيه.** شاشةُ
@@ -322,6 +340,10 @@ class ManagePlatformSettings extends Page
         | قارئٍ هو تهجئةٌ في كلِّ ملفٍّ يقرأ. يُكتَبُ مرّةً على الشكلِ الذي
         | يُستعمَلُ به.
         */
+        foreach (['legal_name', 'postal_address', 'contact_email'] as $field) {
+            PlatformSettings::set('platform.'.$field, trim((string) ($data[$field] ?? '')), $userId);
+        }
+
         PlatformSettings::set(
             'platform.support_whatsapp',
             (string) preg_replace('/[^0-9]/', '', (string) ($data['support_whatsapp'] ?? '')),

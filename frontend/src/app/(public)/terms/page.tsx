@@ -25,7 +25,7 @@ export const metadata: Metadata = {
  * category blocks nothing — so neither appears here as a rule.
  */
 export default async function TermsPage() {
-  const { name, supportWhatsapp } = await platformIdentity();
+  const identity = await platformIdentity();
 
   return (
     <LegalDraft
@@ -34,8 +34,11 @@ export default async function TermsPage() {
       title="الشروط والأحكام"
       summary="القواعد التي تحكم استخدام المنصة للطلاب وأولياء الأمور والمدرّسين."
       updatedAt="٢٦ سبتمبر ٢٠٢٦"
-      platformName={name}
-      supportWhatsapp={supportWhatsapp}
+      platformName={identity.name}
+      supportWhatsapp={identity.supportWhatsapp}
+      legalName={identity.legalName}
+      postalAddress={identity.postalAddress}
+      contactEmail={identity.contactEmail}
     >
       <p>
         باستخدامك المنصّة توافق على هذه الشروط. نقصد بـ«أنت» صاحبَ الحساب، أو وليَّ أمرِه إن كان

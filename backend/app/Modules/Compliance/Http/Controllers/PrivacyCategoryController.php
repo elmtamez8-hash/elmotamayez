@@ -111,6 +111,9 @@ class PrivacyCategoryController extends Controller
     {
         $values = [
             '{{platform_name}}' => (string) PlatformSettings::get('platform.name'),
+            '{{legal_name}}' => (string) PlatformSettings::get('platform.legal_name'),
+            '{{postal_address}}' => (string) PlatformSettings::get('platform.postal_address'),
+            '{{contact_email}}' => (string) PlatformSettings::get('platform.contact_email'),
             '{{support_whatsapp}}' => (string) preg_replace('/\D/', '', (string) PlatformSettings::get('platform.support_whatsapp')),
             '{{request_due_days}}' => strtr((string) ComplianceSettings::requestDueDays(), [
                 '0' => '٠', '1' => '١', '2' => '٢', '3' => '٣', '4' => '٤',

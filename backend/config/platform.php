@@ -54,4 +54,16 @@ return [
 
     'support_whatsapp' => '',
 
+    /*
+    | Who stands behind the platform, for the legal pages (2026-09-26).
+    |
+    | Empty means «not published yet», and every reader drops the line rather
+    | than printing a label with nothing after it. Edited from the panel.
+    */
+    'legal_name' => '',
+
+    'postal_address' => '',
+
+    'contact_email' => '',
+
 ];

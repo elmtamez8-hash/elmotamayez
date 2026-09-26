@@ -61,6 +61,13 @@ export type PlatformIdentity = {
   name: string;
   /** Digits only, E.164 without the leading "+". Empty means no support line. */
   supportWhatsapp: string;
+  /*
+   * Who stands behind the platform, for the legal pages (2026-09-26). Each is
+   * an empty string when unset, and every reader drops its line then.
+   */
+  legalName: string;
+  postalAddress: string;
+  contactEmail: string;
 };
 
 /** What the product is, when the API cannot say. */
@@ -73,6 +80,9 @@ const IDENTITY_FALLBACK: PlatformIdentity = {
    * point it somewhere.
    */
   supportWhatsapp: "",
+  legalName: "",
+  postalAddress: "",
+  contactEmail: "",
 };
 
 /**
@@ -111,8 +121,15 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
     if (!response.ok) return IDENTITY_FALLBACK;
 
     const body = (await response.json()) as {
-      data?: { name?: unknown; support_whatsapp?: unknown };
+      data?: {
+        name?: unknown;
+        support_whatsapp?: unknown;
+        legal_name?: unknown;
+        postal_address?: unknown;
+        contact_email?: unknown;
+      };
     };
+    const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
     const name = body.data?.name;
     const whatsapp = body.data?.support_whatsapp;
 
@@ -127,6 +144,9 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
        * opens nothing.
        */
       supportWhatsapp: typeof whatsapp === "string" ? whatsapp.replace(/[^\d]/g, "") : "",
+      legalName: text(body.data?.legal_name),
+      postalAddress: text(body.data?.postal_address),
+      contactEmail: text(body.data?.contact_email),
     };
   } catch {
     return IDENTITY_FALLBACK;

@@ -69,6 +69,15 @@ final class PlatformSettings
         */
         'platform.support_whatsapp' => 'platform.support_whatsapp',
         /*
+        | The legal pages name who is responsible for the data and how to reach
+        | them (2026-09-26, owner decision). Publishable for the same reason the
+        | support number is: a controller's name, address and contact email are
+        | printed on a privacy policy by definition.
+        */
+        'platform.legal_name' => 'platform.legal_name',
+        'platform.postal_address' => 'platform.postal_address',
+        'platform.contact_email' => 'platform.contact_email',
+        /*
         | إلى أينَ يُحوِّلُ المشتري (بلاغُ مستخدِمٍ ٢٠٢٦-٠٩-١٦).
         |
         | ⛔ **الشاشةُ كانت تقولُ «حوِّلْ قيمة الباقة إلى حساب المنصّة» ولا تقولُ
