@@ -469,6 +469,7 @@ return [
         'alert_thresholds' => 'عتبات التنبيه',
         'alert_thresholds.*' => 'عتبة التنبيه',
         'course' => 'الكورس',
+        'visibility' => 'ظهور الكورس',
         'student' => 'الطالب',
         'credit_package' => 'حزمة الأرصدة',
         'package' => 'الحزمة',

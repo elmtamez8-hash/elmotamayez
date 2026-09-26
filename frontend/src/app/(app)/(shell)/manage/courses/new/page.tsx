@@ -8,6 +8,7 @@ import { CURRENCY } from "@/lib/platform";
 import { useRouter } from "next/navigation";
 import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
+import { CourseVisibilityField } from "@/components/courses/CourseVisibilityField";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -55,6 +56,8 @@ export default function CreateCoursePage() {
       browser; the server refuses an empty one.
     */
     course_type: "",
+    // عامٌّ افتراضاً — قرارُ المالك 2026-09-26.
+    visibility: "public" as "public" | "private",
   });
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -180,6 +183,12 @@ export default function CreateCoursePage() {
             2026-09-25). Unticked, the course is entered through a plan only; with
             no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
           */}
+          <CourseVisibilityField
+            value={form.visibility}
+            onChange={(visibility) => setForm({ ...form, visibility })}
+            error={fields.visibility}
+          />
+
           <CheckboxField
             id="is_free_enrollment"
             label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
