@@ -243,6 +243,8 @@ class WhatsAppChannel implements NotificationChannelInterface, SendsVerification
             throw PermanentDeliveryException::invalidRecipient($reason, $providerCode);
         }
 
-        throw new RuntimeException($reason, $providerCode);
+        // ⚠️ NOT `$reason`. A transient failure is RETHROWN by the job, and the
+        // worker reports a rethrown exception — message and all — to the log.
+        throw new RuntimeException('HTTP '.$status, $providerCode);
     }
 }
