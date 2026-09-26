@@ -57,7 +57,7 @@ describe("StudyRoomBoard", () => {
     // `last_name` — and every row then renders as an empty string with the count
     // still right. That spelling has shipped six times in this tree.
     expect(screen.getByText("سارة").textContent).not.toBe("");
-    expect(screen.getByText(/4\/10/)).toBeTruthy();
+    expect(screen.getByText(/٤\/١٠/)).toBeTruthy();
 
     await waitFor(() => expect(listen).toHaveBeenCalled());
   });
@@ -91,7 +91,7 @@ describe("StudyRoomBoard", () => {
     });
 
     await waitFor(() => expect(screen.getByText("خالد")).toBeTruthy());
-    expect(screen.getByText(/10\/10/)).toBeTruthy();
+    expect(screen.getByText(/١٠\/١٠/)).toBeTruthy();
   });
 
   it("releases the subscription once on unmount", async () => {

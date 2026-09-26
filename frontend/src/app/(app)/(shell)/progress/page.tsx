@@ -22,6 +22,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
 import { counted, NOUNS } from "@/lib/labels";
 import { gamification, type Progress } from "@/lib/gamification";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Everything this student has earned, in one place (FR-041).
@@ -64,7 +65,7 @@ export default function ProgressPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="الخبرة" value={String(progress.xp)} Icon={SparkIcon} />
+        <StatTile label="الخبرة" value={arabicNumber(progress.xp)} Icon={SparkIcon} />
         <StatTile
           label="المستوى"
           value={progress.level_name ?? String(progress.level)}
@@ -96,7 +97,7 @@ export default function ProgressPage() {
         />
         <StatTile
           label="دروع الحماية"
-          value={String(progress.shields)}
+          value={arabicNumber(progress.shields)}
           Icon={ShieldIcon}
           hint="يحفظ سلسلتك عند انقطاع يومٍ واحد."
         />

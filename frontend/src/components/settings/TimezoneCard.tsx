@@ -11,21 +11,40 @@ import { ClockIcon } from "@/components/icons";
 import { auth } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
-import { timezoneLabel } from "@/lib/labels";
+import { timezonePlace } from "@/lib/timezone-names";
 import { setStoredViewerTimeZone, useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The two countries the product serves, first; then every zone the runtime knows. */
 const FIRST = ["Asia/Qatar", "Africa/Cairo"];
 
+/**
+ * Qatar and Egypt first; then every zone with an Arabic name, in Arabic
+ * alphabetical order; then the rest under their IANA names, in the runtime's
+ * order. A reader in Amman finds «الأردن — عمّان» among a few dozen Arabic
+ * lines instead of scanning four hundred English ones.
+ */
 export function timezoneOptions(all: readonly string[] = supportedZones()): Array<{ value: string; label: string }> {
   const rest = all.filter((zone) => !FIRST.includes(zone));
+  const named: Array<{ value: string; label: string }> = [];
+  const unnamed: Array<{ value: string; label: string }> = [];
 
-  return [...FIRST, ...rest].map((zone) => ({
-    value: zone,
-    // The Arabic name when there is one, and the IANA name beside it so two
-    // zones never read the same.
-    label: timezoneLabel(zone) === zone ? zone : `${timezoneLabel(zone)} (${zone})`,
-  }));
+  for (const zone of rest) {
+    const place = timezonePlace(zone);
+
+    if (place === null) {
+      unnamed.push({ value: zone, label: zone });
+    } else {
+      named.push({ value: zone, label: place });
+    }
+  }
+
+  named.sort((a, b) => a.label.localeCompare(b.label, "ar"));
+
+  return [
+    ...FIRST.map((zone) => ({ value: zone, label: timezonePlace(zone) ?? zone })),
+    ...named,
+    ...unnamed,
+  ];
 }
 
 function supportedZones(): string[] {

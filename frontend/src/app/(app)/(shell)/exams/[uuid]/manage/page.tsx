@@ -21,6 +21,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { ExamItemsPanel } from "@/components/bank/ExamItemsPanel";
 import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 export default function ManageExamPage({
   params,
@@ -139,7 +140,7 @@ export default function ManageExamPage({
             <StatusBadge status={exam.status} />
             <span>
               {counted(exam.duration_minutes, NOUNS.minutes)} · النجاح{" "}
-              <bdi>{exam.passing_score}%</bdi>
+              <bdi>{arabicNumber(exam.passing_score)}٪</bdi>
             </span>
           </span>
         }

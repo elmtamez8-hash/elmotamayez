@@ -239,8 +239,8 @@ export default function ManageCohortsPage({
 
       {/* The three numbers a teacher opens this page to know, before scrolling. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatTile Icon={UsersIcon} label="مجموعات نشطة" value={String(openGroups.length)} />
-        <StatTile Icon={MembersIcon} label="طلاب في المجموعات" value={String(students)} />
+        <StatTile Icon={UsersIcon} label="مجموعات نشطة" value={arabicNumber(openGroups.length)} />
+        <StatTile Icon={MembersIcon} label="طلاب في المجموعات" value={arabicNumber(students)} />
         <StatTile
           Icon={SessionsIcon}
           label="مقاعد متاحة"
@@ -528,7 +528,7 @@ export default function ManageCohortsPage({
                         onClick={() => toggle(group.uuid, "members")}
                         icon={<MembersIcon className="h-4 w-4" />}
                       >
-                        الطلاب (<bdi>{group.members_count}</bdi>)
+                        الطلاب (<bdi>{arabicNumber(group.members_count)}</bdi>)
                       </PanelToggle>
 
                       <PanelToggle
@@ -698,7 +698,7 @@ export default function ManageCohortsPage({
             طلبات الانتقال
             {queue.length > 0 && (
               <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary-ink">
-                <bdi>{queue.length}</bdi>
+                <bdi>{arabicNumber(queue.length)}</bdi>
               </span>
             )}
           </h3>
@@ -790,7 +790,7 @@ function SeatBar({
     <div className="mt-3">
       <div className="mb-1 flex items-center justify-between text-xs text-ink-muted">
         <span>
-          <bdi>{members}</bdi> من <bdi>{capacity}</bdi>
+          <bdi>{arabicNumber(members)}</bdi> من <bdi>{arabicNumber(capacity)}</bdi>
         </span>
         <span>
           المتبقّي <bdi>{seatsLeft ?? 0}</bdi>

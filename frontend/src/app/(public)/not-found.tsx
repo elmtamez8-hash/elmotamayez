@@ -5,7 +5,7 @@ export default function PublicNotFound() {
     <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-24 text-center sm:px-6">
       <h1 className="mb-3 text-3xl font-extrabold text-ink">غير متاح</h1>
       <p className="mb-8 leading-relaxed text-ink-muted">
-        الصفحة التي تبحث عنها غير موجودة، أو أن المدرّس لم يعد متاحاً على المنصة.
+        الصفحة التي تبحث عنها غير موجودة، أو لم تعد متاحة على المنصة.
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         <Link

@@ -16,6 +16,7 @@ import { userMessage } from "@/lib/errors";
 import { grading, type GradingQueueRow } from "@/lib/grading";
 import { formatDateTime, counted } from "@/lib/labels";
 import { can, P } from "@/lib/permissions";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * What is waiting on a person (FR-027).
@@ -73,13 +74,13 @@ export default function GradingQueuePage() {
       key: "pending",
       header: "أسئلة تنتظر",
       numeric: true,
-      render: (row) => <Badge tone="warning">{row.pending_count}</Badge>,
+      render: (row) => <Badge tone="warning">{arabicNumber(row.pending_count)}</Badge>,
     },
     {
       key: "auto",
       header: "المصحَّح آلياً",
       numeric: true,
-      render: (row) => `${Math.round(row.auto_score)}٪`,
+      render: (row) => `${arabicNumber(Math.round(row.auto_score))}٪`,
     },
     {
       key: "open",

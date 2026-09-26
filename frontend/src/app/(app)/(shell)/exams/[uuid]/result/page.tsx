@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { arabicNumber } from "@/lib/numerals";
 
 interface AttemptResult {
   status: string;
@@ -53,10 +54,10 @@ export default function ExamResultPage({
           {result.passed ? "ناجح" : "لم تجتز الاختبار"}
         </h2>
         <p className="text-6xl font-bold">
-          <bdi>{percent}%</bdi>
+          <bdi>{arabicNumber(percent)}٪</bdi>
         </p>
         <p className="mt-2 text-sm">
-          الدرجة <bdi>{result.score}</bdi> من <bdi>{result.max_score}</bdi>
+          الدرجة <bdi>{arabicNumber(result.score)}</bdi> من <bdi>{arabicNumber(result.max_score)}</bdi>
         </p>
       </div>
 

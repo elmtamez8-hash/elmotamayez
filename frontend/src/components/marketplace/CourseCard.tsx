@@ -225,7 +225,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           aria-hidden="true"
           className="mt-auto block rounded-xl bg-primary px-4 py-2.5 text-center text-sm font-bold text-white transition group-hover:brightness-110"
         >
-          عرض التفاصيل والسعر
+          عرض التفاصيل
         </span>
       </div>
     </article>
