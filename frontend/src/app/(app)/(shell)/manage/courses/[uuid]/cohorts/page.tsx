@@ -26,6 +26,7 @@ import {
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { StatTile } from "@/components/ui/StatTile";
+import { CohortRoster } from "@/components/courses/CohortRoster";
 import {
   cohortEventLabel,
   manageCohorts,
@@ -72,8 +73,6 @@ import { arabicNumber } from "@/lib/numerals";
  * the timetable hidden with nothing to say which half.
  */
 
-type Member = { uuid: string; name: string; joined_at: string };
-
 /** Which panel of a group card is open. */
 type Panel = "members" | "history";
 
@@ -96,7 +95,12 @@ export default function ManageCohortsPage({
 
   const [open, setOpen] = useState<Record<string, Panel | undefined>>({});
   /** Absent = never fetched; `null` = fetching. */
-  const [members, setMembers] = useState<Record<string, Member[] | null>>({});
+  /*
+    Bumped after every write on this page: an approved transfer moves a student
+    between two rosters, and each open `CohortRoster` refetches on it.
+  */
+  const [version, setVersion] = useState(0);
+  const [rosterSeen, setRosterSeen] = useState<Record<string, true>>({});
   const [history, setHistory] = useState<Record<string, CohortHistoryEvent[] | null>>({});
 
   const [editing, setEditing] = useState<string | null>(null);
@@ -116,8 +120,13 @@ export default function ManageCohortsPage({
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  /**
+   * `quiet` after a write: the skeleton unmounted every card, so an open roster
+   * lost its add form and success notice, and an open history panel came back
+   * as a pulse that nothing ever refilled.
+   */
+  const load = useCallback((quiet: boolean = false) => {
+    if (!quiet) setLoading(true);
     setFailed(false);
 
     manageCohorts
@@ -137,7 +146,15 @@ export default function ManageCohortsPage({
       .catch(() => setHidden(null));
   }, [courseUuid]);
 
-  useEffect(load, [load]);
+  useEffect(() => load(), [load]);
+
+  const fetchHistory = (uuid: string) => {
+    setHistory((current) => ({ ...current, [uuid]: null }));
+    manageCohorts
+      .history(uuid)
+      .then((r) => setHistory((current) => ({ ...current, [uuid]: r.data ?? [] })))
+      .catch(() => setHistory((current) => ({ ...current, [uuid]: [] })));
+  };
 
   /**
    * Resolves `true` once the write landed, `false` when it was refused — so a
@@ -151,11 +168,16 @@ export default function ManageCohortsPage({
 
     return promise
       .then(() => {
-        load();
+        load(true);
         // Whatever the panels were showing describes the state before the write
         // — an approved transfer moves a student between two of these rosters.
-        setMembers({});
+        // The open ones are refetched; clearing them alone left a skeleton that
+        // nothing refilled, because only opening a panel fetches it.
+        setVersion((v) => v + 1);
         setHistory({});
+        Object.entries(open).forEach(([uuid, panel]) => {
+          if (panel === "history") fetchHistory(uuid);
+        });
 
         return true;
       })
@@ -171,21 +193,11 @@ export default function ManageCohortsPage({
   const toggle = (uuid: string, panel: Panel) => {
     setOpen((current) => ({ ...current, [uuid]: current[uuid] === panel ? undefined : panel }));
 
-    if (panel === "members" && members[uuid] === undefined) {
-      setMembers((current) => ({ ...current, [uuid]: null }));
-      manageCohorts
-        .members(uuid)
-        .then((r) => setMembers((current) => ({ ...current, [uuid]: r.data ?? [] })))
-        .catch(() => setMembers((current) => ({ ...current, [uuid]: [] })));
-    }
+    // The roster fetches itself (`CohortRoster`) on mount, and stays mounted
+    // (hidden) once opened — reopening reads what was already fetched.
+    if (panel === "members") setRosterSeen((current) => ({ ...current, [uuid]: true }));
 
-    if (panel === "history" && history[uuid] === undefined) {
-      setHistory((current) => ({ ...current, [uuid]: null }));
-      manageCohorts
-        .history(uuid)
-        .then((r) => setHistory((current) => ({ ...current, [uuid]: r.data ?? [] })))
-        .catch(() => setHistory((current) => ({ ...current, [uuid]: [] })));
-    }
+    if (panel === "history" && history[uuid] === undefined) fetchHistory(uuid);
   };
 
   const startEditing = (group: CohortOption) => {
@@ -198,7 +210,7 @@ export default function ManageCohortsPage({
   };
 
   if (loading) return <RowsSkeleton count={4} />;
-  if (failed) return <ErrorState onRetry={load} />;
+  if (failed) return <ErrorState onRetry={() => load()} />;
 
   const openGroups = groups.filter((group) => group.status !== "archived");
   const students = openGroups.reduce((total, group) => total + group.members_count, 0);
@@ -578,7 +590,22 @@ export default function ManageCohortsPage({
                       )}
                     </div>
 
-                    {open[group.uuid] === "members" && <RosterPanel rows={members[group.uuid]} />}
+                    {rosterSeen[group.uuid] && (
+                      <div hidden={open[group.uuid] !== "members"}>
+                        <CohortRoster
+                          cohortUuid={group.uuid}
+                          courseUuid={courseUuid}
+                          archived={group.status === "archived"}
+                          refreshKey={version}
+                          // The seat bar and «طلاب في المجموعات» move with the roster,
+                          // and so does the group an added student was MOVED out of.
+                          onChanged={() => {
+                            load(true);
+                            setVersion((v) => v + 1);
+                          }}
+                        />
+                      </div>
+                    )}
 
                     {open[group.uuid] === "history" && <HistoryPanel rows={history[group.uuid]} />}
                   </>
@@ -807,40 +834,6 @@ function PanelToggle({
         <ChevronDownIcon className="h-4 w-4" />
       </span>
     </button>
-  );
-}
-
-/**
- * Who is in the group right now.
- *
- * ⚠️ NO «REMOVE» BUTTON HERE, DELIBERATELY. `removeMember()` exists on the API
- * and there is no way back from it on this screen: nothing here can put a
- * student INTO a group — `addMember` needs a picker of the course's enrolled
- * students and no endpoint answers that list yet. A control that can only take
- * away is one mis-tap from a student nobody can restore, so the read ships and
- * the write waits for its other half.
- */
-function RosterPanel({ rows }: { rows: Member[] | null | undefined }) {
-  return (
-    <div className="animate-float-in mt-3 rounded-xl bg-surface p-3">
-      {rows === null || rows === undefined ? (
-        <div className="space-y-2" aria-hidden>
-          <div className="h-3 w-40 animate-pulse rounded bg-primary-soft" />
-          <div className="h-3 w-28 animate-pulse rounded bg-primary-soft" />
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="text-xs text-ink-muted">لا طلاب في هذه المجموعة بعد.</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {rows.map((row) => (
-            <li key={row.uuid} className="flex items-center justify-between gap-3 text-xs">
-              <span className="truncate text-ink">{row.name}</span>
-              <span className="shrink-0 text-ink-muted">انضمّ {formatDate(row.joined_at)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 
