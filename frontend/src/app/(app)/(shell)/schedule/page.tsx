@@ -14,6 +14,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { classSessions, type ClassSession, type SessionBooking } from "@/lib/class-sessions";
 import { formatSessionDay, sessionDayKey } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * The student's timetable, across every teacher they study with.
@@ -30,6 +31,7 @@ import { counted, NOUNS } from "@/lib/labels";
  * the heading is why the cards below it can drop the date entirely.
  */
 export default function SchedulePage() {
+  const zone = useViewerTimeZone();
   const [bookings, setBookings] = useState<SessionBooking[]>([]);
   const [next, setNext] = useState<SessionBooking | null>(null);
   const [secondsUntilStart, setSecondsUntilStart] = useState(0);
@@ -70,7 +72,7 @@ export default function SchedulePage() {
 
       if (session === undefined) continue;
 
-      const key = sessionDayKey(session.starts_at, session.timezone);
+      const key = sessionDayKey(session.starts_at, zone);
       const last = groups.at(-1);
       const row = { uuid: booking.uuid, session, booking };
 
@@ -81,13 +83,13 @@ export default function SchedulePage() {
 
       groups.push({
         key,
-        label: formatSessionDay(session.starts_at, session.timezone),
+        label: formatSessionDay(session.starts_at, zone),
         rows: [row],
       });
     }
 
     return groups;
-  }, [bookings]);
+  }, [bookings, zone]);
 
   return (
     /*
@@ -188,7 +190,6 @@ export default function SchedulePage() {
                               <CancelBookingButton
                                 bookingUuid={row.booking.uuid}
                                 mayCancelUntil={row.booking.may_cancel_until}
-                                timezone={row.session.timezone}
                                 onCancelled={load}
                               />
                             )}

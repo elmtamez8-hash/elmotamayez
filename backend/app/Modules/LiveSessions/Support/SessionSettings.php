@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Support;
 
+use App\Models\User;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Shared\Support\UserClock;
+use DateTimeInterface;
 
 /**
  * The one place the phase's numbers come from.
@@ -20,9 +23,40 @@ use App\Modules\Tenancy\Support\PlatformSettings;
  */
 class SessionSettings
 {
+    /**
+     * The PLATFORM's zone — the one day boundaries are counted in: a billing day,
+     * a freeze day, a gamification week, the scheduler's «Sunday dawn».
+     *
+     * ⛔ NOT A `platform_settings` ROW ANY MORE, AND THE SCHEDULER IS WHY. This
+     * used to read a row the panel edited, while `routes/console.php` and
+     * `config/notifications.php` read `SESSIONS_TIMEZONE` — two sources for one
+     * fact that agree until somebody saves the panel. The scheduler cannot be the
+     * one to move: `routes/console.php` is loaded when `schedule:work` BOOTS and
+     * by every artisan command, `migrate` on an empty database included, so a
+     * cache or database read there takes the scheduler and a fresh deploy down
+     * with the store. So everything reads the environment, and the panel shows
+     * the value read-only. Moving the zone is a change to `SESSIONS_TIMEZONE` and
+     * a restart of the workers and the scheduler.
+     *
+     * ⚠️ AND IT IS NOT THE ZONE A TIME IS SHOWN IN. A person reads their own
+     * clock — {@see timezoneFor()} — because the product has users in Qatar and
+     * in Egypt, and Egypt observes daylight saving.
+     */
     public function timezone(): string
     {
-        return (string) PlatformSettings::get('sessions.timezone', 'Asia/Qatar');
+        return UserClock::platformZone();
+    }
+
+    /** The zone a time is SHOWN to this person in — {@see UserClock::zoneFor()}. */
+    public function timezoneFor(?User $user): string
+    {
+        return UserClock::zoneFor($user);
+    }
+
+    /** «2026-10-30 17:00 (توقيت مصر)» — {@see UserClock::format()}. */
+    public function formatFor(?User $user, DateTimeInterface $at): string
+    {
+        return UserClock::format($user, $at);
     }
 
     public function graceMinutes(): int

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DataRequestRecord } from "@/lib/compliance";
@@ -104,6 +104,21 @@ describe("DataRequestsPanel", () => {
     const erase = await screen.findByRole("button", { name: "اطلب حذف بياناتي" });
 
     expect((erase as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // An erasure request is the one press on this screen that cannot be taken
+  // back from it, so a stray tap must not file one.
+  it("asks for the erasure only on the second press", async () => {
+    requests.list.mockResolvedValue({ data: [] });
+    requests.create.mockResolvedValue(record({ type: "erasure", status: "pending" }));
+
+    render(<DataRequestsPanel />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "اطلب حذف بياناتي" }));
+    expect(requests.create).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "اضغط مجدداً لتأكيد طلب الحذف" }));
+    await waitFor(() => expect(requests.create).toHaveBeenCalledWith({ type: "erasure" }));
   });
 
   /*

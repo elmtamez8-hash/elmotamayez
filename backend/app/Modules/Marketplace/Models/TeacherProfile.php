@@ -212,8 +212,8 @@ class TeacherProfile extends BaseModel
     /**
      * Whether the teacher is inside one of their weekly windows right now.
      *
-     * Slots are stored in UTC, so the comparison is made in UTC and only the
-     * presentation layer converts to the visitor's timezone.
+     * Each slot is wall-clock time on the teacher's own clock, so the moment is
+     * converted into each slot's zone ({@see AvailabilitySlot::covers()}).
      */
     public function isAvailableNow(): bool
     {
@@ -224,7 +224,7 @@ class TeacherProfile extends BaseModel
         $now = now('UTC');
 
         return $this->availabilitySlots->contains(
-            fn (AvailabilitySlot $slot) => $slot->coversUtc($now),
+            fn (AvailabilitySlot $slot) => $slot->covers($now),
         );
     }
 

@@ -176,6 +176,14 @@ export interface User {
    * ويتعلّمُ في أخرى يستضيفُ في الأولى وحدَها.
    */
   teacher_profile_uuid: string | null;
+  /**
+   * The clock this person reads times on — an IANA name (`Africa/Cairo`).
+   *
+   * ⚠️ NULL UNTIL THE BROWSER STAMPS IT, and then the browser's own zone is
+   * used. Read it through `useViewerTimeZone()`, never directly: that hook is
+   * the one place the fallback is written.
+   */
+  timezone: string | null;
   student_profile: StudentProfile | null;
   created_at: string;
 }

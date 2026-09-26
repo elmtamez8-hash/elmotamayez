@@ -634,6 +634,16 @@ class NotificationTemplateSeeder extends Seeder
             | ⚠️ و«الرصيد» يُمرَّرُ مصاغاً بـ`CountedNoun`: «حصّتان» لا «٢
             | حصص»، لأنّ العربيّةَ تُوافِقُ المعدودَ في خمسِ نطاقات.
             */
+            /*
+            | A renewal moved to start today because the month before it was
+            | cancelled and refunded. The dates are the whole message — the
+            | activation notice the student already holds names the old ones.
+            */
+            NotificationType::SubscriptionRedated->value => [
+                'تغيّر موعد اشتراكك مع {{ teacher_name }}',
+                'أُلغي اشتراكك السابق واسترُدّ مبلغه، فبدأ اشتراكك «{{ plan_title }}» مع {{ teacher_name }} اليوم: فعّال من {{ starts_on }} حتى {{ ends_on }}.',
+                ['plan_title', 'teacher_name', 'starts_on', 'ends_on'],
+            ],
             NotificationType::SessionPlanActivated->value => [
                 'تم تفعيل باقة الحصص مع {{ teacher_name }}',
                 'باقتك «{{ plan_title }}» مع {{ teacher_name }} فُعِّلت، وأُضيف إلى رصيدك {{ sessions }}. {{ schedule }} {{ next_session }}',
@@ -649,6 +659,15 @@ class NotificationTemplateSeeder extends Seeder
                 'مقاعد لم تُحجز تلقائيّاً',
                 'تعذّر حجز مقعد {{ student_name }} تلقائيّاً في: {{ sessions }}. راجع الجدول لحجز بديل أو لتوسيع السعة.',
                 ['student_name', 'sessions'],
+            ],
+            /*
+            | A lifted workspace freeze: the lessons are back, the seat is not
+            | taken for the student — they book it themselves if they still want it.
+            */
+            NotificationType::SessionSeatReopened->value => [
+                'حصص عادت إلى الجدول',
+                'انتهى التجميد وعادت هذه الحصص إلى الجدول: {{ sessions }}. مقعدك لم يُحجز تلقائيّاً — احجزه من صفحة الحصة إن أردت الحضور.',
+                ['sessions'],
             ],
             /*
             | ٠٣٤ · FR-019 — باقةٌ أنشأَتها الإدارةُ باسمِ المدرّس.

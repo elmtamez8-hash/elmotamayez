@@ -76,8 +76,14 @@ export type ReviewItem = {
 
 export type AvailabilityItem = {
   day_of_week: number;
+  /** Wall-clock `HH:MM` on the teacher's clock — the zone below. */
   start_time: string;
   end_time: string;
+  /**
+   * The teacher's IANA zone (2026-09-25). Absent only on a response cached from
+   * before, whose hours were UTC — `lib/availability` reads it that way.
+   */
+  timezone?: string;
 };
 
 export type CourseCard = {
@@ -277,7 +283,7 @@ export type CourseDetail = {
   private_subscription_available: boolean;
   /**
    * Whether «سجّل مجاناً» may be drawn — the free-enrolment door's own predicate
-   * (`courseRequiresPurchase()`), never `price_minor === 0`: the price defaults
+   * (`Course::isFree()` — the teacher's explicit «كورس مجاني»), never `price_minor === 0`: the price defaults
    * to 0 on a course sold only by plan.
    */
   free_enrollment: boolean;

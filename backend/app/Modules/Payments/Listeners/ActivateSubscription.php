@@ -133,6 +133,12 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             return;
         }
 
+        // Reversed between the approval and this worker: no month, no hours,
+        // no enrolment — `Order::wasWithdrawn()` says why it is re-read.
+        if ($order->wasWithdrawn()) {
+            return;
+        }
+
         $plan = $this->planFor($order);
 
         if ($plan === null) {
@@ -199,6 +205,10 @@ class ActivateSubscription implements ShouldQueueAfterCommit
 
         $subscription = $this->claim($order, $plan, $window);
 
+        // Whether THIS run created the subscription — the one run allowed to
+        // give a place back (see `joinCohort()`).
+        $firstActivation = $subscription !== null;
+
         if ($subscription === null) {
             /*
             | ⚠️ THE RETRY CONTINUES, IT DOES NOT RETURN. This used to `return`
@@ -252,6 +262,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         $this->joinCohort(
             $order,
             CarbonImmutable::parse($subscription->effective_ends_on)->toDateString(),
+            releaseClaimedPlace: $firstActivation,
         );
 
         $this->announceActivation($order, $subscription);
@@ -279,8 +290,14 @@ class ActivateSubscription implements ShouldQueueAfterCommit
      * approval created: `SC-002` failed for every subscription however correct the
      * implementation. The event is now DERIVED inside the writer's transaction,
      * and the actor is the officer who approved.
+     *
+     * @param  bool  $releaseClaimedPlace  true only on the activation that CREATED
+     *                                     the subscription (or, for the hours
+     *                                     shape, posted the hours) — a retry must
+     *                                     not give `ApproveOrder`'s place back a
+     *                                     second time
      */
-    private function joinCohort(Order $order, ?string $seatWindowEnd): void
+    private function joinCohort(Order $order, ?string $seatWindowEnd, bool $releaseClaimedPlace = false): void
     {
         $intent = SubscriptionIntent::fromOrder($order);
 
@@ -302,6 +319,10 @@ class ActivateSubscription implements ShouldQueueAfterCommit
 
         $current = $this->cohorts->openMembershipCohortId($student, (int) $described['course_id']);
 
+        // The group whose lessons the paid window buys seats in: the one the
+        // order named, unless the student is somewhere else by now.
+        $seatCohortId = (int) $described['id'];
+
         if ($current !== null && $current !== (int) $described['id']) {
             // `ApproveOrder` refuses this before the money moves; reaching it
             // here means the membership changed inside the activation itself.
@@ -311,7 +332,21 @@ class ActivateSubscription implements ShouldQueueAfterCommit
                 'order_id' => $order->getKey(),
             ]);
 
-            return;
+            /*
+            | ⛔ THIS USED TO `return` HERE, ONE LINE UNDER THE COMMENT ABOVE —
+            | so the seats were claimed for NO group, and the paid month had no
+            | lesson in it. And the place `ApproveOrder` claimed in the group the
+            | order named stayed taken by nobody: that group read one member more
+            | than it had, for ever, and turned the last real applicant away as
+            | «full». The place goes back once — on the first activation only,
+            | because a retried activation reaches this line again and the
+            | decrement is not a recount — and the seats follow the student.
+            */
+            if ($releaseClaimedPlace && $order->approved_by !== null) {
+                $this->cohorts->releaseSeat((int) $described['id']);
+            }
+
+            $seatCohortId = $current;
         }
 
         if ($current === null) {
@@ -403,7 +438,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             (int) $described['workspace_id'],
             (int) $student->getKey(),
             (int) $described['course_id'],
-            (int) $described['id'],
+            $seatCohortId,
             $seatWindowEnd,
         )->afterCommit();
     }
@@ -521,7 +556,10 @@ class ActivateSubscription implements ShouldQueueAfterCommit
 
         $this->recordSale($order, $plan, $intent, $course, $balance);
 
-        $this->ledger->post(new CreditMovement(
+        // Null on a redelivery (the idempotency key above). The run that
+        // actually posted the hours is the one allowed to give back the place
+        // `ApproveOrder` claimed, if the student has changed group since.
+        $posted = $this->ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Purchase,
             credits: (int) $intent->sessionCount,
@@ -537,7 +575,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         */
         $this->openAccess($order, $plan, null, self::ENROLMENT_SOURCE);
 
-        $this->joinCohort($order, null);
+        $this->joinCohort($order, null, releaseClaimedPlace: $posted !== null);
 
         $this->announceSessionPlan($order, $intent, $course);
     }

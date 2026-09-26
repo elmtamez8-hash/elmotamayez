@@ -29,6 +29,7 @@ use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Events\CallQueuedListener;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -276,4 +277,46 @@ it('records the sale so the finance screen sees money, with no invented fees', f
         ->and($sale->operating_fee_minor)->toBeNull()
         ->and($sale->gateway_fee_minor)->toBeNull()
         ->and($sale->credit_package_id)->toBeNull();
+});
+
+it('gives the approved group its place back, once, when the hours buyer changed group before activation', function (): void {
+    /*
+    | `ApproveOrder` claimed a place in the named group before the money moved;
+    | the membership is written by the queued activation. A student who joined
+    | another group in between left that place taken by nobody — the subscription
+    | arm gave it back, the hours arm did not (owner decision 2026-09-26).
+    */
+    Queue::fake([CallQueuedListener::class, ClaimSubscriptionSeatsJob::class]);
+
+    $order = sessionPlanBought(sessionPlanShaped(bySessions: true));
+
+    expect($this->cohort->refresh()->members_count)->toBe(1);
+
+    $other = app(WorkspaceContext::class)->forWorkspace($this->workspace, fn (): Cohort => Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'created_by' => $this->teacher->getKey(),
+        'name' => 'مجموعة الأحد',
+    ]));
+
+    CohortMembership::query()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => $other->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+        'joined_at' => now(),
+    ]);
+
+    $activate = fn () => app(ActivateSubscription::class)->handle(new PaymentApproved($order->refresh()));
+
+    $activate();
+
+    expect($this->cohort->refresh()->members_count)->toBe(0);
+
+    // A redelivery posts no hours and must not give the place back again.
+    $this->cohort->forceFill(['members_count' => 1])->save();
+
+    $activate();
+
+    expect($this->cohort->refresh()->members_count)->toBe(1);
 });

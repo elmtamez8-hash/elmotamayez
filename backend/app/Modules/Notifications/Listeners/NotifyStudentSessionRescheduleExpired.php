@@ -47,10 +47,7 @@ class NotifyStudentSessionRescheduleExpired implements ShouldQueueAfterCommit
             type: NotificationType::SessionRescheduleExpired,
             variables: [
                 'title' => $session->title,
-                'from_time' => $request->from_starts_at
-                    ->copy()
-                    ->setTimezone($this->settings->timezone())
-                    ->format('Y-m-d H:i'),
+                'from_time' => $this->settings->formatFor($student, $request->from_starts_at),
             ],
             // The timetable, where the request and its status are shown beside
             // the lesson — the same destination the other reschedule answers use.

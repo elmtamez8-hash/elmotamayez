@@ -18,6 +18,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\LiveSessions\ClassSessionFactory;
 use DateTimeInterface;
@@ -112,6 +113,9 @@ class ClassSession extends BaseModel
             'charged_seats' => 'integer',
             'verdict_stay_seconds' => 'integer',
             'seats_frozen_at' => 'datetime',
+            // Not fillable either: which group a session belongs to decides who
+            // is offered it. See `reopenEmptyIndividualSlot()`.
+            'cohort_from_booking' => 'boolean',
             'room_opened_at' => 'datetime',
             'room_closed_at' => 'datetime',
             'recording_status' => RecordingStatus::class,
@@ -196,13 +200,46 @@ class ClassSession extends BaseModel
      * and the page stops recognising the seat — and `recordingLesson` loads null,
      * hiding the recording. One list, so the three student reads cannot drift.
      *
+     * ⚠️ `bookings` IS THE VIEWER'S OWN ROW, NEVER THE SESSION'S WHOLE REGISTER.
+     * The Resource reads one booking off the relation — the viewer's
+     * (`ClassSessionResource::bookingFor()`) — and a group session of forty seats
+     * loaded forty rows to find it, on every session of the page. A null viewer
+     * loads none, which is the answer the Resource already gives a guest.
+     *
      * @return array<string, \Closure>
      */
-    public static function studentEagerLoads(): array
+    public static function studentEagerLoads(?User $viewer): array
     {
         $unscoped = static fn ($query) => $query->withoutWorkspaceScope();
 
-        return ['course' => $unscoped, 'bookings' => $unscoped, 'recordingLesson' => $unscoped];
+        return [
+            'course' => $unscoped,
+            'bookings' => self::viewerBooking($viewer, unscoped: true),
+            'recordingLesson' => $unscoped,
+        ];
+    }
+
+    /**
+     * The eager-load constraint that narrows `bookings` to the viewer's own seat.
+     *
+     * ⚠️ THE LOADED RELATION IS THEREFORE NOT THE REGISTER. Anything that needs
+     * every seat of the session queries `bookings()` itself, as `holdsSeat()`
+     * and the roster do; a reader that took `$session->bookings` off one of
+     * these pages would see one row, or none, and no error.
+     */
+    public static function viewerBooking(?User $viewer, bool $unscoped = false): \Closure
+    {
+        return static function ($query) use ($viewer, $unscoped) {
+            if ($unscoped) {
+                $query->withoutWorkspaceScope();
+            }
+
+            // No viewer, no seat: the relation loads EMPTY rather than being
+            // left out, so `relationLoaded()` still says it was asked.
+            return $viewer === null
+                ? $query->whereRaw('1 = 0')
+                : $query->where('student_user_id', $viewer->getKey());
+        };
     }
 
     public function holdsSeat(User $user): bool
@@ -267,9 +304,48 @@ class ClassSession extends BaseModel
      */
     public function scopeStartingInside(Builder $query, FreezePeriod $period): Builder
     {
+        /*
+        | ⛔ A FREEZE'S DAYS ARE THE PLATFORM'S DAYS, NOT UTC'S. `starts_on` and
+        | `ends_on` are dates a teacher picked off a Doha calendar; taken at UTC
+        | midnight the range ran three hours late at both ends — a lesson at
+        | 01:00 on the first frozen morning was left scheduled, and one at 01:00
+        | on the morning AFTER the last frozen day was suspended. Converted the
+        | way `ClaimSubscriptionSeats::futureSessionsOf()` and
+        | `SubscriptionDays` already convert: parse the date IN the platform
+        | zone, then to UTC for the comparison.
+        */
+        $zone = app(SessionSettings::class)->timezone();
+
         return $query
-            ->where('starts_at', '>=', $period->starts_on->copy()->startOfDay())
-            ->where('starts_at', '<', $period->ends_on->copy()->addDay()->startOfDay());
+            ->where('starts_at', '>=', CarbonImmutable::parse($period->starts_on->toDateString(), $zone)->startOfDay()->utc())
+            ->where('starts_at', '<', CarbonImmutable::parse($period->ends_on->toDateString(), $zone)->startOfDay()->addDay()->utc());
+    }
+
+    /**
+     * Takes the booker's group off a generated 1:1 slot whose seat has gone.
+     *
+     * ⛔ THE STAMP OUTLIVED THE SEAT. `BookSeat` files an open 1:1 slot under its
+     * booker's one-seat group — and nothing took that group off when the seat
+     * went, so after one cancellation or one freeze the slot was refused to
+     * every other student (`mayHoldSeatIn`), hidden from their discovery, and
+     * still counted as busy on the teacher's calendar: a dead hour nobody could
+     * book or free.
+     *
+     * ⚠️ ONE CONDITIONAL UPDATE, NEVER A READ AND A WRITE. `seats_taken = 0` is
+     * the condition, so a slot that somebody booked a millisecond after the
+     * seat went keeps its new booker's group. And ONLY a group the seat wrote
+     * (`cohort_from_booking`): a 1:1 session a teacher scheduled for one student
+     * — a granted private request — stays theirs whoever cancels.
+     */
+    public static function reopenEmptyIndividualSlot(int $sessionId): void
+    {
+        static::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($sessionId)
+            ->where('type', ClassSessionType::Individual->value)
+            ->where('cohort_from_booking', true)
+            ->where('seats_taken', 0)
+            ->update(['cohort_id' => null, 'cohort_from_booking' => false]);
     }
 
     /** Arrive by this moment and lateness is forgiven (FR-021). */

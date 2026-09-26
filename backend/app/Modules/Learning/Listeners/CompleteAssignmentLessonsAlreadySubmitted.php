@@ -66,10 +66,11 @@ class CompleteAssignmentLessonsAlreadySubmitted implements ShouldQueueAfterCommi
             ->withoutWorkspaceScope()
             ->where('course_id', $item->course_id)
             ->whereIn('student_user_id', $studentIds)
-            // Active only — the exam backfill's rule and its reason: crediting an
-            // expired enrolment flips it to `completed` and issues a certificate
-            // to someone the API refuses to let finish a single lesson.
-            ->where('status', 'active')
+            // Granting statuses only — the exam backfill's rule and its reason:
+            // crediting an expired enrolment flips it to `completed` and issues a
+            // certificate to someone the API refuses to let finish a single
+            // lesson. A `completed` enrolment still keeps the course.
+            ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->whereDoesntHave('progress', fn ($query) => $query
                 ->where('lesson_id', $item->getKey())
                 ->where('status', 'completed'))

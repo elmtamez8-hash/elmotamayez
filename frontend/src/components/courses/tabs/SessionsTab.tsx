@@ -159,17 +159,31 @@ function BookButton({ session }: { session: ClassSession }) {
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
 
-  if (booking !== null) {
-    /*
-     | ⚠️ A CANCELLED BOOKING IS NOT «محجوز». The badge used to read the mere
-     | presence of `my_booking`, so a seat given up — or taken back by the
-     | system — kept telling the student they held it. The server's own label
-     | says which of the three it was.
-     */
-    if (booking.status !== "booked") {
-      return <Badge tone="neutral">{booking.status_label}</Badge>;
-    }
+  /*
+   | ⚠️ A CANCELLED BOOKING IS NOT «محجوز». The badge used to read the mere
+   | presence of `my_booking`, so a seat given up — or taken back by the
+   | system — kept telling the student they held it. The server's own label
+   | says which of the three it was.
+   |
+   | ⛔ AND A SEAT GIVEN UP IN TIME, OR TAKEN BACK BY THE SYSTEM, CAN BE BOOKED
+   | AGAIN — the server revives the row (`BookSeat::claim()`), so the button
+   | comes back beside the badge.
+   |
+   | ⚠️ A LATE CANCELLATION IS UNDONE, NOT BOOKED (owner decision 2026-09-26).
+   | Its seat is still counted and still charged, so the server puts the row
+   | back with no new seat and no new credit — which is why the button says
+   | «تراجع عن الإلغاء» and why it ignores `seats.available`: the chair it
+   | returns to is already the student's, and a full room is no reason to hide
+   | it. Only before the lesson starts; the server refuses after.
+   */
+  const givenUp = booking !== null && booking.status !== "booked" ? booking : null;
+  const lateUndo = givenUp?.status === "cancelled_late";
 
+  if (lateUndo && (session.status !== "scheduled" || Date.parse(session.starts_at) <= Date.now())) {
+    return <Badge tone="neutral">{givenUp.status_label}</Badge>;
+  }
+
+  if (booking !== null && givenUp === null) {
     return (
       <div className="flex flex-wrap items-start justify-end gap-2">
         <Badge tone="success">محجوز</Badge>
@@ -177,7 +191,6 @@ function BookButton({ session }: { session: ClassSession }) {
           <CancelBookingButton
             bookingUuid={booking.uuid}
             mayCancelUntil={booking.may_cancel_until}
-            timezone={session.timezone}
             onCancelled={(result) => setBooking({ ...booking, ...result })}
           />
         )}
@@ -185,7 +198,9 @@ function BookButton({ session }: { session: ClassSession }) {
     );
   }
 
-  if (session.status !== "scheduled" || session.seats.available <= 0) return null;
+  const badge = givenUp !== null ? <Badge tone="neutral">{givenUp.status_label}</Badge> : null;
+
+  if (!lateUndo && (session.status !== "scheduled" || session.seats.available <= 0)) return badge;
 
   const book = async () => {
     setBusy(true);
@@ -212,8 +227,15 @@ function BookButton({ session }: { session: ClassSession }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button size="sm" onClick={() => void book()} loading={busy} loadingLabel="جارٍ الحجز…">
-        احجز
+      {badge}
+      <Button
+        size="sm"
+        variant={lateUndo ? "secondary" : undefined}
+        onClick={() => void book()}
+        loading={busy}
+        loadingLabel={lateUndo ? "جارٍ التراجع…" : "جارٍ الحجز…"}
+      >
+        {lateUndo ? "تراجع عن الإلغاء" : "احجز"}
       </Button>
       {refusal !== null && (
         <p role="alert" className="text-xs text-danger-ink">

@@ -107,28 +107,39 @@ class GenerateSessionsFromAvailability extends Action
     {
         $occurrences = [];
 
-        // Slots store UTC times, so the walk is in UTC too. Doing it in local
-        // time and converting afterwards is what makes a session drift by an
-        // hour across a daylight-saving boundary.
-        for ($day = $from->utc()->startOfDay(); $day <= $to; $day = $day->addDay()) {
-            foreach ($slots as $slot) {
-                if ((int) $day->format('w') !== $slot->day_of_week) {
-                    continue;
-                }
+        /*
+        | ⛔ THE WALK IS ON EACH SLOT'S OWN CALENDAR, NOT IN UTC. A slot is
+        | wall-clock time in the teacher's zone (2026-09-25): «Tuesday 17:00,
+        | Africa/Cairo». Walking UTC days with one fixed UTC time of day is exactly
+        | what moved a Cairo teacher's lesson from 17:00 to 16:00 on 2026-10-29,
+        | when Egypt left daylight saving and the stored UTC row did not. Each
+        | date is parsed IN THE SLOT'S ZONE, so the offset is the one that date
+        | actually has.
+        |
+        | `$from` and `$to` are read as the DATES the teacher picked (the form
+        | sends `YYYY-MM-DD`), inclusive at both ends, on the teacher's calendar —
+        | which is what «generate from the 1st to the 30th» means to the person
+        | pressing it.
+        */
+        $first = $from->toDateString();
+        $last = $to->toDateString();
 
-                $startsAt = CarbonImmutable::parse($day->toDateString().' '.$slot->start_time, 'UTC');
-                $endsAt = CarbonImmutable::parse($day->toDateString().' '.$slot->end_time, 'UTC');
+        foreach ($slots as $slot) {
+            for ($day = CarbonImmutable::parse($first); $day->toDateString() <= $last; $day = $day->addDay()) {
+                $occurrence = $slot->occurrenceOn($day->toDateString());
 
-                if ($startsAt->isPast()) {
+                if ($occurrence === null || $occurrence['starts_at']->isPast()) {
                     continue;
                 }
 
                 $occurrences[] = [
-                    'starts_at' => $startsAt,
-                    'duration_minutes' => (int) $startsAt->diffInMinutes($endsAt),
+                    'starts_at' => $occurrence['starts_at'],
+                    'duration_minutes' => (int) $occurrence['starts_at']->diffInMinutes($occurrence['ends_at']),
                 ];
             }
         }
+
+        usort($occurrences, fn (array $a, array $b): int => $a['starts_at'] <=> $b['starts_at']);
 
         return $occurrences;
     }

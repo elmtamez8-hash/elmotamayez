@@ -167,6 +167,8 @@ class MarketplaceSeeder extends Seeder
                         'day_of_week' => $day,
                         'start_time' => $start,
                         'end_time' => $end,
+                        // Wall-clock hours on the teacher's own clock (2026-09-25).
+                        'timezone' => 'Asia/Qatar',
                     ]);
                 }
             }

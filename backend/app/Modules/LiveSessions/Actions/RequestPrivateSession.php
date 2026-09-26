@@ -140,24 +140,20 @@ class RequestPrivateSession extends Action
         $endsAt = $startsAt->addMinutes($minutes);
 
         /*
-        | A declared window is a weekly one-day shape, so nothing crossing
-        | midnight can lie inside one. Comparing `end_time` against the end's
-        | clock time WITHOUT this would match a window on the same weekday of
-        | the FOLLOWING week — a lesson at 23:30 «inside» a Tuesday morning slot.
+        | ⚠️ ASKED OF EACH SLOT ON ITS OWN CLOCK, NOT AS A UTC `WHERE`. A slot is
+        | wall-clock time in the teacher's zone (2026-09-25), so «Tuesday 17:00
+        | Cairo» is 14:00Z in October and 15:00Z in November — one SQL comparison
+        | of clock strings cannot say both. The teacher's slots are a handful of
+        | rows; `containsSpan()` converts the ask into each one's zone, and refuses
+        | a lesson that crosses midnight on that clock.
         */
-        if ($endsAt->format('w') !== $startsAt->format('w')) {
-            return false;
-        }
-
         return AvailabilitySlot::query()
             // The slot belongs to the teacher's workspace and the asker is a
             // student who belongs to none.
             ->withoutWorkspaceScope()
             ->where('teacher_profile_id', $teacherProfileId)
-            ->where('day_of_week', (int) $startsAt->format('w'))
-            ->where('start_time', '<=', $startsAt->format('H:i:s'))
-            ->where('end_time', '>=', $endsAt->format('H:i:s'))
-            ->exists();
+            ->get()
+            ->contains(fn (AvailabilitySlot $slot): bool => $slot->containsSpan($startsAt, $endsAt));
     }
 
     /**

@@ -26,6 +26,8 @@ import {
 } from "@/lib/public-api";
 import { counted, courseTypeLabel } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
+import { platformName } from "@/lib/platform";
+import { absoluteHttpUrl } from "@/components/seo/JsonLd";
 
 type Params = { slug: string };
 
@@ -77,23 +79,43 @@ export async function generateMetadata({
 
   try {
     const course = await loadCourse(slug);
+    const title = course.teacher
+      ? `${course.title} — ${course.teacher.name}`
+      : course.title;
+    const description =
+      course.description?.slice(0, 155) ??
+      `${course.title}: ${counted(course.lessons_count, {
+        one: "درس واحد",
+        two: "درسان",
+        few: "دروس",
+        many: "درساً",
+        other: "درس",
+      })} على منصّتنا.`;
+    // Absolute, for the reason the home page's is: a relative canonical
+    // resolves against whichever host the crawler arrived on.
+    const url = siteUrl(`/courses/${course.slug ?? course.uuid}`);
 
     return {
-      title: course.teacher
-        ? `${course.title} — ${course.teacher.name}`
-        : course.title,
-      description:
-        course.description?.slice(0, 155) ??
-        `${course.title}: ${counted(course.lessons_count, {
-          one: "درس واحد",
-          two: "درسان",
-          few: "دروس",
-          many: "درساً",
-          other: "درس",
-        })} على منصّتنا.`,
-      // Absolute, for the reason the home page's is: a relative canonical
-      // resolves against whichever host the crawler arrived on.
-      alternates: { canonical: siteUrl(`/courses/${course.slug ?? course.uuid}`) },
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        title,
+        description,
+        url,
+        type: "website",
+        locale: "ar_QA",
+        siteName: await platformName(),
+        // The cover when it is an absolute URL, the section's banner otherwise:
+        // a share card with no image is a grey strip in every chat app.
+        images: [
+          {
+            url:
+              absoluteHttpUrl(course.cover_url) ??
+              siteUrl("/marketplace/banner-courses.webp"),
+          },
+        ],
+      },
     };
   } catch {
     return { title: "غير متاح" };

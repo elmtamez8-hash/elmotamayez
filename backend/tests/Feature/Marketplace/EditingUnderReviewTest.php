@@ -59,6 +59,7 @@ it('refuses the applicant their own week while the reviewer is looking at it, an
     Sanctum::actingAs($this->teacher->user);
 
     $this->putJson('/api/v1/teacher/availability', [
+        'timezone' => 'Asia/Qatar',
         'availability' => [['day_of_week' => 2, 'start_time' => '09:00', 'end_time' => '11:00']],
     ])->assertStatus(422);
 

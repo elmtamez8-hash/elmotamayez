@@ -10,6 +10,7 @@ use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\ReverseCourseOrder;
+use App\Modules\Payments\Actions\ReverseCreditOrder;
 use App\Modules\Payments\Actions\SettleRefundDue;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Enums\OrderStatus;
@@ -425,6 +426,59 @@ class OrderResource extends Resource
     }
 
     /**
+     * «عكس الدفع» لشراءِ أرصدةٍ أو باقةِ حصص — المالُ يعودُ ومعه ما لم يُصرَفْ من
+     * الأرصدةِ التي اشتراها.
+     *
+     * ⛔ لم يكنْ لهذينِ البيعَينِ بابُ عكسٍ: `ReverseCourseOrder` يرفضُهما، وباقةُ
+     * الحصصِ لا صفَّ اشتراكٍ لها يبلغُه `CancelSubscription`، و`AdjustCredits` بلا
+     * شاشة.
+     *
+     * ⚠️ العددُ يُقرَأُ للموظّفِ قبلَ التأكيد من الإجراءِ نفسِه
+     * ({@see ReverseCreditOrder::refundableFor()})، لا من تقديرٍ بجانبِه. والحارسانِ
+     * هما حارسا زرِّ الكورس: `authorize('reverse')` (صلاحيةُ اعتمادِ شراءِ الأرصدة
+     * لطلبٍ منصّيّ) والتحقّقُ بخطوتَين يُسأَلُ بيد.
+     */
+    public static function reverseCreditsAction(): Action
+    {
+        return Action::make('reverse_credits')
+            ->label('عكس الدفع')
+            ->icon(Heroicon::OutlinedArrowUturnLeft)
+            ->color('danger')
+            ->visible(fn (Order $record): bool => $record->status === OrderStatus::Approved->value
+                && ReverseCreditOrder::reverses($record))
+            ->authorize('reverse')
+            ->requiresConfirmation()
+            ->modalHeading('عكس الدفع')
+            ->modalDescription(fn (Order $record): string => sprintf(
+                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
+                app(ReverseCreditOrder::class)->refundableFor($record),
+                app(ReverseCreditOrder::class)->seatsReleasedFor($record),
+            ))
+            ->schema([
+                Textarea::make('reason')
+                    ->label('السبب')
+                    ->required()
+                    ->maxLength(500)
+                    ->helperText('يصل هذا النصّ إلى الطالب مع إشعار العكس.'),
+            ])
+            ->action(function (Order $record, array $data): void {
+                if (self::refusedForTwoFactor()) {
+                    return;
+                }
+
+                try {
+                    app(ReverseCreditOrder::class)->handle($record, self::actor(), (string) $data['reason']);
+                } catch (DomainException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->persistent()->send();
+
+                    return;
+                }
+
+                Notification::make()->warning()->title('عُكست الدفعة وسُحب الرصيد غير المستهلك')->send();
+            });
+    }
+
+    /**
      * «تمّ الردّ» — المالُ المستحَقُّ للمشتري أُرسِلَ إليه.
      *
      * ⛔ `refund_due` لم يكنْ له مخرج: المتجرُ يكتبُه (استردادُ المشتري داخلَ
@@ -530,6 +584,7 @@ class OrderResource extends Resource
                 self::approveAction(),
                 self::rejectAction(),
                 self::reverseAction(),
+                self::reverseCreditsAction(),
                 self::settleRefundAction(),
             ]);
     }

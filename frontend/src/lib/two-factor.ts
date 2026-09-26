@@ -36,8 +36,12 @@ export const twoFactor = {
   disable: (currentPassword: string, code: string) =>
     api.delete<void>("/auth/2fa", { current_password: currentPassword, code }),
 
-  regenerateRecoveryCodes: () =>
-    api.post<{ recovery_codes: string[] }>("/auth/2fa/recovery-codes"),
+  /** Behind the same password and live code `disable` asks for. */
+  regenerateRecoveryCodes: (currentPassword: string, code: string) =>
+    api.post<{ recovery_codes: string[] }>("/auth/2fa/recovery-codes", {
+      current_password: currentPassword,
+      code,
+    }),
 
   /** The second half of signing in. No token exists yet, so none is sent. */
   challenge: (challenge: string, credential: { code?: string; recovery_code?: string }) =>

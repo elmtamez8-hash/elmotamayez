@@ -188,6 +188,8 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - «The previous session» means the previous one IN THIS STUDENT'S GROUP.
 - Hiding an unassigned session from discovery must never swallow a seat that was paid for.
 - THE HEARTBEAT ASKS WHAT CAN EVICT, NOT WHAT LET YOU IN — AND CONFLATING THE TWO COST 15 QUERIES A BEAT AND THREW PAYING STUDENTS OUT OF LESSONS.
+- EVERY TIME IS SHOWN ON THE READER'S OWN CLOCK (`useViewerTimeZone()` · `UserClock`), AND THE PLATFORM ZONE DECIDES ONLY WHERE A DAY BEGINS.
+- A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._
@@ -239,6 +241,7 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - A BOOLEAN THAT ANSWERS A QUESTION WHICH HAS QUIETLY GROWN A THIRD ANSWER SWALLOWS THAT ANSWER AT EVERY READER, AND IT WAS SEVEN OF THEM.
 - A LOT IS OPENED BY THE SIGN OF A MOVEMENT, NEVER BY ITS TYPE — and a type list left two credits with no batch behind them.
 - `subscriptions.ends_on` IS INCLUSIVE — the last day that opens — so N days end on `starts + N − 1`, and a renewal already bought moves when a later freeze extends the month before it.
+- A GATEWAY-CAPTURED ORDER NEVER READS `approved`, so «has this order been taken back?» is `cancelled`/`rejected`, never «not approved».
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._
@@ -273,7 +276,7 @@ _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo
 - A reversal that shares its original's idempotency key is swallowed for ever.
 - A cause that was reversed is REINSTATED by negating the chain's head, never re-awarded — and a duplicate award gives its daily slot back.
 - The gamification catalogue is reference data, so an empty one awards nothing and every assertion passes against zero.
-- The day and week boundary lives in `GamificationCalendar` and reads the EXISTING `sessions.timezone` row.
+- The day and week boundary lives in `GamificationCalendar` and reads the ONE platform zone — `SESSIONS_TIMEZONE` since 2026-09-25, when the panel-editable row that disagreed with the scheduler was removed.
 - A picker is derived from the AUTHORISER'S OWN PREDICATE, never assembled beside it.
 - A middleware list given to `withBroadcasting()` REPLACES the `api` group, and the thing it drops is spatie's team id.
 - pusher-js unbinds BY FUNCTION REFERENCE, and removes every entry matching it — so two subscribers passing the SAME function are both killed by the first cleanup.
@@ -323,6 +326,7 @@ _Read before touching anything under `frontend/src/`._
 - `PasswordField` is the one spelling, and `"password"` had to leave `TextField`'s type union in the same change.
 - A screen with no permission gate may only make reads EVERYBODY holds — and `/dashboard` made one nobody but a teacher did.
 - AN ENDPOINT NO FILE IN `frontend/src` CALLS IS A FEATURE NOBODY HAS — and three of them surfaced in one day (2026-09-06), each reported by the user as a missing product.
+- A session time is drawn on `useViewerTimeZone()`, never on `session.timezone` — that field is the PLATFORM zone.
 
 ### HTTP surface, rate limits and proxies → [`docs/gotchas/http-and-security.md`](docs/gotchas/http-and-security.md)
 _Read before touching routes, middleware, rate limiters, API response shapes, logging._
@@ -367,6 +371,9 @@ _Read before touching `docker/`, `scripts/`, Horizon, the scheduler, env and sec
 - Provider secrets go in the ENVIRONMENT, and the repo's own "operational numbers live in `platform_settings`" rule does not apply to them.
 - The npm advisories: `sharp` is FIXED, `postcss` is accepted, and the guard for what remains is CALL-SITE DISCIPLINE — not the config, whatever an earlier version of this note claimed.
 - `withoutOverlapping()` on `Schedule::job()` guards the DISPATCH, not the run — for a queued job that is milliseconds around the push, released long before the worker starts, so last night's sweep still walking when tonight's begins runs two copies over the same rows.
+- The backend image had NO `php.ini` until 2026-09-25 — and `opcache.validate_timestamps=0` now means a manual `artisan config:cache` in a running container is invisible to FPM until it restarts.
+- A job that fails for good mails `HORIZON_NOTIFICATION_EMAIL` once per class per hour; a server that is DOWN alerts nobody without an external uptime check.
+- The deploy checks out the SHA CI tested, and rollback is `bash scripts/rollback.sh` — images only, never the code or the migrations.
 
 ### Testing (pest, vitest, Playwright) → [`docs/gotchas/testing.md`](docs/gotchas/testing.md)
 _Read before touching writing or debugging any test._

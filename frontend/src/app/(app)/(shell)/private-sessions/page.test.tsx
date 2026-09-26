@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 import type { PrivateSessionRequest } from "@/lib/private-sessions";
 import { formatSessionTime } from "@/lib/session-format";
+import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 
 import MyPrivateSessionsPage from "./page";
 
@@ -67,16 +68,25 @@ describe("the student's private-session requests", () => {
     expect(screen.getByText("بانتظار ردّ المدرّس")).toBeTruthy();
   });
 
-  it("formats times in the zone the row carries, not the browser's", async () => {
-    mine.mockResolvedValue({ data: [row({ starts_at: "2026-10-10T13:00:00Z" })] });
+  /*
+  | ⚠️ ON THE VIEWER'S CLOCK, NOT THE ZONE THE ROW CARRIES (2026-09-25). The row's
+  | `timezone` is the PLATFORM zone (Asia/Qatar); a student in Cairo reads the
+  | lesson on Cairo's clock, with the clock named. November, because in summer
+  | the two clocks agree and the case would prove nothing.
+  */
+  afterEach(() => setStoredViewerTimeZone(null));
+
+  it("formats times on the viewer's own clock, with the clock named", async () => {
+    setStoredViewerTimeZone("Africa/Cairo");
+    mine.mockResolvedValue({ data: [row({ starts_at: "2026-11-10T15:00:00Z" })] });
 
     await open();
 
-    const doha = formatSessionTime("2026-10-10T13:00:00Z", "Asia/Qatar");
+    const cairo = formatSessionTime("2026-11-10T15:00:00Z", "Africa/Cairo");
 
     // The two zones must disagree, or this proves nothing about which one ran.
-    expect(doha).not.toBe(formatSessionTime("2026-10-10T13:00:00Z", "UTC"));
-    expect(screen.getByText((text) => text.includes(doha))).toBeTruthy();
+    expect(cairo).not.toBe(formatSessionTime("2026-11-10T15:00:00Z", "Asia/Qatar"));
+    expect(screen.getByText((text) => text.includes(`${cairo} (توقيت مصر)`))).toBeTruthy();
   });
 
   it("shows the teacher's reason on a refusal, and offers no withdraw", async () => {

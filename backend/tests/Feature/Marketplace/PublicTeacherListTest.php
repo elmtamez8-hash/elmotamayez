@@ -183,6 +183,9 @@ it('matches only teachers inside an active availability window for available_now
         'day_of_week' => (int) $now->format('w'),
         'start_time' => $now->copy()->subHour()->format('H:i:s'),
         'end_time' => $now->copy()->addHour()->format('H:i:s'),
+        // The hours above are UTC clock times, so the row says so: a slot is
+        // wall-clock time on the clock it names (2026-09-25).
+        'timezone' => 'UTC',
     ]));
 
     $this->asGuest();

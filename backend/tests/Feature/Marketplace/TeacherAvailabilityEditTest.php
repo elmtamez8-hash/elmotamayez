@@ -13,7 +13,7 @@ use Laravel\Sanctum\Sanctum;
 | else in the tree — once, at submission, for the life of the account. Meanwhile
 | `GenerateSessionsFromAvailability` builds a teacher's whole schedule from it,
 | `RequestPrivateSession` refuses anything outside it, `ReadPublicCourse` and
-| `PublicTeacherDetailResource` publish it, and `AvailabilitySlot::coversUtc()`
+| `PublicTeacherDetailResource` publish it, and `AvailabilitySlot::covers()`
 | answers with it. A teacher whose week changed had no screen and no route.
 |
 | Same family as `photo_path`, found the day before.
@@ -37,6 +37,7 @@ it('replaces the whole week rather than merging into it', function (): void {
     Sanctum::actingAs($this->teacher->user);
 
     $this->putJson('/api/v1/teacher/availability', [
+        'timezone' => 'Asia/Qatar',
         'availability' => [
             ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '11:00'],
         ],
@@ -54,6 +55,7 @@ it('refuses two windows that overlap on one day', function (): void {
     Sanctum::actingAs($this->teacher->user);
 
     $this->putJson('/api/v1/teacher/availability', [
+        'timezone' => 'Asia/Qatar',
         'availability' => [
             ['day_of_week' => 2, 'start_time' => '09:00', 'end_time' => '12:00'],
             ['day_of_week' => 2, 'start_time' => '11:00', 'end_time' => '13:00'],
@@ -73,7 +75,7 @@ it('refuses an empty week', function (): void {
     // and never written to, so the timetable comes back untouched afterwards.
     Sanctum::actingAs($this->teacher->user);
 
-    $this->putJson('/api/v1/teacher/availability', ['availability' => []])
+    $this->putJson('/api/v1/teacher/availability', ['availability' => [], 'timezone' => 'Asia/Qatar'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('availability');
 });
@@ -107,6 +109,7 @@ it('refuses an account with no teacher profile, and writes nothing', function ()
     Sanctum::actingAs($student);
 
     $this->putJson('/api/v1/teacher/availability', [
+        'timezone' => 'Asia/Qatar',
         'availability' => [
             ['day_of_week' => 0, 'start_time' => '09:00', 'end_time' => '10:00'],
         ],

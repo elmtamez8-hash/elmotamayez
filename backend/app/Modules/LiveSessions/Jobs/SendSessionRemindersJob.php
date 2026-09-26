@@ -136,10 +136,9 @@ class SendSessionRemindersJob implements ShouldQueue
             return;
         }
 
-        $startsAt = $session->starts_at
-            ->copy()
-            ->setTimezone($settings->timezone())
-            ->format('Y-m-d H:i');
+        // The student's own clock with the zone named: a family in Cairo and a
+        // teacher in Doha are an hour apart for half the year.
+        $startsAt = $settings->formatFor($student, $session->starts_at);
 
         $dispatch->handle(new NotificationRequest(
             recipient: $student,

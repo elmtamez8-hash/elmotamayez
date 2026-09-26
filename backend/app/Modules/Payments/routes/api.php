@@ -248,7 +248,9 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     Route::get('/admin/payments/audit/{transaction}', [PaymentAuditController::class, 'show']);
 
     Route::get('/admin/billing/pricing', [BillingPricingController::class, 'show']);
-    Route::put('/admin/billing/pricing', [BillingPricingController::class, 'update']);
+    // `2fa.required`: this write moves the price of every future sale on the
+    // platform, which is a money decision of the same weight as approving one.
+    Route::put('/admin/billing/pricing', [BillingPricingController::class, 'update'])->middleware('2fa.required');
 
     /*
     | Read by the RATE-APPROVAL screen, and deliberately not part of its payload:

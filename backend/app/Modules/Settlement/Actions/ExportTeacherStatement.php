@@ -9,6 +9,7 @@ use App\Modules\Settlement\Data\TeacherStatement;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Settlement\Support\TeacherFieldAllowlist;
 use App\Shared\Actions\Action;
+use App\Shared\Support\CsvCell;
 
 /**
  * The same statement, as a file (FR-021).
@@ -103,7 +104,10 @@ class ExportTeacherStatement extends Action
             // The type, not the word "deduction": a reversal and a manual
             // deduction move the same total for entirely different reasons, and
             // an export that flattens them cannot be argued with.
-            $rows[] = [$line['type'], (string) $line['amount_minor'], $line['reason'] ?? ''];
+            //
+            // The reason is free text an officer typed, so it goes through
+            // `CsvCell::safe()` before a spreadsheet can read it as a formula.
+            $rows[] = [$line['type'], (string) $line['amount_minor'], CsvCell::safe((string) ($line['reason'] ?? ''))];
         }
 
         $rows[] = ['net_minor', (string) $statement->netMinor];

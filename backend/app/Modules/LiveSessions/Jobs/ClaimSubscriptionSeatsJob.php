@@ -100,7 +100,8 @@ class ClaimSubscriptionSeatsJob implements ShouldQueue
             fn (array $row): string => sprintf(
                 '%s (%s)',
                 $row['title'],
-                Carbon::parse($row['starts_at'])->setTimezone($settings->timezone())->format('Y-m-d H:i'),
+                // The student's own clock, zone named (2026-09-25).
+                $settings->formatFor($student, Carbon::parse($row['starts_at'])),
             ),
             $refused,
         ));

@@ -77,7 +77,6 @@ class ManageSessionSettings extends Page
     public static function fields(): array
     {
         return [
-            'timezone' => ['key' => 'sessions.timezone', 'cast' => 'string'],
             'grace_minutes' => ['key' => 'sessions.grace_minutes', 'cast' => 'int'],
             'absence_threshold_ratio' => ['key' => 'sessions.absence_threshold_ratio', 'cast' => 'float'],
             'required_stay_ratio' => ['key' => 'sessions.required_stay_ratio', 'cast' => 'float'],
@@ -156,25 +155,28 @@ class ManageSessionSettings extends Page
             ->components([
                 Form::make([
                     /*
-                    | ⚠️ **منطقةٌ زمنيّةٌ واحدةٌ للمنتَجِ كلِّه، وهذا الصفُّ هو
-                    | إعلانُها.** `GamificationCalendar` يقرأُ هذا الصفَّ بعينِه
-                    | ليحسبَ حدودَ اليومِ والأسبوع؛ إعلانٌ ثانٍ في مكانٍ آخرَ هو ما
-                    | يجعلُ السقفَ اليوميَّ ينزلقُ عن جدولِ الحصصِ بصمت. الأوقاتُ
-                    | تُخزَّنُ UTC دائماً؛ هذه هي التي تُعرَضُ ويُعَدُّ بها.
+                    | ⛔ **للقراءةِ فقط، والمجدوِلُ هو السبب.** كانَ هذا الحقلُ يكتبُ
+                    | صفّاً في `platform_settings`، بينما `routes/console.php`
+                    | يقرأُ `SESSIONS_TIMEZONE` لأنّه يُحمَّلُ عندَ إقلاعِ
+                    | `schedule:work` وقبلَ أن تكونَ القاعدةُ متاحة — فحفظٌ هنا كانَ
+                    | يُحرِّكُ يومَ الفوترةِ وحدودَ الأسبوعِ ويتركُ المهامَّ الليليّةَ
+                    | على الساعةِ القديمة. مصدرٌ واحدٌ الآن: البيئة.
+                    |
+                    | ⚠️ وهذه منطقةُ **حدودِ اليوم** لا منطقةُ العرض: كلُّ مستخدمٍ
+                    | يرى المواعيدَ بتوقيتِه هو (`users.timezone`، وإلّا متصفّحُه).
                     */
                     Section::make('التوقيت')
-                        ->description('منطقةٌ واحدةٌ يُعرَض بها كلُّ موعدٍ ويُحسَب بها حدُّ اليوم والأسبوع. التخزين UTC دائماً.')
+                        ->description('منطقةُ المنصّة التي يُحسَب بها حدُّ اليوم والأسبوع (يوم الفوترة، أيام التجميد، أسبوع المكافآت، مواعيد المهام الليلية). كلُّ مستخدم يرى المواعيد بتوقيته هو. التخزين UTC دائماً.')
                         ->schema([
-                            // قائمةٌ لا خانةَ نصّ: اسمٌ غيرُ صالحٍ هنا يُبطِلُ حسابَ
-                            // اليومِ في المكافآتِ بلا خطأٍ في أيِّ مكان.
                             Select::make('timezone')
-                                ->label('المنطقة الزمنيّة')
+                                ->label('منطقة المنصّة')
                                 ->options(array_combine(
                                     timezone_identifiers_list(),
                                     timezone_identifiers_list(),
                                 ))
-                                ->searchable()
-                                ->required(),
+                                ->helperText('تُضبَط من متغيّر البيئة SESSIONS_TIMEZONE ثم إعادة تشغيل العمّال والمجدوِل — لا من هنا.')
+                                ->disabled()
+                                ->dehydrated(false),
                         ]),
 
                     /*

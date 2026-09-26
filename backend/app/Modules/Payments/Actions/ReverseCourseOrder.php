@@ -12,6 +12,7 @@ use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Support\SubscriptionAccess;
 use App\Shared\Actions\Action;
 use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Traits\LogsActivity;
@@ -44,9 +45,10 @@ use Illuminate\Support\Facades\DB;
  *      من هذا الملفِّ رسالتانِ عن فعلٍ واحد. والمستمِعُ مُصطفٌّ بعدَ التثبيت،
  *      فرفضٌ داخلَ المعاملةِ لا يُرسِلُ للطالبِ خبراً عن عكسٍ لم يقع.
  *
- * ⚠️ لطلبِ الكورسِ وحدَه. طلبُ الأرصدةِ سكَّ رصيداً قد يكونُ استُهلِك، والاشتراكُ
- * له بابُه (`CancelSubscription`) — وعكسُ أيٍّ منهما هنا يُعيدُ المالَ ويتركُ ما
- * اشتُرِيَ به قائماً.
+ * ⚠️ لطلبِ الكورسِ وحدَه. طلبُ الأرصدةِ وباقةُ الحصصِ لهما بابُهما
+ * (`ReverseCreditOrder`، يسحبُ ما لم يُستهلَكْ من الرصيد)، والاشتراكُ له بابُه
+ * (`CancelSubscription`) — وعكسُ أيٍّ منها هنا يُعيدُ المالَ ويتركُ ما اشتُرِيَ
+ * به قائماً.
  *
  * ⚠️ والمقاعدُ المحجوزةُ ومكانُ المجموعةِ يُحرَّرانِ بحدثٍ لا من هنا (قرارُ
  * المالك ٢٠٢٦-٠٩-٢٣): `CourseAccessWithdrawn` تسمعُه LiveSessions فتُلغي حجوزَ ما
@@ -101,6 +103,24 @@ class ReverseCourseOrder extends Action
                 ->whereIn('status', Enrollment::GRANTING_STATUSES)
                 ->get(['id', 'course_id', 'student_user_id', 'workspace_id']);
 
+            /*
+            | ⛔ BUT FIRST, HAND BACK WHAT A STILL-RUNNING SUBSCRIPTION PAYS FOR.
+            | `EnrollStudent::handOver()` moves a live subscriber's row to an
+            | outright purchase of the same course, so cancelling it here closed
+            | the month the student is still paying for. The row goes back to the
+            | running subscription on its own clock — as `CancelSubscription` does
+            | for a renewal — and is neither closed nor announced as withdrawn.
+            */
+            $handedBack = SubscriptionAccess::handBackRows(
+                $closing,
+                (int) $order->getKey(),
+                (int) $order->user_id,
+            );
+
+            $closing = $closing->reject(
+                static fn (Enrollment $row): bool => in_array((int) $row->getKey(), $handedBack, true),
+            );
+
             $closed = Enrollment::query()
                 ->withoutWorkspaceScope()
                 ->whereIn('id', $closing->pluck('id'))
@@ -130,6 +150,7 @@ class ReverseCourseOrder extends Action
                 'reversed_by' => $by->getKey(),
                 'transaction_id' => $captured->getKey(),
                 'enrollments_closed' => $closed,
+                'enrollments_handed_back' => count($handedBack),
             ]);
         });
 

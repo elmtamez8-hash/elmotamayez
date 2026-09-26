@@ -11,6 +11,7 @@ use App\Modules\Marketplace\Actions\UpdateTeacherSlug;
 use App\Modules\Marketplace\Http\Requests\SetAvailabilityRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherProfileRequest;
 use App\Modules\Marketplace\Http\Requests\UpdateTeacherSlugRequest;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherApplication;
@@ -114,12 +115,19 @@ class TeacherProfileController extends Controller
             | يحفظُ فوقَه.
             |
             | و`H:i:s` كما يخزّنُها العمود؛ العميلُ يقتطعُ الثواني كما يفعلُ المعالجُ
-            | سلفاً، ويحوّلُ من UTC بـ`toLocalSlot`.
+            | سلفاً. وكلُّ فترةٍ تحملُ `timezone`: الساعاتُ ساعاتُ المدرّسِ على
+            | ساعتِه، والعميلُ يعرضُها على ساعةِ القارئِ بـ`toViewerSlot`.
             */
             'availability' => $profile->availabilitySlots()
                 ->orderBy('day_of_week')
                 ->orderBy('start_time')
-                ->get(['day_of_week', 'start_time', 'end_time'])
+                ->get(['day_of_week', 'start_time', 'end_time', 'timezone'])
+                ->map(fn (AvailabilitySlot $slot): array => [
+                    'day_of_week' => $slot->day_of_week,
+                    'start_time' => $slot->start_time,
+                    'end_time' => $slot->end_time,
+                    'timezone' => $slot->zone(),
+                ])
                 ->all(),
         ]);
     }
@@ -194,8 +202,8 @@ class TeacherProfileController extends Controller
      * أنّ الاستبدالَ كاملٌ لا دمج، وأنّ التداخلَ مرفوض، وأنّه يجبُ إفراغُ ذاكرةِ
      * السوقِ وإلّا بقيَ «متاح الآن» يعلنُ نافذةً حذفَها المدرّسُ للتوّ.
      *
-     * ⚠️ ولا تحويلَ منطقةٍ زمنيّةٍ هنا: العميلُ يرسلُ UTC (`toUtcSlot`) والعمودُ
-     * UTC، فتحويلٌ ثانٍ هنا يُزيحُ كلَّ فترةٍ مرّتَين.
+     * ⚠️ ولا تحويلَ منطقةٍ زمنيّةٍ هنا ولا في العميل: الساعاتُ تُخزَّنُ كما كتبَها
+     * المدرّسُ ومعها `timezone` ساعتِه (٢٠٢٦-٠٩-٢٥)، وكلُّ قارئٍ يحوّلُ لكلِّ تاريخ.
      */
     public function updateAvailability(SetAvailabilityRequest $request, SetAvailability $action): JsonResponse
     {
@@ -207,7 +215,7 @@ class TeacherProfileController extends Controller
 
         // ولا `try/catch`: رفضُ التداخلِ `DomainException` ويحوّلُه `bootstrap/app.php`
         // إلى ٤٢٢ بجملتِه العربيّةِ نفسِها — والتقاطُه هنا نسخةٌ ثانيةٌ من قاعدةٍ عامّة.
-        $action->handle($profile, $request->validated('availability'));
+        $action->handle($profile, $request->validated('availability'), (string) $request->validated('timezone'));
 
         return $this->show($request);
     }

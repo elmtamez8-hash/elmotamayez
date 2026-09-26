@@ -1,116 +1,102 @@
 import { describe, expect, it } from "vitest";
 
-import { blankTimeIndex, crossesUtcMidnight, toLocalSlot, toUtcSlot } from "./availability";
+import { blankTimeIndex, endsBeforeStartIndex, startsWithin, toViewerSlot } from "./availability";
 import type { AvailabilityItem } from "./public-api";
 
 /*
-| The weekly window, both ways.
+| The weekly window: wall-clock hours on the teacher's clock, with the clock
+| named (2026-09-25).
 |
-| ⚠️ THE ROUND TRIP IS THE ASSERTION, NOT EITHER HALF. A test checking «16:00
-| becomes 13:00» has to name an offset, so it passes only on a machine in that
-| zone and is deleted by whoever first runs the suite somewhere else. A round trip
-| is true in every zone and false for every half-conversion: shift the hour and
-| leave `day_of_week` alone and it fails on exactly the slots near midnight, which
-| is the defect that shape produces.
-|
-| ⚠️ AND A UTC MACHINE CANNOT SEE THE BUG AT ALL — there the round trip holds over
-| a pair of functions that both do nothing. So the offset decides what may be
-| claimed, and the cases that need a real offset say so.
+| ⚠️ EVERY ASSERTION NAMES ITS ZONES, AND NONE READS THE MACHINE'S. The old
+| suite asserted a round trip because the conversion used the browser's offset
+| and a literal hour could pass only on one machine. Now both ends of every
+| conversion are named zones, so the cases can state concrete hours — which is
+| the only way to see the DST defect this replaced: Egypt leaves daylight saving
+| on 2026-10-29 (UTC+3 → UTC+2) and Qatar never has it (UTC+3 all year).
 */
 
-/** A Wednesday in September, so the anchor is fixed for every case below. */
-const FROM = new Date("2026-09-02T12:00:00Z");
+const CAIRO = "Africa/Cairo";
+const DOHA = "Asia/Qatar";
 
-const offsetMinutes = FROM.getTimezoneOffset();
-
-function slot(day: number, start: string, end: string): AvailabilityItem {
-  return { day_of_week: day, start_time: start, end_time: end };
+function cairo(day: number, start: string, end: string): AvailabilityItem {
+  return { day_of_week: day, start_time: start, end_time: end, timezone: CAIRO };
 }
 
-describe("availability conversion", () => {
-  it("returns what it was given, all the way around the week", () => {
-    for (let day = 0; day < 7; day += 1) {
-      for (const [start, end] of [
-        ["00:00", "01:00"],
-        ["08:30", "12:00"],
-        ["16:00", "18:00"],
-        ["22:45", "23:59"],
-      ]) {
-        const original = slot(day, start, end);
+describe("a Cairo teacher's Tuesday 17:00, offered as real dates", () => {
+  const TUESDAY_17 = [cairo(2, "17:00", "18:00")];
 
-        expect(toUtcSlot(toLocalSlot(original, FROM), FROM)).toEqual(original);
-        expect(toLocalSlot(toUtcSlot(original, FROM), FROM)).toEqual(original);
-      }
-    }
+  it("is 17:00 Cairo — 14:00Z — on the last Tuesday of summer time", () => {
+    const [first] = startsWithin(TUESDAY_17, 60, new Date("2026-10-26T00:00:00Z"), 1);
+
+    expect(first.toISOString()).toBe("2026-10-27T14:00:00.000Z");
   });
 
-  it("keeps the length of the window", () => {
-    const minutes = (s: AvailabilityItem) =>
-      Number(s.end_time.slice(0, 2)) * 60 + Number(s.end_time.slice(3))
-      - (Number(s.start_time.slice(0, 2)) * 60 + Number(s.start_time.slice(3)));
+  it("is STILL 17:00 Cairo — now 15:00Z — on the first Tuesday after 2026-10-29", () => {
+    /*
+     | ⚠️ THE WHOLE DEFECT IN ONE LINE. A window stored as «Tuesday 14:00 UTC»
+     | answers 14:00Z here too — 16:00 on the teacher's own clock. Per-date
+     | conversion in the window's zone answers 15:00Z.
+     */
+    const [first] = startsWithin(TUESDAY_17, 60, new Date("2026-11-02T00:00:00Z"), 1);
 
-    for (let day = 0; day < 7; day += 1) {
-      // 150 minutes is 150 minutes in every zone. A conversion that dropped the
-      // minutes, or applied the offset to one end only, changes it.
-      expect(minutes(toUtcSlot(slot(day, "09:15", "11:45"), FROM))).toBe(150);
-      expect(minutes(toLocalSlot(slot(day, "09:15", "11:45"), FROM))).toBe(150);
-    }
+    expect(first.toISOString()).toBe("2026-11-03T15:00:00.000Z");
   });
 
-  it("moves the weekday when the hour crosses midnight", () => {
-    if (offsetMinutes === 0) {
-      // A UTC machine cannot show this, and asserting it here would be asserting
-      // the clock rather than the code. The round trip above still covers it.
-      expect(toUtcSlot(slot(1, "01:00", "02:00"), FROM)).toEqual(slot(1, "01:00", "02:00"));
+  it("offers only starts whose WHOLE duration fits", () => {
+    const starts = startsWithin([cairo(2, "17:00", "18:30")], 45, new Date("2026-11-02T00:00:00Z"), 1);
 
-      return;
-    }
+    expect(starts.map((at) => at.toISOString())).toEqual([
+      "2026-11-03T15:00:00.000Z",
+      "2026-11-03T15:45:00.000Z",
+    ]);
+  });
 
-    // Ahead of UTC (Qatar, +3): 01:00 Monday local is the previous day in UTC.
-    // Behind it (New York, −5): 22:00 Sunday local is the next day in UTC.
-    const near = offsetMinutes < 0 ? slot(1, "01:00", "01:30") : slot(0, "22:30", "23:00");
+  it("reads a slot with no zone as the UTC payload it came from", () => {
+    // A public page cached from before the change carries UTC hours and no zone.
+    const [first] = startsWithin([{ day_of_week: 2, start_time: "14:00", end_time: "15:00" }], 60, new Date("2026-11-02T00:00:00Z"), 1);
 
-    expect(toUtcSlot(near, FROM).day_of_week).not.toBe(near.day_of_week);
+    expect(first.toISOString()).toBe("2026-11-03T14:00:00.000Z");
   });
 });
 
-describe("crossesUtcMidnight", () => {
-  it("says no to an ordinary afternoon window", () => {
-    expect(crossesUtcMidnight(slot(2, "16:00", "18:00"), FROM)).toBe(false);
+describe("toViewerSlot — one window, two readers", () => {
+  const window = cairo(2, "17:00", "18:00");
+
+  it("is 17:00 to Cairo and 17:00 to Doha while Egypt is on summer time", () => {
+    const october = new Date("2026-10-20T12:00:00Z");
+
+    expect(toViewerSlot(window, CAIRO, october)).toEqual({ day_of_week: 2, start_time: "17:00", end_time: "18:00" });
+    expect(toViewerSlot(window, DOHA, october)).toEqual({ day_of_week: 2, start_time: "17:00", end_time: "18:00" });
   });
 
-  it("catches the window the database cannot hold", () => {
-    if (offsetMinutes === 0) {
-      // With no offset nothing can straddle, and a window is never rejected.
-      expect(crossesUtcMidnight(slot(1, "01:00", "03:00"), FROM)).toBe(false);
+  it("is still 17:00 to Cairo and becomes 18:00 to Doha in winter", () => {
+    const november = new Date("2026-11-10T12:00:00Z");
 
-      return;
-    }
+    expect(toViewerSlot(window, CAIRO, november)).toEqual({ day_of_week: 2, start_time: "17:00", end_time: "18:00" });
+    expect(toViewerSlot(window, DOHA, november)).toEqual({ day_of_week: 2, start_time: "18:00", end_time: "19:00" });
+  });
 
-    /*
-     | ⚠️ ONE ROW CARRIES A WEEKDAY AND TWO CLOCK TIMES, so a window whose UTC end
-     | lands past midnight cannot be written at all — `SetAvailability` refuses
-     | `end_time <= start_time`. Without this predicate the teacher is shown a
-     | server message about times they never typed.
-     |
-     | Built from the offset rather than from a literal hour: «the window that
-     | ends just after UTC midnight» is a different local time in every zone.
-     */
-    const ahead = offsetMinutes < 0;
-    const offsetHours = Math.abs(offsetMinutes) / 60;
+  it("moves the weekday when the hour crosses midnight between the two clocks", () => {
+    // 00:30 Wednesday in Doha is 23:30 Tuesday in Cairo in winter.
+    const late = { day_of_week: 3, start_time: "00:30", end_time: "01:00", timezone: DOHA };
 
-    const straddling = ahead
-      // +3 ⇒ local 00:00–03:00 Monday is 21:00 Sunday → 00:00 Monday.
-      ? slot(1, "00:00", `${String(offsetHours).padStart(2, "0")}:00`)
-      // −5 ⇒ local 19:00–23:00 Sunday is 00:00 Monday → 04:00 Monday.
-      : slot(0, `${String(24 - offsetHours).padStart(2, "0")}:00`, "23:00");
+    expect(toViewerSlot(late, CAIRO, new Date("2026-11-10T12:00:00Z"))).toEqual({
+      day_of_week: 2,
+      start_time: "23:30",
+      end_time: "00:00",
+    });
+  });
+});
 
-    expect(crossesUtcMidnight(straddling, FROM)).toBe(true);
+describe("a window the editor cannot send", () => {
+  it("finds a window that ends at or before it starts — one past midnight", () => {
+    expect(endsBeforeStartIndex([cairo(1, "16:00", "18:00"), cairo(2, "22:00", "00:30")])).toBe(1);
+    expect(endsBeforeStartIndex([cairo(1, "16:00", "18:00")])).toBe(-1);
   });
 });
 
 describe("a cleared time", () => {
-  it("is found before any conversion can read it as midnight", () => {
+  it("is found before it can be sent as midnight", () => {
     const week: AvailabilityItem[] = [
       { day_of_week: 0, start_time: "09:00", end_time: "11:00" },
       { day_of_week: 1, start_time: "", end_time: "11:00" },

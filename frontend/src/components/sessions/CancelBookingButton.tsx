@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { classSessions, type BookingStatus } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { formatSessionDay, formatSessionClock } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «إلغاء الحجز» — the student's own way out of a seat.
@@ -36,17 +37,20 @@ export function CancelBookingButton({
 }: {
   bookingUuid: string;
   mayCancelUntil: string;
-  timezone: string;
+  /** Tests only — every screen draws the deadline on the viewer's own clock. */
+  timezone?: string;
   onCancelled: (result: { status: BookingStatus; status_label: string }) => void;
   /** A parameter so a test can say what time it is instead of arranging one. */
   now?: () => number;
 }) {
+  const viewerZone = useViewerTimeZone();
+  const zone = timezone ?? viewerZone;
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
 
   const free = now() < Date.parse(mayCancelUntil);
-  const deadline = `${formatSessionDay(mayCancelUntil, timezone)} ${formatSessionClock(mayCancelUntil, timezone)}`;
+  const deadline = `${formatSessionDay(mayCancelUntil, zone)} ${formatSessionClock(mayCancelUntil, zone)}`;
 
   const message = free
     ? `الإلغاء مجاني حتى ${deadline}: يعود المقعد لغيرك ولا تُحتسب عليك الحصة.`

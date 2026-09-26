@@ -55,6 +55,9 @@ class UserResource extends JsonResource
             // so it never leaks through a stray ->toArray(); named here on purpose.
             'platform_role' => $this->platform_role?->value,
             'last_workspace_id' => $this->last_workspace_id,
+            // The clock this person reads — null until their browser stamps it
+            // (`PUT /me/timezone`), in which case the browser's own zone is used.
+            'timezone' => $this->timezone,
             // Nested rather than flattened onto the root: these are true of a
             // student and of nobody else, and a null grade_level_slug on a
             // teacher's payload reads as missing data rather than as inapplicable.

@@ -13,7 +13,7 @@ declare(strict_types=1);
 | (Q4: "adjusted after the first month of real behaviour").
 |
 | ⚠️ NO TIMEZONE KEY HERE. The day and week boundary reads the existing
-| `sessions.timezone` row (research §R4). A third declaration of the platform's
+| platform zone, `SessionSettings::timezone()` — `SESSIONS_TIMEZONE` (research §R4). A third declaration of the platform's
 | timezone is the exact mistake that would let the daily cap drift away from the
 | class schedule in silence.
 */

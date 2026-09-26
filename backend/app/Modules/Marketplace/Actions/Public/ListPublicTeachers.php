@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Actions\Public;
 
 use App\Modules\Marketplace\DTOs\TeacherFilterDTO;
+use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -84,11 +85,15 @@ class ListPublicTeachers extends Action
         $query->when($filters->availableNow, function (Builder $q): void {
             $now = now('UTC');
 
-            $q->whereHas('availabilitySlots', function (Builder $sub) use ($now): void {
-                $sub->where('day_of_week', (int) $now->format('w'))
-                    ->where('start_time', '<=', $now->format('H:i:s'))
-                    ->where('end_time', '>', $now->format('H:i:s'));
-            });
+            // Per slot ZONE, not in UTC: a slot is wall-clock time on its
+            // teacher's clock (2026-09-25) — `AvailabilitySlot::scopeCovering()`.
+            // A subquery rather than `whereHas`: the slot belongs to the TEACHER's
+            // workspace and this is a public listing, so the reader's own context
+            // must not filter it — and the scope is typed on the slot's builder.
+            $q->whereIn(
+                'teacher_profiles.id',
+                AvailabilitySlot::query()->withoutWorkspaceScope()->covering($now)->select('teacher_profile_id'),
+            );
         });
     }
 

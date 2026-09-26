@@ -391,7 +391,7 @@ function OwnerRail({
  * «سجّل مجاناً» — the free-enrolment door, which had no caller anywhere.
  *
  * ⚠️ DRAWN ONLY ON THE SERVER'S `free_enrollment`, and the door refuses on the
- * same predicate (`courseRequiresPurchase()`), so a course sold by plan never
+ * same predicate (`Course::isFree()`, the teacher's «كورس مجاني»), so no other course ever
  * shows it. A guest is sent to sign up; a STUDENT enrols in place. A guardian is
  * not a student — pressing it would enrol the guardian — and a teacher is refused
  * by the door, so a signed-in account of either kind is sent to its own home

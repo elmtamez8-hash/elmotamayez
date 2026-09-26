@@ -458,7 +458,7 @@ final class PublicFieldAllowlist
     ];
 
     /** @var list<string> */
-    public const AVAILABILITY = ['day_of_week', 'start_time', 'end_time'];
+    public const AVAILABILITY = ['day_of_week', 'start_time', 'end_time', 'timezone'];
 
     /** @var list<string> */
     public const STATS = ['students', 'teachers', 'sessions', 'satisfaction_rate'];

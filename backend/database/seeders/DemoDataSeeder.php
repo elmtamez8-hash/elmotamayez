@@ -365,6 +365,7 @@ class DemoDataSeeder extends Seeder
                 'day_of_week' => $day,
                 'start_time' => $from,
                 'end_time' => $to,
+                'timezone' => 'Asia/Qatar',
             ]);
         }
 

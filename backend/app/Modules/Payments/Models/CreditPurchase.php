@@ -65,6 +65,8 @@ class CreditPurchase extends BaseModel
             'gateway_fee_minor' => 'integer',
             'total_minor' => 'integer',
             'purchased_at' => 'datetime',
+            // Stamped once by `ReverseCreditOrder`; not fillable on purpose.
+            'reversed_at' => 'datetime',
         ];
     }
 

@@ -157,6 +157,14 @@ the offline-recipient notifications ride it; a hand-written `queue:work` whose
 `--queue` list omits it produces the same silence (the `maintenance` lesson from
 spec 019, reached from a second direction).
 
+The `report-cards` queue (`supervisor-report-cards`) is the same rule a second
+time. The monthly build (`BuildReportCardsJob`) only enumerates the period's
+students and dispatches `BuildStudentReportCardsJob` per 200 of them, plus one
+`RenderReportCardJob` per card — all on `report-cards`, so the month-end burst
+never queues ahead of an announcement on `community`. If a chunk fails, dispatch
+the period's build again: published cards are skipped and the rest are claimed
+by their unique key.
+
 ## Post-Deployment Checklist
 
 - [ ] `.env` configured with production values (no debug, proper DB/Redis/Meilisearch)
@@ -165,7 +173,7 @@ spec 019, reached from a second direction).
 - [ ] Horizon running (check `/horizon`)
 - [ ] Reverb running (`reverb:start` under Supervisor) — **nothing errors if it is not; chat just goes one refresh late**
 - [ ] `BROADCAST_CONNECTION=reverb` and the four `REVERB_*` values set
-- [ ] `supervisor-community` present in Horizon's `environments`, not only in `defaults`
+- [ ] `supervisor-community` and `supervisor-report-cards` present in Horizon's `environments`, not only in `defaults`
 - [ ] Meilisearch running and indexed (`php artisan scout:sync-index-settings`)
 - [ ] API docs generated (`/docs`)
 - [ ] SSL/TLS configured (Let's Encrypt or similar)

@@ -50,8 +50,19 @@ class ReadMessages extends Action
 
         Gate::forUser($reader)->authorize('view', $conversation);
 
+        /*
+        | ⚠️ `workspace_id` NAMED BY HAND, AND NOT FOR ISOLATION. The only index on
+        | `messages` is `(workspace_id, conversation_id, id)`, led by the column the
+        | global scope adds — and the scope is dropped here (the reader is often a
+        | student, whose context is not this workspace). Without the leading
+        | column MySQL cannot use that index at all and walks the table backwards
+        | by primary key until it has found fifty rows of this conversation. The
+        | value is the conversation's own, which is what every message copies
+        | (`PostMessage`), so it filters out nothing.
+        */
         $query = Message::query()
             ->withoutWorkspaceScope()
+            ->where('workspace_id', $conversation->workspace_id)
             ->where('conversation_id', $conversation->getKey())
             ->visible()
             // The sender's name, eager — a Resource runs once per row, so a query
@@ -66,6 +77,7 @@ class ReadMessages extends Action
         if ($before !== null && $before !== '') {
             $cursor = Message::query()
                 ->withoutWorkspaceScope()
+                ->where('workspace_id', $conversation->workspace_id)
                 ->where('conversation_id', $conversation->getKey())
                 ->where('uuid', $before)
                 ->value('id');

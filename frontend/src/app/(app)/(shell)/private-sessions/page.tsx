@@ -20,7 +20,8 @@ import {
   privateSessionStatusTone,
 } from "@/lib/labels";
 import { privateSessions, type PrivateSessionRequest } from "@/lib/private-sessions";
-import { formatSessionTime } from "@/lib/session-format";
+import { formatSessionTimeWithZone } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «حصصي الخاصة» — the student's own private-session asks (spec 023 · US3).
@@ -43,6 +44,7 @@ import { formatSessionTime } from "@/lib/session-format";
  * else is happening on this screen, which is the line `Modal` draws.
  */
 export default function MyPrivateSessionsPage() {
+  const zone = useViewerTimeZone();
   const [requests, setRequests] = useState<PrivateSessionRequest[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -129,13 +131,13 @@ export default function MyPrivateSessionsPage() {
             </div>
 
             <p className="text-sm text-ink">
-              {formatSessionTime(request.starts_at, request.timezone)} ·{" "}
+              {formatSessionTimeWithZone(request.starts_at, zone)} ·{" "}
               {counted(request.duration_minutes, NOUNS.minutes)}
             </p>
 
             {request.status === "pending" && (
               <p className="text-xs text-ink-muted">
-                إن لم يردّ المدرّس، ينتهي الطلب {formatSessionTime(request.expires_at, request.timezone)}.
+                إن لم يردّ المدرّس، ينتهي الطلب {formatSessionTimeWithZone(request.expires_at, zone)}.
               </p>
             )}
 
@@ -171,7 +173,7 @@ export default function MyPrivateSessionsPage() {
         message={
           withdrawing === null
             ? undefined
-            : `سيُسحب طلبك لحصة ${formatSessionTime(withdrawing.starts_at, withdrawing.timezone)} ولن يصل إلى المدرّس. يمكنك طلب موعد آخر بعدها.`
+            : `سيُسحب طلبك لحصة ${formatSessionTimeWithZone(withdrawing.starts_at, zone)} ولن يصل إلى المدرّس. يمكنك طلب موعد آخر بعدها.`
         }
         confirmLabel="اسحب الطلب"
         tone="danger"

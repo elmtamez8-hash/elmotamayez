@@ -20,6 +20,7 @@ import {
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * The room.
@@ -36,6 +37,7 @@ export default function SessionRoomPage({
 }: {
   params: Promise<{ uuid: string }>;
 }) {
+  const zone = useViewerTimeZone();
   const { uuid } = use(params);
 
   const [ticket, setTicket] = useState<JoinTicket | null>(null);
@@ -176,7 +178,7 @@ export default function SessionRoomPage({
 
         {session !== null && (
           <p className="mt-1 text-sm text-ink-muted">
-            {formatSessionTime(session.starts_at, session.timezone)} ·{" "}
+            {formatSessionTime(session.starts_at, zone)} ·{" "}
             {counted(session.duration_minutes, NOUNS.minutes)}
             {session.course !== undefined && <> · {session.course.title}</>}
           </p>

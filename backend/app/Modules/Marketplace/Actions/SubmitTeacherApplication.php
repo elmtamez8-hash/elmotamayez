@@ -67,7 +67,7 @@ class SubmitTeacherApplication extends Action
             $profile->subjects()->sync($this->taxonomyIds(Subject::class, $two->subjects));
             $profile->gradeLevels()->sync($this->taxonomyIds(GradeLevel::class, $two->gradeLevels));
 
-            $this->availability->handle($profile, $four->availability);
+            $this->availability->handle($profile, $four->availability, $four->timezone);
 
             $application->forceFill([
                 'teacher_profile_id' => $profile->getKey(),

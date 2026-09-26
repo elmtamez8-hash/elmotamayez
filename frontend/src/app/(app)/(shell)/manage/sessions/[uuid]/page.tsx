@@ -30,6 +30,7 @@ import { userMessage } from "@/lib/errors";
 import { timezoneLabel, counted, NOUNS } from "@/lib/labels";
 import { can, P } from "@/lib/permissions";
 import { formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * Statuses with no room to enter, whatever `room_closed` says. Cancelling never
@@ -44,6 +45,7 @@ export default function ManageSessionPage({
 }: {
   params: Promise<{ uuid: string }>;
 }) {
+  const zone = useViewerTimeZone();
   const { uuid } = use(params);
   const { user } = useAuth();
 
@@ -156,11 +158,11 @@ export default function ManageSessionPage({
         </div>
 
         <p className="mb-1 text-sm text-ink-muted">
-          {formatSessionTime(session.starts_at, session.timezone)}
+          {formatSessionTime(session.starts_at, zone)}
         </p>
         <p className="mb-4 text-sm text-ink-muted">
           المدة {counted(session.duration_minutes, NOUNS.minutes)} · المنطقة الزمنية{" "}
-          <bdi>{timezoneLabel(session.timezone)}</bdi>
+          <bdi>{timezoneLabel(zone)}</bdi>
         </p>
 
         <div className="flex flex-wrap gap-3">
