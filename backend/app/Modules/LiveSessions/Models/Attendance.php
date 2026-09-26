@@ -141,6 +141,22 @@ class Attendance extends BaseModel
      * One rule in two places is how the third caller gets it wrong, so it lives
      * here now and both read it.
      *
+     * ⚠️ AND «THE HOST» IS EVERY MEMBER OF STAFF IN THE ROOM, NOT ONLY THE
+     * SESSION'S OWN TEACHER (2026-09-26). An assistant holding `sessions.host`
+     * joins with no seat, and the heartbeat writes them a row exactly as it does
+     * the teacher. Excluding the teacher's id alone left that row in: the
+     * assistant stood in the class register, collected attendance points through
+     * `attendeeUserIds()`, and counted as a student the teacher had taught. So
+     * the scope now also keeps only people with a booking on this session —
+     * `seatHoldersOnly()` — which is the one way a non-host gets into a room
+     * (`RoomRevocation::stillAdmitted()`), and the same «booked ⇒ student, else
+     * staff» line `ReadSessionRoster::roleFor()` draws.
+     *
+     * The rows themselves stay: `ReadSessionRoster` names the assistant from
+     * theirs, and `CloseClassSession::wasDelivered()` reads the teacher's by id.
+     * The teacher's `!=` stays too — it costs nothing and does not depend on the
+     * teacher never having booked their own lesson.
+     *
      * @param  Builder<Attendance>  $query
      */
     public function scopeExcludingHost(Builder $query, ClassSession $session): void
@@ -152,5 +168,28 @@ class Attendance extends BaseModel
         if ($hostUserId !== null) {
             $query->where('student_user_id', '!=', $hostUserId);
         }
+
+        $this->scopeSeatHoldersOnly($query);
+    }
+
+    /**
+     * Only rows whose person holds a booking on the row's own session — in any
+     * status, because the register lists a late canceller and an excused seat
+     * too; what it must never list is somebody who got in without a seat, which
+     * only staff can.
+     *
+     * CORRELATED on both columns, so it works across many sessions at once
+     * (`SyncTeacherCountersJob`) as well as one, and it is a subquery rather than
+     * a second statement — the unique `(class_session_id, student_user_id)` index
+     * on `session_bookings` answers it.
+     *
+     * @param  Builder<Attendance>  $query
+     */
+    public function scopeSeatHoldersOnly(Builder $query): void
+    {
+        $query->whereExists(fn ($sub) => $sub->selectRaw('1')
+            ->from('session_bookings')
+            ->whereColumn('session_bookings.class_session_id', 'attendances.class_session_id')
+            ->whereColumn('session_bookings.student_user_id', 'attendances.student_user_id'));
     }
 }

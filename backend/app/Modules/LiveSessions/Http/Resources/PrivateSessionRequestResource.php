@@ -86,6 +86,16 @@ class PrivateSessionRequestResource extends JsonResource
                 'classSession',
                 fn () => $this->resource->classSession?->uuid,
             ),
+            /*
+            | The lesson's own status, because «accepted» is a fact about the
+            | REQUEST and stays true after the hour it became is called off
+            | (2026-09-26): the card read «مقبول» with a «صفحة الحصة» button over a
+            | cancelled lesson. Read off the same eager load — no query per row.
+            */
+            'class_session_status' => $this->whenLoaded(
+                'classSession',
+                fn () => $this->resource->classSession?->status->value,
+            ),
         ];
     }
 }

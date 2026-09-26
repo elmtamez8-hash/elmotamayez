@@ -125,6 +125,37 @@ describe("the student's private-session requests", () => {
     expect(link.getAttribute("href")).toBe("/sessions/s-9");
   });
 
+  /*
+  | ⚠️ «accepted» OUTLIVES THE LESSON (2026-09-26). The request stays accepted
+  | when the hour it became is called off, and the card read «مقبول» with a
+  | «صفحة الحصة» button over a cancelled lesson.
+  */
+  it("says the lesson was called off, and offers no page for it, when an accepted hour is cancelled", async () => {
+    mine.mockResolvedValue({
+      data: [row({ status: "accepted", class_session_uuid: "s-9", class_session_status: "cancelled" })],
+    });
+
+    await open();
+
+    expect(screen.getByText("الحصة ملغاة")).toBeTruthy();
+    expect(screen.queryByText("مقبول")).toBeNull();
+    expect(screen.queryByRole("link", { name: "صفحة الحصة" })).toBeNull();
+  });
+
+  it("keeps the lesson link on an accepted hour that is still scheduled", async () => {
+    // The control: a build that hid the link on every accepted card would pass
+    // the case above.
+    mine.mockResolvedValue({
+      data: [row({ status: "accepted", class_session_uuid: "s-9", class_session_status: "scheduled" })],
+    });
+
+    await open();
+
+    expect(screen.getByText("مقبول")).toBeTruthy();
+    expect(screen.queryByText("الحصة ملغاة")).toBeNull();
+    expect(screen.getByRole("link", { name: "صفحة الحصة" }).getAttribute("href")).toBe("/sessions/s-9");
+  });
+
   it("withdraws only after the window is confirmed, then reloads", async () => {
     mine.mockResolvedValueOnce({ data: [row({})] });
     mine.mockResolvedValueOnce({ data: [row({ status: "withdrawn" })] });
