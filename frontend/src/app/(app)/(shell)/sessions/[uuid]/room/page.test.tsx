@@ -31,7 +31,18 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 // Rendered only once a ticket exists; kept out of jsdom.
 vi.mock("@/components/sessions/BroadcastStage", () => ({ BroadcastStage: () => null }));
-vi.mock("@/components/sessions/PresenceLoop", () => ({ PresenceLoop: () => null }));
+// One beat on mount, so the line the beat feeds («مدة حضورك») can be asked about.
+vi.mock("@/components/sessions/PresenceLoop", async () => {
+  const { useEffect } = await import("react");
+  return {
+    PresenceLoop: ({ onUpdate }: { onUpdate?: (state: { stay_seconds: number; status: string; session_status: string }) => void }) => {
+      useEffect(() => {
+        onUpdate?.({ stay_seconds: 600, status: "present", session_status: "live" });
+      }, [onUpdate]);
+      return null;
+    },
+  };
+});
 vi.mock("@/components/community/SessionChat", () => ({ SessionChat: () => null }));
 
 function session(overrides: Record<string, unknown> = {}) {
@@ -149,6 +160,39 @@ describe("a cancelled session", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(joinCalls()).toBe(1);
+  });
+});
+
+describe("«مدة حضورك» in the room", () => {
+  /*
+  | The host's beat keeps a register row (delivery is judged from it), and the
+  | room printed its stay to the TEACHER as «مدة حضورك» — a student's line about
+  | a lesson they were giving, not attending.
+  */
+  async function enterAs(role: "host" | "participant") {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ status: "live", room_opened: true }))
+        : Promise.reject(new Error("403")),
+    );
+    post.mockImplementation(() =>
+      Promise.resolve({ role, token: "t", room_url: "wss://x", expires_at: "", presence_interval_seconds: 30 }),
+    );
+
+    await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+  }
+
+  it("shows the student their stay", async () => {
+    await enterAs("participant");
+
+    expect(screen.queryByText(/مدة حضورك/)).not.toBeNull();
+  });
+
+  it("never shows it to the host", async () => {
+    await enterAs("host");
+
+    expect(screen.queryByText(/مدة حضورك/)).toBeNull();
   });
 });
 

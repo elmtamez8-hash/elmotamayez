@@ -272,7 +272,10 @@ export default function SessionRoomPage({
               onUpdate={onPresence}
             />
 
-            {presence !== null && (
+            {/* The host's beat keeps a register row too — it is how delivery is
+                judged — but «مدة حضورك» is a student's line: the teacher is
+                teaching the lesson, not attending it. */}
+            {presence !== null && ticket.role !== "host" && (
               <p className="text-sm text-ink-muted">
                 مدة حضورك حتى الآن <bdi>{Math.floor(presence.stay_seconds / 60)}</bdi> دقيقة.
               </p>
