@@ -39,6 +39,19 @@ type Category = {
   subject_roles: ("student" | "teacher" | "parent")[];
 };
 
+type Processor = {
+  key: string;
+  name: string;
+  purpose: string;
+  processing_location: string;
+  categories: string[];
+  erasure_capability_label_ar: string;
+};
+
+type Catalogue = { data: Category[]; processors: Processor[] };
+
+const EMPTY_CATALOGUE: Catalogue = { data: [], processors: [] };
+
 /*
 | ⚠️ **الكتالوجُ مقسَّمٌ بالدَّورِ لا مسروداً عائماً.** ثلاثةٌ وثلاثونَ فئةً في
 | قائمةٍ واحدةٍ تجعلُ الزائرَ يقرأُ عن أرباحِ المدرّسِ وهو يُوازِنُ تسجيلَ ابنِه،
@@ -76,23 +89,30 @@ const SECTIONS: { role: Category["subject_roles"][number]; title: string; lead: 
  */
 const PUBLIC_API = process.env.MARKETPLACE_API_URL ?? "http://localhost:8000/api/v1";
 
-async function categories(): Promise<Category[]> {
+async function catalogue(): Promise<Catalogue> {
   try {
     const response = await fetch(
       `${PUBLIC_API}/privacy/categories`,
       { cache: "no-store" },
     );
 
-    if (!response.ok) return [];
+    if (!response.ok) return EMPTY_CATALOGUE;
 
-    return ((await response.json()) as { data: Category[] }).data;
+    /*
+      ⚠️ **`processors` كانَ يصلُ ويُرمى.** الخادمُ يُرجِعُ سجلَّ المعالِجينَ بجوارِ
+      الفئاتِ عمداً (FR-024)، والصفحةُ كانت تأخذُ `.data` وحدَها — فالنصُّ يقولُ
+      «القائمةُ الكاملةُ معروضة» ولا قائمةَ على الصفحةِ العامّة.
+    */
+    const body = (await response.json()) as Partial<Catalogue>;
+
+    return { data: body.data ?? [], processors: body.processors ?? [] };
   } catch {
     /*
       ⚠️ قائمةٌ فارغةٌ لا صفحةُ خطأ. نصُّ السياسةِ فوقَها هو الوثيقةُ، والأقسامُ
       تفصيلٌ يشرحُه — فانقطاعٌ في القراءةِ لا يجوزُ أن يمنعَ النصَّ المنشورَ
       الذي يُحيلُ إليه كلُّ فوتر.
     */
-    return [];
+    return EMPTY_CATALOGUE;
   }
 }
 
@@ -121,7 +141,8 @@ async function policy(): Promise<{ version: string; body_html: string } | null> 
 }
 
 export default async function PrivacyPage() {
-  const [document, catalogue] = await Promise.all([policy(), categories()]);
+  const [document, { data: categories, processors }] = await Promise.all([policy(), catalogue()]);
+  const labelOf = new Map(categories.map((category) => [category.key, category.label]));
 
   return (
     <div className="space-y-6">
@@ -160,12 +181,12 @@ export default async function PrivacyPage() {
         </>
       )}
 
-      {catalogue.length > 0 && (
+      {categories.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-lg font-semibold text-ink">تفصيل ما نجمعه، حسب نوع الحساب</h2>
 
           {SECTIONS.map((section) => {
-            const rows = catalogue.filter((category) =>
+            const rows = categories.filter((category) =>
               category.subject_roles.includes(section.role),
             );
 
@@ -196,6 +217,38 @@ export default async function PrivacyPage() {
               </div>
             );
           })}
+        </section>
+      )}
+
+      {processors.length > 0 && (
+        <section id="processors" aria-labelledby="processors-title" className="scroll-mt-24 space-y-3">
+          <h2 id="processors-title" className="text-lg font-semibold text-ink">
+            من يعالج بياناتك نيابةً عنّا
+          </h2>
+          <p className="text-sm text-ink-muted">
+            خدماتٌ خارجية تمرّ بها بعض بياناتك لتعمل المنصّة. لا نبيع بيانات أحد لأيّ جهة.
+          </p>
+
+          <ul className="divide-y divide-line rounded-2xl border border-line px-5">
+            {processors.map((processor) => (
+              <li key={processor.key} className="py-3">
+                <span className="font-medium text-ink">
+                  <bdi>{processor.name}</bdi>
+                </span>
+                <p className="mt-1 text-sm text-ink-muted">{processor.purpose}</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  مكان المعالجة: {processor.processing_location} · الحذف عند الطلب:{" "}
+                  {processor.erasure_capability_label_ar}
+                </p>
+                {processor.categories.length > 0 && (
+                  <p className="mt-1 text-xs text-ink-muted">
+                    ما يصله:{" "}
+                    {processor.categories.map((key) => labelOf.get(key) ?? key).join("، ")}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

@@ -48,6 +48,8 @@ class IdentityPersonalData implements PersonalDataOwner
     {
         return [
             'student_name',
+            // 2026-09-26 — the sign-in address, exported under `student_name` until now.
+            'account_email',
             'contact_phone',
             'date_of_birth',
             'guardian_link',
@@ -68,9 +70,21 @@ class IdentityPersonalData implements PersonalDataOwner
         yield 'student_name' => [[
             'first_name' => $user->first_name,
             'last_name' => $user->last_name,
-            'email' => $user->email,
             'country' => $user->country,
             'created_at' => $user->created_at?->toIso8601String(),
+        ]];
+
+        /*
+        | ⚠️ THE CREDENTIALS ARE NAMED BY A BOOLEAN, NEVER SHIPPED. The password
+        | hash and the two-factor secret are banned outright by
+        | `ExportFieldAllowlist::forbiddenKeys()`; what the subject is entitled to
+        | know is THAT a second factor guards the account, not the secret itself.
+        */
+        yield 'account_email' => [[
+            'email' => $user->email,
+            'email_verified_at' => ExportWalk::at($user->email_verified_at),
+            'two_factor_enabled' => $user->hasTwoFactorEnabled(),
+            'timezone' => $user->timezone,
         ]];
 
         yield 'contact_phone' => [[
@@ -326,6 +340,8 @@ class IdentityPersonalData implements PersonalDataOwner
                 'email' => $anonymiser->email($user->getKey()),
                 'phone' => null,
                 'country' => null,
+                // Where somebody lives, to the hour — part of `account_email`'s row.
+                'timezone' => null,
             ])->save();
 
             $user->studentProfile()->update([
@@ -361,9 +377,9 @@ class IdentityPersonalData implements PersonalDataOwner
         array $exemptUserIds = [],
     ): int {
         /*
-        | ⚠️ FIVE OF THIS MODULE'S SEVEN CATEGORIES EXPIRE ON NO CLOCK AT ALL, and
-        | saying so is the answer rather than an omission. A name, a phone number
-        | and a date of birth are held for as long as the ACCOUNT is — they have no
+        | ⚠️ SIX OF THIS MODULE'S EIGHT CATEGORIES EXPIRE ON NO CLOCK AT ALL, and
+        | saying so is the answer rather than an omission. A name, an email, a phone
+        | number and a date of birth are held for as long as the ACCOUNT is — they have no
         | age of their own, and a sweep that deleted a living user's name after N
         | days would break the product on a schedule. Their catalogue rows carry a
         | null retention, so `DataCategory::expires()` is false and the sweep never
@@ -377,7 +393,7 @@ class IdentityPersonalData implements PersonalDataOwner
         | row is what other things are counted from.
         |
         | ⚠️ AND THE MATCH IS EXHAUSTIVE BY DEFAULT-RETURN, not by `match`: the
-        | sweep asks about every category this module declares, five of which must
+        | sweep asks about every category this module declares, six of which must
         | answer 0 without doing anything.
         */
         if ($mode !== ExpiryBehaviour::Anonymise) {

@@ -170,6 +170,33 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => null,
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
+            /*
+            | ⚠️ البريدُ كانَ يُصدَّرُ تحتَ `student_name` ويُجهَّلُ في المسحِ ولا
+            | صفَّ له — فشاشةُ الموافقةِ لم تقلْ لأحدٍ إنّنا نحفظُه، وهو اسمُ
+            | الدخولِ نفسُه (مراجعةٌ قانونيّةٌ ٢٠٢٦-٠٩-٢٦).
+            |
+            | ⚠️ وكلمةُ المرورِ ومفتاحُ التحقّقِ بخطوتينِ مذكوران في الغرضِ لا
+            | صنفاً ولا حقلاً في التصدير: هما بيانا اعتمادٍ، و`ExportFieldAllowlist`
+            | يحظرُ `password` و`secret` عمداً. والمنطقةُ الزمنيّةُ تُصدَّرُ هنا لأنّها
+            | إعدادٌ على الصفِّ نفسِه لا يستحقُّ مدّةَ حفظٍ خاصّة.
+            |
+            | و`Anonymise` لا غيرُه: وحدةُ `Identity` كلُّها على وضعٍ واحد، ووضعٌ
+            | مخالفٌ يُطفئُ مسحَها كلَّه (`ErasureModeAgreementTest`).
+            */
+            [
+                'key' => 'account_email',
+                'subject_roles' => ['student', 'teacher', 'parent'],
+                'label' => 'البريد الإلكتروني وبيانات الدخول',
+                'purpose' => 'لتسجيل دخولك، ولنرسل إليك رابط استعادة كلمة المرور. نحفظ كلمة المرور مشفّرةً تشفيراً لا يُعكس فلا يقرؤها أحد، ونحفظ مفتاح التحقّق بخطوتين إن فعّلته، ومنطقتك الزمنية لنعرض المواعيد على ساعتك.',
+                'audience' => 'أنت · إدارة المنصّة · مزوّد البريد',
+                'is_required' => true,
+                'owning_module' => 'identity',
+                'table_name' => 'users',
+                'column_name' => 'email',
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
             [
                 'key' => 'date_of_birth',
                 'subject_roles' => ['student'],

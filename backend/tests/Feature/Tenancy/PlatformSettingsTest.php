@@ -194,3 +194,37 @@ it('lets the operator switch the button off by clearing the field', function ():
     // الفراغُ قرارٌ لا عطلٌ: منصّةٌ بلا خطِّ دعمٍ لا تعرضُ زرّاً يفتحُ محادثةَ غريب.
     expect(PlatformSettings::get('platform.support_whatsapp'))->toBe('');
 });
+
+/*
+| The legal pages' identity (2026-09-26): three optional fields, trimmed on
+| write, and an address that is not an email is refused at the form.
+*/
+it('stores the legal name, address and contact email for the legal pages', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->fillForm([
+            'legal_name' => '  شركة المتميّز للتعليم  ',
+            'postal_address' => 'الدوحة، قطر',
+            'contact_email' => 'privacy@example.com',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(PlatformSettings::get('platform.legal_name'))->toBe('شركة المتميّز للتعليم')
+        ->and(PlatformSettings::get('platform.postal_address'))->toBe('الدوحة، قطر')
+        ->and(PlatformSettings::get('platform.contact_email'))->toBe('privacy@example.com');
+});
+
+it('refuses a contact email that is not an email', function (): void {
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    Auth::login($admin);
+
+    Livewire::test(ManagePlatformSettings::class)
+        ->fillForm(['contact_email' => 'not-an-email'])
+        ->call('save')
+        ->assertHasFormErrors(['contact_email']);
+
+    expect(PlatformSettings::get('platform.contact_email'))->toBe('');
+});
