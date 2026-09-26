@@ -120,7 +120,12 @@ class WebPushChannel implements NotificationChannelInterface
                 $report = $client->sendOneNotification($this->subscription($row), $payload);
             } catch (Throwable $e) {
                 // One unreachable device must not cost the others theirs.
-                $lastFailure = $e->getMessage();
+                //
+                // ⚠️ The CLASS, never `getMessage()`: an HTTP client's message
+                // quotes the URL it called, and here that URL is the device's
+                // push endpoint — the identifier the log below promises to keep
+                // out (013 · FR-041).
+                $lastFailure = $e::class;
 
                 continue;
             }
@@ -148,7 +153,10 @@ class WebPushChannel implements NotificationChannelInterface
                 continue;
             }
 
-            $lastFailure = $report->getReason();
+            // The status, never `getReason()` — it is the same client message,
+            // endpoint and all.
+            $status = $report->getResponse()?->getStatusCode();
+            $lastFailure = $status !== null ? 'HTTP '.$status : 'no response';
         }
 
         if ($accepted > 0) {

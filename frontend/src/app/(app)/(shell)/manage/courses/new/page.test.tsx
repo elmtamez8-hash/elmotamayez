@@ -66,6 +66,35 @@ describe("the new course form", () => {
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.is_free_enrollment).toBe(true);
   });
+
+  it("sends the course type picked from the tiles, and none until one is picked", async () => {
+    render(<CreateCoursePage />);
+
+    const typeRadios = screen
+      .getAllByRole("radio")
+      .filter((r) => (r as HTMLInputElement).name === "course_type");
+    expect(typeRadios.some((r) => (r as HTMLInputElement).checked)).toBe(false);
+
+    fireEvent.click(screen.getByRole("radio", { name: /جماعي/ }));
+    submit();
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalled());
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.course_type).toBe("group");
+  });
+
+  it("creates a public course by default, and a private one when the teacher picks it", async () => {
+    render(<CreateCoursePage />);
+
+    submit();
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect((post.mock.calls[0] as [string, Record<string, unknown>])[1].visibility).toBe("public");
+
+    fireEvent.click(screen.getByRole("radio", { name: /^خاص/ }));
+    submit();
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect((post.mock.calls[1] as [string, Record<string, unknown>])[1].visibility).toBe("private");
+  });
 });
 
 /*
@@ -76,7 +105,7 @@ describe("«ظهور الكورس» on the new course form", () => {
   it("offers the choice to the teacher, and sends «private» when picked", async () => {
     render(<CreateCoursePage />);
 
-    fireEvent.click(screen.getByLabelText(/خاص — لا يصل إليه/));
+    fireEvent.click(screen.getByRole("radio", { name: /^خاص/ }));
     submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
@@ -92,7 +121,7 @@ describe("«ظهور الكورس» on the new course form", () => {
     render(<CreateCoursePage />);
 
     expect(screen.queryByText("ظهور الكورس")).toBeNull();
-    expect(screen.queryByLabelText(/خاص — لا يصل إليه/)).toBeNull();
+    expect(screen.queryByRole("radio", { name: /^خاص/ })).toBeNull();
 
     submit();
 

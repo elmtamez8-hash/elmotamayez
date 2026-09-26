@@ -22,6 +22,26 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 
   /*
+    ⚠️ `/API/v1/platform` WAS A 500 ON PRODUCTION WHILE `/api/v1/platform` WAS A
+    200 (measured 2026-09-26), and it was this line's absence.
+
+    Next compiles `headers`/`redirects`/`rewrites` sources case-INSENSITIVELY by
+    default. nginx's `location ^~ /api` is case-sensitive, so every other casing
+    fell through to Next, matched `/api/:path*` below anyway, and was proxied to
+    the destination — which is baked at BUILD time, where `API_ORIGIN` is unset,
+    so it is `http://localhost:8000` inside the container: nothing listens, and
+    the proxy error is a 500. `/STORAGE/…` did the same.
+
+    Case-sensitive, a casing nobody links to matches no rewrite and no page, and
+    gets the ordinary 404. It affects ONLY these three custom-route lists (see
+    `buildCustomRoute` in next's `router-utils/filesystem.js`); page routing is
+    case-sensitive already.
+  */
+  experimental: {
+    caseSensitiveRoutes: true,
+  },
+
+  /*
     The video page that used to live at its own route.
 
     Its removal is deliberate — a screen that did not know an item's type offered

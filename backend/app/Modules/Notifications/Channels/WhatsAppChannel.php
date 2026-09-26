@@ -224,21 +224,27 @@ class WhatsAppChannel implements NotificationChannelInterface, SendsVerification
         $reason = is_array($error) && is_string($error['message'] ?? null)
             ? $error['message']
             : 'HTTP '.$status;
+        $providerCode = is_array($error) && is_int($error['code'] ?? null) ? $error['code'] : 0;
 
-        // ⚠️ The number is MASKED. A delivery log is the one place nobody guards
-        // and everybody forwards to a monitoring vendor (FR-022).
+        // ⚠️ The number is MASKED, and the provider's MESSAGE is not logged at
+        // all: it is free text that can echo the number it refused. The status
+        // and the provider's numeric code say everything a log reader needs. A
+        // delivery log is the one place nobody guards and everybody forwards to
+        // a monitoring vendor (FR-022).
         Log::warning('[notifications] whatsapp send failed', [
             'status' => $status,
+            'provider_code' => $providerCode,
             'template' => $templateKey,
             'to' => PhoneNumber::mask($to),
             'transient' => $isTransient,
-            'reason' => $reason,
         ]);
 
         if ($status >= 400 && $status < 500 && $status !== 429 && ! $isTransient) {
-            throw PermanentDeliveryException::invalidRecipient($reason);
+            throw PermanentDeliveryException::invalidRecipient($reason, $providerCode);
         }
 
-        throw new RuntimeException($reason);
+        // ⚠️ NOT `$reason`. A transient failure is RETHROWN by the job, and the
+        // worker reports a rethrown exception — message and all — to the log.
+        throw new RuntimeException('HTTP '.$status, $providerCode);
     }
 }
