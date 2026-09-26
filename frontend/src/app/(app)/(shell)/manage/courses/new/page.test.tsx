@@ -79,7 +79,7 @@ describe("the new course form", () => {
     await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect((post.mock.calls[0] as [string, Record<string, unknown>])[1].visibility).toBe("public");
 
-    fireEvent.click(screen.getByRole("radio", { name: /خاص/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /^خاص/ }));
     submit();
     await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2));
     expect((post.mock.calls[1] as [string, Record<string, unknown>])[1].visibility).toBe("private");
