@@ -91,6 +91,8 @@ class CreateCourseRequest extends FormRequest
             'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],
+            // «كورس مجاني» — the only thing that makes a course free.
+            'is_free_enrollment' => ['sometimes', 'boolean'],
         ];
     }
 }

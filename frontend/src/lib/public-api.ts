@@ -289,7 +289,7 @@ export type CourseDetail = {
   private_subscription_available: boolean;
   /**
    * Whether «سجّل مجاناً» may be drawn — the free-enrolment door's own predicate
-   * (`courseRequiresPurchase()`), never `price_minor === 0`: the price defaults
+   * (`Course::isFree()` — the teacher's explicit «كورس مجاني»), never `price_minor === 0`: the price defaults
    * to 0 on a course sold only by plan.
    */
   free_enrollment: boolean;

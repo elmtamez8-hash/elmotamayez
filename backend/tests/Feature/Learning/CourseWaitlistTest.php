@@ -177,6 +177,8 @@ it('refuses a FREE full course too, which never passes through an order', functi
         'workspace_id' => $this->workspace->getKey(),
         'created_by' => $this->owner->getKey(),
         'price_minor' => 0,
+        // «كورس مجاني» — the only thing that makes a course free (2026-09-25).
+        'is_free_enrollment' => true,
         'status' => 'published',
     ]);
 

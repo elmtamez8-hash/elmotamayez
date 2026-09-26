@@ -59,19 +59,6 @@ interface SubscriptionDirectory
     ): array;
 
     /**
-     * Whether this course is sold — by a one-off price or by any sellable plan
-     * that reaches it (spec 027 · FR-004).
-     *
-     * ⚠️ THIS EXISTS BECAUSE `Course::isFree()` CANNOT ANSWER IT. That method is
-     * `price_minor === 0`, and `courses.price` defaults to 0 and prices the
-     * ONE-OFF purchase alone — so a course sold by subscription or by credits
-     * reads as free, and narrowing the self-enrolment door with it leaves that
-     * door open for exactly the courses the feature exists to sell, while the
-     * criterion that measures the narrowing passes green over it.
-     */
-    public function courseRequiresPurchase(int $courseId): bool;
-
-    /**
      * Whether a sellable plan reaches this course — optionally of one session
      * type only (spec 027 · FR-003).
      *

@@ -73,7 +73,12 @@ it('still lets a genuinely free course be enrolled in', function (): void {
     | this sold» is a refusal, and a refusal written one condition too wide shuts
     | the free door on every course on the platform — which is the mirror defect,
     | costing the teacher every student who would have walked in.
+    |
+    | ⛔ «Genuinely free» is the teacher's explicit flag since 2026-09-25 — a
+    | course at price 0 with no plan is NOT free unless its teacher said so.
     */
+    $this->course->forceFill(['is_free_enrollment' => true])->save();
+
     $this->actingAs($this->student, 'sanctum')
         ->postJson('/api/v1/courses/'.$this->course->uuid.'/enroll')
         ->assertStatus(201);
@@ -107,6 +112,9 @@ it('is not fooled by another teacher group plan', function (): void {
     Plan::factory()->forCohort((string) $otherCohort->uuid)->create([
         'workspace_id' => $otherWorkspace->getKey(),
     ]);
+
+    // Free by its teacher's explicit flag (2026-09-25).
+    $this->course->forceFill(['is_free_enrollment' => true])->save();
 
     $this->actingAs($this->student, 'sanctum')
         ->postJson('/api/v1/courses/'.$this->course->uuid.'/enroll')

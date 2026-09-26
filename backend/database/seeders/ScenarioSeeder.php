@@ -196,6 +196,7 @@ final class ScenarioSeeder extends Seeder
             'slug' => 'git-basics',
             'description' => 'Version control from zero: commits, branches and merges.',
             'price_minor' => 0,
+            'is_free_enrollment' => true,
             'status' => 'published',
             'visibility' => 'public',
             'is_sequential' => false,

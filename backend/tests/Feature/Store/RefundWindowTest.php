@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Models\Order;
-use App\Modules\Store\Actions\FulfilStorePurchase;
 use App\Modules\Store\Actions\IssueStoreAccess;
 use App\Modules\Store\Actions\PurchaseStoreItem;
 use App\Modules\Store\Actions\RefundStorePurchase;
@@ -49,8 +49,12 @@ function boughtAndPaid(): StoreOrder
         'item_uuid' => test()->item->uuid,
     ]));
 
-    app(FulfilStorePurchase::class)->handle(
+    // ⚠️ APPROVED, NOT MERELY FULFILLED: a refund is refused on an order that
+    // was never paid, and `FulfilStorePurchase` alone leaves it `pending`.
+    // Approval fulfils through `FulfilOnPaymentApproved` like production does.
+    app(ApproveOrder::class)->handle(
         Order::query()->whereKey($purchase->order_id)->firstOrFail(),
+        test()->owner,
     );
 
     return $purchase->refresh();
@@ -139,8 +143,12 @@ function printedAndFulfilled(): array
         'address_line' => 'الدوحة',
     ]));
 
-    app(FulfilStorePurchase::class)->handle(
+    // ⚠️ APPROVED, NOT MERELY FULFILLED: a refund is refused on an order that
+    // was never paid, and `FulfilStorePurchase` alone leaves it `pending`.
+    // Approval fulfils through `FulfilOnPaymentApproved` like production does.
+    app(ApproveOrder::class)->handle(
         Order::query()->whereKey($purchase->order_id)->firstOrFail(),
+        test()->owner,
     );
 
     return [$printed, $purchase->refresh()];
@@ -195,7 +203,13 @@ it('still refunds a file inside the window, unopened, and offers the button for 
     expect(app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer)->refunded_at)->not->toBeNull();
 });
 
-it('never restocks a purchase that was never delivered', function (): void {
+it('refuses to refund an order that was never paid, and leaves it pending', function (): void {
+    /*
+    | ⛔ A pending order used to be «refunded» — and became `refund_due`, an
+    | instruction to the platform's finance officer to send back a transfer that
+    | never arrived. Nothing was paid, so there is nothing to give back: the
+    | buyer simply does not pay.
+    */
     $printed = StoreItem::factory()->physical(2)->create(['workspace_id' => $this->workspace->getKey()]);
 
     $purchase = app(PurchaseStoreItem::class)->handle($this->buyer, PurchaseData::fromArray([
@@ -205,11 +219,13 @@ it('never restocks a purchase that was never delivered', function (): void {
         'address_line' => 'الدوحة',
     ]));
 
-    // Refunded before the transfer ever cleared. No copy was taken, so returning
-    // one would add a book to the shelf that does not exist.
-    app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
+    expect(fn (): StoreOrder => app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer))
+        ->toThrow(DomainException::class, RefundStorePurchase::UNPAID_REFUSAL);
 
-    expect((int) $printed->refresh()->stock)->toBe(2);
+    expect($purchase->refresh()->refunded_at)->toBeNull()
+        ->and(Order::query()->whereKey($purchase->order_id)->value('status'))->toBe('pending')
+        // And no copy invented on the shelf.
+        ->and((int) $printed->refresh()->stock)->toBe(2);
 });
 
 it('leaves the refund open when the file was not ready to open', function (): void {

@@ -308,10 +308,14 @@ the CLIENT sends `Idempotency-Key`. `lib/store.ts` mints one per attempt.
 | `/admin/coupons…` | Filament (`CouponResource`) | **platform** · `billing.coupons.manage` |
 | `/admin/sibling-discount` | Filament (`ManageSiblingDiscount`) | **platform** · `billing.coupons.manage` |
 
-A code may be spent on all THREE purchase paths, because a coupon's scope covers
-`course` and `credit_package` as well as `store_item`: `POST /store/purchases`,
-`POST /orders/{course}` and `POST /billing/purchases` each take an optional
-`coupon_code`.
+A code may be spent on TWO purchase paths: `POST /store/purchases` and
+`POST /billing/purchases` each take an optional `coupon_code`. The third,
+`POST /courses/{course}/orders`, was removed on 2026-09-25 (owner decision: a
+course is sold through a plan only), so a coupon scoped to `course` has no
+purchase behind it any more. `RedeemCoupon` refuses a second place on one code
+while the same buyer's first order with it is still undecided — a place is
+claimed at purchase and is never released on a rejection (a rejected order can
+return to `under_review` at its discounted amount).
 
 - **`coupons` carries no `BelongsToWorkspace`, and the violation is recorded** in
   `plan.md › Complexity Tracking`. FR-010 moved authorship to the platform, so a

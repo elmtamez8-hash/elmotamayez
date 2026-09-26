@@ -65,8 +65,6 @@ async function renderRail(isFull = false, sale: Sale = {}) {
     render(
       <CourseOwnershipProvider courseUuid="c-1">
         <CourseRail
-          priceMinor={49900}
-          currency="QAR"
           courseUuid="c-1"
           isFull={isFull}
           enrolmentOpen={sale.enrolmentOpen ?? true}
@@ -302,13 +300,15 @@ describe("CourseRail", () => {
     expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
   });
 
-  it("shows the price to a learner on a course that is on sale", async () => {
-    // The guard in the other direction: an inverted condition hides every price.
+  it("shows no price on a course that is on sale — plans carry the price", async () => {
+    // Owner decision 2026-09-25: a course is sold through a plan only, so the
+    // rail names no amount and no «مجاني» on a course that is not free.
     mockUser = { uuid: "u-2", platform_role: "student" };
 
     await renderRail();
 
-    expect(screen.getByText(/499/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "اشترك بحصص خاصة" })).toBeTruthy();
+    expect(screen.queryByText("مجاني")).toBeNull();
     expect(screen.queryByText("لم يفتح المدرّس الاشتراك بعد")).toBeNull();
   });
 });

@@ -33,6 +33,7 @@ class EditOrder extends EditRecord
             OrderResource::approveAction(),
             OrderResource::rejectAction(),
             OrderResource::reverseAction(),
+            OrderResource::settleRefundAction(),
         ];
     }
 }

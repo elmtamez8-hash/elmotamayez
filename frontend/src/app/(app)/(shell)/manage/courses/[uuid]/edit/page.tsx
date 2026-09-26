@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { COURSE_TYPES, fromMinorMoney, toMinorMoney } from "@/lib/labels";
+import { COURSE_TYPES } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
@@ -14,21 +14,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CheckIcon, CoursesIcon } from "@/components/icons";
 import {
   CheckboxField,
-  NumberField,
   SelectField,
   TextField,
   TextareaField,
 } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
-
-const CURRENCIES = [
-  { value: "QAR", label: "ريال قطري" },
-  { value: "SAR", label: "ريال سعودي" },
-  { value: "AED", label: "درهم إماراتي" },
-  { value: "EGP", label: "جنيه مصري" },
-  { value: "USD", label: "دولار أمريكي" },
-];
 
 /*
   ما يُقال للمدرّس عن حالة فيديوه. «مرفوض» بلا سببٍ يُجيبه بلصقِ الرابطِ نفسِه،
@@ -54,9 +45,9 @@ export default function EditCoursePage({
   const [form, setForm] = useState({
     title: "",
     description: "",
-    price: "0",
     currency: "QAR",
     is_sequential: true,
+    is_free_enrollment: false,
     subject: "",
     grade_level: "",
     course_type: "",
@@ -96,9 +87,9 @@ export default function EditCoursePage({
         setForm({
           title: c.title,
           description: c.description ?? "",
-          price: fromMinorMoney(c.price_minor ?? 0),
           currency: c.currency,
           is_sequential: c.is_sequential,
+          is_free_enrollment: c.is_free_enrollment ?? false,
           subject: c.subject?.uuid ?? "",
           grade_level: c.grade_level ?? "",
           /*
@@ -147,7 +138,6 @@ export default function EditCoursePage({
     setFields({});
 
     try {
-      const { price, ...rest } = form;
 
       /*
         `promo_video_url` is sent only when the teacher actually typed something:
@@ -155,11 +145,8 @@ export default function EditCoursePage({
         sending an empty string on every save would clear an approved video every
         time the title was edited.
       */
-      const { promo_video_url: pastedUrl, ...withoutPromo } = rest;
-      const payload: Record<string, unknown> = {
-        ...withoutPromo,
-        price_minor: toMinorMoney(price),
-      };
+      const { promo_video_url: pastedUrl, ...withoutPromo } = form;
+      const payload: Record<string, unknown> = { ...withoutPromo };
       if (pastedUrl.trim() !== "") payload.promo_video_url = pastedUrl.trim();
 
       await api.put(`/courses/${uuid}`, payload);
@@ -332,26 +319,24 @@ export default function EditCoursePage({
             </Alert>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <NumberField
-              id="price"
-              label="السعر"
-              value={form.price}
-              onChange={(v) => setForm({ ...form, price: v })}
-              error={fields.price_minor}
-              min={0}
-              step={0.01}
-              hint="صفر يعني كورساً مجانياً."
-            />
-            <SelectField
-              id="currency"
-              label="العملة"
-              value={form.currency}
-              onChange={(v) => setForm({ ...form, currency: v })}
-              options={CURRENCIES}
-              error={fields.currency}
-            />
-          </div>
+          {/*
+            ⛔ NO PRICE FIELD (owner decision 2026-09-25): a course is sold through
+            a plan and nothing else, so a one-off price here would price nothing a
+            student can buy. The column stays; this screen no longer writes it, and
+            an edit leaves an existing value untouched because the key is not sent.
+          */}
+
+          {/*
+            ⛔ «مجاني» is the teacher's decision and nothing else (owner decision
+            2026-09-25). Unticked, the course is entered through a plan only; with
+            no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
+          */}
+          <CheckboxField
+            id="is_free_enrollment"
+            label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
+            checked={form.is_free_enrollment}
+            onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
+          />
 
           <CheckboxField
             id="is_sequential"

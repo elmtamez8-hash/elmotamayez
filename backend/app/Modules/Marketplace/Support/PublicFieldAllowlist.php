@@ -192,9 +192,8 @@ final class PublicFieldAllowlist
         'private_subscription_available',
         /*
         | Whether the course may be entered without paying — the free-enrolment
-        | door's own predicate (`courseRequiresPurchase()`). Leaks nothing the
-        | page does not already say: the price is public, and «sold by plan» is
-        | what the groups list shows.
+        | door's own predicate (`Course::isFree()`, the teacher's explicit flag).
+        | Leaks nothing the page does not already say.
         */
         'free_enrollment',
         /*

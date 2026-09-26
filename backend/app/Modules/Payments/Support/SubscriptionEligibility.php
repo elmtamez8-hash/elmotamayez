@@ -301,28 +301,6 @@ class SubscriptionEligibility implements SubscriptionDirectory
 
     /**
      * {@inheritDoc}
-     *
-     * ⚠️ THE PLAN SIDE IS ASKED SECOND AND ONLY WHEN THE PRICE IS ZERO. Most
-     * courses that are sold outright answer on the column alone, and this is
-     * reached from a route any authenticated account can call.
-     */
-    public function courseRequiresPurchase(int $courseId): bool
-    {
-        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
-
-        if ($course === null) {
-            return false;
-        }
-
-        if ((int) $course->price_minor > 0) {
-            return true;
-        }
-
-        return $this->hasSellablePlanFor($courseId);
-    }
-
-    /**
-     * {@inheritDoc}
      */
     public function hasSellablePlanFor(int $courseId, ?string $sessionType = null): bool
     {
@@ -335,10 +313,10 @@ class SubscriptionEligibility implements SubscriptionDirectory
         /*
         | ⛔ THE COURSE'S GROUPS ARE ANCHORS TOO, AND WITHOUT THEM A COURSE SOLD
         | ONLY IN GROUPS READS AS FREE. This answer is what
-        | `courseRequiresPurchase()` hands to the free-enrolment door
-        | (`EnrollmentController`), so a teacher whose every price is written per
-        | group was giving that course away to anybody who pressed the button —
-        | no order, no subscription, nothing to notice.
+        | the free-enrolment door used to read (until 2026-09-25, when «free»
+        | became the teacher's explicit flag), so a teacher whose every price was
+        | written per group was giving that course away — and the public page's
+        | private-subscription invitation still reads it.
         |
         | ⚠️ THE UUIDS COME FROM THE DIRECTORY, NEVER FROM A JOIN ON `cohorts`.
         | That table is Learning's and this module may not name it; the contract

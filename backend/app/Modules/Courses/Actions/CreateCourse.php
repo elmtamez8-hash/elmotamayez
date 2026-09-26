@@ -72,6 +72,7 @@ class CreateCourse extends Action
             'status' => $dto->status,
             'visibility' => $dto->visibility,
             'is_sequential' => $dto->isSequential,
+            'is_free_enrollment' => $dto->isFreeEnrollment,
             'grade_level' => $dto->gradeLevel,
             'course_type' => $dto->courseType,
             'created_by' => $creator->getKey(),

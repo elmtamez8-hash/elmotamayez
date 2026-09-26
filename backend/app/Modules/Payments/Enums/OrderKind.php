@@ -19,7 +19,13 @@ use App\Modules\Payments\Policies\OrderPolicy;
  */
 enum OrderKind: string
 {
-    /** The shipped one-off course purchase. Priced by `courses.price`. */
+    /**
+     * The one-off course purchase, priced by `courses.price_minor`.
+     *
+     * ⛔ NO LONGER SOLD (owner decision 2026-09-25): its route was removed and a
+     * course is sold through a plan only. The case stays because historical
+     * orders carry it, and `ReverseCourseOrder` still closes them.
+     */
     case Course = 'course';
 
     /** A credit package, priced by CostPlusPricing for that course. */

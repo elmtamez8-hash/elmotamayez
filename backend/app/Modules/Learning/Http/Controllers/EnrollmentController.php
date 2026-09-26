@@ -27,7 +27,6 @@ use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\CohortDirectory;
-use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -111,12 +110,12 @@ class EnrollmentController extends Controller
      * POST here: curriculum, lessons and playback grants all open. It shipped
      * with zero callers under `frontend/src`, which is why nobody noticed.
      *
-     * ⚠️ AND THE PREDICATE IS NOT `Course::isFree()`. That is `price_minor === 0`,
-     * and `courses.price` is `->default(0)` and prices the ONE-OFF purchase alone
-     * — so a course sold by subscription or by credits reads as free and the door
-     * stays open for exactly the courses this feature exists to sell, with the
-     * criterion measuring it green over the top. `courseRequiresPurchase()` asks
-     * the price AND whether any sellable plan reaches the course.
+     * ⛔ AND THE PREDICATE IS `Course::isFree()` — the teacher's explicit
+     * «كورس مجاني» flag (owner decision 2026-09-25). It used to be inferred
+     * («price 0 and no sellable plan»), which opened every new course for free
+     * once the price left the form: a course is sold through plans only, and a
+     * course born at price 0 with no plan yet is a course nobody has decided to
+     * give away.
      *
      * The route is not deleted: a genuinely free course is a real case, and it is
      * the only one that still passes.
@@ -125,7 +124,6 @@ class EnrollmentController extends Controller
         Request $request,
         string $courseUuid,
         EnrollStudent $action,
-        SubscriptionDirectory $subscriptions,
         CohortDirectory $cohorts,
     ): JsonResponse {
         $course = $this->courseByUuid($courseUuid);
@@ -172,7 +170,10 @@ class EnrollmentController extends Controller
             ], 422);
         }
 
-        if ($subscriptions->courseRequiresPurchase((int) $course->getKey())) {
+        // ⛔ The teacher's explicit flag, and nothing else (owner decision
+        // 2026-09-25): an unflagged course is never enrolled in for free,
+        // whether or not a plan is on sale yet.
+        if (! $course->isFree()) {
             return response()->json([
                 'message' => 'هذا الكورس يُشترَك فيه بطلبٍ معتمَد.',
                 'code' => 'purchase_required',

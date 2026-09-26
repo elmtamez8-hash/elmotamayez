@@ -70,15 +70,14 @@ it('carries the price through every table money passes on the way to a payment',
         ->and($transaction->fresh()->amount_minor)->toBe(75000);
 });
 
-it('treats a zero price as free without asking a float', function (): void {
-    $free = Course::factory()->create(['price_minor' => 0]);
-    $paid = Course::factory()->create(['price_minor' => 1]);
+it('never reads «free» off a price — only off the teacher\'s flag', function (): void {
+    // ⛔ Owner decision 2026-09-25: a zero price is not free, and neither is a
+    // priced course the teacher ticked «مجاني» on any the less free.
+    $zero = Course::factory()->create(['price_minor' => 0, 'is_free_enrollment' => false]);
+    $marked = Course::factory()->create(['price_minor' => 1, 'is_free_enrollment' => true]);
 
-    // One fils is not free. `(float) $price === 0.0` said the same thing, but
-    // only because 0.01 happens to survive the cast — the comparison itself was
-    // the defect.
-    expect($free->isFree())->toBeTrue()
-        ->and($paid->isFree())->toBeFalse();
+    expect($zero->isFree())->toBeFalse()
+        ->and($marked->isFree())->toBeTrue();
 });
 
 it('accepts a minor-unit price through the course DTO', function (): void {

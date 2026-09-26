@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatMinorMoney, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
+import { statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -259,13 +259,9 @@ export default function ManageCoursesPage() {
                 <div className="p-5 pb-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Badge tone={statusTone(course.status)}>{statusLabel(course.status)}</Badge>
-                    {course.is_free ? (
-                      <Badge tone="success">مجاني</Badge>
-                    ) : (
-                      <Badge tone="warning">
-                        <bdi>{formatMinorMoney(course.price_minor, course.currency)}</bdi>
-                      </Badge>
-                    )}
+                    {/* No price (a course is sold through a plan); «مجاني» only when
+                        the teacher ticked it — `is_free` is that flag since 2026-09-25. */}
+                    {course.is_free && <Badge tone="success">مجاني</Badge>}
                   </div>
                   <h3 className="mb-1 font-semibold text-ink group-hover:text-primary-ink">
                     {course.title}

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Store\Actions;
 
 use App\Models\User;
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Store\Support\StoreSettings;
@@ -33,6 +34,9 @@ class RefundStorePurchase extends Action
      * The refusal a printed copy gets once it has left the shelf (owner decision
      * 2026-09-25). A constant so the screen's flag and this door cannot drift.
      */
+    /** The refusal an order that was never paid gets — nothing to give back. */
+    public const UNPAID_REFUSAL = 'لم يُعتمَد الدفع لهذا الطلب، فلا مبلغ يُستردّ. إن لم تكن حوّلت المبلغ فلا حاجة لأي إجراء.';
+
     public const PRINTED_REFUSAL = 'هذه نسخة مطبوعة دخلت مرحلة الشحن، ولا يُسترَدّ ثمنها من الموقع. تواصل مع إدارة المنصة لترتيب الإرجاع.';
 
     public function handle(string $purchaseUuid, User $buyer): StoreOrder
@@ -55,6 +59,20 @@ class RefundStorePurchase extends Action
         }
 
         /*
+        | ⛔ ONLY A PAID ORDER HAS MONEY TO GIVE BACK. A pending order used to be
+        | «refunded» too — and became `refund_due`, an instruction to the
+        | platform's finance officer to send back a transfer that never arrived.
+        | The buyer of an unpaid order simply does not pay. Asked here for a
+        | sentence the buyer can read; the conditional UPDATE below is what
+        | actually enforces it.
+        */
+        $orderStatus = Order::withoutWorkspaceScope()->whereKey($purchase->order_id)->value('status');
+
+        if ($orderStatus !== OrderStatus::Approved->value) {
+            throw new DomainException(self::UNPAID_REFUSAL);
+        }
+
+        /*
         | ⛔ A PRINTED COPY THAT HAS LEFT THE SHELF IS NOT REFUNDED FROM THE SITE
         | (owner decision 2026-09-25). The two conditions below were written for a
         | FILE: «not opened» is meaningless for a book, so a buyer could be sent
@@ -64,8 +82,9 @@ class RefundStorePurchase extends Action
         | parcel has to come back before the money does, so the site sends the
         | buyer to the administration instead.
         |
-        | Before fulfilment nothing has moved — no stock was taken and no parcel
-        | packed — so the ordinary refund still applies there.
+        | A paid printed copy is always fulfilled (or its order is already
+        | `refund_due` when the shelf ran out), so with the paid-only rule above
+        | this refusal now covers every printed purchase the site could refund.
         */
         if ($purchase->printedCopyHasLeftTheShelf()) {
             throw new DomainException(self::PRINTED_REFUSAL);
@@ -83,18 +102,26 @@ class RefundStorePurchase extends Action
 
         DB::transaction(function () use ($purchase): void {
             /*
-            | ⚠️ CLAIMED, NOT ASSIGNED. Two taps on «استرداد» would otherwise both
-            | read `refunded_at` as null, both write, and both put the stock back
-            | — inventing a copy that does not exist.
+            | ⚠️ CLAIMED, NOT ASSIGNED — AND ON BOTH COLUMNS. Two taps on
+            | «استرداد» would otherwise both read `refunded_at` as null and both
+            | write. And `first_accessed_at` is part of the claim, not only of the
+            | check above: the check reads it OUTSIDE this statement, and an open
+            | landing in between would hand the buyer the file AND the money.
+            | `IssueStoreAccess` claims its stamp on `refunded_at IS NULL`, so of
+            | the two only one can ever land.
             */
             $claimed = StoreOrder::query()
                 ->withoutWorkspaceScope()
                 ->whereKey($purchase->getKey())
                 ->whereNull('refunded_at')
+                ->whereNull('first_accessed_at')
                 ->update(['refunded_at' => now()]);
 
             if ($claimed === 0) {
-                return;
+                // Lost to an open or to a second tap. Refused aloud: returning
+                // quietly handed back a purchase whose `refunded_at` was still
+                // null, and the screen read it as done.
+                throw new DomainException('تغيّرت حالة هذا الطلب، فلم يُسترَدّ. حدِّث الصفحة.');
             }
 
             // ⚠️ `withoutWorkspaceScope()`: this runs in the BUYER's request, and a
@@ -102,18 +129,26 @@ class RefundStorePurchase extends Action
             // that workspace on — 0 rows, while `refunded_at` above still commits,
             // so the buyer reads «refunded» over an order that never moved. The
             // purchase row was already proven the buyer's; the order is its key.
-            Order::withoutWorkspaceScope()
+            //
+            // ⚠️ AND ONLY FROM `approved`: the status read above is outside this
+            // statement, and an order that is not paid must never become an
+            // instruction to pay money back. A miss rolls the claim back with it.
+            $moved = Order::withoutWorkspaceScope()
                 ->whereKey($purchase->order_id)
-                ->update(['status' => 'refund_due']);
+                ->where('status', OrderStatus::Approved->value)
+                ->update(['status' => OrderStatus::RefundDue->value]);
+
+            if ($moved === 0) {
+                throw new DomainException(self::UNPAID_REFUSAL);
+            }
 
             /*
             | ⚠️ NOTHING GOES BACK ON THE SHELF, AND THAT IS NOW TRUE BY
             | CONSTRUCTION. Only a fulfilled printed purchase ever took stock, and
             | that purchase is refused above — so every refund that reaches this
-            | line either never took a copy (not yet fulfilled) or is a file with
-            | no stock at all. A restock here would add a book that does not
-            | exist; a copy that really comes back is put back by whoever
-            | receives the parcel.
+            | line is a file with no stock at all. A restock here would add a book
+            | that does not exist; a copy that really comes back is put back by
+            | whoever receives the parcel.
             */
         });
 

@@ -22,7 +22,6 @@ import { curriculum, type Curriculum } from "@/lib/curriculum";
  * somebody who had paid for the course, and showed both the identical screen:
  * a price, a syllabus nothing links to, and one outbound link, to the teacher.
  * A student who owned the course stood on its page with no door into it.
- * (`CoursePrice` is the same shape for the same reason, one field wide.)
  *
  * ⚠️ ONE PROVIDER, NOT A HOOK PER CONSUMER. The rail and the syllabus ask the
  * same question, and a hook each is the same request twice on every page load —

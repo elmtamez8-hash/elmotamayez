@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { COURSE_TYPES, toMinorMoney } from "@/lib/labels";
+import { COURSE_TYPES } from "@/lib/labels";
 import { CURRENCY } from "@/lib/platform";
 import { useRouter } from "next/navigation";
 import type { Course } from "@/lib/types";
@@ -14,19 +14,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CoursesIcon } from "@/components/icons";
 import {
   CheckboxField,
-  NumberField,
   SelectField,
   TextField,
   TextareaField,
 } from "@/components/ui/Field";
-
-const CURRENCIES = [
-  { value: "QAR", label: "ريال قطري" },
-  { value: "SAR", label: "ريال سعودي" },
-  { value: "AED", label: "درهم إماراتي" },
-  { value: "EGP", label: "جنيه مصري" },
-  { value: "USD", label: "دولار أمريكي" },
-];
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -50,11 +41,9 @@ export default function CreateCoursePage() {
   const [form, setForm] = useState({
     title: "",
     description: "",
-    // A string, not a number: an empty numeric input yields "", and coercing it
-    // to 0 on every keystroke made the field impossible to clear.
-    price: "0",
     currency: CURRENCY,
     is_sequential: true,
+    is_free_enrollment: false,
     subject: "",
     grade_level: "",
     /*
@@ -92,15 +81,7 @@ export default function CreateCoursePage() {
     setLoading(true);
 
     try {
-      // The field is riyals, the API takes fils. `price` itself is dropped
-      // rather than sent alongside — a payload carrying both is one rename away
-      // from the wrong one winning.
-      const { price, ...rest } = form;
-
-      const course = await api.post<Course>("/courses", {
-        ...rest,
-        price_minor: toMinorMoney(price),
-      });
+      const course = await api.post<Course>("/courses", form);
       router.push(`/manage/courses/${course.uuid}`);
     } catch (err: unknown) {
       const found = fieldErrors(err);
@@ -187,26 +168,24 @@ export default function CreateCoursePage() {
             required
           />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <NumberField
-              id="price"
-              label="السعر"
-              value={form.price}
-              onChange={(v) => setForm({ ...form, price: v })}
-              error={fields.price_minor}
-              min={0}
-              step={0.01}
-              hint="صفر يعني كورساً مجانياً."
-            />
-            <SelectField
-              id="currency"
-              label="العملة"
-              value={form.currency}
-              onChange={(v) => setForm({ ...form, currency: v })}
-              options={CURRENCIES}
-              error={fields.currency}
-            />
-          </div>
+          {/*
+            ⛔ NO PRICE FIELD (owner decision 2026-09-25): a course is sold through
+            a plan and nothing else, so a one-off price here would price nothing a
+            student can buy. The column stays; this screen no longer writes it, and
+            an edit leaves an existing value untouched because the key is not sent.
+          */}
+
+          {/*
+            ⛔ «مجاني» is the teacher's decision and nothing else (owner decision
+            2026-09-25). Unticked, the course is entered through a plan only; with
+            no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
+          */}
+          <CheckboxField
+            id="is_free_enrollment"
+            label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
+            checked={form.is_free_enrollment}
+            onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
+          />
 
           <CheckboxField
             id="is_sequential"
