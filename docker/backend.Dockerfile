@@ -162,7 +162,12 @@ RUN for attempt in 1 2 3; do \
 # public/storage → storage/app/public, so nginx can serve uploaded receipts.
 RUN php artisan storage:link --force
 
-RUN chown -R www-data:www-data /var/www/html \
+# ⚠️ Only the two writable trees change owner. `chown -R /var/www/html` rewrote
+# every file of the app and vendor into a new layer (overlayfs copy-up) — on the
+# VPS's throttled disk that step took 30+ minutes on 2026-09-26, the GitHub SSH
+# session timed out mid-build and the deploy was reported failed. The code and
+# vendor stay root-owned and world-readable, which is all php-fpm needs.
+RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 9000

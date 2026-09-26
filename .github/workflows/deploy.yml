@@ -67,7 +67,10 @@ jobs:
           # فيعودُ `deploy.sh` إلى `origin/main` كما كان.
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          ssh -o BatchMode=yes -i ~/.ssh/id_ed25519 "$USER@$HOST" \
+          # Keepalives: a long silent build step once dropped this session and
+          # marked a deploy failed while the server kept going.
+          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
+            -i ~/.ssh/id_ed25519 "$USER@$HOST" \
             "cd '$APP_PATH' && DEPLOY_SHA='$DEPLOY_SHA' bash ./scripts/deploy.sh"
 
       - name: تنظيف المفتاح
