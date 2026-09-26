@@ -51,6 +51,38 @@ final class UserClock
         return $zone !== '' && in_array($zone, timezone_identifiers_list(), true);
     }
 
+    /**
+     * The reader's clock AND the other party's, when the two differ at that
+     * instant: «2026-11-03 17:00 بتوقيتك · 18:00 بتوقيت المدرّس» (owner decision
+     * 2026-09-26). For the messages two people in two countries negotiate over
+     * — a private-session request and its answer, a reschedule — so neither
+     * has to work out the other's hour.
+     *
+     * ⚠️ «DIFFER» IS THE OFFSET AT THAT INSTANT, NOT THE ZONE NAME. Cairo and
+     * Doha are both UTC+3 until 2026-10-29: two names, one hour, and a second
+     * clock there would print the same number twice. Equal offsets fall back to
+     * {@see format()}, zone named.
+     *
+     * The other party's date is printed only when it is a different day there.
+     *
+     * @param  string  $counterpartRole  «المدرّس» or «الطالب» — whose clock the second time is
+     */
+    public static function formatBoth(?User $reader, ?User $counterpart, DateTimeInterface $at, string $counterpartRole): string
+    {
+        $mine = CarbonImmutable::instance($at)->setTimezone(self::zoneFor($reader));
+        $theirs = CarbonImmutable::instance($at)->setTimezone(self::zoneFor($counterpart));
+
+        if ($counterpart === null || $mine->getOffset() === $theirs->getOffset()) {
+            return self::format($reader, $at);
+        }
+
+        $other = $theirs->toDateString() === $mine->toDateString()
+            ? $theirs->format('H:i')
+            : $theirs->format('Y-m-d H:i');
+
+        return $mine->format('Y-m-d H:i').' بتوقيتك · '.$other.' بتوقيت '.$counterpartRole;
+    }
+
     /** «2026-10-30 17:00 (توقيت مصر)» — the reader's clock, with the clock named. */
     public static function format(?User $user, DateTimeInterface $at): string
     {

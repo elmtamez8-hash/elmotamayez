@@ -25,6 +25,8 @@ export interface RescheduleRequest {
   to_starts_at: string;
   /** The declared session zone, the same one the lesson being moved carries. */
   timezone: string;
+  /** The OTHER party's zone — see `PrivateSessionRequest.counterpart_timezone`. */
+  counterpart_timezone?: string | null;
   student_reason: string | null;
   /** ⚠️ Mandatory on a rejection, and shown — the student reads it. */
   decision_reason: string | null;

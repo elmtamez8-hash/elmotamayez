@@ -493,7 +493,7 @@ interface CohortDirectory
      * group named «المجموعة الثانية» says nothing — and asked per row it
      * would be one query per option inside a picker.
      *
-     * @return list<array{uuid: string, name: string, schedule_preview: list<string>, is_on_sale: bool}>
+     * @return list<array{uuid: string, name: string, schedule_preview: list<string>, schedule_slots: list<string>, is_on_sale: bool}>
      */
     public function transferDestinationsFor(int $courseId): array;
 }

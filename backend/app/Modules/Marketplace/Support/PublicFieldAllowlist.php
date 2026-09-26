@@ -337,7 +337,7 @@ final class PublicFieldAllowlist
     | Deriving it in the browser from `status` and `seats_left` is the two-
     | spellings defect, and it publishes nothing `status` does not already.
     */
-    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'seats_left', 'is_joinable'];
+    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'schedule_slots', 'seats_left', 'is_joinable'];
 
     /*
     | The nested shapes, which had no constants until spec 006 made this class

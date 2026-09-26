@@ -32,6 +32,12 @@ export interface PrivateSessionRequest {
    * Every time on the row goes through `formatSessionTime(iso, timezone)`.
    */
   timezone: string;
+  /**
+   * The OTHER party's zone — the teacher's to the student, the student's to the
+   * teacher (owner decision 2026-09-26). Both hours are printed when the two
+   * clocks differ at that instant.
+   */
+  counterpart_timezone?: string | null;
   expires_at: string;
   /** ⚠️ Mandatory on a rejection, and shown — the student reads it (FR-018). */
   decision_reason: string | null;

@@ -207,6 +207,12 @@ export type CohortSummary = {
   description: string | null;
   status: "open" | "full" | "closed";
   schedule: string[];
+  /**
+   * The same slots as instants — the next meeting in each — for the visitor's
+   * own clock (owner decision 2026-09-26). `schedule` stays the platform-zone
+   * text for the server render.
+   */
+  schedule_slots?: string[];
   seats_left?: number;
   /**
    * The SERVER's answer to «could I join this?» (027 · FR-002).

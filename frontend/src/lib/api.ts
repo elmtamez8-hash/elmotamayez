@@ -340,8 +340,8 @@ export const auth = {
    * is the sign-in stamp: it fills an empty column and never overwrites a zone
    * the person chose.
    */
-  setTimezone: (timezone: string, onlyIfUnset = false) =>
-    api.put<User>("/me/timezone", { timezone, only_if_unset: onlyIfUnset }),
+  setTimezone: (timezone: string, source: "manual" | "browser" = "manual") =>
+    api.put<User>("/me/timezone", { timezone, source }),
   // The same answer whether or not the address has an account — see
   // `AuthController::forgotPassword()`.
   forgotPassword: (email: string) =>

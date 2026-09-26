@@ -89,6 +89,18 @@ describe("the student's private-session requests", () => {
     expect(screen.getByText((text) => text.includes(`${cairo} (توقيت مصر)`))).toBeTruthy();
   });
 
+  it("prints the teacher's hour beside the student's when their clocks differ (2026-09-26)", async () => {
+    setStoredViewerTimeZone("Africa/Cairo");
+    mine.mockResolvedValue({
+      data: [row({ starts_at: "2026-11-10T15:00:00Z", counterpart_timezone: "Asia/Qatar" })],
+    });
+
+    await open();
+
+    // 17:00 Cairo · 18:00 Doha — the teacher's hour, named as the teacher's.
+    expect(screen.getAllByText((text) => text.includes("بتوقيتك") && text.includes("بتوقيت المدرّس")).length).toBeGreaterThan(0);
+  });
+
   it("shows the teacher's reason on a refusal, and offers no withdraw", async () => {
     mine.mockResolvedValue({
       data: [row({ status: "rejected", decision_reason: "الأحد مشغول، جرّب الإثنين." })],

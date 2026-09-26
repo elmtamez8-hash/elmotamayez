@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Http\Resources;
 
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Modules\LiveSessions\Support\SessionSettings;
+use App\Shared\Support\UserClock;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,6 +26,23 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class SessionRescheduleRequestResource extends JsonResource
 {
+    private function counterpartZone(Request $request): ?string
+    {
+        $readerIsStudent = (int) $request->user()?->getKey() === (int) $this->resource->student_user_id;
+
+        if ($readerIsStudent) {
+            $session = $this->resource->relationLoaded('classSession') ? $this->resource->classSession : null;
+            $profile = $session !== null && $session->relationLoaded('teacherProfile') ? $session->teacherProfile : null;
+            $teacher = $profile !== null && $profile->relationLoaded('user') ? $profile->user : null;
+
+            return $teacher === null ? null : UserClock::zoneFor($teacher);
+        }
+
+        $student = $this->resource->relationLoaded('student') ? $this->resource->student : null;
+
+        return $student === null ? null : UserClock::zoneFor($student);
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -39,6 +57,9 @@ class SessionRescheduleRequestResource extends JsonResource
             // browser's own zone, which is a different hour on a laptop still set
             // to last holiday's timezone.
             'timezone' => app(SessionSettings::class)->timezone(),
+            // The OTHER party's clock (owner decision 2026-09-26) — see
+            // `PrivateSessionRequestResource`.
+            'counterpart_timezone' => $this->counterpartZone($request),
             'student_reason' => $this->student_reason,
             'decision_reason' => $this->decision_reason,
             'decided_at' => $this->decided_at,

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\LiveSessions\Events\SessionRescheduleRequested;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -29,7 +29,6 @@ class NotifyTeacherSessionRescheduleRequested implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(SessionRescheduleRequested $event): void
@@ -55,8 +54,8 @@ class NotifyTeacherSessionRescheduleRequested implements ShouldQueueAfterCommit
                 // Rendered on the TEACHER's own clock with the zone named: the
                 // row is a UTC instant, and the student who asked may be in
                 // another country — «18:00» alone would be true for one of them.
-                'from_time' => $this->settings->formatFor($teacher, $request->from_starts_at),
-                'to_time' => $this->settings->formatFor($teacher, $request->to_starts_at),
+                'from_time' => UserClock::formatBoth($teacher, $student, $request->from_starts_at, 'الطالب'),
+                'to_time' => UserClock::formatBoth($teacher, $student, $request->to_starts_at, 'الطالب'),
                 // Never empty: `TemplateRenderer` counts a present-but-blank
                 // variable as MISSING and refuses the whole message, so an ask
                 // with no words typed would be dropped in silence.

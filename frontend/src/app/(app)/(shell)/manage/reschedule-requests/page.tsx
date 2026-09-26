@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
-import { formatSessionTimeWithZone } from "@/lib/session-format";
+import { formatSessionTimeBoth } from "@/lib/session-format";
 import { rescheduleRequests, type RescheduleRequest } from "@/lib/reschedule-requests";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
@@ -116,9 +116,9 @@ export default function RescheduleQueuePage() {
                   teacher open their calendar to find out what is being given
                   up — which is the one fact the decision turns on. */}
               <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
-                <span className="text-ink-muted line-through">{formatSessionTimeWithZone(request.from_starts_at, zone)}</span>
+                <span className="text-ink-muted line-through">{formatSessionTimeBoth(request.from_starts_at, zone, request.counterpart_timezone, "الطالب")}</span>
                 <ChevronEndIcon className="h-4 w-4 text-ink-muted" />
-                <span className="font-bold">{formatSessionTimeWithZone(request.to_starts_at, zone)}</span>
+                <span className="font-bold">{formatSessionTimeBoth(request.to_starts_at, zone, request.counterpart_timezone, "الطالب")}</span>
               </p>
 
               {request.student_reason !== null && (

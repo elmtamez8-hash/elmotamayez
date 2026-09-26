@@ -28,7 +28,20 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
      */
     public function schedulePreviewFor(array $cohortIds): array
     {
-        /** @var array<int, list<string>> $out */
+        return array_map(
+            static fn (array $slots): array => array_map(static fn (array $slot): string => $slot['label'], $slots),
+            $this->scheduleSlotsFor($cohortIds),
+        );
+    }
+
+    /**
+     * ⚠️ ONE WALK FOR BOTH SHAPES. The labels and the instants come from the same
+     * sessions in the same order, so the public page's structured slots and the
+     * crawled text beside them can never name different meetings.
+     */
+    public function scheduleSlotsFor(array $cohortIds): array
+    {
+        /** @var array<int, list<array{at: string, label: string}>> $out */
         $out = array_fill_keys($cohortIds, []);
 
         if ($cohortIds === []) {
@@ -52,6 +65,10 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
 
         /** @var array<int, array<string, int>> $counts */
         $counts = [];
+
+        /** @var array<int, array<string, string>> $instants label => the next meeting in it, else the latest */
+        $instants = [];
+        $now = now();
 
         /*
         | ⛔ THE LABEL IS BUILT IN THE PLATFORM'S TIMEZONE, AND IT WAS BUILT IN
@@ -78,12 +95,23 @@ class EloquentCohortScheduleDirectory implements CohortScheduleDirectory
             $label = self::DAYS[(int) $localStart->format('w')].' '.$localStart->format('H:i');
 
             $counts[$cohortId][$label] = ($counts[$cohortId][$label] ?? 0) + 1;
+
+            // Ascending walk: the first future meeting wins; until one is seen,
+            // each past one replaces the last, leaving the latest.
+            $known = $instants[$cohortId][$label] ?? null;
+
+            if ($known === null || $known < $now->toIso8601String()) {
+                $instants[$cohortId][$label] = $session->starts_at->copy()->utc()->toIso8601String();
+            }
         }
 
         foreach ($counts as $cohortId => $labels) {
             arsort($labels);
 
-            $out[$cohortId] = array_slice(array_keys($labels), 0, 3);
+            $out[$cohortId] = array_map(
+                static fn (string $label): array => ['at' => $instants[$cohortId][$label], 'label' => $label],
+                array_slice(array_keys($labels), 0, 3),
+            );
         }
 
         return $out;

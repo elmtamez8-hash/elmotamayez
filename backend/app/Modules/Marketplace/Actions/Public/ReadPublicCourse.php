@@ -192,18 +192,22 @@ class ReadPublicCourse extends Action
             return [];
         }
 
-        $schedules = $this->schedules->schedulePreviewFor(array_map(
+        $slots = $this->schedules->scheduleSlotsFor(array_map(
             static fn (array $cohort): int => $cohort['id'],
             $cohorts,
         ));
 
-        return array_map(static function (array $cohort) use ($schedules): array {
+        return array_map(static function (array $cohort) use ($slots): array {
             $shape = [
                 'uuid' => $cohort['uuid'],
                 'name' => $cohort['name'],
                 'description' => $cohort['description'],
                 'status' => $cohort['status'],
-                'schedule' => $schedules[$cohort['id']] ?? [],
+                // Platform-zone text for the server render and crawlers…
+                'schedule' => array_map(static fn (array $slot): string => $slot['label'], $slots[$cohort['id']] ?? []),
+                // …and the same slots as instants, drawn on the VISITOR's clock
+                // by the browser (owner decision 2026-09-26).
+                'schedule_slots' => array_map(static fn (array $slot): string => $slot['at'], $slots[$cohort['id']] ?? []),
                 /*
                 | ⚠️ COPIED EXPLICITLY, BECAUSE THIS SHAPE IS AN ALLOWLIST OF
                 | KEYS AND NOT A SPREAD (027 · FR-002). The directory answered

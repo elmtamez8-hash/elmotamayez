@@ -6,10 +6,10 @@ namespace App\Modules\Notifications\Listeners;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Events\SessionRescheduleDecided;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Carbon;
 
@@ -31,9 +31,10 @@ use Illuminate\Support\Carbon;
  */
 class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
 {
+    private ?User $teacher = null;
+
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(SessionRescheduleDecided $event): void
@@ -44,6 +45,8 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
         if ($session === null) {
             return;
         }
+
+        $this->teacher = $session->teacherProfile?->user;
 
         if (! $event->approved) {
             $student = $request->student;
@@ -96,9 +99,12 @@ class NotifySessionRescheduleDecided implements ShouldQueueAfterCommit
         }
     }
 
-    /** The reader's own clock, zone named — never the platform's (2026-09-25). */
+    /**
+     * The reader's own clock, and the teacher's beside it when the two differ at
+     * that instant (owner decisions 2026-09-25 and 2026-09-26).
+     */
     private function local(Carbon $at, User $reader): string
     {
-        return $this->settings->formatFor($reader, $at);
+        return UserClock::formatBoth($reader, $this->teacher, $at, 'المدرّس');
     }
 }

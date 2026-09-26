@@ -20,8 +20,11 @@ class UpdateTimezoneRequest extends FormRequest
             // An IANA name the server itself recognises — the one the browser
             // reports (`Intl.DateTimeFormat().resolvedOptions().timeZone`).
             'timezone' => ['required', 'string', 'max:64', 'timezone'],
-            // The browser's own stamp on sign-in passes true: it fills an empty
-            // column and never overwrites a zone somebody chose.
+            // `manual` — chosen in account settings, the source of truth.
+            // `browser` — the sign-in stamp; never overwrites a manual choice.
+            'source' => ['sometimes', 'string', 'in:manual,browser'],
+            // The #239 client's spelling of `source: browser`, still accepted so
+            // a tab loaded before this release keeps stamping instead of choosing.
             'only_if_unset' => ['sometimes', 'boolean'],
         ];
     }

@@ -13,12 +13,15 @@ use App\Modules\Notifications\Http\Requests\UpdateQuietHoursRequest;
 use App\Modules\Notifications\Models\NotificationPreference;
 use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Actions\RecordAccountTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class NotificationPreferenceController extends Controller
 {
+    public function __construct(private readonly RecordAccountTimezone $recordTimezone) {}
+
     /**
      * Metadata for the settings screen: every type, and only the channels that
      * exist. An unimplemented channel is absent rather than disabled — offering a
@@ -75,8 +78,20 @@ class NotificationPreferenceController extends Controller
         $user->forceFill([
             'quiet_hours_start' => $validated['quiet_hours_start'] ?? null,
             'quiet_hours_end' => $validated['quiet_hours_end'] ?? null,
-            'timezone' => $validated['timezone'] ?? null,
         ])->save();
+
+        /*
+        | ⛔ THE ZONE THIS FORM SENDS IS THE BROWSER'S, AND A PERSON'S OWN CHOICE
+        | OUTRANKS IT (owner decision 2026-09-26). It used to be written
+        | unconditionally — and to null when absent — so saving quiet hours from a
+        | laptop on last holiday's zone undid the zone chosen in account settings.
+        | It goes through the one writer, as a `browser` report.
+        */
+        $zone = $validated['timezone'] ?? null;
+
+        if (is_string($zone) && $zone !== '') {
+            $user = $this->recordTimezone->handle($user, $zone, RecordAccountTimezone::BROWSER);
+        }
 
         return response()->json([
             'quiet_hours_start' => $user->quiet_hours_start,
