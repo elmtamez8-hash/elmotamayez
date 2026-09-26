@@ -111,6 +111,8 @@ export default function ManageCohortPage({
    * rest of the page does not — and a full `load()` would swap the whole page
    * for a skeleton and take the roster's success notice with it.
    */
+  // Failures are ignored on purpose: this is a background redraw, and the
+  // roster has already said whether the write itself landed.
   const refreshAfterRosterChange = () => {
     manageCohorts
       .show(cohortUuid)

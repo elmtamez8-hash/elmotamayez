@@ -169,11 +169,11 @@ export default function ManageCohortsPage({
     return promise
       .then(() => {
         load(true);
-        // Whatever the panels were showing describes the state before the write
-        // — an approved transfer moves a student between two of these rosters.
-        // The open ones are refetched; clearing them alone left a skeleton that
-        // nothing refilled, because only opening a panel fetches it.
-        setVersion((v) => v + 1);
+        // Whatever the log panels were showing describes the state before the
+        // write. The open ones are refetched; clearing them alone left a
+        // skeleton that nothing refilled, because only opening a panel fetches
+        // it. (Rosters are refetched by `approve` alone — see below — since a
+        // rename or a close moves nobody.)
         setHistory({});
         Object.entries(open).forEach(([uuid, panel]) => {
           if (panel === "history") fetchHistory(uuid);
@@ -727,7 +727,12 @@ export default function ManageCohortsPage({
                       size="sm"
                       loading={busy}
                       loadingLabel="جارٍ"
-                      onClick={() => run(manageCohorts.approve(request.uuid))}
+                      // An approved transfer moves a student between two rosters.
+                      onClick={() =>
+                        run(manageCohorts.approve(request.uuid)).then((done) => {
+                          if (done) setVersion((v) => v + 1);
+                        })
+                      }
                     >
                       وافِق
                     </Button>

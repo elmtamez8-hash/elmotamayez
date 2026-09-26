@@ -179,13 +179,17 @@ export function CohortRoster({
                 <span className="min-w-0 truncate text-ink">{member.name}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
                   <span className="text-ink-muted">انضمّ {formatDate(member.joined_at)}</span>
-                  <DetailToggle
-                    open={open[member.uuid] === "history"}
-                    onClick={() => toggle(member.uuid, "history")}
-                    icon={<HistoryIcon className="h-3.5 w-3.5" />}
-                  >
-                    سجل المجموعات
-                  </DetailToggle>
+                  {/* The history is addressed by course; a group whose course
+                      did not resolve has no address to ask. */}
+                  {courseUuid !== "" && (
+                    <DetailToggle
+                      open={open[member.uuid] === "history"}
+                      onClick={() => toggle(member.uuid, "history")}
+                      icon={<HistoryIcon className="h-3.5 w-3.5" />}
+                    >
+                      سجل المجموعات
+                    </DetailToggle>
+                  )}
                   <DetailToggle
                     open={open[member.uuid] === "progress"}
                     onClick={() => toggle(member.uuid, "progress")}
