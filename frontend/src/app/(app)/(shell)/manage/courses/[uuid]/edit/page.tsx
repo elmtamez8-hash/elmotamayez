@@ -331,11 +331,17 @@ export default function EditCoursePage({
             </ConfirmButton>
           )}
 
-          <CourseVisibilityField
-            value={form.visibility}
-            onChange={(visibility) => setForm({ ...form, visibility })}
-            error={fields.visibility}
-          />
+          {/* ⛔ للمدرّسِ وحدَه (قرارُ المالك 2026-09-26): المساعدُ يُعدِّلُ الباقي
+              ولا يرى الحقل. الجوابُ من الخادم (`can_change_visibility`) لا من
+              اسمِ الدور، وغيابُه يعني «لم يُقَل» فيُخفى. والحفظُ لا يُرسِلُ
+              `visibility` إلا إن تغيّر، فإخفاؤه لا يكتبُ شيئاً. */}
+          {course?.can_change_visibility === true && (
+            <CourseVisibilityField
+              value={form.visibility}
+              onChange={(visibility) => setForm({ ...form, visibility })}
+              error={fields.visibility}
+            />
+          )}
 
           {/* Above the price, because it decides where the course is found:
               the marketplace groups by it, and a student's homework and practice

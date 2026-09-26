@@ -148,6 +148,12 @@ export interface User {
    */
   permissions: string[];
   /**
+   * Whether this person decides a NEW course's visibility in the workspace
+   * they are in — the teacher, never an assistant (owner decision 2026-09-26).
+   * Not a permission: an assistant holds `courses.create` too.
+   */
+  can_choose_course_visibility?: boolean;
+  /**
    * أماكن العمل التي ينتمي إليها هذا الشخص — يملكها أو يساعد فيها (مواصفة ٠٢٥).
    *
    * ⚠️ العدد هو ما تقرؤه اللافتة، وثلاثة أجوبة لا اثنان: صفر ⇒ لا لافتة (طالبٌ
@@ -254,6 +260,13 @@ export interface Course {
   currency: string;
   status: string;
   visibility: string;
+  /**
+   * Whether the reader may switch the course between public and private — the
+   * course's teacher alone (owner decision 2026-09-26); an assistant edits the
+   * rest. Sent beside `public_listing` on the editor's reads and absent
+   * elsewhere, so a missing key means «not told» and the field stays hidden.
+   */
+  can_change_visibility?: boolean;
   /**
    * Whether a visitor can reach the course at `/courses/{slug}`, and why not —
    * `Course::publicListingBlockers()`. Sent to the course's EDITOR on

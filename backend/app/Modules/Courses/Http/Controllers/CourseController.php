@@ -213,6 +213,16 @@ class CourseController extends Controller
         $data = $request->validated();
 
         /*
+        | ⛔ ظهورُ الكورسِ قرارُ مدرّسِه وحدَه (قرارُ المالك 2026-09-26). المساعدُ
+        | يحملُ `courses.update` ويبقى يُعدِّلُ كلَّ شيءٍ آخر؛ هذا الحقلُ وحدَه
+        | يُسأَلُ عنه `changeVisibility`. ويُسأَلُ عن **التغيير** لا عن ذِكرِ
+        | المفتاح: عميلٌ يُعيدُ القيمةَ الحاليّةَ مع عنوانٍ جديدٍ لا يُرفَض.
+        */
+        if (array_key_exists('visibility', $data) && $data['visibility'] !== $course->visibility) {
+            $this->authorize('changeVisibility', $course);
+        }
+
+        /*
         | ⚠️ THE UUID BECOMES AN ID BEFORE THE UPDATE, and `subject` never reaches
         | `update()`. It is not a column — a mass assignment carrying it would be
         | discarded in silence, which is precisely how `subject_id` came to be
@@ -321,7 +331,9 @@ class CourseController extends Controller
             'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
         ]);
 
-        return $resource->withPublicListingBlockers($course->publicListingBlockers());
+        return $resource
+            ->withPublicListingBlockers($course->publicListingBlockers())
+            ->withVisibilityControl($this->currentUser($request)->can('changeVisibility', $course));
     }
 
     public function destroy(Course $course): JsonResponse

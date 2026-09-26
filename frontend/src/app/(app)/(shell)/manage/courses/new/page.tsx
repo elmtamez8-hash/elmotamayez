@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { COURSE_TYPES } from "@/lib/labels";
 import { CURRENCY } from "@/lib/platform";
@@ -22,6 +23,7 @@ import {
 
 export default function CreateCoursePage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   /*
     ⚠️ REQUIRED SINCE THE DAY `subject_id` WAS FOUND NULL ON EVERY COURSE ON THE
@@ -183,11 +185,15 @@ export default function CreateCoursePage() {
             2026-09-25). Unticked, the course is entered through a plan only; with
             no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
           */}
-          <CourseVisibilityField
-            value={form.visibility}
-            onChange={(visibility) => setForm({ ...form, visibility })}
-            error={fields.visibility}
-          />
+          {/* ⛔ للمدرّسِ وحدَه (قرارُ المالك 2026-09-26): كورسُ المساعدِ يُنشأُ
+              «عامّاً» — الافتراضيّ الذي في النموذج — ولا يرى الحقل. */}
+          {user?.can_choose_course_visibility === true && (
+            <CourseVisibilityField
+              value={form.visibility}
+              onChange={(visibility) => setForm({ ...form, visibility })}
+              error={fields.visibility}
+            />
+          )}
 
           <CheckboxField
             id="is_free_enrollment"
