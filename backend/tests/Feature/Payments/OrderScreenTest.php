@@ -136,6 +136,29 @@ it('refuses to write the status from the form, whatever the payload says', funct
         ->and(PaymentTransaction::query()->withoutGlobalScopes()->count())->toBe(0);
 });
 
+/*
+| 2026-09-26 — «افتحِ الإيصال» في نافذةِ الاعتمادِ بلا رابط. النافذةُ تُفتَحُ من
+| قائمةِ الطلباتِ أيضاً، حيثُ لا إيصالَ على الشاشة، فالجملةُ كانت أمراً بلا باب.
+*/
+it('carries the signed receipt link inside the approval window', function (): void {
+    Storage::fake('local');
+
+    $this->order->addMedia(UploadedFile::fake()->image('receipt.jpg'))->toMediaCollection('receipt');
+
+    Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
+        ->mountAction('approve')
+        // ⚠️ THE ANCHOR, NOT THE WORDS: the old description already said
+        // «افتحِ الإيصال», and the page itself carries a signed link — either
+        // needle alone is green over the defect.
+        ->assertMountedActionModalSeeHtml(['>افتحِ الإيصال</a>', 'signature=']);
+});
+
+it('says there is no receipt inside the approval window when there is none', function (): void {
+    Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
+        ->mountAction('approve')
+        ->assertMountedActionModalSee('لا إيصالَ على هذا الطلب — تحقّقْ من التحويل قبل الاعتماد.');
+});
+
 it('offers the decision on the screen that shows the receipt', function (): void {
     Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
         ->assertActionVisible('approve')

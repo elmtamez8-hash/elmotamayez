@@ -71,7 +71,12 @@ describe("PublicProfileUrlCard", () => {
 
   it("still asks for a teacher", async () => {
     // The guard in the other direction: an inverted condition hides every card.
-    mockUser = { uuid: "t-1", platform_role: "teacher", workspaces: [{ uuid: "w-1", name: "أكاديمية" }] };
+    mockUser = {
+      uuid: "t-1",
+      platform_role: "teacher",
+      workspaces: [{ uuid: "w-1", name: "أكاديمية" }],
+      teacher_profile_uuid: "p-1",
+    };
 
     await mount();
 
@@ -79,11 +84,31 @@ describe("PublicProfileUrlCard", () => {
   });
 
   it("asks for an academy account whose role says nothing, because it teaches", async () => {
-    mockUser = { uuid: "t-2", platform_role: null, workspaces: [{ uuid: "w-2", name: "أكاديمية" }] };
+    mockUser = {
+      uuid: "t-2",
+      platform_role: null,
+      workspaces: [{ uuid: "w-2", name: "أكاديمية" }],
+      teacher_profile_uuid: "p-2",
+    };
 
     await mount();
 
     expect(get).toHaveBeenCalledWith("/teacher/profile");
+  });
+
+  it("never asks for a workspace owner who has no teacher profile", async () => {
+    // ⛔ 2026-09-26: teaching by the pivot role is not HAVING a profile — this
+    // account took a 403 on every visit to its own settings.
+    mockUser = {
+      uuid: "o-1",
+      platform_role: null,
+      workspaces: [{ uuid: "w-3", name: "أكاديمية" }],
+      teacher_profile_uuid: null,
+    };
+
+    await mount();
+
+    expect(get).not.toHaveBeenCalled();
   });
 
   it("never asks for a role-less student who teaches nowhere", async () => {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Actions;
 
 use App\Models\User;
+use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
@@ -85,7 +86,7 @@ class SavePlan extends Action
 
         [$duration, $sessionCount] = $this->resolveShape($data, $coverage, $sessionType);
 
-        $coverageUuid = $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId);
+        $coverageUuid = $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId, $plan?->coverage_uuid);
 
         if ($plan !== null) {
             $this->guardPricedPlan($author, $plan, $duration, $sessionCount, $sessionType, $coverage, $coverageUuid);
@@ -267,8 +268,17 @@ class SavePlan extends Action
      * so it answers yes for every course on the platform — and a plan pointing at
      * somebody else's course is a teacher selling a subscription to a colleague's
      * material.
+     *
+     * ⛔ AND AN ARCHIVED COURSE IS REFUSED (2026-09-26). The teacher's picker
+     * offered every course the workspace had ever written, and a plan pointed at
+     * an archived one sells a subscription to a course its own teacher withdrew.
+     * A draft is accepted: it is publishable, and a teacher preparing the plan
+     * before pressing «انشر» is the ordinary order of work. `$kept` is the
+     * course the plan ALREADY covers — an old plan whose course was archived
+     * after it was written can still have its title edited, rather than being
+     * locked until somebody changes a field the teacher never touched.
      */
-    public function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId): ?string
+    public function resolveCoverage(PlanCoverage $coverage, mixed $uuid, int $workspaceId, ?string $kept = null): ?string
     {
         /*
         | ⛔ `requiresUuid()`, NOT `needsCourse()` — AND THE RESTRUCTURE IS THE FIX,
@@ -319,14 +329,18 @@ class SavePlan extends Action
         | five layers of in the approval chain, and no one-workspace fixture can
         | see it.
         */
-        $exists = Course::query()
+        $status = Course::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->where('uuid', $uuid)
-            ->exists();
+            ->value('status');
 
-        if (! $exists) {
+        if ($status === null) {
             throw new DomainException('هذا الكورس غير موجود عندك.');
+        }
+
+        if ($status === CourseStatus::Archived->value && $uuid !== $kept) {
+            throw new DomainException('هذا الكورس مؤرشف، فلا تُباع عليه باقة. اختر كورساً منشوراً أو مسودّة.');
         }
 
         return $uuid;

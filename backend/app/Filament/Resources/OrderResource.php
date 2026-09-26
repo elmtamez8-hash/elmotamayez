@@ -162,11 +162,7 @@ class OrderResource extends Resource
                                     return 'لا إيصالَ على هذا الطلب.';
                                 }
 
-                                $url = URL::temporarySignedRoute(
-                                    'orders.receipt',
-                                    now()->addMinutes(15),
-                                    ['order' => $record->uuid],
-                                );
+                                $url = self::receiptUrl($record);
 
                                 $link = '<a href="'.e($url).'" target="_blank" rel="noopener" '
                                     .'class="fi-link fi-size-sm" style="text-decoration:underline">'
@@ -265,7 +261,25 @@ class OrderResource extends Resource
                 // nothing here takes it back.
             ->requiresConfirmation()
             ->modalHeading('اعتماد التحويل')
-            ->modalDescription('يُنشئ هذا التسجيل أو الرصيد فوراً. افتحِ الإيصال وطابقِ المبلغ قبل الاعتماد.')
+            /*
+            | ⚠️ «افتحِ الإيصال» BESIDE A LINK TO IT (2026-09-26). The sentence
+            | asked the officer to open a receipt the window did not carry, from
+            | the orders LIST, where the only way to it was to cancel, open the
+            | order and come back. The same signed link the order page mints —
+            | one helper, so the two cannot disagree about the route or the ttl.
+            */
+            ->modalDescription(function (Order $record): HtmlString {
+                $lead = 'يُنشئ هذا التسجيل أو الرصيد فوراً. ';
+                $media = $record->latestReceipt();
+
+                if ($media === null) {
+                    return new HtmlString(e($lead.'لا إيصالَ على هذا الطلب — تحقّقْ من التحويل قبل الاعتماد.'));
+                }
+
+                return new HtmlString(e($lead).'<a href="'.e(self::receiptUrl($record)).'" target="_blank" '
+                    .'rel="noopener" class="fi-link" style="text-decoration:underline">افتحِ الإيصال</a>'
+                    .e(' وطابقِ المبلغ قبل الاعتماد.'));
+            })
             ->schema([
                 /*
                 | ٠٣٤ · FR-016 — **المجموعةُ تُختارُ في اللحظةِ نفسِها التي
@@ -325,6 +339,19 @@ class OrderResource extends Resource
 
                 Notification::make()->success()->title('اعتُمد الطلب')->send();
             });
+    }
+
+    /**
+     * The receipt's signed, short-lived link — minted for a reader already on
+     * a screen the `view` policy admitted (the route's own comment says so).
+     */
+    public static function receiptUrl(Order $record): string
+    {
+        return URL::temporarySignedRoute(
+            'orders.receipt',
+            now()->addMinutes(15),
+            ['order' => $record->uuid],
+        );
     }
 
     /** The refusal, beside its twin — see {@see approveAction()}. */

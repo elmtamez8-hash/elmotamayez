@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/courses/{course}', [CourseController::class, 'show']);
     Route::put('/courses/{course}', [CourseController::class, 'update']);
     Route::post('/courses/{course}/publish', [CourseController::class, 'publish']);
+    Route::post('/courses/{course}/unpublish', [CourseController::class, 'unpublish']);
     Route::delete('/courses/{course}', [CourseController::class, 'destroy']);
 
     /*

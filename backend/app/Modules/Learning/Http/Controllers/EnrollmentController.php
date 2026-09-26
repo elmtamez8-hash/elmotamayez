@@ -47,6 +47,15 @@ class EnrollmentController extends Controller
     {
         $validated = $request->validate([
             'status' => ['sometimes', Rule::enum(EnrollmentStatus::class)],
+            /*
+            | «Am I enrolled in THIS course?» — asked by the public course page
+            | before it reads the curriculum and the groups (2026-09-26). Both of
+            | those refuse a reader with no enrolment, so a signed-in student
+            | browsing a course they had not bought fired two 403s on every visit.
+            | This is the question those two answer by refusing, asked of the
+            | reader's own rows instead: a 200 with zero or one entries.
+            */
+            'course' => ['sometimes', 'uuid'],
         ]);
 
         // بلا نطاقٍ: قائمةُ «تعلّمي» هي صفوفُ الطالبِ نفسِه عندَ كلِّ مدرّسيه،
@@ -57,6 +66,12 @@ class EnrollmentController extends Controller
             ->when(
                 $validated['status'] ?? null,
                 fn ($query, string $status) => $query->where('status', $status),
+            )
+            // Through the relation, which carries the scope bypass and
+            // `withTrashed()` — a course from another teacher is still found.
+            ->when(
+                $validated['course'] ?? null,
+                fn ($query, string $course) => $query->whereHas('course', fn ($courses) => $courses->where('uuid', $course)),
             )
             /*
             | ⛔ `enrollments.course_id` HAS NO FOREIGN KEY, and until courses were

@@ -28,6 +28,17 @@ vi.mock("@/lib/cohorts", () => ({
   cohorts: { forCourse: (uuid: string) => forCourse(uuid) },
 }));
 
+/*
+  ⛔ «Does my enrolment open this course?» is asked BEFORE the groups (2026-09-26):
+  the groups route refuses everyone else with a 403, which used to fire on every
+  visit by a student who had not bought the course.
+*/
+const granted = vi.fn();
+
+vi.mock("@/lib/course-enrollment", () => ({
+  grantsCourseAccess: (uuid: string) => granted(uuid),
+}));
+
 const MINE = "cohort-saturday";
 const THEIRS = "cohort-sunday";
 
@@ -56,9 +67,21 @@ async function show() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  granted.mockResolvedValue(true);
 });
 
 describe("MyCohort", () => {
+  it("never asks for the groups of a course the reader is not enrolled in", async () => {
+    hasAuthToken.mockReturnValue(true);
+    granted.mockResolvedValue(false);
+
+    await show();
+
+    expect(granted).toHaveBeenCalledWith("course-1");
+    expect(forCourse).not.toHaveBeenCalled();
+    expect(screen.queryByText("مجموعتك")).toBeNull();
+  });
+
   it("marks the reader's own group and no other", async () => {
     hasAuthToken.mockReturnValue(true);
     forCourse.mockResolvedValue({ membership: { cohort_uuid: MINE } });

@@ -31,6 +31,10 @@ vi.mock("@/lib/cohorts", () => ({
   cohorts: { forCourse: () => forCourse() },
 }));
 
+vi.mock("@/lib/course-enrollment", () => ({
+  grantsCourseAccess: () => Promise.resolve(true),
+}));
+
 const { MyCohortProvider, UnlessMyCohort } = await import("./MyCohort");
 
 const COHORT = "aaaa0000-0000-4000-8000-000000000001";

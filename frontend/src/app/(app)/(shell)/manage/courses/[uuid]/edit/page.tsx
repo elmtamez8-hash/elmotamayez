@@ -7,9 +7,12 @@ import { COURSE_TYPES } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
+import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { Modal } from "@/components/ui/Modal";
+import { CoursePublicReach } from "@/components/courses/CoursePublicReach";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CheckIcon, CoursesIcon } from "@/components/icons";
 import {
@@ -72,6 +75,15 @@ export default function EditCoursePage({
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  /*
+    ⛔ «انشر الكورس» HAD NO UNDO ON THIS SCREEN (2026-09-26). `ChangeCourseStatus`
+    carried the draft branch; only the route was missing, so a teacher who
+    published by mistake needed an officer. Asked in a window: it is a question
+    asked while nothing else is happening, and it takes the course away from
+    every visitor at once.
+  */
+  const [askUnpublish, setAskUnpublish] = useState(false);
+  const [notice, setNotice] = useState("");
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -180,14 +192,24 @@ export default function EditCoursePage({
     }
   };
 
-  const publish = async () => {
+  /*
+    ⚠️ THE ANSWER IS THE NEW STATE. Both routes return the course with
+    `public_listing` stamped on, so the status and the «why nobody can see it»
+    Alert are drawn from what the server just did — not from a refetch that
+    would also reset the form the teacher may be halfway through.
+  */
+  const switchStatus = async (to: "publish" | "unpublish") => {
     setPublishing(true);
     setError("");
+    setNotice("");
     try {
-      await api.post(`/courses/${uuid}/publish`);
-      // Refetch rather than router.refresh(): this is a client component and
-      // the status badge is read from state, not from a server render.
-      load();
+      const fresh = await api.post<Course>(`/courses/${uuid}/${to}`);
+      setCourse(fresh);
+      // A publish is answered by `CoursePublicReach` below — «يظهر للجميع» or
+      // why it does not — so only the way back needs a sentence of its own.
+      if (to === "unpublish") {
+        setNotice("أُعيد الكورس مسودّة — لم يعد يظهر لأحد حتى تنشره من جديد.");
+      }
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {
@@ -203,19 +225,50 @@ export default function EditCoursePage({
       <PageHeader
         Icon={CoursesIcon}
         title="تعديل الكورس"
+        description={
+          <span className="inline-flex items-center gap-2">
+            الحالة: <StatusBadge status={course.status} />
+          </span>
+        }
         actions={
           course.status === "draft" ? (
             <Button
               loading={publishing}
               loadingLabel="جارٍ النشر…"
               iconStart={<CheckIcon className="h-4 w-4" />}
-              onClick={publish}
+              onClick={() => void switchStatus("publish")}
             >
               انشر الكورس
+            </Button>
+          ) : course.status === "published" ? (
+            <Button
+              variant="secondary"
+              loading={publishing}
+              loadingLabel="جارٍ إلغاء النشر…"
+              onClick={() => setAskUnpublish(true)}
+            >
+              إلغاء النشر
             </Button>
           ) : undefined
         }
       />
+
+      <Modal
+        open={askUnpublish}
+        title="إلغاء نشر الكورس"
+        message="يعود الكورس مسودّة: تختفي صفحته العامة وصفحة الاشتراك فيه عن الجميع حتى تنشره من جديد."
+        confirmLabel="ألغِ النشر"
+        tone="danger"
+        onCancel={() => setAskUnpublish(false)}
+        onConfirm={() => {
+          setAskUnpublish(false);
+          void switchStatus("unpublish");
+        }}
+      />
+
+      {notice !== "" && <Alert tone="success" title={notice} />}
+
+      <CoursePublicReach course={course} />
 
       <Card as="section">
         <form onSubmit={submit} className="space-y-4">

@@ -24,6 +24,15 @@ import type { User } from "@/lib/types";
 let mockUser: Partial<User> | null = null;
 let mockLoading = false;
 const get = vi.fn();
+/*
+  ⛔ The enrolment question is asked before the curriculum (2026-09-26), so a
+  learner who has not bought the course is never sent to the door that 403s.
+*/
+let mockGranted = true;
+
+vi.mock("@/lib/course-enrollment", () => ({
+  grantsCourseAccess: () => Promise.resolve(mockGranted),
+}));
 
 vi.mock("@/lib/auth-context", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/auth-context")>()),
@@ -89,6 +98,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockUser = null;
   mockLoading = false;
+  mockGranted = true;
   get.mockRejectedValue(new ApiError("لا تملك تسجيلاً في هذا الكورس.", 403, {}));
 });
 
@@ -152,6 +162,17 @@ describe("CourseRail", () => {
 
     // ⚠️ ولا جملةَ خطأٍ: لم يضغطْ أحدٌ شيئاً، والصفحةُ العامّةُ هي الجوابُ الصحيح.
     expect(screen.queryByText(/تعذّر|خطأ/)).toBeNull();
+  });
+
+  it("never asks the curriculum of a learner whose enrolment opens nothing here", async () => {
+    mockUser = { uuid: "u-3", platform_role: "student" };
+    mockGranted = false;
+
+    await renderRail();
+
+    // The door that could only refuse is not knocked on at all.
+    expect(get).not.toHaveBeenCalled();
+    expect(screen.getByText("اشترك بحصص خاصة")).toBeTruthy();
   });
 
   it("never asks on behalf of a teacher, and never calls them enrolled", async () => {

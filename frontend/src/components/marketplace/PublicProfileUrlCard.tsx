@@ -54,7 +54,12 @@ export function PublicProfileUrlCard() {
   const { user, loading } = useAuth();
   // Not asked until the session is known: `user` is null on the first paint
   // for everybody, and somebody who teaches nowhere is not asked at all.
-  const mayOwnProfile = !loading && teachesOnPlatform(user);
+  //
+  // ⛔ AND «TEACHES» IS NOT «HAS A PROFILE» (2026-09-26): a workspace owner who
+  // never went through the teacher application teaches here by the pivot role
+  // and still took a 403 on every visit. `teacher_profile_uuid` is the same
+  // relation `GET /teacher/profile` refuses on.
+  const mayOwnProfile = !loading && teachesOnPlatform(user) && user?.teacher_profile_uuid != null;
 
   useEffect(() => {
     if (!mayOwnProfile) return;

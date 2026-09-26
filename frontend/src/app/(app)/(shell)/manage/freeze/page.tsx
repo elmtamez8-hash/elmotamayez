@@ -42,6 +42,8 @@ export default function ManageFreezePage() {
   const [result, setResult] = useState<FreezeResult | null>(null);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [liftError, setLiftError] = useState("");
+  const [lifted, setLifted] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -61,6 +63,8 @@ export default function ManageFreezePage() {
     setError("");
     setErrors({});
     setResult(null);
+    setLifted(false);
+    setLiftError("");
 
     try {
       setResult(
@@ -79,14 +83,25 @@ export default function ManageFreezePage() {
     }
   };
 
+  /*
+    ⛔ «جُمّدت الفترة» OUTLIVED THE FREEZE IT ANNOUNCED (2026-09-26): lifting a
+    period reloaded the list and left the creation banner — and its list of
+    suspended sessions — standing above it, reporting a freeze that no longer
+    existed. A lift clears it and says what it did; a failed lift says so under
+    its own title rather than «تعذّر التجميد», which is the other button.
+  */
   const lift = async (uuid: string) => {
     setError("");
+    setLiftError("");
+    setLifted(false);
 
     try {
       await freezePeriods.remove(uuid);
+      setResult(null);
+      setLifted(true);
       load();
     } catch (err: unknown) {
-      setError(userMessage(err));
+      setLiftError(userMessage(err));
     }
   };
 
@@ -178,6 +193,14 @@ export default function ManageFreezePage() {
           </div>
         )}
       </Card>
+
+      {lifted && <Alert tone="success" title="رُفع التجميد" />}
+
+      {liftError !== "" && (
+        <Alert tone="danger" title="تعذّر رفع التجميد">
+          {liftError}
+        </Alert>
+      )}
 
       {loading ? (
         <RowsSkeleton />

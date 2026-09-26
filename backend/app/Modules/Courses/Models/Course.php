@@ -474,13 +474,51 @@ class Course extends BaseModel
      */
     public function isPubliclyListed(): bool
     {
+        return $this->publicListingBlockers() === [];
+    }
+
+    /**
+     * WHY a course is not publicly reachable — the same conditions as
+     * `isPubliclyListed()`, one reason per failed condition, and that method is
+     * now defined as «this list is empty» so the two cannot drift.
+     *
+     * ⚠️ WRITTEN FOR THE TEACHER'S OWN SCREEN (reported 2026-09-26). A course
+     * published with `visibility = private`, or in a workspace that has left the
+     * marketplace, answers 404 on `/courses/{slug}` and on `/subscribe` — the
+     * correct answer to a visitor, and a silent one to the teacher who has just
+     * pressed «انشر الكورس» and sees nothing wrong. The reasons are codes, not
+     * sentences: the screen owns the words.
+     *
+     * Reads `creator.teacherProfile` and `workspace`; a caller that renders
+     * this for a signed-in teacher must load the profile WITHOUT the workspace
+     * scope (a tenant model) or an approved teacher reads as unlisted.
+     *
+     * @return list<'draft'|'archived'|'private'|'workspace_not_in_marketplace'|'teacher_not_listed'>
+     */
+    public function publicListingBlockers(): array
+    {
+        $blockers = [];
+
+        if (! $this->isPublished()) {
+            $blockers[] = $this->status === 'archived' ? 'archived' : 'draft';
+        }
+
+        if ($this->visibility !== 'public') {
+            $blockers[] = 'private';
+        }
+
+        if (! (bool) $this->workspace?->participates_in_marketplace) {
+            $blockers[] = 'workspace_not_in_marketplace';
+        }
+
         $profile = $this->creator?->teacherProfile;
 
-        return $this->isPublished()
-            && $this->visibility === 'public'
-            && (bool) $this->workspace?->participates_in_marketplace
-            && $profile !== null
-            && (bool) $profile->is_publicly_listed
-            && $profile->approval_status === TeacherProfile::STATUS_APPROVED;
+        if ($profile === null
+            || ! (bool) $profile->is_publicly_listed
+            || $profile->approval_status !== TeacherProfile::STATUS_APPROVED) {
+            $blockers[] = 'teacher_not_listed';
+        }
+
+        return $blockers;
     }
 }

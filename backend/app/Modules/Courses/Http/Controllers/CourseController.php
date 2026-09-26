@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Courses\Actions\ChangeCourseStatus;
 use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Actions\PublishCourse;
 use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
 use App\Modules\Courses\Actions\SetCoursePromoVideo;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
+use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Http\Requests\CreateCourseRequest;
 use App\Modules\Courses\Http\Requests\ReviewPromoVideoRequest;
 use App\Modules\Courses\Http\Requests\UpdateCourseRequest;
@@ -154,16 +156,18 @@ class CourseController extends Controller
      * this module returns drafts, and it is the one whose name says so.
      * `DraftExposureTest` greps the whole response body for a sentinel title.
      */
-    public function show(Course $course): JsonResponse
+    public function show(Request $request, Course $course): JsonResponse
     {
         $this->authorize('view', $course);
 
-        return response()->json(CourseResource::make($course->loadExists('classSessions')->load([
+        $resource = CourseResource::make($course->loadExists('classSessions')->load([
             'subject',
             'sections' => fn ($query) => $query->published()->orderBy('order'),
             'sections.chapters' => fn ($query) => $query->published()->orderBy('order'),
             'sections.chapters.lessons' => fn ($query) => $query->visibleToStudents()->orderBy('order'),
-        ])));
+        ]));
+
+        return response()->json($this->withReach($request, $course, $resource));
     }
 
     /**
@@ -272,11 +276,52 @@ class CourseController extends Controller
         return response()->json(CourseResource::make($reviewed));
     }
 
-    public function publish(Course $course, PublishCourse $action): JsonResponse
+    public function publish(Request $request, Course $course, PublishCourse $action): JsonResponse
     {
         $this->authorize('publish', $course);
 
-        return response()->json(CourseResource::make($action->handle($course)));
+        $published = $action->handle($course);
+
+        return response()->json($this->withReach($request, $published, CourseResource::make($published)));
+    }
+
+    /**
+     * Back to draft — the undo the teacher's screen never had (2026-09-26).
+     *
+     * `ChangeCourseStatus` has carried the `Draft` branch (and its activity-log
+     * row) since the panel stopped writing the column raw; only the route was
+     * missing, so a teacher who published by mistake could not take it back
+     * without an officer. Same permission as publishing: it is the same switch.
+     */
+    public function unpublish(Request $request, Course $course, ChangeCourseStatus $action): JsonResponse
+    {
+        $this->authorize('publish', $course);
+
+        $draft = $action->handle($course, CourseStatus::Draft);
+
+        return response()->json($this->withReach($request, $draft, CourseResource::make($draft)));
+    }
+
+    /**
+     * Stamp «why is this not public» for a reader who may edit the course.
+     *
+     * ⚠️ THE PROFILE IS READ WITHOUT THE WORKSPACE SCOPE — `teacher_profiles` is
+     * tenant-owned, and `ReadPublicCourse` documents what the scoped eager load
+     * answers: null, so an approved teacher would read as «not listed».
+     */
+    private function withReach(Request $request, Course $course, CourseResource $resource): CourseResource
+    {
+        if ($request->user()?->can('update', $course) !== true) {
+            return $resource;
+        }
+
+        $course->loadMissing([
+            'workspace',
+            'creator',
+            'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
+        ]);
+
+        return $resource->withPublicListingBlockers($course->publicListingBlockers());
     }
 
     public function destroy(Course $course): JsonResponse

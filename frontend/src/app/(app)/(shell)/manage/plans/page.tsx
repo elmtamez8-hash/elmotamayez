@@ -76,7 +76,9 @@ const EMPTY: Draft = {
 
 export default function ManagePlansPage() {
   const [rows, setRows] = useState<Plan[]>([]);
-  const [courseOptions, setCourseOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [courseOptions, setCourseOptions] = useState<
+    Array<{ value: string; label: string; archived: boolean }>
+  >([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -119,7 +121,7 @@ export default function ManagePlansPage() {
         // in the lib, and inventing one here would be a second spelling of a
         // request three screens already send inline.
         api
-          .get<{ data: Array<{ uuid: string; title: string }> }>("/courses?per_page=200")
+          .get<{ data: Array<{ uuid: string; title: string; status: string }> }>("/courses?per_page=200")
           .catch(() => ({ data: [] })),
         /*
          * ⚠️ SWALLOWED ON PURPOSE, AND ONLY THIS ONE. The plans are the page; the
@@ -133,7 +135,13 @@ export default function ManagePlansPage() {
       setRequests(asks.data ?? []);
       setRows(list.data);
       setCourseOptions(
-        (courses.data ?? []).map((course) => ({ value: course.uuid, label: course.title })),
+        (courses.data ?? []).map((course) => ({
+          value: course.uuid,
+          // A draft is sellable-to-be — the plan is often written before «انشر»
+          // — but the teacher should see which of their courses it is.
+          label: course.status === "draft" ? `${course.title} (مسودّة)` : course.title,
+          archived: course.status === "archived",
+        })),
       );
       setState("ready");
     } catch (error) {
@@ -610,7 +618,16 @@ export default function ManagePlansPage() {
               label={draft.coverage_type === "cohort" ? "الكورس الذي فيه المجموعة" : "الكورس"}
               value={draft.course_uuid}
               onChange={(course_uuid) => setDraft({ ...draft, course_uuid, cohort_uuid: "" })}
-              options={courseOptions}
+              /*
+                ⛔ NO ARCHIVED COURSE (2026-09-26): the picker offered every course
+                the workspace ever wrote, and a plan on an archived one sells a
+                course its teacher withdrew — `SavePlan` refuses it now. The one
+                exception is the course an existing plan ALREADY covers, which
+                the server keeps too: hiding it would blank the field on edit.
+              */
+              options={courseOptions
+                .filter((option) => !option.archived || option.value === draft.course_uuid)
+                .map(({ value, label }) => ({ value, label }))}
               placeholder="اختر كورساً"
               error={draft.coverage_type === "course" ? errors.coverage_uuid : undefined}
               required
