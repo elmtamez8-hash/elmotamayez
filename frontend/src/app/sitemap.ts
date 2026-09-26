@@ -30,9 +30,13 @@ const STATIC_PATHS = [
   "/blog",
   "/pricing",
   "/about",
-  "/terms",
   "/privacy",
-  "/refunds",
+  /*
+   * ⚠️ `/terms` AND `/refunds` ARE ABSENT BECAUSE BOTH PAGES ARE `noindex` — they
+   * are drafts under legal review. A sitemap listing a page that asks not to be
+   * indexed sends a crawler a contradiction. They come back here in the same
+   * change that removes their draft banner and their `robots` flag.
+   */
 ];
 
 export async function generateSitemaps(): Promise<{ id: number }[]> {

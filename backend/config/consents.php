@@ -33,6 +33,9 @@ return [
          * direction (FR-050) — the readers name the document they are asking
          * about. Spec 013 owns what this one actually says.
          */
-        'data_processing' => '1.0',
+        // 1.1 (2026-09-26): two processors named, legal basis, cross-border
+        // transfer, children, browser storage. A database already seeded holds
+        // its own row — `_000100_backfill_legal_register` moves that one too.
+        'data_processing' => '1.1',
     ],
 ];
