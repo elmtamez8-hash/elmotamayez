@@ -4,6 +4,7 @@ import { useEffect, useState, type ComponentType } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { billing, type TransferInstructions } from "@/lib/billing";
+import { formatMinorMoney } from "@/lib/labels";
 import {
   AccountNumberIcon,
   BankIcon,
@@ -100,7 +101,31 @@ function CopyButton({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function TransferDestination() {
+/** The sub-line under «حوِّل إلى» on `/orders`, where the upload is in the table. */
+export const TABLE_HINT = "ثم ارفع صورة الإيصال من الجدول بالأسفل.";
+
+export function TransferDestination({
+  amount,
+  hint = TABLE_HINT,
+}: {
+  /**
+   * The exact sum to transfer, printed as the card's first line.
+   *
+   * `undefined` prints no line at all (`/orders` carries its own total above).
+   * ⚠️ `null` is a DIFFERENT answer — «a plan will set the figure, and none is
+   * chosen yet» — and says so, rather than a transfer box that names no figure
+   * on the screen asking for the transfer (reported 2026-09-26).
+   */
+  amount?: { minor: number; currency: string } | null;
+  /**
+   * The line under «حوِّل إلى». `null` drops it.
+   *
+   * ⚠️ IT IS A CLAIM ABOUT THE PAGE AROUND THE CARD, so the page decides it:
+   * «ارفع صورة الإيصال من الجدول» was read on `/subscribe`, which has no table,
+   * and on `/orders` beside a receipt already uploaded (reported 2026-09-26).
+   */
+  hint?: string | null;
+} = {}) {
   const [data, setData] = useState<TransferInstructions | null>(null);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [canCopy, setCanCopy] = useState(false);
@@ -135,6 +160,12 @@ export function TransferDestination() {
     return (
       <Alert tone="warning" title="بيانات التحويل غير معلنة بعد">
         تواصل مع إدارة المنصّة لتعرف وجهة التحويل، ثم ارفع الإيصال من هنا.
+        {amount != null && (
+          <span className="mt-1 block">
+            المبلغ المطلوب تحويله:{" "}
+            <bdi className="font-bold">{formatMinorMoney(amount.minor, amount.currency)}</bdi>
+          </span>
+        )}
       </Alert>
     );
   }
@@ -164,9 +195,27 @@ export function TransferDestination() {
         </span>
         <div className="flex flex-col items-start">
           <h3 className="text-sm font-bold text-ink">حوِّل إلى</h3>
-          <p className="text-xs text-ink-muted">ثم ارفع صورة الإيصال من الجدول بالأسفل.</p>
+          {hint !== null && hint !== "" && <p className="text-xs text-ink-muted">{hint}</p>}
         </div>
       </div>
+
+      {/* The figure the bank app will ask for, before the account it goes to. */}
+      {amount !== undefined && (
+        <div
+          role="group"
+          aria-label="المبلغ المطلوب تحويله"
+          className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-accent/10 px-4 py-3"
+        >
+          <span className="text-xs text-ink-muted">المبلغ المطلوب تحويله</span>
+          {amount === null ? (
+            <span className="text-xs text-ink-muted">اختر الباقة أولاً لترى المبلغ.</span>
+          ) : (
+            <bdi className="text-lg font-bold tabular-nums text-ink">
+              {formatMinorMoney(amount.minor, amount.currency)}
+            </bdi>
+          )}
+        </div>
+      )}
 
       {/*
         ⚠️ `dl` لا جدولٌ ولا قائمةُ فقرات: هذه أزواجُ «مصطلحٍ وقيمتِه» بنصِّها،

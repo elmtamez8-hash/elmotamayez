@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TransferDestination } from "./TransferDestination";
 import { billing } from "@/lib/billing";
+import { formatMinorMoney } from "@/lib/labels";
 
 vi.mock("@/lib/billing", () => ({
   billing: { transferInstructions: vi.fn() },
@@ -144,6 +145,63 @@ describe("copying a number into a banking app", () => {
 
     await waitFor(() => expect(screen.getByText("QA58DOHB0000123")).toBeDefined());
     expect(screen.queryByRole("button", { name: "انسخ الآيبان" })).toBeNull();
+  });
+});
+
+/*
+| بلاغُ ٢٠٢٦-٠٩-٢٦ — المبلغُ بجوارِ الحساب، والسطرُ «من الجدول» قرارُ الصفحة.
+*/
+describe("TransferDestination's amount and hint", () => {
+  beforeEach(() => {
+    read.mockReset();
+    read.mockResolvedValue({ data: { iban: "QA58DOHB0000123" }, configured: true } as never);
+  });
+
+  it("prints the exact sum when the page knows it", async () => {
+    render(<TransferDestination amount={{ minor: 45_000, currency: "QAR" }} />);
+
+    const sum = await screen.findByRole("group", { name: "المبلغ المطلوب تحويله" });
+
+    expect(sum.textContent).toContain(formatMinorMoney(45_000, "QAR"));
+  });
+
+  it("asks for the plan first when the sum is not decided yet", async () => {
+    render(<TransferDestination amount={null} />);
+
+    const sum = await screen.findByRole("group", { name: "المبلغ المطلوب تحويله" });
+
+    expect(sum.textContent).toContain("اختر الباقة أولاً");
+  });
+
+  it("prints no amount line when the page gave none", async () => {
+    render(<TransferDestination />);
+
+    await screen.findByText("QA58DOHB0000123");
+    expect(screen.queryByRole("group", { name: "المبلغ المطلوب تحويله" })).toBeNull();
+  });
+
+  it("keeps the table line by default and drops it on request", async () => {
+    const { unmount } = render(<TransferDestination />);
+
+    expect(await screen.findByText(/من الجدول بالأسفل/)).toBeDefined();
+    unmount();
+
+    render(<TransferDestination hint={null} />);
+
+    await screen.findByText("QA58DOHB0000123");
+    expect(screen.queryByText(/من الجدول بالأسفل/)).toBeNull();
+  });
+
+  it("still names the sum when no destination is configured", async () => {
+    read.mockResolvedValue({ data: {}, configured: false } as never);
+
+    render(<TransferDestination amount={{ minor: 45_000, currency: "QAR" }} />);
+
+    // A warning Alert is `role="status"` (it informs, it does not interrupt).
+    const alert = await screen.findByRole("status");
+
+    expect(alert.textContent).toContain("بيانات التحويل غير معلنة بعد");
+    expect(alert.textContent).toContain(formatMinorMoney(45_000, "QAR"));
   });
 });
 
