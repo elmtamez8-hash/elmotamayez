@@ -46,6 +46,12 @@ export interface PrivateSessionRequest {
   course?: { uuid: string; title: string } | null;
   student?: { uuid: string; name: string } | null;
   class_session_uuid?: string | null;
+  /**
+   * The granted lesson's own status (`ClassSessionStatus`). «accepted» stays true
+   * of the REQUEST after its lesson is called off, so the card reads this to say
+   * «الحصة ملغاة» instead of offering a page for an hour that will not happen.
+   */
+  class_session_status?: string | null;
 }
 
 export const privateSessions = {
