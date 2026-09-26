@@ -55,4 +55,17 @@ describe("the new course form", () => {
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.is_free_enrollment).toBe(true);
   });
+
+  it("sends the course type picked from the tiles, and none until one is picked", async () => {
+    render(<CreateCoursePage />);
+
+    expect(screen.getAllByRole("radio").some((r) => (r as HTMLInputElement).checked)).toBe(false);
+
+    fireEvent.click(screen.getByRole("radio", { name: /جماعي/ }));
+    submit();
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalled());
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.course_type).toBe("group");
+  });
 });
