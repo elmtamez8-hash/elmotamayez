@@ -11,12 +11,13 @@ import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
-import { formatSessionTime } from "@/lib/session-format";
+import { formatSessionTimeWithZone } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
 import {
   privateSessions,
   type PrivateSessionRequest,
 } from "@/lib/private-sessions";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * The teacher's queue of private-session asks (FR-018).
@@ -32,6 +33,7 @@ import {
  * teacher meant to give them.
  */
 export default function PrivateSessionQueuePage() {
+  const zone = useViewerTimeZone();
   const [requests, setRequests] = useState<PrivateSessionRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
@@ -110,12 +112,12 @@ export default function PrivateSessionQueuePage() {
                 {request.student?.name ?? "طالب"} — {request.course?.title ?? "كورس"}
               </h3>
               <span className="text-xs text-ink-muted">
-                تنتهي المهلة {formatSessionTime(request.expires_at, request.timezone)}
+                تنتهي المهلة {formatSessionTimeWithZone(request.expires_at, zone)}
               </span>
             </div>
 
             <p className="text-sm text-ink">
-              {formatSessionTime(request.starts_at, request.timezone)} · {counted(request.duration_minutes, NOUNS.minutes)}
+              {formatSessionTimeWithZone(request.starts_at, zone)} · {counted(request.duration_minutes, NOUNS.minutes)}
             </p>
 
             {rejecting === request.uuid ? (

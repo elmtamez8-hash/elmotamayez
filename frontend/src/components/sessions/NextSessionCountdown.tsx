@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { SessionBooking } from "@/lib/class-sessions";
 import { formatSessionTime } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * How early the room link is worth offering.
@@ -35,6 +36,7 @@ export function NextSessionCountdown({
   booking: SessionBooking | null;
   secondsUntilStart: number;
 }) {
+  const zone = useViewerTimeZone();
   const [remaining, setRemaining] = useState(secondsUntilStart);
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function NextSessionCountdown({
       <p className="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
         {/* `className` REPLACES the icon's default size, so h-4 w-4 is repeated. */}
         <ClockIcon className="h-4 w-4 shrink-0" />
-        {formatSessionTime(session.starts_at, session.timezone)}
+        {formatSessionTime(session.starts_at, zone)}
       </p>
 
       {/*
@@ -127,7 +129,7 @@ export function NextSessionCountdown({
       <div
         className="mb-4 text-sm text-ink"
         role="timer"
-        aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, session.timezone)}`}
+        aria-label={`موعد الحصة ${formatSessionTime(session.starts_at, zone)}`}
       >
         {remaining === 0 ? (
           // The counter floors at zero and had no branch for it, so a lesson that

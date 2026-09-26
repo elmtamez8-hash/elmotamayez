@@ -1,4 +1,5 @@
 import { arabicNumber } from "./numerals";
+import { zonedWallTimeToInstant } from "./timezone";
 /**
  * Arabic labels for the status strings the API returns.
  *
@@ -394,7 +395,12 @@ export function relativeDayLabel(value: string | null): string {
   });
 }
 
-export function formatDateTime(value: string | null): string {
+/**
+ * `timeZone` is optional for the timestamps nobody schedules around (a receipt, a
+ * log line). A SESSION or BOOKING time passes `useViewerTimeZone()` — the
+ * account's stored zone, which may differ from the machine's.
+ */
+export function formatDateTime(value: string | null, timeZone?: string): string {
   if (!value) return "—";
   return new Date(value).toLocaleString("ar", {
     year: "numeric",
@@ -403,6 +409,7 @@ export function formatDateTime(value: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
     numberingSystem: "latn",
+    ...(timeZone ? { timeZone } : {}),
   });
 }
 
@@ -446,8 +453,22 @@ export function formatTime(value: string | null): string {
  * through here turns it into midnight-in-some-zone and moves it by a day at the
  * boundary — the same off-by-one this repository has already paid for twice.
  */
-export function localDateTimeToIso(value: string): string {
+export function localDateTimeToIso(value: string, timeZone?: string): string {
   if (!value) return value;
+
+  /*
+   * ⚠️ A SESSION TIME PASSES THE VIEWER'S ZONE (2026-09-25). Every session screen
+   * draws times on `useViewerTimeZone()` — the account's stored zone, which can
+   * differ from the machine's — and the hour typed here must be read on the same
+   * clock it is shown back on, or a teacher types 17:00 and sees 16:00.
+   */
+  if (timeZone) {
+    const [date, time] = value.split("T");
+
+    if (date && time && /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}/.test(time)) {
+      return zonedWallTimeToInstant(date, time.slice(0, 5), timeZone).toISOString();
+    }
+  }
 
   const at = new Date(value);
 

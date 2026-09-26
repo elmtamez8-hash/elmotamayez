@@ -334,6 +334,14 @@ export const auth = {
     ),
   logout: () => api.post("/auth/logout"),
   me: () => api.get<User>("/auth/me"),
+  /**
+   * The clock this account reads — every time the server prints (a reminder, a
+   * cancellation, a private-session answer) is formatted on it. `onlyIfUnset`
+   * is the sign-in stamp: it fills an empty column and never overwrites a zone
+   * the person chose.
+   */
+  setTimezone: (timezone: string, onlyIfUnset = false) =>
+    api.put<User>("/me/timezone", { timezone, only_if_unset: onlyIfUnset }),
   // The same answer whether or not the address has an account — see
   // `AuthController::forgotPassword()`.
   forgotPassword: (email: string) =>

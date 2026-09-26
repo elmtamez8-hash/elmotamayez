@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AccountPhotoCard } from "@/components/settings/AccountPhotoCard";
 import {
@@ -24,10 +24,10 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api, fieldErrors } from "@/lib/api";
 import {
   BLANK_TIME_MESSAGE,
+  PAST_MIDNIGHT_MESSAGE,
   blankTimeIndex,
-  crossesUtcMidnight,
-  toLocalSlot,
-  toUtcSlot,
+  endsBeforeStartIndex,
+  toViewerSlot,
 } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
@@ -37,6 +37,7 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { AcademicCapIcon, QuestionIcon, ScheduleIcon, UserIcon } from "@/components/icons";
 import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 type Option = { slug: string; name: string };
 type SchoolYear = { slug: string; name: string };
@@ -55,6 +56,7 @@ type SchoolYear = { slug: string; name: string };
  * واشتقاقُ الجمهورِ في TypeScript هو عطبُ «تهجئتَينِ لسؤالٍ واحد» بعينِه.
  */
 export default function ProfileSettingsPage() {
+  const zone = useViewerTimeZone();
   const { user, refreshUser } = useAuth();
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
@@ -81,6 +83,34 @@ export default function ProfileSettingsPage() {
    * وحدَهما — وموضعٌ ثالثٌ يحوّلُ هو الحالةُ التي أصلحها ٢٠٢٦-٠٩-٠٢.
    */
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [storedWeek, setStoredWeek] = useState<TeacherProfile["availability"] | null>(null);
+
+  /*
+   * ⚠️ THE WEEK AS STORED, AND THE WEEK ON THIS TEACHER'S CLOCK, ARE TWO STATES.
+   * A row is wall-clock time on the clock it was saved from (`timezone`); the
+   * editor shows it on the viewer's clock and saves it back stamped with that
+   * clock. Converted in an effect keyed on the zone, so the week shown is always
+   * on the same clock the save will name — the zone can arrive a render late
+   * (the account's stored zone loads after the page).
+   */
+  const showWeek = useCallback((stored: TeacherProfile["availability"], on: string) => {
+    const week = stored.map((slot) => toViewerSlot(slot, on));
+
+    setSlots(week.length > 0 ? week : [{ day_of_week: 0, start_time: "16:00", end_time: "18:00" }]);
+  }, []);
+  const zoneRef = useRef(zone);
+
+  // The zone can change once after the week loaded (the account's stored zone
+  // arrives after the page): redraw the week on it, so it is the clock the save
+  // will name. The first draw happens in `load`, in the same render as the
+  // form, so nothing can be saved before the week is on the screen.
+  useEffect(() => {
+    if (zoneRef.current === zone) return;
+
+    zoneRef.current = zone;
+
+    if (storedWeek !== null) showWeek(storedWeek, zone);
+  }, [storedWeek, zone, showWeek]);
 
   const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
 
@@ -139,15 +169,8 @@ export default function ProfileSettingsPage() {
        * ⚠️ وأسبوعٌ فارغٌ يُبدَأُ بصفٍّ واحدٍ لا بلا شيء: أزرارُ «أضف» تشتقُّ
        * من الصفِّ الأخير، فقائمةٌ فارغةٌ تتركُ المدرّسَ بلا طريقٍ لإضافةِ أوّلِه.
        */
-      const week = mine.availability.map((slot) =>
-        toLocalSlot({
-          day_of_week: slot.day_of_week,
-          start_time: slot.start_time.slice(0, 5),
-          end_time: slot.end_time.slice(0, 5),
-        }),
-      );
-
-      setSlots(week.length > 0 ? week : [{ day_of_week: 0, start_time: "16:00", end_time: "18:00" }]);
+      setStoredWeek(mine.availability);
+      showWeek(mine.availability, zoneRef.current);
     }
 
     if (user?.student_profile != null) {
@@ -166,7 +189,7 @@ export default function ProfileSettingsPage() {
     }
 
     setLoading(false);
-  }, [user?.student_profile]);
+  }, [user?.student_profile, showWeek]);
 
   useEffect(() => {
     void load();
@@ -526,28 +549,26 @@ export default function ProfileSettingsPage() {
               event.preventDefault();
 
               /*
-               * ⚠️ نافذةٌ تعبُرُ منتصفَ ليلِ UTC لا يمكنُ تخزينُها إطلاقاً — الصفُّ
-               * يحملُ يوماً وساعتَين — والخادمُ يرفضُها بجملةٍ عن أوقاتٍ لم
-               * يكتبْها المدرّس. فالسؤالُ يُطرحُ هنا لتُقالَ الجملةُ الصّحيحة.
+               * ⚠️ الساعاتُ تُرسَلُ كما كتبَها المدرّسُ ومعها اسمُ ساعتِه — لا
+               * تحويلَ (٢٠٢٦-٠٩-٢٥). ونافذةٌ تعبُرُ منتصفَ ليلِه لا تُخزَّنُ صفّاً
+               * واحداً، فالسؤالُ يُطرحُ هنا لتُقالَ الجملةُ الصّحيحة.
                */
-              // A cleared time is "" and would be converted as midnight.
+              // A cleared time is "" and would be stored as midnight.
               if (blankTimeIndex(slots) !== -1) {
                 setFields({ availability: BLANK_TIME_MESSAGE });
 
                 return;
               }
 
-              const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
+              const straddling = endsBeforeStartIndex(slots);
 
               if (straddling !== -1) {
-                setFields({
-                  availability: `فترة ${DAYS[slots[straddling].day_of_week]} تعبر منتصف الليل بالتوقيت العالمي. قسّمها إلى فترتين.`,
-                });
+                setFields({ availability: `فترة ${DAYS[slots[straddling].day_of_week]}: ${PAST_MIDNIGHT_MESSAGE}` });
 
                 return;
               }
 
-              void save(profileApi.saveAvailability(slots.map((slot) => toUtcSlot(slot))));
+              void save(profileApi.saveAvailability(slots, zone));
             }}
           >
             <WeeklyAvailabilityEditor

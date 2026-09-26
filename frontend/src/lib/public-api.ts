@@ -76,8 +76,14 @@ export type ReviewItem = {
 
 export type AvailabilityItem = {
   day_of_week: number;
+  /** Wall-clock `HH:MM` on the teacher's clock — the zone below. */
   start_time: string;
   end_time: string;
+  /**
+   * The teacher's IANA zone (2026-09-25). Absent only on a response cached from
+   * before, whose hours were UTC — `lib/availability` reads it that way.
+   */
+  timezone?: string;
 };
 
 export type CourseCard = {

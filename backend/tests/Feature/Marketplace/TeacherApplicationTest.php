@@ -60,6 +60,7 @@ function teacherStepFour(): array
     return [
         'hourly_rate' => '120.00',
         'currency' => 'QAR',
+        'timezone' => 'Asia/Qatar',
         'availability' => [
             ['day_of_week' => 0, 'start_time' => '16:00', 'end_time' => '18:00'],
             ['day_of_week' => 2, 'start_time' => '16:00', 'end_time' => '18:00'],
@@ -209,6 +210,7 @@ it('rejects overlapping availability windows', function (): void {
     $this->putJson('/api/v1/teacher/application/step-2', teacherStepTwo())->assertOk();
     $this->putJson('/api/v1/teacher/application/step-3', ['documents_acknowledged' => true])->assertOk();
     $this->putJson('/api/v1/teacher/application/step-4', [
+        'timezone' => 'Asia/Qatar',
         'hourly_rate' => '120.00',
         'availability' => [
             ['day_of_week' => 0, 'start_time' => '16:00', 'end_time' => '18:00'],
@@ -225,6 +227,7 @@ it('accepts back-to-back windows that only touch', function (): void {
     $application = completeWizard();
 
     $this->putJson('/api/v1/teacher/application/step-4', [
+        'timezone' => 'Asia/Qatar',
         'hourly_rate' => '120.00',
         'availability' => [
             ['day_of_week' => 0, 'start_time' => '10:00', 'end_time' => '12:00'],

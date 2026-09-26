@@ -41,12 +41,11 @@ class NotifySeatHolders
 
         $students = User::query()->whereIn('id', $event->seatHolderIds)->get();
 
-        $startsAt = $session->starts_at
-            ->copy()
-            ->setTimezone($this->settings->timezone())
-            ->format('Y-m-d H:i');
-
         foreach ($students as $student) {
+            // Each seat holder's own clock, zone named — computed INSIDE the loop,
+            // because two holders of one seat list may be in two countries.
+            $startsAt = $this->settings->formatFor($student, $session->starts_at);
+
             $this->dispatch->handle(new NotificationRequest(
                 recipient: $student,
                 type: NotificationType::SessionCancelled,

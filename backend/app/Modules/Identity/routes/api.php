@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Identity\Http\Controllers\AccountPhotoController;
+use App\Modules\Identity\Http\Controllers\AccountTimezoneController;
 use App\Modules\Identity\Http\Controllers\AuthController;
 use App\Modules\Identity\Http\Controllers\FamilyController;
 use App\Modules\Identity\Http\Controllers\PanelHandoffController;
@@ -92,6 +93,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/photo', [AccountPhotoController::class, 'store']);
     Route::delete('/me/photo', [AccountPhotoController::class, 'destroy']);
     Route::patch('/me/student-profile', [StudentProfileController::class, 'update']);
+    // The clock this account reads (2026-09-25) — stamped by the browser on
+    // sign-in when empty, and read by every server-rendered time.
+    Route::put('/me/timezone', [AccountTimezoneController::class, 'update']);
 
     Route::get('/auth/2fa', [TwoFactorController::class, 'show']);
     Route::post('/auth/2fa/setup', [TwoFactorController::class, 'setup'])->middleware('throttle:two-factor');

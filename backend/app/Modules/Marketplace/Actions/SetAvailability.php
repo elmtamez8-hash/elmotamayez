@@ -10,6 +10,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\AvailabilityRules;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Actions\Action;
+use App\Shared\Support\UserClock;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
@@ -29,9 +30,16 @@ use Illuminate\Support\Facades\DB;
  */
 class SetAvailability extends Action
 {
-    /** @param list<array{day_of_week: int, start_time: string, end_time: string}> $slots */
-    public function handle(TeacherProfile $teacher, array $slots): void
+    /**
+     * @param  list<array{day_of_week: int, start_time: string, end_time: string}>  $slots
+     * @param  string  $timezone  the teacher's own clock — the hours are wall-clock time on it
+     */
+    public function handle(TeacherProfile $teacher, array $slots, string $timezone): void
     {
+        if (! UserClock::isValid($timezone)) {
+            throw new DomainException('المنطقة الزمنية غير معروفة.');
+        }
+
         // قبلَ كلِّ شيءٍ آخر. العمودُ يحرسُ نفسَه في {@see AvailabilitySlot}،
         // لكنّ فحصَ التداخلِ أدناهُ ونسخةَ الخطوةِ الرابعةِ يعملانِ قبلَ النموذجِ
         // وخارجَه، وكلاهُما يُقارنُ نصّاً — فوقتٌ بشكلَينِ وقتانِ مختلفان.
@@ -39,7 +47,7 @@ class SetAvailability extends Action
 
         $this->assertNoOverlaps($slots);
 
-        DB::transaction(function () use ($teacher, $slots): void {
+        DB::transaction(function () use ($teacher, $slots, $timezone): void {
             $teacher->availabilitySlots()->delete();
 
             foreach ($slots as $slot) {
@@ -47,10 +55,11 @@ class SetAvailability extends Action
                     'workspace_id' => $teacher->workspace_id,
                     'teacher_profile_id' => $teacher->getKey(),
                     ...$slot,
+                    'timezone' => $timezone,
                 ]);
             }
 
-            $this->mirrorToOpenApplication($teacher, $slots);
+            $this->mirrorToOpenApplication($teacher, $slots, $timezone);
         });
 
         // "متاح الآن" is a filter on these rows, so a stale list would advertise a
@@ -82,7 +91,7 @@ class SetAvailability extends Action
      *
      * @param  list<array{day_of_week: int, start_time: string, end_time: string}>  $slots
      */
-    private function mirrorToOpenApplication(TeacherProfile $teacher, array $slots): void
+    private function mirrorToOpenApplication(TeacherProfile $teacher, array $slots, string $timezone): void
     {
         $application = TeacherApplication::query()
             // نفسُ التجاوزِ المقصودِ في {@see TeacherApplicationController}:
@@ -97,7 +106,7 @@ class SetAvailability extends Action
 
         $application->step_data = [
             ...($application->step_data ?? []),
-            'step_4' => [...$application->step(4), 'availability' => $slots],
+            'step_4' => [...$application->step(4), 'availability' => $slots, 'timezone' => $timezone],
         ];
 
         $application->save();

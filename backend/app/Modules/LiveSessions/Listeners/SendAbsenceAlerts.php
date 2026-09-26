@@ -95,24 +95,22 @@ class SendAbsenceAlerts implements ShouldQueueAfterCommit
                 ->with('student')
                 ->get();
 
-            $when = $session->starts_at
-                ->copy()
-                ->setTimezone($this->settings->timezone())
-                ->format('Y-m-d H:i');
-
             foreach ($rows as $attendance) {
-                $this->alert($session, $attendance, $when);
+                $this->alert($session, $attendance);
             }
         });
     }
 
-    private function alert(ClassSession $session, Attendance $attendance, string $when): void
+    private function alert(ClassSession $session, Attendance $attendance): void
     {
         $student = $attendance->student;
 
         if ($student === null) {
             return;
         }
+
+        // The recipient's own clock, zone named (2026-09-25).
+        $when = $this->settings->formatFor($student, $session->starts_at);
 
         $claimed = DB::table('attendances')
             ->where('id', $attendance->getKey())

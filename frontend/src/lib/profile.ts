@@ -28,10 +28,11 @@ export type TeacherProfile = {
   subjects: string[];
   grade_levels: string[];
   /**
-   * الجدولُ الأسبوعيُّ، مخزّناً UTC بـ`H:i:s` — يُحوّلُ بـ`toLocalSlot`
-   * عندَ العرضِ وبـ`toUtcSlot` عندَ الحفظ، ولا موضعَ ثالثَ للتحويل.
+   * الجدولُ الأسبوعيُّ بساعاتِ المدرّسِ على ساعتِه (`H:i:s`) ومعها اسمُ ساعتِه
+   * (٢٠٢٦-٠٩-٢٥) — يُعرَضُ على ساعةِ القارئِ بـ`toViewerSlot`، ويُحفَظُ كما
+   * كُتِبَ مع منطقةِ الحافظ. لا تحويلَ عندَ الحفظ.
    */
-  availability: Array<{ day_of_week: number; start_time: string; end_time: string }>;
+  availability: Array<{ day_of_week: number; start_time: string; end_time: string; timezone: string }>;
 };
 
 export type Faq = { question: string; answer: string };
@@ -57,11 +58,13 @@ export const profileApi = {
   /**
    * ⚠️ الأسبوعُ كاملاً في كلِّ حفظ، لا فرقاً: `SetAvailability` يستبدِلُ ولا
    * يدمجُ — ودمجٌ هنا يتركُ نافذةً حذفَها المدرّسُ قابلةً للحجز.
-   * والأوقاتُ تصلُ UTC من عندِ المُنادي، فلا تحويلَ هنا ولا على الخادم.
+   * والأوقاتُ كما كتبَها المدرّسُ على ساعتِه، و`timezone` اسمُ تلكَ الساعة
+   * (مطلوبٌ على الخادم) — فلا تحويلَ هنا ولا هناك.
    */
   saveAvailability: (
     availability: Array<{ day_of_week: number; start_time: string; end_time: string }>,
-  ) => api.put<TeacherProfile>("/teacher/availability", { availability }),
+    timezone: string,
+  ) => api.put<TeacherProfile>("/teacher/availability", { availability, timezone }),
 
   saveStudent: (body: { school_year_slug: string; region_slug: string }) =>
     api.patch<User>("/me/student-profile", body),

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /*
 | The teacher's page for one session (reported on production 2026-09-24).
@@ -123,12 +124,28 @@ describe("the room button", () => {
 });
 
 describe("the timezone", () => {
+  /*
+  | The VIEWER's zone (2026-09-25) — the account's stored one here, pinned so the
+  | case does not depend on the machine running it.
+  */
+  afterEach(() => setStoredViewerTimeZone(null));
+
   it("is printed in Arabic, not as an IANA name", async () => {
+    setStoredViewerTimeZone("Asia/Qatar");
     show.mockResolvedValue(session());
     await openPage();
 
     expect(screen.getByText("توقيت قطر")).toBeTruthy();
     expect(screen.queryByText("Asia/Qatar")).toBeNull();
+  });
+
+  it("is the viewer's own, not the platform's the payload names", async () => {
+    setStoredViewerTimeZone("Africa/Cairo");
+    show.mockResolvedValue(session());
+    await openPage();
+
+    expect(screen.getByText("توقيت مصر")).toBeTruthy();
+    expect(screen.queryByText("توقيت قطر")).toBeNull();
   });
 });
 

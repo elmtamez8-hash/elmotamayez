@@ -45,10 +45,7 @@ class NotifyStudentPrivateSessionExpired implements ShouldQueueAfterCommit
             type: NotificationType::PrivateSessionExpired,
             variables: [
                 'course_title' => $course->title,
-                'session_time' => $request->starts_at
-                    ->copy()
-                    ->setTimezone($this->settings->timezone())
-                    ->format('Y-m-d H:i'),
+                'session_time' => $this->settings->formatFor($student, $request->starts_at),
             ],
             // The course page, which is where the teacher's declared hours are
             // and therefore where asking again starts.

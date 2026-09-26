@@ -9,6 +9,7 @@ import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
 import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * حصصُ الابنِ القادمة (٠٢٩ · `FR-019`).
@@ -23,6 +24,7 @@ export function readChildSchedule(studentUuid: string) {
 }
 
 export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) {
+  const zone = useViewerTimeZone();
   const [rows, setRows] = useState<ChildSessionBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,11 +66,9 @@ export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) 
             <li key={booking.uuid} className="rounded-lg border border-line p-3">
               <p className="text-sm font-medium text-ink">{session.title}</p>
               <p className="text-xs text-ink-muted">
-                {/* ponytail: بتوقيتِ المتصفّح — المَورِدُ الضيِّقُ لا يُرسِلُ
-                    `timezone`. إن اختلفَ توقيتُ الأسرةِ عن جهازِها فالترقيةُ
-                    إضافةُ الحقلِ إلى `ChildSessionResource` واستعمالُ
-                    `formatSessionTime` كما تفعلُ شاشاتُ الطالب. */}
-                {formatDateTime(session.starts_at)}
+                {/* بساعةِ وليِّ الأمرِ نفسِه (٢٠٢٦-٠٩-٢٥): المنطقةُ المخزَّنةُ
+                    على حسابِه، وإلّا منطقةُ متصفّحِه — كما في كلِّ شاشةِ حصص. */}
+                {formatDateTime(session.starts_at, zone)}
                 {session.course === null ? "" : ` · ${session.course.title}`}
                 {session.teacher_name === null ? "" : ` · ${session.teacher_name}`}
               </p>

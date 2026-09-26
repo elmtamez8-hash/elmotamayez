@@ -10,7 +10,6 @@ use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
-use Illuminate\Support\Carbon;
 
 /**
  * «يطلب سامي تأجيل حصة السبت إلى الأحد ٦م».
@@ -53,11 +52,11 @@ class NotifyTeacherSessionRescheduleRequested implements ShouldQueueAfterCommit
             variables: [
                 'student_name' => $student->name,
                 'title' => $session->title,
-                // Rendered in the platform's declared timezone, the
-                // `NotifySeatHolders` spelling: the row is a UTC instant and a
-                // teacher reading «18:00» must see the hour the student meant.
-                'from_time' => $this->local($request->from_starts_at),
-                'to_time' => $this->local($request->to_starts_at),
+                // Rendered on the TEACHER's own clock with the zone named: the
+                // row is a UTC instant, and the student who asked may be in
+                // another country — «18:00» alone would be true for one of them.
+                'from_time' => $this->settings->formatFor($teacher, $request->from_starts_at),
+                'to_time' => $this->settings->formatFor($teacher, $request->to_starts_at),
                 // Never empty: `TemplateRenderer` counts a present-but-blank
                 // variable as MISSING and refuses the whole message, so an ask
                 // with no words typed would be dropped in silence.
@@ -67,10 +66,5 @@ class NotifyTeacherSessionRescheduleRequested implements ShouldQueueAfterCommit
             subject: $student,
             workspaceId: (int) $request->workspace_id,
         ));
-    }
-
-    private function local(Carbon $at): string
-    {
-        return $at->copy()->setTimezone($this->settings->timezone())->format('Y-m-d H:i');
     }
 }

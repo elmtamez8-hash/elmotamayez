@@ -41,10 +41,8 @@ class NotifyStudentPrivateSessionDecided implements ShouldQueueAfterCommit
             return;
         }
 
-        $when = $request->starts_at
-            ->copy()
-            ->setTimezone($this->settings->timezone())
-            ->format('Y-m-d H:i');
+        // The student's own clock, zone named (2026-09-25).
+        $when = $this->settings->formatFor($student, $request->starts_at);
 
         $variables = [
             'course_title' => $course->title,

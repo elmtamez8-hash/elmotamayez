@@ -8,10 +8,10 @@ import { userMessage } from "@/lib/errors";
 import { useAuth } from "@/lib/auth-context";
 import {
   BLANK_TIME_MESSAGE,
+  PAST_MIDNIGHT_MESSAGE,
   blankTimeIndex,
-  crossesUtcMidnight,
-  toLocalSlot,
-  toUtcSlot,
+  endsBeforeStartIndex,
+  toViewerSlot,
 } from "@/lib/availability";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
@@ -24,6 +24,7 @@ import {
   type Slot,
 } from "@/components/marketplace/WeeklyAvailabilityEditor";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 const FIELD =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -90,6 +91,7 @@ export function TeacherSignupWizard({
   gradeLevels: Taxonomy[];
 }) {
   const router = useRouter();
+  const zone = useViewerTimeZone();
 
   const [application, setApplication] = useState<ApplicationState | null>(null);
   const { adoptSession } = useAuth();
@@ -131,6 +133,23 @@ export function TeacherSignupWizard({
   const [slots, setSlots] = useState<Slot[]>([
     { day_of_week: 0, start_time: "16:00", end_time: "18:00" },
   ]);
+  const [storedWeek, setStoredWeek] = useState<Array<Slot & { timezone: string | null }> | null>(null);
+
+  /*
+   * ⚠️ THE WEEK AS STORED, AND THE WEEK ON THIS TEACHER'S CLOCK, ARE TWO STATES.
+   * A row is wall-clock time on the clock it was saved from (`timezone`); the
+   * editor shows it on the viewer's clock and saves it back stamped with that
+   * clock. Converted in an effect keyed on the zone, so the week shown is always
+   * on the same clock the save will name — the zone can arrive a render late
+   * (the account's stored zone loads after the page).
+   */
+  useEffect(() => {
+    if (storedWeek === null) return;
+
+    const week = storedWeek.map((slot) => toViewerSlot(slot, zone));
+
+    if (week.length > 0) setSlots(week);
+  }, [storedWeek, zone]);
 
   const idempotencyKey = useMemo(
     () => globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
@@ -193,18 +212,14 @@ export function TeacherSignupWizard({
     if (four) {
       setRate((four.hourly_rate as string) ?? "");
       /*
-       | ⚠️ CONVERTED BACK OUT OF UTC. `availability_slots` stores UTC and this
-       | editor shows a `<input type="time">`, which is the teacher's own clock —
-       | read raw, a window they declared at 16:00 comes back as 13:00 and every
-       | reopening of a saved application moves it again.
+       | ⚠️ WALL-CLOCK HOURS ON THE CLOCK THEY WERE SAVED FROM (`timezone`, since
+       | 2026-09-25), drawn on this reader's clock by the effect above. A draft
+       | saved before then was converted and stamped by the migration.
        */
-      setSlots(((four.availability as Slot[]) ?? []).map((slot) =>
-        toLocalSlot({
-          day_of_week: slot.day_of_week,
-          start_time: slot.start_time.slice(0, 5),
-          end_time: slot.end_time.slice(0, 5),
-        }),
-      ));
+      const saved = (four.availability as Slot[]) ?? [];
+      const savedZone = typeof four.timezone === "string" ? four.timezone : null;
+
+      setStoredWeek(saved.map((slot) => ({ ...slot, timezone: savedZone })));
     }
   }
 
@@ -306,31 +321,22 @@ export function TeacherSignupWizard({
     event.preventDefault();
 
     /*
-     | ⚠️ CONVERTED TO UTC, AND THIS IS THE HALF THAT WAS MISSING. The column is
-     | UTC — five readers say so, including the job that puts real lessons on the
-     | calendar — and this form sent the raw value of a `<input type="time">`. A
-     | teacher in Qatar typing 16:00 stored `16:00`, which every one of them read
-     | as 19:00: the hour they declared and the hour the product offered were
-     | three apart, and their own public page disagreed with this very screen.
+     | ⚠️ SENT AS TYPED, WITH THE TEACHER'S ZONE NAMED (2026-09-25). The column
+     | was UTC and this form converted with this week's offset — exact in Qatar,
+     | an hour out in Egypt from every DST change. The row now keeps the
+     | wall-clock hour and the zone, and every reader converts per date.
      */
-    // A cleared time is "" and would be converted — and stored — as midnight.
+    // A cleared time is "" and would be stored as midnight.
     if (blankTimeIndex(slots) !== -1) {
       setErrors({ availability: BLANK_TIME_MESSAGE });
 
       return;
     }
 
-    const straddling = slots.findIndex((slot) => crossesUtcMidnight(slot));
-
-    if (straddling !== -1) {
-      // One row holds a weekday and two clock times, so a window whose UTC end
-      // falls past midnight cannot be stored at all. Said here in words the
-      // teacher can act on — the server's own refusal names times they never
-      // typed.
-      setErrors({
-        availability: 'قسّم الفترة التي تمتدّ بعد منتصف الليل إلى فترتين: '
-          + 'واحدة تنتهي عند منتصف الليل وأخرى تبدأ منه.',
-      });
+    // One row is one day on the teacher's clock, so a window past midnight
+    // cannot be stored as one — said here in words the teacher can act on.
+    if (endsBeforeStartIndex(slots) !== -1) {
+      setErrors({ availability: PAST_MIDNIGHT_MESSAGE });
 
       return;
     }
@@ -338,7 +344,8 @@ export function TeacherSignupWizard({
     const saved = await send(() =>
       api.put("/teacher/application/step-4", {
         hourly_rate: rate,
-        availability: slots.map((slot) => toUtcSlot(slot)),
+        availability: slots,
+        timezone: zone,
       }),
     );
 

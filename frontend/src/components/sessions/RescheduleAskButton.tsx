@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { userMessage } from "@/lib/errors";
 import { localDateTimeToIso } from "@/lib/labels";
 import { rescheduleRequests } from "@/lib/reschedule-requests";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «أعتذر عن حصّة السبت — هل يمكن الأحد ٦م؟»
@@ -33,6 +34,7 @@ export function RescheduleAskButton({
   title: string;
   onDone?: () => void;
 }) {
+  const zone = useViewerTimeZone();
   const [open, setOpen] = useState(false);
   const [when, setWhen] = useState("");
   const [reason, setReason] = useState("");
@@ -48,7 +50,7 @@ export function RescheduleAskButton({
       // ⚠️ The naive wall clock IS the defect: a `datetime-local` value carries
       // no zone and the API runs on UTC, so sending it raw books an hour that
       // is right only for a reader in the same offset as the server.
-      .ask(sessionUuid, localDateTimeToIso(when), reason.trim() === "" ? undefined : reason.trim())
+      .ask(sessionUuid, localDateTimeToIso(when, zone), reason.trim() === "" ? undefined : reason.trim())
       .then(() => {
         setSent(true);
         setOpen(false);

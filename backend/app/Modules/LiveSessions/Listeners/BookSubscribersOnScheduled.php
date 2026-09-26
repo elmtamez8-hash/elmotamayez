@@ -114,7 +114,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
         }
 
         $this->context->forWorkspace($workspace, function () use ($workspaceId, $courseId, $sessions, $memberIds, $workspace): void {
-            /** @var array<int, list<string>> $refusedBy student id => session labels */
+            /** @var array<int, list<ClassSession>> $refusedBy student id => refused sessions */
             $refusedBy = [];
             /** @var array<int, User> $students */
             $students = [];
@@ -182,7 +182,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
                     | besides, and it names a thing they do not hold.
                     */
                     if ($subscribed) {
-                        $refusedBy[$studentId][] = $this->label($session);
+                        $refusedBy[$studentId][] = $session;
                     }
                 }
             }
@@ -191,13 +191,27 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
         });
     }
 
-    private function label(ClassSession $session): string
+    /**
+     * ⚠️ LABELLED PER RECIPIENT, NOT ONCE. The student and the teacher of one
+     * lesson may read different clocks (Doha and Cairo are an hour apart for half
+     * the year), so the label is built when the recipient is known.
+     *
+     * @param  list<ClassSession>  $sessions
+     * @return list<string>
+     */
+    private function labels(array $sessions, ?User $reader): array
     {
-        return sprintf(
-            '%s (%s)',
-            $session->title,
-            Carbon::parse($session->starts_at)->setTimezone($this->settings->timezone())->format('Y-m-d H:i'),
-        );
+        $labels = [];
+
+        foreach ($sessions as $session) {
+            $labels[$session->getKey()] = sprintf(
+                '%s (%s)',
+                $session->title,
+                $this->settings->formatFor($reader, Carbon::parse($session->starts_at)),
+            );
+        }
+
+        return array_values($labels);
     }
 
     /**
@@ -207,7 +221,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
      * from a single click — and a family that mutes the channel over it loses the
      * absence alert with it.
      *
-     * @param  array<int, list<string>>  $refusedBy
+     * @param  array<int, list<ClassSession>>  $refusedBy
      * @param  array<int, User|null>  $students
      */
     private function announce(array $refusedBy, array $students, Workspace $workspace, int $workspaceId): void
@@ -218,7 +232,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
 
         $names = [];
 
-        foreach ($refusedBy as $studentId => $labels) {
+        foreach ($refusedBy as $studentId => $sessions) {
             $student = $students[$studentId] ?? null;
 
             if ($student === null) {
@@ -230,7 +244,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
             $this->dispatch->handle(new NotificationRequest(
                 recipient: $student,
                 type: NotificationType::SubscriptionSeatUnavailable,
-                variables: ['student_name' => $student->name, 'sessions' => implode('، ', $labels)],
+                variables: ['student_name' => $student->name, 'sessions' => implode('، ', $this->labels($sessions, $student))],
                 actionUrl: '/schedule',
                 subject: $student,
                 workspaceId: $workspaceId,
@@ -250,7 +264,7 @@ class BookSubscribersOnScheduled implements ShouldQueueAfterCommit
             type: NotificationType::SubscriptionSeatUnavailable,
             variables: [
                 'student_name' => implode('، ', $names),
-                'sessions' => implode('، ', array_unique(array_merge(...array_values($refusedBy)))),
+                'sessions' => implode('، ', $this->labels(array_merge(...array_values($refusedBy)), $teacher)),
             ],
             actionUrl: '/manage/sessions',
             subject: $teacher,

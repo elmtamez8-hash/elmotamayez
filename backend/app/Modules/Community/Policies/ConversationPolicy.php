@@ -17,6 +17,7 @@ use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
+use App\Shared\Support\UserClock;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -178,7 +179,7 @@ class ConversationPolicy
                 if ($ban !== null) {
                     return Response::deny($ban->expires_at === null
                         ? 'أوقف المدرّس كتابتك في هذا النقاش. السبب: '.$ban->reason
-                        : 'أوقف المدرّس كتابتك في هذا النقاش حتى '.$ban->expires_at->format('H:i').'. السبب: '.$ban->reason);
+                        : 'أوقف المدرّس كتابتك في هذا النقاش حتى '.UserClock::format($user, $ban->expires_at).'. السبب: '.$ban->reason);
                 }
             }
 

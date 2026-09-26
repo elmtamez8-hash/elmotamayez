@@ -12,6 +12,7 @@ import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readTeacherSessions, teacherSessionsAudience } from "./TeacherSessionsCard";
 import { counted, NOUNS } from "@/lib/labels";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 const DAYS = 7;
 
@@ -28,16 +29,14 @@ function weekdayLabel(dayKey: string, timeZone: string): string {
  * عنوان**. ومنطقةُ الصفوفِ هي المرجع؛ فإذا لم يكن ثمَّ صفٌّ فالأعمدةُ أصفارٌ
  * كلُّها ولا يبقى للمنطقةِ أثرٌ إلّا في التسمية.
  */
-function buckets(rows: ClassSession[], now: Date): Array<{ key: string; sessions: ClassSession[] }> {
-  const zone = rows[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-
+function buckets(rows: ClassSession[], now: Date, zone: string): Array<{ key: string; sessions: ClassSession[] }> {
   const days = Array.from({ length: DAYS }, (_, index) => ({
     key: sessionDayKey(new Date(now.getTime() + index * 86_400_000).toISOString(), zone),
     sessions: [] as ClassSession[],
   }));
 
   for (const session of rows) {
-    const day = days.find((entry) => entry.key === sessionDayKey(session.starts_at, session.timezone));
+    const day = days.find((entry) => entry.key === sessionDayKey(session.starts_at, zone));
 
     // ⚠️ الصفوفُ نفسُها تُحفَظُ لا عددُها وحدَه: العمودُ يقولُ «٣ حصص السبت»
     // ويتركُ المدرّسَ يفتحُ التقويمَ ليعرفَ **أيّ** ثلاث. والصفوفُ محمَّلةٌ هنا
@@ -63,11 +62,11 @@ function dateLabel(dayKey: string, timeZone: string): string {
   });
 }
 
-function clock(session: ClassSession): string {
+function clock(session: ClassSession, timeZone: string): string {
   return new Date(session.starts_at).toLocaleTimeString("ar", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: session.timezone,
+    timeZone,
   });
 }
 
@@ -86,6 +85,7 @@ function clock(session: ClassSession): string {
  */
 export function WeekSessionsChartCard() {
   const { user } = useAuth();
+  const zone = useViewerTimeZone();
   const { hostUuid, managesWorkspace } = teacherSessionsAudience(user);
   const shown = hostUuid !== null || managesWorkspace;
 
@@ -118,11 +118,10 @@ export function WeekSessionsChartCard() {
 
   if (!shown) return null;
 
-  const days = buckets(rows, new Date());
+  const days = buckets(rows, new Date(), zone);
   // ⚠️ المقامُ واحدٌ على الأقلّ: أسبوعٌ خالٍ يجعلُ `count / max` قسمةً على صفرٍ
   // فيصيرُ الارتفاعُ `NaN%` — وهو عمودٌ لا يُرسَمُ بصمت.
   const max = Math.max(1, ...days.map((day) => day.sessions.length));
-  const zone = rows[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const shownKey = pinned ?? hovered;
   const shownDay = days.find((day) => day.key === shownKey) ?? null;
 
@@ -205,7 +204,7 @@ export function WeekSessionsChartCard() {
                       </span>
                     )}
                   </Link>
-                  <bdi className="shrink-0 font-bold text-primary-ink">{clock(session)}</bdi>
+                  <bdi className="shrink-0 font-bold text-primary-ink">{clock(session, zone)}</bdi>
                 </li>
               ))}
             </ul>

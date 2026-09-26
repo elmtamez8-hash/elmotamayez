@@ -42,7 +42,7 @@ it('exposes the five trust factors behind the score', function () {
     ]);
 });
 
-it('returns availability in UTC so the client can localise it', function () {
+it('returns availability as the teacher\'s wall-clock hours WITH their zone, so the client can localise it per date', function () {
     $teacher = marketplaceTeacher($this->workspace);
 
     app(WorkspaceContext::class)->forWorkspace($this->workspace, fn () => AvailabilitySlot::query()->create([
@@ -51,6 +51,7 @@ it('returns availability in UTC so the client can localise it', function () {
         'day_of_week' => 1,
         'start_time' => '13:00:00',
         'end_time' => '15:00:00',
+        'timezone' => 'Africa/Cairo',
     ]));
 
     $this->asGuest();
@@ -59,7 +60,7 @@ it('returns availability in UTC so the client can localise it', function () {
         ->json('data.availability');
 
     expect($availability)->toBe([
-        ['day_of_week' => 1, 'start_time' => '13:00', 'end_time' => '15:00'],
+        ['day_of_week' => 1, 'start_time' => '13:00', 'end_time' => '15:00', 'timezone' => 'Africa/Cairo'],
     ]);
 });
 

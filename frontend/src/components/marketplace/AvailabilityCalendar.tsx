@@ -10,9 +10,10 @@ import {
   NoonIcon,
   WeekIcon,
 } from "@/components/icons";
-import { toLocalSlot } from "@/lib/availability";
-import { counted, NOUNS } from "@/lib/labels";
+import { toViewerSlot } from "@/lib/availability";
+import { counted, NOUNS, timezoneLabel } from "@/lib/labels";
 import type { AvailabilityItem } from "@/lib/public-api";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 
@@ -86,8 +87,9 @@ export function formatDays(days: number): string {
 }
 
 export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
+  const zone = useViewerTimeZone();
   const [localised, setLocalised] = useState(slots);
-  const [zone, setZone] = useState("UTC");
+  const [shownZone, setShownZone] = useState<string | null>(null);
   /*
    * ⚠️ TODAY IS READ IN AN EFFECT, NEVER DURING RENDER. This page is prerendered
    * on the server, where `new Date()` is the SERVER's day — so one card would be
@@ -99,15 +101,15 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
 
   useEffect(() => {
     // ⚠️ Converted in the effect, not during render: the server does not know
-    // the visitor's zone, so rendering UTC first and correcting on mount keeps
-    // the times crawlable while still being right for the reader. The zone is
-    // always named beside them — an unlabelled 16:00 is worse than useless to
-    // someone in Cairo. The conversion itself lives in `lib/availability`, with
-    // its inverse, so the calendar and the wizard cannot drift apart.
-    setLocalised(slots.map((slot) => toLocalSlot(slot)));
-    setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    // the visitor's zone, so rendering the teacher's own hours first and
+    // correcting on mount keeps the times crawlable while still being right for
+    // the reader. The zone is always named beside them — an unlabelled 16:00 is
+    // worse than useless to someone in Cairo. Each slot carries its teacher's
+    // zone (2026-09-25) and `lib/availability` converts it per date.
+    setLocalised(slots.map((slot) => toViewerSlot(slot, zone)));
+    setShownZone(zone);
     setToday(new Date().getDay());
-  }, [slots]);
+  }, [slots, zone]);
 
   if (slots.length === 0) {
     return (
@@ -133,7 +135,7 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
           {formatDuration(weeklyMinutes)} في الأسبوع
         </span>
         <span className="text-ink-muted">
-          بتوقيتك المحلي (<span className="font-medium text-ink">{zone}</span>)
+          بتوقيتك المحلي (<bdi className="font-medium text-ink">{shownZone === null ? "…" : timezoneLabel(shownZone)}</bdi>)
         </span>
       </div>
 
