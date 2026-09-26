@@ -173,7 +173,7 @@ export default function LeaderboardPage() {
             <div className="grid gap-3 sm:grid-cols-3">
               <StatTile
                 label="ترتيبك"
-                value={String(board.my_rank)}
+                value={arabicNumber(board.my_rank)}
                 Icon={LeaderboardIcon}
                 emphasis
                 hint={

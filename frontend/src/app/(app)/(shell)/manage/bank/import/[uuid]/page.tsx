@@ -19,6 +19,7 @@ import { Table, type Column } from "@/components/ui/Table";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { bank, importStatusLabel, type ImportReport, type ImportReportRow } from "@/lib/bank";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One upload, row by row.
@@ -113,10 +114,10 @@ export default function ImportReportPage({ params }: { params: Promise<{ uuid: s
       {report.failure_reason !== null && <Alert tone="danger" title="لم يكتمل الاستيراد">{report.failure_reason}</Alert>}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile Icon={ListIcon} label="صفوف الملف" value={String(report.total_rows)} />
-        <StatTile Icon={CheckIcon} label="أُضيف" value={String(report.imported_count)} emphasis />
-        <StatTile Icon={InfoIcon} label="تُخطّي" value={String(report.skipped_count)} />
-        <StatTile Icon={AlertIcon} label="تعذّر" value={String(report.failed_count)} />
+        <StatTile Icon={ListIcon} label="صفوف الملف" value={arabicNumber(report.total_rows)} />
+        <StatTile Icon={CheckIcon} label="أُضيف" value={arabicNumber(report.imported_count)} emphasis />
+        <StatTile Icon={InfoIcon} label="تُخطّي" value={arabicNumber(report.skipped_count)} />
+        <StatTile Icon={AlertIcon} label="تعذّر" value={arabicNumber(report.failed_count)} />
       </div>
 
       <section aria-labelledby="failed-rows" className="space-y-3">

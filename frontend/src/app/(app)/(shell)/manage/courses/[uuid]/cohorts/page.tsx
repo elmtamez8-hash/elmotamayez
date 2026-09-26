@@ -239,8 +239,8 @@ export default function ManageCohortsPage({
 
       {/* The three numbers a teacher opens this page to know, before scrolling. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatTile Icon={UsersIcon} label="مجموعات نشطة" value={String(openGroups.length)} />
-        <StatTile Icon={MembersIcon} label="طلاب في المجموعات" value={String(students)} />
+        <StatTile Icon={UsersIcon} label="مجموعات نشطة" value={arabicNumber(openGroups.length)} />
+        <StatTile Icon={MembersIcon} label="طلاب في المجموعات" value={arabicNumber(students)} />
         <StatTile
           Icon={SessionsIcon}
           label="مقاعد متاحة"

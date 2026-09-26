@@ -317,11 +317,11 @@ export default function ManageCohortPage({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatTile Icon={MembersIcon} label="الطلاب" value={String(group.members_count)} />
+        <StatTile Icon={MembersIcon} label="الطلاب" value={arabicNumber(group.members_count)} />
         <StatTile
           Icon={SessionsIcon}
           label="حصص قادمة"
-          value={String(sessions.length)}
+          value={arabicNumber(sessions.length)}
         />
         <StatTile
           Icon={SparkIcon}
