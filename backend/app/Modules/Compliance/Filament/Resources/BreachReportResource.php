@@ -238,8 +238,8 @@ class BreachReportResource extends Resource
                 self::triageAction(),
                 self::scopeAction(),
                 self::containAction(),
-                self::recordNoticeAction('record_authority_notice', 'authority'),
-                self::recordNoticeAction('record_subjects_notice', 'subjects'),
+                self::recordNoticeAction('record_authority_notice', authority: true),
+                self::recordNoticeAction('record_subjects_notice', authority: false),
                 self::markNotifiedAction(),
                 self::closeAction(),
             ]);
@@ -303,12 +303,14 @@ class BreachReportResource extends Resource
      * ⚠️ الزرُّ يختفي متى وُجدَ الختم، لأنَّ الختمَ لا يُعادُ أبداً: زرٌّ ثانٍ على
      * صفٍّ مختومٍ يقولُ للمُشغِّلِ إنَّ الضغطَ يُحدِّثُ الموعدَ، والـAction لن يفعل.
      *
-     * @param  'authority'|'subjects'  $side
+     * ⚠️ منطقيٌّ لا اسمَ جهةٍ نصّاً: الكلمةُ الإنجليزيّةُ للمعنيّين هي اسمُ جدولِ
+     * وحدةٍ أخرى، و`ContextIsolationTest` يرفضُ أيَّ اسمِ جدولٍ غريبٍ مقتبَساً هنا.
      */
-    public static function recordNoticeAction(string $name, string $side): Action
+    public static function recordNoticeAction(string $name, bool $authority): Action
     {
-        $column = $side === 'authority' ? 'authority_notified_at' : 'subjects_notified_at';
-        $label = $side === 'authority' ? 'أُخطِرت الجهة المختصّة' : 'أُخطِر المعنيّون';
+        $column = $authority ? 'authority_notified_at' : 'subjects_notified_at';
+        $key = $authority ? 'authority_notified' : 'subjects_notified';
+        $label = $authority ? 'أُخطِرت الجهة المختصّة' : 'أُخطِر المعنيّون';
 
         return Action::make($name)
             ->label($label)
@@ -319,8 +321,8 @@ class BreachReportResource extends Resource
             ->requiresConfirmation()
             ->modalHeading($label)
             ->modalDescription('يُختَم الآن بتاريخ هذه اللحظة، مرّةً واحدةً لا تُعدَّل بعدها — فاضغط بعد أن يتمّ الإخطار فعلاً، لا قبله.')
-            ->action(function (BreachReport $record) use ($side, $label): void {
-                self::advance($record, $record->status, [$side.'_notified' => true], 'سُجِّل: '.$label);
+            ->action(function (BreachReport $record) use ($key, $label): void {
+                self::advance($record, $record->status, [$key => true], 'سُجِّل: '.$label);
             });
     }
 
