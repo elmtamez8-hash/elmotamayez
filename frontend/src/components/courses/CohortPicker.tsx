@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { cohorts, type CohortOption } from "@/lib/cohorts";
 import { errorCode, userMessage } from "@/lib/errors";
+import { CohortScheduleSlots } from "@/components/courses/CohortScheduleSlots";
 
 /**
  * «اختر مجموعتك للبدء» — the screen that stands in front of a course taught in
@@ -117,11 +118,14 @@ export function CohortPicker({
                   <p className="mt-1 text-xs text-ink-muted">{option.description}</p>
                 )}
 
-                <p className="mt-2 text-xs text-ink-muted">
-                  {option.schedule_preview.length > 0
-                    ? option.schedule_preview.join(" · ")
-                    : "لم تُجدوَل حصص بعد"}
-                </p>
+                <div className="mt-2">
+                  {/* The student's own clock (owner decision 2026-09-26). */}
+                  <CohortScheduleSlots
+                    labels={option.schedule_preview}
+                    slots={option.schedule_slots}
+                    empty="لم تُجدوَل حصص بعد"
+                  />
+                </div>
 
                 <p className="mt-1 text-xs text-ink-muted">
                   {option.seats_left === null ? (

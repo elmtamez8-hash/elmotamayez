@@ -38,6 +38,23 @@ interface CohortScheduleDirectory
     public function schedulePreviewFor(array $cohortIds): array;
 
     /**
+     * The same slots as {@see schedulePreviewFor()}, in the same order, as
+     * STRUCTURED values a screen can draw on the VISITOR's own clock (owner
+     * decision 2026-09-26).
+     *
+     * ⚠️ `at` IS AN INSTANT — the next meeting in that slot, else the latest one
+     * — AND THE CLIENT DERIVES THE WEEKDAY AND HOUR FROM IT. A weekday and a
+     * clock time alone cannot be converted: «السبت ٥م» in Doha is 16:00 in Cairo
+     * in winter and 17:00 in summer, and only a date says which. `label` is the
+     * platform-zone text kept for server-rendered and crawled copy.
+     *
+     * @param  list<int>  $cohortIds
+     * @return array<int, list<array{at: string, label: string}>> keyed by cohort
+     *                                                            id; an empty list for a group with no sessions
+     */
+    public function scheduleSlotsFor(array $cohortIds): array;
+
+    /**
      * The next session this group will hold, or null when none is scheduled.
      *
      * ⚠️ SINGLE-ROW, AND THAT IS NOT A BREACH OF THE BULK RULE ABOVE. This is

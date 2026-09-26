@@ -184,6 +184,12 @@ export interface User {
    * the one place the fallback is written.
    */
   timezone: string | null;
+  /**
+   * `manual` when the person chose the zone in account settings — then the
+   * sign-in stamp never replaces it with the browser's; `browser` or null
+   * otherwise (owner decision 2026-09-26).
+   */
+  timezone_source: "manual" | "browser" | null;
   student_profile: StudentProfile | null;
   created_at: string;
 }

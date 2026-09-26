@@ -8,6 +8,7 @@ import {
 } from "@/components/marketplace/MyCohort";
 import { counted, TONE_CLASSES } from "@/lib/labels";
 import type { CohortSummary } from "@/lib/public-api";
+import { CohortScheduleSlots } from "@/components/courses/CohortScheduleSlots";
 
 /**
  * The groups of one course, as a visitor deciding when to study reads them.
@@ -138,22 +139,9 @@ export function CohortList({
               </p>
             )}
 
-            {cohort.schedule.length > 0 ? (
-              <ul className="flex flex-wrap gap-2">
-                {cohort.schedule.map((slot) => (
-                  <li
-                    key={slot}
-                    className="rounded-lg bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-ink"
-                  >
-                    {slot}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              // Never an empty gap: a section with nothing in it reads as a
-              // broken page rather than as an answer.
-              <p className="text-xs text-ink-muted">لم تُجدول حصص بعد</p>
-            )}
+            {/* On the VISITOR's clock once the browser runs; the platform's,
+                zone named, in the server render (owner decision 2026-09-26). */}
+            <CohortScheduleSlots labels={cohort.schedule} slots={cohort.schedule_slots} />
 
             {remaining && (
               <p className="mt-auto text-xs font-semibold text-ink-muted">

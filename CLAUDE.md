@@ -190,6 +190,7 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - THE HEARTBEAT ASKS WHAT CAN EVICT, NOT WHAT LET YOU IN — AND CONFLATING THE TWO COST 15 QUERIES A BEAT AND THREW PAYING STUDENTS OUT OF LESSONS.
 - EVERY TIME IS SHOWN ON THE READER'S OWN CLOCK (`useViewerTimeZone()` · `UserClock`), AND THE PLATFORM ZONE DECIDES ONLY WHERE A DAY BEGINS.
 - A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
+- A zone the person CHOSE (`timezone_source = manual`) outranks every browser report, and «show both clocks» is decided by the OFFSET at that instant, never the zone name.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._

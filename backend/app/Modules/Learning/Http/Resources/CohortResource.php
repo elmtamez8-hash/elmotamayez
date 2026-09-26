@@ -26,10 +26,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class CohortResource extends JsonResource
 {
-    /** @param  list<string>  $schedulePreview */
+    /**
+     * @param  list<string>  $schedulePreview  platform-zone labels
+     * @param  list<string>  $scheduleSlots  the same slots as instants, for the reader's own clock
+     */
     public function __construct(
         Cohort $resource,
         private readonly array $schedulePreview = [],
+        private readonly array $scheduleSlots = [],
     ) {
         parent::__construct($resource);
     }
@@ -51,6 +55,9 @@ class CohortResource extends JsonResource
             // at the door.
             'is_joinable' => $this->resource->isJoinable(),
             'schedule_preview' => $this->schedulePreview,
+            // Stamped on the student's picker only (owner decision 2026-09-26);
+            // an empty list means «draw the labels above».
+            'schedule_slots' => $this->scheduleSlots,
         ];
     }
 }

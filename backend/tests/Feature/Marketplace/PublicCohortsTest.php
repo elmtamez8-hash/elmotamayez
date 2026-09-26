@@ -8,6 +8,7 @@ use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceContext;
+use Carbon\CarbonImmutable;
 
 /*
 | Spec 023 · US2 — the groups on the course's public page.
@@ -194,6 +195,43 @@ it('answers when the group meets, and an empty list when nothing is scheduled', 
         // An empty list, never a missing key — the screen says «لم تُجدول حصص
         // بعد» rather than rendering nothing, which reads as a broken section.
         ->and($byName['مجموعة بلا مواعيد']['schedule'])->toBe([]);
+});
+
+/*
+| The same slots as INSTANTS, for the visitor's own clock (owner decision
+| 2026-09-26). «السبت ٥م» in Doha is 16:00 in Cairo in winter and 17:00 in
+| summer, and only a date says which — so the payload carries the NEXT meeting in
+| each slot, in the same order as the labels, and the browser draws it.
+*/
+it('sends each slot as the next meeting instant, beside the platform-zone label', function (): void {
+    [$course, , $teacher] = cohortCourse();
+
+    $scheduled = cohortOn($course, 'مجموعة بمواعيد');
+    $bare = cohortOn($course, 'مجموعة بلا مواعيد');
+    $first = now('Asia/Qatar')->addDays(1)->setTime(17, 0)->utc();
+
+    foreach ([0, 7] as $days) {
+        $startsAt = $first->copy()->addDays($days);
+
+        ClassSession::factory()->create([
+            'workspace_id' => $course->workspace_id,
+            'teacher_profile_id' => $teacher->getKey(),
+            'course_id' => $course->getKey(),
+            'cohort_id' => $scheduled->getKey(),
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->copy()->addHour(),
+        ]);
+    }
+
+    $this->asGuest();
+
+    $byName = collect(publishedCohorts($course))->keyBy('name');
+
+    expect($byName['مجموعة بمواعيد']['schedule_slots'])->toHaveCount(1)
+        // The NEXT meeting, not the later one.
+        ->and(CarbonImmutable::parse($byName['مجموعة بمواعيد']['schedule_slots'][0])->equalTo($first))->toBeTrue()
+        ->and($byName['مجموعة بمواعيد']['schedule'][0])->toContain('17:00')
+        ->and($byName['مجموعة بلا مواعيد']['schedule_slots'])->toBe([]);
 });
 
 it('returns an empty list for a course with no groups at all', function (): void {

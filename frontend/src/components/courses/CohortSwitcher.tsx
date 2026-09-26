@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { SelectField, TextareaField } from "@/components/ui/Field";
 import { cohorts, type CohortsForCourse } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
+import { formatCohortSlot } from "@/lib/session-format";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
  * «أنت في السبت ٤م» — and the way to ask for a different one (FR-028هـ).
@@ -30,6 +32,14 @@ export function CohortSwitcher({
   state: CohortsForCourse;
   onChanged: () => void;
 }) {
+  const zone = useViewerTimeZone();
+  // The destination's meeting times on the student's own clock (2026-09-26);
+  // the platform-zone labels when the payload carries no instants.
+  const scheduleText = (labels: string[], slots: string[] | undefined): string | null => {
+    const items = slots !== undefined && slots.length > 0 ? slots.map((at) => formatCohortSlot(at, zone)) : labels;
+
+    return items.length > 0 ? items.join(" · ") : null;
+  };
   const [target, setTarget] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -139,7 +149,7 @@ export function CohortSwitcher({
                   */
                   label: [
                     option.name,
-                    option.schedule_preview.length > 0 ? option.schedule_preview.join(" · ") : null,
+                    scheduleText(option.schedule_preview, option.schedule_slots),
                     option.is_on_sale ? null : "غير معروضة للبيع",
                   ]
                     .filter((part): part is string => part !== null)

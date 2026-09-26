@@ -58,6 +58,9 @@ class UserResource extends JsonResource
             // The clock this person reads — null until their browser stamps it
             // (`PUT /me/timezone`), in which case the browser's own zone is used.
             'timezone' => $this->timezone,
+            // `manual` when the person chose it in settings — the screen then
+            // never replaces it with the browser's.
+            'timezone_source' => $this->timezone_source,
             // Nested rather than flattened onto the root: these are true of a
             // student and of nobody else, and a null grade_level_slug on a
             // teacher's payload reads as missing data rather than as inapplicable.

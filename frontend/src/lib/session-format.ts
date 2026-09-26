@@ -37,6 +37,49 @@ export function formatSessionTimeWithZone(iso: string, timeZone: string): string
   return `${formatSessionTime(iso, timeZone)} (${timezoneLabel(timeZone)})`;
 }
 
+/**
+ * The reader's clock AND the other party's, when the two differ at that instant
+ * (owner decision 2026-09-26): «الثلاثاء ٣ نوفمبر ١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت
+ * المدرّس». For a private request and a reschedule, which two people in two
+ * countries negotiate over.
+ *
+ * ⚠️ «DIFFER» IS THE HOUR AT THAT INSTANT, NOT THE ZONE NAME. Cairo and Doha are
+ * both UTC+3 until 2026-10-29 — two names, one clock — and then this prints
+ * the reader's time with its zone named, as `formatSessionTimeWithZone` does.
+ * The other party's date is added only when it is a different day there.
+ */
+export function formatSessionTimeBoth(
+  iso: string,
+  timeZone: string,
+  otherTimeZone: string | null | undefined,
+  otherRole: string,
+): string {
+  if (!otherTimeZone || otherTimeZone === timeZone) return formatSessionTimeWithZone(iso, timeZone);
+
+  const mine = `${sessionDayKey(iso, timeZone)} ${formatSessionClock(iso, timeZone)}`;
+  const theirs = `${sessionDayKey(iso, otherTimeZone)} ${formatSessionClock(iso, otherTimeZone)}`;
+
+  if (mine === theirs) return formatSessionTimeWithZone(iso, timeZone);
+
+  const other =
+    sessionDayKey(iso, otherTimeZone) === sessionDayKey(iso, timeZone)
+      ? formatSessionClock(iso, otherTimeZone)
+      : formatSessionTime(iso, otherTimeZone);
+
+  return `${formatSessionTime(iso, timeZone)} بتوقيتك · ${other} بتوقيت ${otherRole}`;
+}
+
+/**
+ * One meeting slot of a group — «السبت 17:00» — on the given clock. The server
+ * sends the next meeting in the slot as an instant, so the weekday comes from
+ * that date in THIS zone (01:00 Doha is the previous evening in Cairo).
+ */
+export function formatCohortSlot(iso: string, timeZone: string): string {
+  const weekday = new Date(iso).toLocaleDateString("ar", { weekday: "long", timeZone });
+
+  return `${weekday} ${formatSessionClock(iso, timeZone)}`;
+}
+
 /** Just the clock part — for a row that already shows the day. */
 export function formatSessionClock(iso: string, timeZone: string): string {
   return new Date(iso).toLocaleTimeString("ar", {

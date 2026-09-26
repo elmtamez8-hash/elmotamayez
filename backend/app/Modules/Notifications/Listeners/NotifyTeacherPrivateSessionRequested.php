@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\LiveSessions\Events\PrivateSessionRequested;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -29,7 +29,6 @@ class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(PrivateSessionRequested $event): void
@@ -55,7 +54,8 @@ class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
                 // Rendered on the TEACHER's own clock with the zone named: the
                 // row is a UTC instant, and the student who asked may be in
                 // another country — the label says which clock the number is on.
-                'session_time' => $this->settings->formatFor($teacher, $request->starts_at),
+                // Both clocks when they differ (owner decision 2026-09-26).
+                'session_time' => UserClock::formatBoth($teacher, $student, $request->starts_at, 'الطالب'),
                 'duration' => (string) $request->duration_minutes,
             ],
             // The queue itself: the teacher opens this to press one of two

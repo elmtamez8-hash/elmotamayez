@@ -20,7 +20,7 @@ import {
   privateSessionStatusTone,
 } from "@/lib/labels";
 import { privateSessions, type PrivateSessionRequest } from "@/lib/private-sessions";
-import { formatSessionTimeWithZone } from "@/lib/session-format";
+import { formatSessionTimeBoth } from "@/lib/session-format";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
@@ -131,13 +131,13 @@ export default function MyPrivateSessionsPage() {
             </div>
 
             <p className="text-sm text-ink">
-              {formatSessionTimeWithZone(request.starts_at, zone)} ·{" "}
+              {formatSessionTimeBoth(request.starts_at, zone, request.counterpart_timezone, "المدرّس")} ·{" "}
               {counted(request.duration_minutes, NOUNS.minutes)}
             </p>
 
             {request.status === "pending" && (
               <p className="text-xs text-ink-muted">
-                إن لم يردّ المدرّس، ينتهي الطلب {formatSessionTimeWithZone(request.expires_at, zone)}.
+                إن لم يردّ المدرّس، ينتهي الطلب {formatSessionTimeBoth(request.expires_at, zone, request.counterpart_timezone, "المدرّس")}.
               </p>
             )}
 
@@ -173,7 +173,7 @@ export default function MyPrivateSessionsPage() {
         message={
           withdrawing === null
             ? undefined
-            : `سيُسحب طلبك لحصة ${formatSessionTimeWithZone(withdrawing.starts_at, zone)} ولن يصل إلى المدرّس. يمكنك طلب موعد آخر بعدها.`
+            : `سيُسحب طلبك لحصة ${formatSessionTimeBoth(withdrawing.starts_at, zone, withdrawing.counterpart_timezone, "المدرّس")} ولن يصل إلى المدرّس. يمكنك طلب موعد آخر بعدها.`
         }
         confirmLabel="اسحب الطلب"
         tone="danger"

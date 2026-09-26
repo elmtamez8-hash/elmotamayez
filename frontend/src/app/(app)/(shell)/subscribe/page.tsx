@@ -30,6 +30,7 @@ import {
   type SubscriptionMode,
   type SubscriptionOrder,
 } from "@/lib/subscribe";
+import { CohortScheduleSlots } from "@/components/courses/CohortScheduleSlots";
 
 /**
  * The one subscription screen (027 · FR-006 · FR-007 · FR-010).
@@ -371,7 +372,10 @@ function SubscribeScreen() {
           {cohort !== null && cohort.schedule.length > 0 && (
             <div className="flex gap-2">
               <dt className="text-ink-muted">المواعيد:</dt>
-              <dd className="font-medium text-ink">{cohort.schedule.join(" · ")}</dd>
+              <dd className="font-medium text-ink">
+                {/* On the buyer's own clock (owner decision 2026-09-26). */}
+                <CohortScheduleSlots labels={cohort.schedule} slots={cohort.schedule_slots} />
+              </dd>
             </div>
           )}
         </dl>

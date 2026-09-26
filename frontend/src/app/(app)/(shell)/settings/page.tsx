@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { BellIcon, LockIcon, SettingsIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
+import { TimezoneCard } from "@/components/settings/TimezoneCard";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -161,6 +162,10 @@ export default function SettingsPage() {
           </Button>
         </form>
       </Card>
+
+      {/* The clock every time is shown on — a choice here outranks the browser's
+          zone for good (owner decision 2026-09-26). */}
+      <TimezoneCard />
 
       {/* Renders nothing for an account with no teacher profile, so it is
           mounted unconditionally. It decides for itself whom to ask: a learner

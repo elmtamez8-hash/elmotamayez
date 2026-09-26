@@ -155,21 +155,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setStoredViewerTimeZone(user?.timezone ?? null);
 
-    // Once per account per page load — an answer that somehow still carries
-    // no zone must not become a request loop.
-    if (user === null || user.timezone || stampedFor.current === user.uuid) return;
+    /*
+     | ⚠️ A ZONE THE PERSON CHOSE IS NEVER STAMPED OVER (owner decision
+     | 2026-09-26). Until they choose, the stored zone follows the browser —
+     | a family that moved, or a laptop that finally got the right zone, is
+     | read on the right clock at the next sign-in. The server enforces the
+     | same rule (`RecordAccountTimezone`), so a stale tab cannot undo a choice.
+     |
+     | Once per account per page load — an answer that somehow still carries a
+     | different zone must not become a request loop.
+     */
+    if (user === null || user.timezone_source === "manual" || stampedFor.current === user.uuid) return;
 
     const zone = browserTimeZone();
 
-    if (!isValidTimeZone(zone)) return;
+    if (!isValidTimeZone(zone) || zone === user.timezone) return;
 
     stampedFor.current = user.uuid;
 
     auth
-      .setTimezone(zone, true)
+      .setTimezone(zone, "browser")
       // Only the one field: the rest of `/auth/me` (permissions, workspaces) stays as loaded.
       .then((updated) =>
-        setUser((current) => (current?.uuid === updated.uuid ? { ...current, timezone: updated.timezone } : current)),
+        setUser((current) =>
+          current?.uuid === updated.uuid
+            ? { ...current, timezone: updated.timezone, timezone_source: updated.timezone_source }
+            : current,
+        ),
       )
       .catch(() => {});
   }, [user]);

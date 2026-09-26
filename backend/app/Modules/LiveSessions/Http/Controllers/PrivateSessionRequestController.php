@@ -43,7 +43,8 @@ class PrivateSessionRequestController extends Controller
         $requests = PrivateSessionRequest::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $this->currentUser($request)->getKey())
-            ->with(['course:id,uuid,title', 'classSession:id,uuid'])
+            // The teacher's zone, for «١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت المدرّس».
+            ->with(['course:id,uuid,title,created_by', 'course.creator:id,timezone', 'classSession:id,uuid'])
             ->latest('id')
             ->paginate(20);
 
@@ -124,7 +125,7 @@ class PrivateSessionRequestController extends Controller
                 // such column — it is an accessor — and a constrained eager load
                 // naming it renders every row's byline as an empty string, with
                 // no error and a 200.
-                'student:id,uuid,first_name,last_name',
+                'student:id,uuid,first_name,last_name,timezone',
             ])
             ->orderBy('starts_at')
             ->paginate(20);

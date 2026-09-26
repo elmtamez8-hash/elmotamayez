@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\LiveSessions\Events\PrivateSessionExpired;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -27,7 +27,6 @@ class NotifyStudentPrivateSessionExpired implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(PrivateSessionExpired $event): void
@@ -45,7 +44,7 @@ class NotifyStudentPrivateSessionExpired implements ShouldQueueAfterCommit
             type: NotificationType::PrivateSessionExpired,
             variables: [
                 'course_title' => $course->title,
-                'session_time' => $this->settings->formatFor($student, $request->starts_at),
+                'session_time' => UserClock::formatBoth($student, $course->creator, $request->starts_at, 'المدرّس'),
             ],
             // The course page, which is where the teacher's declared hours are
             // and therefore where asking again starts.

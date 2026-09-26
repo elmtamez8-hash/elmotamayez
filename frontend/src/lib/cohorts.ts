@@ -94,6 +94,8 @@ export interface CohortOption {
    * a student is actually picking between.
    */
   schedule_preview: string[];
+  /** The same slots as instants, for the reader's own clock (student picker only). */
+  schedule_slots?: string[];
 }
 
 /**
@@ -158,6 +160,8 @@ export interface TransferDestination {
   name: string;
   /** «الأحد ٦م» — the fact a student actually picks a destination on. */
   schedule_preview: string[];
+  /** The same slots as instants, for the reader's own clock (2026-09-26). */
+  schedule_slots?: string[];
   is_on_sale: boolean;
 }
 

@@ -11,7 +11,7 @@ import { SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { userMessage } from "@/lib/errors";
-import { formatSessionTimeWithZone } from "@/lib/session-format";
+import { formatSessionTimeBoth } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
 import {
   privateSessions,
@@ -112,12 +112,12 @@ export default function PrivateSessionQueuePage() {
                 {request.student?.name ?? "طالب"} — {request.course?.title ?? "كورس"}
               </h3>
               <span className="text-xs text-ink-muted">
-                تنتهي المهلة {formatSessionTimeWithZone(request.expires_at, zone)}
+                تنتهي المهلة {formatSessionTimeBoth(request.expires_at, zone, request.counterpart_timezone, "الطالب")}
               </span>
             </div>
 
             <p className="text-sm text-ink">
-              {formatSessionTimeWithZone(request.starts_at, zone)} · {counted(request.duration_minutes, NOUNS.minutes)}
+              {formatSessionTimeBoth(request.starts_at, zone, request.counterpart_timezone, "الطالب")} · {counted(request.duration_minutes, NOUNS.minutes)}
             </p>
 
             {rejecting === request.uuid ? (

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\LiveSessions\Events\SessionRescheduleExpired;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -29,7 +29,6 @@ class NotifyStudentSessionRescheduleExpired implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(SessionRescheduleExpired $event): void
@@ -47,7 +46,7 @@ class NotifyStudentSessionRescheduleExpired implements ShouldQueueAfterCommit
             type: NotificationType::SessionRescheduleExpired,
             variables: [
                 'title' => $session->title,
-                'from_time' => $this->settings->formatFor($student, $request->from_starts_at),
+                'from_time' => UserClock::formatBoth($student, $session->teacherProfile?->user, $request->from_starts_at, 'المدرّس'),
             ],
             // The timetable, where the request and its status are shown beside
             // the lesson — the same destination the other reschedule answers use.

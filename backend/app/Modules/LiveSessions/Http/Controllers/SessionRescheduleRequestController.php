@@ -41,7 +41,14 @@ class SessionRescheduleRequestController extends Controller
         $requests = SessionRescheduleRequest::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $this->currentUser($request)->getKey())
-            ->with(['classSession:id,uuid,title'])
+            // The teacher's zone, for «١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت المدرّس».
+            // Unscoped: the profile is the teacher's workspace's, and the
+            // reader is a student who may be stamped with another.
+            ->with([
+                'classSession:id,uuid,title,teacher_profile_id',
+                'classSession.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope()->select(['id', 'user_id']),
+                'classSession.teacherProfile.user:id,timezone',
+            ])
             ->latest('id')
             ->paginate(20);
 
@@ -107,7 +114,7 @@ class SessionRescheduleRequestController extends Controller
                 // ⚠️ `first_name` AND `last_name`, NEVER `name`: `users` has no
                 // such column — it is an accessor — and a constrained eager load
                 // naming it renders every byline as an empty string, with a 200.
-                'student:id,uuid,first_name,last_name',
+                'student:id,uuid,first_name,last_name,timezone',
             ])
             ->orderBy('to_starts_at')
             ->paginate(20);

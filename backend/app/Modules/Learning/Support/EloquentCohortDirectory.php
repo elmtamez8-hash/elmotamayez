@@ -528,7 +528,7 @@ class EloquentCohortDirectory implements CohortDirectory
 
         // ONE call for the whole list. Inside the Resource it would be a query
         // per group, on the screen that exists to be compared across.
-        $preview = $this->schedule->schedulePreviewFor(
+        $slots = $this->schedule->scheduleSlotsFor(
             array_values($cohorts->map(fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
         );
 
@@ -540,7 +540,13 @@ class EloquentCohortDirectory implements CohortDirectory
                 continue;
             }
 
-            $out[] = CohortResource::make($cohort, $preview[(int) $cohort->getKey()] ?? [])->resolve();
+            $mine = $slots[(int) $cohort->getKey()] ?? [];
+
+            $out[] = CohortResource::make(
+                $cohort,
+                array_map(static fn (array $slot): string => $slot['label'], $mine),
+                array_map(static fn (array $slot): string => $slot['at'], $mine),
+            )->resolve();
         }
 
         return $out;
@@ -635,7 +641,7 @@ class EloquentCohortDirectory implements CohortDirectory
 
         // ONE call for the whole list — a picker builds its options in a loop,
         // so a per-row read here is an N+1 by construction.
-        $preview = $this->schedule->schedulePreviewFor(
+        $slots = $this->schedule->scheduleSlotsFor(
             array_values($cohorts->map(static fn (Cohort $cohort): int => (int) $cohort->getKey())->all()),
         );
 
@@ -645,7 +651,10 @@ class EloquentCohortDirectory implements CohortDirectory
             $out[] = [
                 'uuid' => (string) $cohort->uuid,
                 'name' => (string) $cohort->name,
-                'schedule_preview' => $preview[(int) $cohort->getKey()] ?? [],
+                'schedule_preview' => array_map(static fn (array $slot): string => $slot['label'], $slots[(int) $cohort->getKey()] ?? []),
+                // The same slots as instants, for the student's own clock
+                // (owner decision 2026-09-26).
+                'schedule_slots' => array_map(static fn (array $slot): string => $slot['at'], $slots[(int) $cohort->getKey()] ?? []),
                 'is_on_sale' => $cohort->priceReaches(),
             ];
         }

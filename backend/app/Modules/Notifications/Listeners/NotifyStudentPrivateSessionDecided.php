@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\LiveSessions\Events\PrivateSessionDecided;
-use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\UserClock;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -28,7 +28,6 @@ class NotifyStudentPrivateSessionDecided implements ShouldQueueAfterCommit
 {
     public function __construct(
         private readonly DispatchNotification $dispatch,
-        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(PrivateSessionDecided $event): void
@@ -42,7 +41,8 @@ class NotifyStudentPrivateSessionDecided implements ShouldQueueAfterCommit
         }
 
         // The student's own clock, zone named (2026-09-25).
-        $when = $this->settings->formatFor($student, $request->starts_at);
+        // Both clocks when they differ (owner decision 2026-09-26).
+        $when = UserClock::formatBoth($student, $course->creator, $request->starts_at, 'المدرّس');
 
         $variables = [
             'course_title' => $course->title,
