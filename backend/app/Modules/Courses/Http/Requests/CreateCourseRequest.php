@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Requests;
 
 use App\Modules\Courses\Actions\CreateCourse;
+use App\Modules\Courses\Enums\CourseVisibility;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\CourseStage;
 use App\Modules\Tenancy\Support\Permissions;
@@ -93,6 +94,14 @@ class CreateCourseRequest extends FormRequest
             'is_sequential' => ['nullable', 'boolean'],
             // «كورس مجاني» — the only thing that makes a course free.
             'is_free_enrollment' => ['sometimes', 'boolean'],
+            /*
+            | ⛔ ظهورُ الكورس قرارُ المدرّس (قرارُ المالك 2026-09-26): عامٌّ افتراضاً،
+            | وله أن يجعلَه خاصّاً. قبلَه لم يكنْ هذا الحقلُ مقبولاً هنا، وكان
+            | `CreateCourseDTO` يفترضُ «خاص» — فكلُّ كورسٍ ينشرُه مدرّسٌ من شاشتِه
+            | يُجيبُ ٤٠٤ للزوّارِ حتى يقلبَه موظّفٌ من اللوحة. `hidden` قيمةُ المنصّةِ
+            | وحدَها ولا تُقبَلُ من المدرّس.
+            */
+            'visibility' => ['sometimes', 'string', Rule::in([CourseVisibility::Public->value, CourseVisibility::Private->value])],
         ];
     }
 }

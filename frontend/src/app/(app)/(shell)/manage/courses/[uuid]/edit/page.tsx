@@ -13,6 +13,10 @@ import { Card } from "@/components/ui/Card";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Modal } from "@/components/ui/Modal";
 import { CoursePublicReach } from "@/components/courses/CoursePublicReach";
+import {
+  CourseVisibilityField,
+  type TeacherCourseVisibility,
+} from "@/components/courses/CourseVisibilityField";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CheckIcon, CoursesIcon } from "@/components/icons";
 import {
@@ -55,6 +59,7 @@ export default function EditCoursePage({
     grade_level: "",
     course_type: "",
     promo_video_url: "",
+    visibility: "public" as TeacherCourseVisibility,
   });
   /*
     ⚠️ THE EDIT SCREEN CARRIES IT OR THE BACKFILL IS UNCORRECTABLE. Every course
@@ -121,6 +126,12 @@ export default function EditCoursePage({
             beside it reads correctly: «there is one, paste again to replace it».
           */
           promo_video_url: "",
+          /*
+            «hidden» is the platform's value and is not offered here — a course
+            the panel hid reads as «خاص» on this form, and a save that does not
+            touch the choice sends it back unchanged (see `submit`).
+          */
+          visibility: c.visibility === "public" ? "public" : "private",
         });
       })
       .catch(() => setFailed(true))
@@ -157,8 +168,14 @@ export default function EditCoursePage({
         sending an empty string on every save would clear an approved video every
         time the title was edited.
       */
-      const { promo_video_url: pastedUrl, ...withoutPromo } = form;
+      const { promo_video_url: pastedUrl, visibility, ...withoutPromo } = form;
       const payload: Record<string, unknown> = { ...withoutPromo };
+      // Sent only when it CHANGED: a course the platform hid (`hidden`) shows as
+      // «خاص» here, and echoing that back would quietly overwrite the panel's
+      // decision on every title edit.
+      if (course !== null && visibility !== (course.visibility === "public" ? "public" : "private")) {
+        payload.visibility = visibility;
+      }
       if (pastedUrl.trim() !== "") payload.promo_video_url = pastedUrl.trim();
 
       await api.put(`/courses/${uuid}`, payload);
@@ -313,6 +330,12 @@ export default function EditCoursePage({
               إزالة الفيديو الترويجي
             </ConfirmButton>
           )}
+
+          <CourseVisibilityField
+            value={form.visibility}
+            onChange={(visibility) => setForm({ ...form, visibility })}
+            error={fields.visibility}
+          />
 
           {/* Above the price, because it decides where the course is found:
               the marketplace groups by it, and a student's homework and practice
