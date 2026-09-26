@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { MessageStudentButton } from "@/components/community/MessageStudentButton";
+import { CohortRoster } from "@/components/courses/CohortRoster";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -65,9 +66,6 @@ export default function ManageCohortPage({
     (ManagedCohort & { course: { uuid: string; title: string } | null }) | null
   >(null);
   const [sessions, setSessions] = useState<ClassSession[]>([]);
-  const [members, setMembers] = useState<Array<{ uuid: string; name: string; joined_at: string }>>(
-    [],
-  );
   const [history, setHistory] = useState<CohortHistoryEvent[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -101,17 +99,30 @@ export default function ManageCohortPage({
       .catch(() => setSessions([]));
 
     manageCohorts
-      .members(cohortUuid)
-      .then((r) => setMembers(r.data ?? []))
-      .catch(() => setMembers([]));
-
-    manageCohorts
       .history(cohortUuid)
       .then((r) => setHistory(r.data ?? []))
       .catch(() => setHistory([]));
   }, [cohortUuid, today]);
 
   useEffect(load, [load]);
+
+  /**
+   * After an add or a removal on the roster: the counts and the log move, the
+   * rest of the page does not — and a full `load()` would swap the whole page
+   * for a skeleton and take the roster's success notice with it.
+   */
+  // Failures are ignored on purpose: this is a background redraw, and the
+  // roster has already said whether the write itself landed.
+  const refreshAfterRosterChange = () => {
+    manageCohorts
+      .show(cohortUuid)
+      .then(setGroup)
+      .catch(() => undefined);
+    manageCohorts
+      .history(cohortUuid)
+      .then((r) => setHistory(r.data ?? []))
+      .catch(() => undefined);
+  };
 
   const run = (promise: Promise<unknown>, done?: () => void) => {
     setBusy(true);
@@ -510,30 +521,22 @@ export default function ManageCohortPage({
               <MembersIcon className="h-4 w-4" />
             </span>
             <span>
-              الطلاب (<bdi>{members.length}</bdi>)
+              الطلاب (<bdi>{group.members_count}</bdi>)
             </span>
           </h3>
 
-          {members.length === 0 ? (
-            <p className="text-sm text-ink-muted">لا طلاب في هذه المجموعة بعد.</p>
-          ) : (
-            <ul className="space-y-2">
-              {members.map((member) => (
-                <li
-                  key={member.uuid}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="truncate text-ink">{member.name}</span>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <span className="text-xs text-ink-muted">
-                      انضمّ {formatDate(member.joined_at)}
-                    </span>
-                    <MessageStudentButton studentUuid={member.uuid} studentName={member.name} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* One roster, the same controls as the course's groups screen — two
+              lists of one group, one with «إخراج» and one without, is the drift
+              this page would otherwise start. */}
+          <CohortRoster
+            cohortUuid={cohortUuid}
+            courseUuid={courseUuid}
+            archived={group.status === "archived"}
+            onChanged={refreshAfterRosterChange}
+            rowActions={(member) => (
+              <MessageStudentButton studentUuid={member.uuid} studentName={member.name} />
+            )}
+          />
         </Card>
 
         <Card>

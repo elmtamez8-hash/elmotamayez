@@ -190,6 +190,14 @@ export interface CohortMember {
   badges: Array<{ key: string; name: string; icon: string | null }>;
 }
 
+/** A student «إضافة طالب» may pick, as `GET …/eligible-students` sends it. */
+export interface EligibleStudent {
+  uuid: string;
+  name: string;
+  /** The group of this course they are in now — picking them MOVES them. */
+  current_cohort: { uuid: string; name: string } | null;
+}
+
 /** The refusal codes §ج answers a join or a transfer request with. */
 export type CohortWriteRefusal =
   | "cohort_full"
@@ -273,8 +281,32 @@ export const manageCohorts = {
       `/manage/cohorts/${cohortUuid}/members`,
     ),
 
+  /**
+   * Who «إضافة طالب» may offer — the course's students the write would accept,
+   * each with the group they sit in now (adding one of those MOVES them).
+   *
+   * ⚠️ NOT `useTeacherStudents()`. That reads the balances panel: `active`
+   * enrolments only, behind `billing.balance.view`. The write accepts
+   * `completed` as well and is gated on managing the group — a picker built
+   * from the other list hides students the door takes.
+   */
+  eligibleStudents: (cohortUuid: string) =>
+    api.get<{ data: EligibleStudent[] }>(`/manage/cohorts/${cohortUuid}/eligible-students`),
+
+  addMember: (cohortUuid: string, studentUuid: string, reason?: string) =>
+    api.post<{ message: string }>(`/manage/cohorts/${cohortUuid}/members`, {
+      student_uuid: studentUuid,
+      ...(reason === undefined || reason === "" ? {} : { reason }),
+    }),
+
   removeMember: (cohortUuid: string, studentUuid: string) =>
     api.delete<void>(`/manage/cohorts/${cohortUuid}/members/${studentUuid}`),
+
+  /** One student's moves between this course's groups (FR-034), newest first. */
+  studentHistory: (courseUuid: string, studentUuid: string) =>
+    api.get<{ data: CohortHistoryEvent[] }>(
+      `/manage/courses/${courseUuid}/students/${studentUuid}/cohort-history`,
+    ),
 
   history: (cohortUuid: string) =>
     api.get<{ data: CohortHistoryEvent[] }>(`/manage/cohorts/${cohortUuid}/history`),

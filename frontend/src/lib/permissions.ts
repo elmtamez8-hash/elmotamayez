@@ -104,6 +104,12 @@ export const P = {
   // permission is deliberately absent: it is platform-level and no tenant role
   // holds it, so offering a link to it would show every teacher a 403.
   rewardsManage: "rewards.manage",
+  /*
+   * A teacher reading ONE student's points, level and badges
+   * (`ProgressController::show`). The server also demands an active enrolment
+   * in the reader's workspace, so holding this is not the whole answer.
+   */
+  progressViewStudent: "progress.view.student",
   // Spec 011 · US1. Two names, not one: pricing the goods and packing them are
   // two jobs, and this is the one a teacher delegates — an assistant who posts
   // the parcels reads a home address and has no business setting a shelf price.

@@ -79,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // The group's own page: everything about one run, reached by its uuid alone.
     Route::get('/manage/cohorts/{cohort}', [ManageCohortController::class, 'show']);
     Route::get('/manage/cohorts/{cohort}/members', [ManageCohortController::class, 'members']);
+    Route::get('/manage/cohorts/{cohort}/eligible-students', [ManageCohortController::class, 'eligibleStudents']);
     Route::get('/manage/cohorts/{cohort}/history', [ManageCohortController::class, 'history']);
     Route::get('/manage/courses/{course}/students/{student}/cohort-history', [ManageCohortController::class, 'studentHistory']);
     Route::get('/manage/courses/{course}/transfer-requests', [ManageCohortController::class, 'transferRequests']);

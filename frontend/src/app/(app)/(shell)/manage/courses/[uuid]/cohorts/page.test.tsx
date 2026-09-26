@@ -178,6 +178,28 @@ describe("the roster and the log", () => {
     expect(members).toHaveBeenCalledTimes(1);
   });
 
+  /*
+  | ⛔ The way INTO a group and the way out of it live on the roster. Both
+  | endpoints had no caller; this is the inbound link that keeps them reachable.
+  */
+  it("offers «إضافة طالب» and «إخراج» on the opened roster", async () => {
+    list.mockResolvedValue({ data: [group] });
+    members.mockResolvedValue({
+      data: [{ uuid: "u-1", name: "سارة علي", joined_at: "2026-09-01T10:00:00Z" }],
+    });
+
+    await open();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /الطلاب/ }));
+    });
+
+    expect(await screen.findByText("سارة علي")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /إضافة طالب/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "إخراج" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /سجل المجموعات/ })).toBeTruthy();
+  });
+
   it("links each group to its own page", async () => {
     list.mockResolvedValue({ data: [group] });
 

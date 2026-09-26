@@ -24,6 +24,7 @@ use App\Modules\Learning\Support\CohortPricing;
 use App\Modules\Learning\Support\CohortRefusal;
 use App\Shared\Contracts\CohortPricingReasonDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
+use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\CohortPricingGap;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -261,6 +262,79 @@ class ManageCohortController extends Controller
                 'joined_at' => $membership->joined_at,
             ])->all(),
         ]);
+    }
+
+    /**
+     * Who «إضافة طالب» may offer: the students this group's course would accept.
+     *
+     * ⚠️ READ FROM THE AUTHORISER'S OWN PREDICATE (community.md). `MoveMember`
+     * refuses anyone without `hasActiveEnrollment()` on the course — `active`
+     * OR `completed` — and this list is `activeStudentIdsFor()` over the same
+     * statuses. The balances panel the other pickers read is `active` only and
+     * needs `billing.balance.view`, which is a different question asked of a
+     * different permission: built from it, the picker would hide a student who
+     * finished the course and refuse a teacher who may manage the group but not
+     * read balances.
+     *
+     * ⚠️ AND IT CARRIES THE GROUP EACH STUDENT IS IN NOW. Adding a student who
+     * already sits in another group of the course MOVES them — the writer closes
+     * the old row — so a picker silent about it performs a transfer the teacher
+     * thought was an addition.
+     *
+     * ⚠️ `withoutWorkspaceScope()` WITH THE COHORT'S OWN `workspace_id`. The
+     * gate admits a `cohorts.assign` officer whose resolved context is another
+     * workspace; the scope would answer them an empty class.
+     */
+    public function eligibleStudents(Request $request, Cohort $cohort, EnrollmentDirectory $enrollments): JsonResponse
+    {
+        $this->authorize('manageMembers', $cohort);
+
+        $ids = $enrollments->activeStudentIdsFor((int) $cohort->workspace_id, (int) $cohort->course_id);
+
+        if ($ids === []) {
+            return response()->json(['data' => []]);
+        }
+
+        /** @var array<int, int> $currentCohortOf student id → cohort id */
+        $currentCohortOf = CohortMembership::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $cohort->workspace_id)
+            ->where('course_id', $cohort->course_id)
+            ->whereNull('closed_at')
+            ->whereIn('student_user_id', $ids)
+            ->pluck('cohort_id', 'student_user_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $cohortNames = Cohort::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', array_values(array_unique($currentCohortOf)))
+            ->get(['id', 'uuid', 'name'])
+            ->keyBy('id');
+
+        $rows = User::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'uuid', 'first_name', 'last_name'])
+            // Already in THIS group: the writer answers `same_cohort`, so the
+            // option would be a refusal waiting to be picked.
+            ->reject(fn (User $student): bool => ($currentCohortOf[(int) $student->getKey()] ?? null) === (int) $cohort->getKey())
+            ->map(function (User $student) use ($currentCohortOf, $cohortNames): array {
+                $current = $cohortNames->get($currentCohortOf[(int) $student->getKey()] ?? 0);
+
+                return [
+                    'uuid' => $student->uuid,
+                    'name' => $student->name,
+                    'current_cohort' => $current === null ? null : [
+                        'uuid' => $current->uuid,
+                        'name' => $current->name,
+                    ],
+                ];
+            })
+            ->sortBy('name')
+            ->values()
+            ->all();
+
+        return response()->json(['data' => $rows]);
     }
 
     public function addMember(Request $request, Cohort $cohort, MoveMember $action): JsonResponse
