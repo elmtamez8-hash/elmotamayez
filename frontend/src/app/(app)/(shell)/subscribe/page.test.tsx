@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { formatMinorMoney } from "@/lib/labels";
+
 /*
 | 027 — THE REFUSAL IS AT THE TOP AND THE SEND BUTTON IS AT THE BOTTOM.
 |
@@ -413,5 +415,76 @@ describe("the subscription screen opened with no course", () => {
     );
     expect(screen.queryByText(/تعذّر/)).toBeNull();
     expect(screen.queryByRole("button", { name: /إعادة المحاولة/ })).toBeNull();
+  });
+});
+
+/*
+| بلاغُ ٢٠٢٦-٠٩-٢٦ — «حوِّلْ قيمة الباقة إلى حساب المنصّة» تحتاجُ الحسابَ والمبلغَ
+| معاً في موضعِ الجملة، قبلَ خانةِ الإيصال: لا صفحةَ طلباتٍ بعدُ لمن لم يُرسِلْ.
+*/
+vi.mock("@/lib/billing", () => ({
+  billing: {
+    transferInstructions: () =>
+      Promise.resolve({
+        data: { bank_name: "بنك الدوحة", iban: "QA00TEST0000000000000000001" },
+        configured: true,
+      }),
+  },
+}));
+
+describe("where and how much the buyer transfers", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mockUser = { platform_role: "student" };
+  });
+
+  afterEach(() => {
+    mockSearch = "course=course-uuid&cohort=cohort-uuid";
+  });
+
+  it("prints the account above the receipt field, and the chosen plan's exact sum", async () => {
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    const iban = await screen.findByText("QA00TEST0000000000000000001");
+    const receipt = document.querySelector("#subscribe-receipt") as HTMLElement;
+
+    // Before the receipt field in reading order, not below it.
+    expect(iban.compareDocumentPosition(receipt) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const sum = screen.getByRole("group", { name: "المبلغ المطلوب تحويله" });
+
+    expect(sum.textContent).toContain("اختر الباقة أولاً");
+
+    fireEvent.click(screen.getByRole("radio"));
+
+    expect(sum.textContent).toContain(formatMinorMoney(MONTH_PLAN.price_minor, "QAR"));
+    // There is no table on this page to upload from.
+    expect(screen.queryByText(/من الجدول/)).toBeNull();
+  });
+
+  it("arrives with the plan pressed on /plans already chosen", async () => {
+    mockSearch = "course=course-uuid&cohort=cohort-uuid&plan=plan-uuid";
+
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    const radio = (await screen.findByRole("radio")) as HTMLInputElement;
+
+    await waitFor(() => expect(radio.checked).toBe(true));
+  });
+
+  it("chooses nothing for a plan that is no longer on offer", async () => {
+    mockSearch = "course=course-uuid&cohort=cohort-uuid&plan=withdrawn-plan";
+
+    const { default: SubscribePage } = await import("./page");
+
+    render(<SubscribePage />);
+
+    const radio = (await screen.findByRole("radio")) as HTMLInputElement;
+
+    expect(radio.checked).toBe(false);
   });
 });

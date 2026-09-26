@@ -279,3 +279,57 @@ describe("the status strip", () => {
     expect(screen.getByText("لا طلبات في سجلّك")).toBeDefined();
   });
 });
+
+/*
+| بلاغُ ٢٠٢٦-٠٩-٢٦ — «ثم ارفع صورة الإيصال من الجدول» كانت تُقرأُ بجوارِ «عرض
+| الإيصال» على طلبٍ إيصالُه مرفوعٌ فعلاً: أمرٌ بفعلِ ما فُعِل.
+*/
+describe("the transfer card's upload line", () => {
+  async function showWithDestination(rows: Order[]) {
+    get.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === "/billing/transfer-instructions"
+          ? { data: { bank_name: "بنك الدوحة", iban: "QA00TEST0000000000000000001" }, configured: true }
+          : { data: rows },
+      ),
+    );
+
+    render(<OrdersPage />);
+
+    await screen.findByText("QA00TEST0000000000000000001");
+    await waitFor(() => {
+      expect(screen.queryByRole("status", { name: "جارٍ التحميل" })).toBeNull();
+    });
+  }
+
+  it("asks for the receipt while an order of the reader's still lacks one", async () => {
+    await showWithDestination([order({ status: "pending", has_receipt: false })]);
+
+    expect(screen.getByText(/ارفع صورة الإيصال من الجدول/)).toBeDefined();
+  });
+
+  it("drops the line once the receipt is in", async () => {
+    await showWithDestination([
+      order({
+        status: "under_review",
+        has_receipt: true,
+        receipt_url: "https://example.test/r.png",
+      }),
+    ]);
+
+    expect(screen.getByText("عرض الإيصال")).toBeDefined();
+    expect(screen.queryByText(/ارفع صورة الإيصال من الجدول/)).toBeNull();
+  });
+
+  it("asks again when the receipt on file was refused", async () => {
+    await showWithDestination([order({ status: "rejected", has_receipt: true })]);
+
+    expect(screen.getByText(/ارفع صورة الإيصال من الجدول/)).toBeDefined();
+  });
+
+  it("does not ask a staff reader to upload for somebody else's order", async () => {
+    await showWithDestination([order({ status: "pending", has_receipt: false, is_mine: false })]);
+
+    expect(screen.queryByText(/ارفع صورة الإيصال من الجدول/)).toBeNull();
+  });
+});
