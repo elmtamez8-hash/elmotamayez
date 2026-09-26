@@ -126,6 +126,14 @@ class UserResource extends JsonResource
              */
             'permissions' => $this->grantedPermissions(),
             /*
+             | ⛔ «ظهور الكورس» على صفحةِ الإنشاءِ للمدرّسِ وحدَه (قرارُ المالك
+             | 2026-09-26) — والمساعدُ يحملُ `courses.create` فلا تُجيبُ عنه
+             | `permissions`. الجوابُ من `User::decidesCourseVisibilityIn()`، وهو
+             | ما يسألُه `CoursePolicy::chooseVisibility()` عندَ الباب؛ صفحةُ
+             | التعديلِ تقرأُ `can_change_visibility` عن الكورسِ نفسِه.
+             */
+            'can_choose_course_visibility' => $this->choosesCourseVisibility(),
+            /*
              | ⚠️ `workspaces`, NOT `workplaces` — spec 025 · FR-021 draws the line
              | itself: what changes is what a PERSON reads, not what a machine
              | does. Two keys one letter apart in the payload that also carries
@@ -163,6 +171,13 @@ class UserResource extends JsonResource
      * one query saved on every one of them, for the accounts that are most of the
      * platform.
      *
+     * ⚠️ THE SKIP IS A RULE NOW, NOT ONLY A SAVING (owner decision 2026-09-26):
+     * a student or parent account may not become staff — `InviteMember`,
+     * `AcceptInvitation` and `UpdateWorkspaceMemberRole` all refuse it through
+     * `Tenancy\Support\StaffAccounts` — so such an account has no workplace to
+     * list. What it does NOT cover: rows written before that date, and accounts
+     * whose `platform_role` is null, which is why the pivot filter below stays.
+     *
      * @return list<array{uuid: string, name: string}>
      */
     private function workplaces(): array
@@ -191,6 +206,25 @@ class UserResource extends JsonResource
                 'name' => (string) $workspace->name,
             ])
             ->all();
+    }
+
+    /**
+     * Whether this person decides a new course's visibility in the workspace
+     * they are in — the same workspace `grantedPermissions()` answers about.
+     * A student or parent account holds no staff row (see `workplaces()`), so
+     * the query is skipped for them.
+     */
+    private function choosesCourseVisibility(): bool
+    {
+        $role = $this->platform_role?->value;
+
+        if ($role === 'student' || $role === 'parent') {
+            return false;
+        }
+
+        $workspaceId = app(WorkspaceContext::class)->id() ?? $this->resource->last_workspace_id;
+
+        return $workspaceId !== null && $this->resource->decidesCourseVisibilityIn((int) $workspaceId);
     }
 
     /**

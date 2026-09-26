@@ -7,6 +7,7 @@ namespace App\Modules\Tenancy\Actions;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\StaffAccounts;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
@@ -77,6 +78,13 @@ class UpdateWorkspaceMemberRole extends Action
         if ($current === $role) {
             return;
         }
+
+        /*
+        | ⛔ A learner's `student` row is not promoted to staff (owner decision
+        | 2026-09-26, {@see StaffAccounts}): the invitation door refuses the same
+        | account, and a promotion would be that grant through a side door.
+        */
+        StaffAccounts::guard($member, $role);
 
         DB::transaction(function () use ($workspace, $member, $role, $current): void {
             $workspace->members()->updateExistingPivot($member->getKey(), ['role' => $role]);
