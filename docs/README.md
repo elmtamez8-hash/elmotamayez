@@ -2426,6 +2426,7 @@ certificate, the group's thread and the classmates.
 | `GET · POST /manage/courses/{course}/cohorts` | `courses.update` | creating is for `group` courses only (FR-037) |
 | `PATCH /manage/cohorts/{cohort}` · `POST /manage/cohorts/{cohort}/archive` | `courses.update` | ⚠️ **there is no `DELETE`** — see below |
 | `GET · POST /manage/cohorts/{cohort}/members` · `DELETE …/members/{user}` | `courses.update` | direct add and remove, no request and no approval |
+| `GET /manage/cohorts/{cohort}/eligible-students` | `courses.update` (or `cohorts.assign`) | the «إضافة طالب» picker — the course's students with a granting enrolment, each with the group they are in now; read from `EnrollmentDirectory`, the predicate `MoveMember` enforces |
 | `GET /manage/cohorts/{cohort}/history` · `GET /manage/courses/{course}/students/{student}/cohort-history` | `courses.update` | the audit trail |
 | `POST /manage/transfer-requests/{request}/approve` · `/reject` | `courses.update` | ⚠️ `reason` is **required** on a rejection — the student reads it |
 | `POST /manage/courses/{course}/assign-sessions` | `courses.update` | ONE request for the whole batch, never a loop at the caller |
