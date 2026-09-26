@@ -57,6 +57,7 @@ import {
 } from "@/components/icons";
 import { P, can } from "@/lib/permissions";
 import { dashboardAudience, type DashboardAudience } from "@/lib/dashboard-audience";
+import { teachesOnPlatform } from "@/lib/teaches-on-platform";
 import type { User } from "@/lib/types";
 
 /**
@@ -663,7 +664,7 @@ export function allowedNav(items: NavItem[], user: User | null): NavItem[] {
         can(user, item.permission)
         && (item.audience === undefined || item.audience.includes(who))
         && (item.needsTeacherProfile !== true || user?.teacher_profile_uuid != null)
-        && (item.needsWorkspace !== true || (user?.workspaces?.length ?? 0) > 0)
+        && (item.needsWorkspace !== true || teachesOnPlatform(user))
         && (item.needsAdminPanel !== true || user?.may_access_admin_panel === true),
     )
     .map((item) => {

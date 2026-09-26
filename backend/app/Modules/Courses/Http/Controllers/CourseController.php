@@ -17,6 +17,7 @@ use App\Modules\Courses\Http\Resources\CourseResource;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\SubjectResolver;
 use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,14 @@ class CourseController extends Controller
         */
         $perPage = min(max($request->integer('per_page', 15), 1), 200);
 
+        /*
+        | ⛔ `viewAny` IS `COURSES_VIEW`, AND THE STUDENT ROLE HOLDS IT — so a
+        | student member of a workspace read every DRAFT course here. Whoever
+        | cannot edit a course sees the published ones only, the same line
+        | `CoursePolicy::view()` draws: the workspace question is about drafts.
+        */
+        $publishedOnly = ! $this->currentUser($request)->can(Permissions::COURSES_UPDATE);
+
         if ($searchTerm !== '') {
             // Scout queries the search engine directly, outside the WorkspaceScope
             // global scope — constrain it or the page is filled with other tenants'
@@ -83,6 +92,12 @@ class CourseController extends Controller
             | لا ترى تحميلاً محذوفاً بجوارِ `whenLoaded`» المسجَّلةُ في هذا
             | المستودع. والفرعُ الآخَرُ تحتَه يُحمِّلُها منذُ البداية.
             */
+            if ($publishedOnly) {
+                // `status` is a filterable attribute (config/scout.php), so the
+                // engine drops drafts before they take a result slot.
+                $search->where('status', 'published');
+            }
+
             $courses = $search
                 ->query(fn ($query) => $query->with('subject')->withExists('classSessions'))
                 ->paginate($perPage);
@@ -91,6 +106,7 @@ class CourseController extends Controller
                 ->with('subject')
                 // بُولِيّ واحد، لا فصلٌ دراسيٌّ من الحصصِ يُحمَّلُ ليُعَدَّ لا شيء.
                 ->withExists('classSessions')
+                ->when($publishedOnly, fn ($query) => $query->where('status', 'published'))
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
         }

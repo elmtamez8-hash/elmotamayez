@@ -77,7 +77,14 @@ class EnrollmentPolicy extends BasePolicy
             return Response::deny('You can only complete lessons for your own enrollment.');
         }
 
-        if (! $enrollment->isActive()) {
+        /*
+        | ⛔ `grantsContentAccess()`, never `isActive()` (owner decision 2026-09-23).
+        | Teachers publish a course lesson by lesson, so a student at 100% sees the
+        | next lesson open — and `isActive()` answered «not active» to the one
+        | button that marks it done, leaving them below 100% for ever. Completing
+        | a lesson asks the same question as opening it.
+        */
+        if (! $enrollment->grantsContentAccess()) {
             return Response::deny('This enrollment is not active.');
         }
 
@@ -87,12 +94,10 @@ class EnrollmentPolicy extends BasePolicy
     /**
      * التراجعُ عن التقدّم: درسٌ واحدٌ أو الكورسُ كلُّه.
      *
-     * ⚠️ **قدرةٌ مستقلّةٌ عن `completeLessons`، ولو أعيدَ استعمالُها لَرُدَّ
-     * ٤٠٣ على الشخصِ الوحيدِ الذي تعنيه الميزة.** ذلكَ الشرطُ يطلبُ
-     * `isActive()`، وحالةُ من أنهى الكورسَ هي `completed` لا `active` — فالطالبُ
-     * الذي أنهى ويريدُ الإعادةَ من أوّلِها كانَ سيُمنَع. والسؤالُ مختلفٌ فعلاً لا
-     * شكلاً: الإتمامُ كسبُ تقدّمٍ ويليقُ به تسجيلٌ نشط، والتراجعُ إنقاصُ تقدّمِ
-     * صاحبِه ويليقُ به كلُّ من بدأَ الطريقَ أو أنهاه.
+     * ⚠️ Kept as its own ability even though, since 2026-09-23, it asks the same
+     * question as `completeLessons` (`grantsContentAccess()`: `active` or
+     * `completed`). Earning progress and giving it back are different decisions,
+     * and the day one of them narrows the other must not move with it.
      *
      * ⚠️ **والموقوفُ والملغى يبقيانِ ممنوعَين**: الشرطُ يُوسَّعُ حالةً واحدةً لا
      * يُرفَع، وتسجيلٌ أُوقِفَ لا يُعدَّلُ تقدّمُه من جانبِ الطالب.
@@ -110,7 +115,7 @@ class EnrollmentPolicy extends BasePolicy
             return Response::deny('You can only reset your own enrollment.');
         }
 
-        if (! $enrollment->isActive() && ! $enrollment->isCompleted()) {
+        if (! $enrollment->grantsContentAccess()) {
             return Response::deny('This enrollment is not active.');
         }
 
