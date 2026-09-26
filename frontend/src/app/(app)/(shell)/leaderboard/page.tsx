@@ -17,6 +17,7 @@ import {
   type Leaderboard,
   type LeaderboardScopeOption,
 } from "@/lib/gamification";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Where the student stands, among people at their own level (FR-023).
@@ -202,7 +203,7 @@ export default function LeaderboardPage() {
                     </span>
                     <span className="flex-1 text-sm text-ink">{row.display_name}</span>
                     <span className="text-sm font-semibold text-ink">
-                      <bdi>{row.points}</bdi>
+                      <bdi>{arabicNumber(row.points)}</bdi>
                     </span>
                   </li>
                 ))}

@@ -24,6 +24,7 @@ import {
 } from "@/components/icons";
 import { conversations } from "@/lib/conversations";
 import { userMessage } from "@/lib/errors";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The student's own courses.
@@ -142,7 +143,7 @@ export default function EnrollmentsPage() {
             <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
               <span>نسبة الإنجاز</span>
               <span className="text-base font-bold tabular-nums text-ink">
-                <bdi>{enr.progress_pct}%</bdi>
+                <bdi>{arabicNumber(enr.progress_pct)}٪</bdi>
               </span>
             </div>
             <ProgressBar

@@ -21,6 +21,7 @@ import {
 import { Table, type Column } from "@/components/ui/Table";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Arabic for what the ledger could not make add up.
@@ -199,7 +200,7 @@ export default function CreditReconciliationPage() {
                     run.findings_count > 0 ? "text-danger-ink" : "text-ink"
                   }`}
                 >
-                  {run.findings_count}
+                  {arabicNumber(run.findings_count)}
                 </dd>
               </div>
             </dl>
@@ -212,7 +213,7 @@ export default function CreditReconciliationPage() {
 
           {run.findings_count > run.findings.length && (
             <Alert tone="warning" title="القائمة عيّنة وليست كلّ شيء">
-              عدد الاختلالات {run.findings_count}، والمعروض أدناه {run.findings.length}.
+              عدد الاختلالات {arabicNumber(run.findings_count)}، والمعروض أدناه {arabicNumber(run.findings.length)}.
             </Alert>
           )}
 

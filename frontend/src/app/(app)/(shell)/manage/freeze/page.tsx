@@ -17,6 +17,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { freezePeriods, type FreezePeriod, type FreezeResult } from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * Holiday freezes.
@@ -156,7 +157,11 @@ export default function ManageFreezePage() {
         {result !== null && (
           <div className="mt-4 space-y-3">
             <Alert tone="success" title="جُمّدت الفترة">
-              أُبلغ <bdi>{result.notified}</bdi> من أصحاب المقاعد.
+              {/* «أُبلغ 0 من أصحاب المقاعد» shipped: a Latin digit, and a
+                  count that no Arabic sentence reads at zero. */}
+              {result.notified === 0
+                ? "لا أحد يحمل مقعداً في هذه الفترة، فلم يُبلَّغ أحد."
+                : `أُبلغ بالتجميد ${counted(result.notified, NOUNS.students)} من أصحاب المقاعد.`}
             </Alert>
 
             {result.suspended.length > 0 && (

@@ -37,6 +37,7 @@ import {
 import { userMessage } from "@/lib/errors";
 import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One group: its week, its students, its history, and its own settings.
@@ -388,7 +389,7 @@ export default function ManageCohortPage({
                     setNote(
                       `أُنشِئت ${counted(result.created.length, NOUNS.sessions)}` +
                         (result.skipped.length > 0
-                          ? ` · تُخطّيت ${result.skipped.length} (تداخل أو تجميد)`
+                          ? ` · تُخطّيت ${arabicNumber(result.skipped.length)} (تداخل أو تجميد)`
                           : ""),
                     );
                   }),
@@ -521,7 +522,7 @@ export default function ManageCohortPage({
               <MembersIcon className="h-4 w-4" />
             </span>
             <span>
-              الطلاب (<bdi>{group.members_count}</bdi>)
+              الطلاب (<bdi>{arabicNumber(group.members_count)}</bdi>)
             </span>
           </h3>
 

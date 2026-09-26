@@ -18,6 +18,7 @@ import { userMessage } from "@/lib/errors";
 import { mistakes } from "@/lib/mistakes";
 import { practice, type PracticeFilterOptions, type PracticePaper } from "@/lib/practice";
 import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The student builds their own paper.
@@ -163,7 +164,7 @@ export default function PracticePage() {
         {paper.delivered_count < paper.requested_count && (
           <Alert tone="info" title="الورقة أقصر ممّا طلبت">
             طلبت {counted(paper.requested_count, { ...NOUNS.questions, two: "سؤالين" })}، وما يطابق اختيارك في بنك مدرّسك{" "}
-            <bdi>{paper.delivered_count}</bdi>. وسّع الفكرة أو الصعوبة لورقةٍ أطول.
+            <bdi>{arabicNumber(paper.delivered_count)}</bdi>. وسّع الفكرة أو الصعوبة لورقةٍ أطول.
           </Alert>
         )}
 

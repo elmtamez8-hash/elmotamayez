@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { userMessage } from "@/lib/errors";
 import { adaptive, type AdaptiveSession, type AdaptiveStep } from "@/lib/adaptive";
 import { difficultyLabel, TONE_CLASSES } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One adaptive session, one question at a time.
@@ -95,7 +96,7 @@ export function AdaptiveRunner({
           <div>
             <h3 className="text-lg font-bold text-ink">{session.concept.name}</h3>
             <p className="mt-1 text-sm text-ink-muted">
-              السؤال <bdi>{session.served_count}</bdi> من <bdi>{session.max_questions}</bdi> ·
+              السؤال <bdi>{arabicNumber(session.served_count)}</bdi> من <bdi>{arabicNumber(session.max_questions)}</bdi> ·
               الصعوبة الآن: {difficultyLabel(session.difficulty)}
             </p>
             {/* FR-003: the bar is stated, because a bar nobody states is a bar

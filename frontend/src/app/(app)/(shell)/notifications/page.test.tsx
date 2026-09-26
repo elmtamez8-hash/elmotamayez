@@ -93,8 +93,8 @@ describe("NotificationsPage", () => {
 
     const study = await screen.findByRole("tab", { name: /الدراسة/ });
 
-    expect(study.textContent).toContain("2");
-    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("1");
+    expect(study.textContent).toContain("٢");
+    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("١");
   });
 
   it("asks the server for one subject when its tab is opened, from page one", async () => {
@@ -179,11 +179,11 @@ describe("NotificationsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "تعليم كمقروء" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /الدراسة/ }).textContent).toContain("1"),
+      expect(screen.getByRole("tab", { name: /الدراسة/ }).textContent).toContain("١"),
     );
 
     // And the other subject is untouched — the row belonged to «الدراسة».
-    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("1");
+    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("١");
   });
 
   it("groups the feed by day rather than running it together", async () => {

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { stateLabel, type Assignment } from "@/lib/assignments";
 import { counted, formatDateTime, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * This course's homework: what is due, what went in, and what being late costs
@@ -78,7 +79,7 @@ export function AssignmentsTab({ assignments }: { assignments: Assignment[] }) {
                 )}
                 {assignment.late_policy === "penalty" && (
                   <Badge tone="warning">
-                    خصم&nbsp;<bdi>{assignment.late_penalty_pct_per_day}%</bdi>&nbsp;لكل يوم تأخير
+                    خصم&nbsp;<bdi>{arabicNumber(assignment.late_penalty_pct_per_day)}٪</bdi>&nbsp;لكل يوم تأخير
                   </Badge>
                 )}
               </div>
@@ -88,7 +89,7 @@ export function AssignmentsTab({ assignments }: { assignments: Assignment[] }) {
                   that names a number the student has already paid. */}
               {mine?.late_penalty_applied_pct != null && mine.late_penalty_applied_pct > 0 && (
                 <p className="mb-3 text-sm text-ink-muted">
-                  طُبِّق خصم تأخير <bdi>{mine.late_penalty_applied_pct}%</bdi>.
+                  طُبِّق خصم تأخير <bdi>{arabicNumber(mine.late_penalty_applied_pct)}٪</bdi>.
                 </p>
               )}
 
@@ -108,7 +109,7 @@ export function AssignmentsTab({ assignments }: { assignments: Assignment[] }) {
 
                 {mine?.is_graded === true && (
                   <span className="text-sm text-ink">
-                    درجتك <bdi>{mine.score}</bdi> من <bdi>{assignment.points}</bdi>
+                    درجتك <bdi>{arabicNumber(mine.score ?? 0)}</bdi> من <bdi>{arabicNumber(assignment.points)}</bdi>
                   </span>
                 )}
               </div>
