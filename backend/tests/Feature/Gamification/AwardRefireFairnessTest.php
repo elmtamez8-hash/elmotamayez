@@ -24,6 +24,7 @@ use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Events\AttendanceOverridden;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
 
@@ -109,10 +110,20 @@ function refireSession(object $test): ClassSession
         'user_id' => $test->owner->getKey(),
     ]);
 
-    return ClassSession::factory()->create([
+    $session = ClassSession::factory()->create([
         'workspace_id' => $test->workspace->getKey(),
         'teacher_profile_id' => $profile->getKey(),
     ]);
+
+    // The student holds a seat: a register row with no booking behind it is
+    // staff in the room, never a student (`Attendance::scopeExcludingHost()`).
+    SessionBooking::factory()->create([
+        'workspace_id' => $test->workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $test->student->getKey(),
+    ]);
+
+    return $session;
 }
 
 function refireMark(Attendance $row, AttendanceStatus $status): void

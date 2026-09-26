@@ -7,6 +7,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\SyncTeacherCountersJob;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
@@ -161,6 +162,15 @@ it('counts distinct students who attended a delivered session', function (): voi
     $absentee = User::factory()->create();
 
     $attend = function (ClassSession $session, User $user, string $status): void {
+        // A seat behind every row, as production has: a row with no booking is
+        // staff in the room and never counted (2026-09-26 —
+        // `StaffPresenceIsNotAttendanceTest`).
+        SessionBooking::factory()->create([
+            'class_session_id' => $session->getKey(),
+            'workspace_id' => $this->workspace->getKey(),
+            'student_user_id' => $user->getKey(),
+        ]);
+
         Attendance::factory()->create([
             'class_session_id' => $session->getKey(),
             'workspace_id' => $this->workspace->getKey(),

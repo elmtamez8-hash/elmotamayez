@@ -127,6 +127,10 @@ class SyncTeacherCountersJob implements ShouldQueue
             // The host is never null on a profile — the column is NOT NULL — so
             // this is an unconditional exclusion, not a defensive branch.
             ->where('student_user_id', '!=', $profile->user_id)
+            // And every OTHER member of staff in the room — an assistant with
+            // `sessions.host` has a row from the heartbeat and no seat, and is
+            // not somebody this teacher taught (2026-09-26).
+            ->seatHoldersOnly()
             // One person taught in twenty sessions is one student, not twenty.
             ->distinct()
             ->count('student_user_id');
