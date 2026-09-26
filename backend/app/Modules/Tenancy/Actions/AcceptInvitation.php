@@ -9,6 +9,7 @@ use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\StaffAccounts;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,14 @@ class AcceptInvitation extends Action
         if (! hash_equals(mb_strtolower($invitation->email), mb_strtolower($user->email))) {
             throw new \DomainException("This invitation was sent to {$invitation->email}. Sign in with that address to accept it.");
         }
+
+        /*
+        | ⛔ The invitation may predate the rule, or name an address that
+        | registered as a student after it was sent — so the refusal is asked
+        | again at the door that actually writes the row (owner decision
+        | 2026-09-26, {@see StaffAccounts}).
+        */
+        StaffAccounts::guard($user, $invitation->role);
 
         $workspace = $invitation->workspace;
 

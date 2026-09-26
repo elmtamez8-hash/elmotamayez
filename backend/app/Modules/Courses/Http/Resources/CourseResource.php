@@ -60,6 +60,23 @@ class CourseResource extends JsonResource
         return $this;
     }
 
+    /**
+     * Whether the reader may switch this course between public and private —
+     * stamped in by the author's reads alongside the blockers, never computed
+     * here (a pivot query per row on the index). Unstamped, the key is absent.
+     *
+     * ⛔ The screen hides «ظهور الكورس» on it rather than guessing from the
+     * role: the server's `CoursePolicy::changeVisibility()` is the one answer.
+     */
+    private ?bool $canChangeVisibility = null;
+
+    public function withVisibilityControl(bool $allowed): static
+    {
+        $this->canChangeVisibility = $allowed;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -109,6 +126,8 @@ class CourseResource extends JsonResource
             'status' => $this->status,
             'is_published' => $this->isPublished(),
             'visibility' => $this->visibility,
+            // للمدرّسِ وحدَه أن يقلبَه (قرارُ المالك 2026-09-26) — see the setter.
+            'can_change_visibility' => $this->when($this->canChangeVisibility !== null, fn (): ?bool => $this->canChangeVisibility),
             /*
             | «هل يصلُ الناسُ إلى هذا الكورس؟» — للمدرّسِ وحدَه (2026-09-26).
             | `listed` هو `isPubliclyListed()` نفسُه، و`blockers` أسبابُ الرفضِ

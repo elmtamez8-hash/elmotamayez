@@ -10,10 +10,14 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Policies\BasePolicy;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Auth\Access\Response;
 
 class CoursePolicy extends BasePolicy
 {
+    /** The refusal an assistant reads when they try to move a course's visibility. */
+    public const VISIBILITY_REFUSAL = 'ظهور الكورس (عام أو خاص) يقرّره مدرّس الكورس وحده.';
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::COURSES_VIEW)
@@ -90,6 +94,39 @@ class CoursePolicy extends BasePolicy
         return $user->can(Permissions::COURSES_UPDATE)
             ? Response::allow()
             : Response::deny();
+    }
+
+    /**
+     * Whether this course may be switched between public and private — the
+     * teacher's decision alone (owner decision 2026-09-26).
+     *
+     * ⛔ ASKED BESIDE `update()`, NEVER INSTEAD OF IT: an assistant holding
+     * `courses.update` still edits everything else on the course, and this is
+     * the one field of it they may not move. {@see User::decidesCourseVisibilityIn()}
+     */
+    public function changeVisibility(User $user, Course $course): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $user->decidesCourseVisibilityIn((int) $course->workspace_id)
+            ? Response::allow()
+            : Response::deny(self::VISIBILITY_REFUSAL);
+    }
+
+    /**
+     * The same decision at CREATION, where there is no course yet — asked about
+     * the workspace the creator is in. A course created by someone who may not
+     * decide is created public, the default (owner decision 2026-09-26).
+     */
+    public function chooseVisibility(User $user): Response
+    {
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        return $workspaceId !== null && $user->decidesCourseVisibilityIn($workspaceId)
+            ? Response::allow()
+            : Response::deny(self::VISIBILITY_REFUSAL);
     }
 
     public function delete(User $user, Course $course): Response

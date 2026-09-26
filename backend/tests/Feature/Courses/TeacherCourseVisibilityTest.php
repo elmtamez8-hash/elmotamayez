@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Policies\CoursePolicy;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -95,4 +96,101 @@ it('leaves an existing course\'s visibility alone on an edit that does not name 
     $this->putJson("/api/v1/courses/{$course->uuid}", ['title' => 'عنوان جديد'])->assertOk();
 
     expect($course->fresh()?->visibility)->toBe('private');
+});
+
+/*
+| ⛔ الظهورُ قرارُ مدرّسِ الكورسِ وحدَه — قرارُ المالك 2026-09-26 (الجزءُ الثاني).
+| المساعدُ يحملُ `courses.update` و`courses.create`، فيُعدِّلُ المحتوى ويُنشئُ
+| الكورسات، ولا يقلبُ الظهور. والشاشةُ تقرأُ الجوابَ من الخادم لا من اسمِ الدور.
+*/
+
+it('refuses an assistant switching a course\'s visibility, and saves nothing', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $course = Course::factory()->published()->create(['workspace_id' => $workspace->getKey()]);
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+    Sanctum::actingAs($assistant);
+
+    $this->putJson("/api/v1/courses/{$course->uuid}", ['visibility' => 'private', 'title' => 'عنوان المساعد'])
+        ->assertForbidden()
+        ->assertJsonPath('message', CoursePolicy::VISIBILITY_REFUSAL);
+
+    $fresh = $course->fresh();
+    expect($fresh?->visibility)->toBe('public')
+        ->and($fresh?->title)->not->toBe('عنوان المساعد');
+});
+
+it('lets an assistant keep editing content — including echoing the current visibility', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $course = Course::factory()->published()->create(['workspace_id' => $workspace->getKey()]);
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+    Sanctum::actingAs($assistant);
+
+    $this->putJson("/api/v1/courses/{$course->uuid}", ['title' => 'عنوان جديد', 'visibility' => 'public'])
+        ->assertOk();
+
+    expect($course->fresh()?->title)->toBe('عنوان جديد');
+});
+
+it('lets a teacher member (not only the owner) switch it', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $course = Course::factory()->published()->create(['workspace_id' => $workspace->getKey()]);
+    $teacher = $this->addWorkspaceMember($workspace, Roles::TEACHER);
+
+    Sanctum::actingAs($teacher);
+
+    $this->putJson("/api/v1/courses/{$course->uuid}", ['visibility' => 'private'])->assertOk();
+
+    expect($course->fresh()?->visibility)->toBe('private');
+});
+
+it('tells the edit screen who may switch it — true for the owner, false for an assistant', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $course = Course::factory()->published()->create(['workspace_id' => $workspace->getKey()]);
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+    app()->forgetInstance(WorkspaceContext::class);
+    Sanctum::actingAs($owner);
+    $this->getJson("/api/v1/courses/{$course->uuid}")->assertOk()->assertJsonPath('can_change_visibility', true);
+
+    app()->forgetInstance(WorkspaceContext::class);
+    Sanctum::actingAs($assistant);
+    $this->getJson("/api/v1/courses/{$course->uuid}")->assertOk()->assertJsonPath('can_change_visibility', false);
+});
+
+it('creates an assistant\'s course public, and refuses one that asks for private', function (): void {
+    [$workspace] = $this->createWorkspaceWithOwner();
+    $subject = Subject::factory()->create();
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+    Sanctum::actingAs($assistant);
+
+    $this->postJson('/api/v1/courses', [
+        'title' => 'كورس المساعد',
+        'subject' => (string) $subject->uuid,
+        'course_type' => Course::TYPE_RECORDED,
+        'visibility' => 'private',
+    ])->assertForbidden()->assertJsonPath('message', CoursePolicy::VISIBILITY_REFUSAL);
+
+    expect(Course::query()->where('title', 'كورس المساعد')->exists())->toBeFalse();
+
+    $this->postJson('/api/v1/courses', [
+        'title' => 'كورس المساعد',
+        'subject' => (string) $subject->uuid,
+        'course_type' => Course::TYPE_RECORDED,
+    ])->assertCreated()->assertJsonPath('visibility', 'public');
+});
+
+it('tells the create screen whether to offer the field', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+    app()->forgetInstance(WorkspaceContext::class);
+    Sanctum::actingAs($owner);
+    $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('can_choose_course_visibility', true);
+
+    app()->forgetInstance(WorkspaceContext::class);
+    Sanctum::actingAs($assistant);
+    $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('can_choose_course_visibility', false);
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { api, fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { COURSE_TYPES, type CourseType } from "@/lib/labels";
 import { CURRENCY } from "@/lib/platform";
@@ -152,6 +153,7 @@ function ToggleTile({
 
 export default function CreateCoursePage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   /*
     ⚠️ REQUIRED SINCE THE DAY `subject_id` WAS FOUND NULL ON EVERY COURSE ON THE
@@ -396,7 +398,11 @@ export default function CreateCoursePage() {
             delay={240}
           >
             {/* عامٌّ افتراضاً والقرارُ للمدرّس (قرارُ المالك 2026-09-26)؛ `hidden`
-                قيمةُ المنصّةِ وحدَها فلا تُعرَض هنا. */}
+                قيمةُ المنصّةِ وحدَها فلا تُعرَض هنا.
+                ⛔ وللمدرّسِ وحدَه (قرارُ المالك 2026-09-26): كورسُ المساعدِ يُنشأُ
+                «عامّاً» — الافتراضيّ الذي في النموذج — ولا يرى الحقل. الجوابُ
+                من الخادم (`can_choose_course_visibility`) لا من اسمِ الدور. */}
+            {user?.can_choose_course_visibility === true && (
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-ink">ظهور الكورس</legend>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -441,6 +447,7 @@ export default function CreateCoursePage() {
                 </p>
               )}
             </fieldset>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <ToggleTile

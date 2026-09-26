@@ -25,8 +25,10 @@ vi.mock("next/navigation", () => ({
 
 const { default: EditCoursePage } = await import("./page");
 
-function course(visibility: string) {
+function course(visibility: string, canChange: boolean | "absent") {
   return {
+    // «absent» is a read nobody stamped — the key is missing, not false.
+    ...(canChange === "absent" ? {} : { can_change_visibility: canChange }),
     uuid: "c-1",
     title: "رياضيات",
     description: "",
@@ -45,9 +47,9 @@ function course(visibility: string) {
   };
 }
 
-async function openPage(visibility: string) {
+async function openPage(visibility: string, canChange: boolean | "absent" = true) {
   get.mockImplementation((path: string) =>
-    Promise.resolve(path === "/courses/c-1" ? course(visibility) : { data: [] }),
+    Promise.resolve(path === "/courses/c-1" ? course(visibility, canChange) : { data: [] }),
   );
 
   await act(async () => {
@@ -102,6 +104,29 @@ describe("«ظهور الكورس» on the edit form", () => {
 
     const body = put.mock.calls.at(-1)?.[1] as Record<string, unknown>;
 
+    expect(body).not.toHaveProperty("visibility");
+  });
+});
+
+/*
+| ⛔ الظهورُ لمدرّسِ الكورسِ وحدَه (قرارُ المالك 2026-09-26): المساعدُ يُعدِّلُ
+| الباقي ولا يرى الحقل، والجوابُ من الخادم (`can_change_visibility`).
+*/
+describe("«ظهور الكورس» for someone who may not decide it", () => {
+  it.each([
+    ["an assistant (false)", false],
+    ["an unstamped read (absent)", "absent" as const],
+  ])("is hidden for %s, and the save still carries the rest", async (_label, canChange) => {
+    await openPage("public", canChange);
+
+    expect(screen.queryByText("ظهور الكورس")).toBeNull();
+    expect(screen.queryByLabelText(/خاص — لا يصل إليه/)).toBeNull();
+
+    await save();
+
+    const body = put.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+
+    expect(body).toHaveProperty("title", "رياضيات");
     expect(body).not.toHaveProperty("visibility");
   });
 });

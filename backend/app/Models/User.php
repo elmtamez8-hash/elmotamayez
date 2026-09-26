@@ -135,12 +135,53 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      * for their child is the ordinary case, and the person who lands in
      * `enrollments` is the child — a guard on `currentUser()` would refuse the
      * wrong person and let the real one through.
+     *
+     * ⚠️ SINCE 2026-09-26 A STUDENT OR PARENT ACCOUNT CANNOT ACQUIRE A STAFF ROW
+     * (`Tenancy\Support\StaffAccounts`, asked at the invitation, its acceptance
+     * and a role change), so for an account that declared itself a learner this
+     * answers false by construction — the person who also teaches holds a second
+     * account under another email. It stays a pivot query all the same: rows
+     * written before the rule, and the null-`platform_role` accounts the rule
+     * cannot classify, are exactly the ones it still has to answer about.
      */
     public function teachesOnPlatform(): bool
     {
         return $this->workspaces()
             ->wherePivot('role', '!=', Roles::STUDENT)
             ->exists();
+    }
+
+    /**
+     * Whether this person is THE TEACHER of a workspace — the one who decides
+     * whether its courses are public or private (owner decision 2026-09-26).
+     *
+     * ⛔ NOT «may edit the course». An assistant holds `courses.update` and keeps
+     * editing content; whether a course is shown to the whole marketplace is the
+     * teacher's call, and it is asked here rather than through a permission so
+     * the roles screen cannot hand it to an assistant by ticking a box.
+     *
+     * ⚠️ ASKED IN THE POSITIVE, the opposite of `teachesOnPlatform()` above, and
+     * for the same reason: the safe direction wins. That predicate REFUSES
+     * something, so an unknown role falls toward «teaches»; this one GRANTS, so
+     * an unknown role falls toward «may not». The owner always holds a
+     * `tenant-owner` row (`CreateWorkspace` writes it), so ownership needs no
+     * branch of its own.
+     *
+     * ⚠️ AND AN ASSISTANT ASSIGNMENT WALLS IT whatever the role is named — the
+     * wall is at the check, never on the role name (docs/gotchas/tenancy.md).
+     */
+    public function decidesCourseVisibilityIn(int $workspaceId): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        $teaches = $this->workspaces()
+            ->where('workspaces.id', $workspaceId)
+            ->wherePivotIn('role', [Roles::TENANT_OWNER, Roles::TEACHER])
+            ->exists();
+
+        return $teaches && ! app(AssistantScopeDirectory::class)->isAssistantIn($this, $workspaceId);
     }
 
     /**

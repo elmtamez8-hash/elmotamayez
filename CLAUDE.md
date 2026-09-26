@@ -108,6 +108,7 @@ _Read before touching `Modules/Tenancy/`, any policy, `WorkspaceScope`/`Workspac
 - A PUBLIC PAGE THAT READS SOMETHING WORKSPACE-OWNED HAS A VICTIM, AND IT IS NOT THE VISITOR.
 - A permission whose only reader sits behind a route no client calls guards NOTHING — and the screen people actually use is the one to check.
 - A FILAMENT CREATE PAGE'S DEFAULT `handleRecordCreation()` IS `new Model($data)` — SO IT STAMPS THE *OFFICER'S* WORKSPACE AND DROPS EVERY NON-FILLABLE COLUMN, SILENTLY.
+- A student or parent account never becomes staff, and the refusal stands at THREE doors (invite · accept · role change) through `StaffAccounts` — a null `platform_role` passes.
 
 ### Identity and sign-in → [`docs/gotchas/identity.md`](docs/gotchas/identity.md)
 _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessions._
@@ -141,6 +142,7 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - «THE AUTHOR» IS THE PIVOT ROLE, NEVER MERE MEMBERSHIP — AND THE THIRD DOOR OPENED PAID CONTENT.
 - LESSON CONTENT HAS FOUR DOORS, NOT ONE — AND THE ONE THAT ACTUALLY SERVES THE FILE ENDS AT `hasActiveEnrollment`.
 - A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
+- A course's visibility is the TEACHER's call, not `courses.update`'s — an assistant edits content but `changeVisibility`/`chooseVisibility` refuse them, and the screens read the server's boolean.
 
 ### Exams, questions, practice and grading → [`docs/gotchas/assessments.md`](docs/gotchas/assessments.md)
 _Read before touching `Modules/Assessments/`, exams, the question bank, practice, study rooms._

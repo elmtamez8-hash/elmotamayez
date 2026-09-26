@@ -6,6 +6,7 @@ namespace App\Modules\Courses\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
+use App\Modules\Courses\Enums\CourseVisibility;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\CourseSlug;
 use App\Modules\Courses\Support\CourseTeacherProfile;
@@ -14,6 +15,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
+use Illuminate\Support\Facades\Gate;
 
 class CreateCourse extends Action
 {
@@ -57,6 +59,16 @@ class CreateCourse extends Action
             // يَعرِضُ الأولى ٤٢٢ على `api/*` ولا يَعرِفُ الثانيةَ أصلاً — فرفضٌ
             // بجملةٍ عربيّةٍ كانَ سيخرجُ ٥٠٠.
             throw new DomainException('اختر نوع الكورس: فردي أو جماعي أو مسجّل.');
+        }
+
+        /*
+        | ⛔ ظهورُ الكورسِ قرارُ مدرّسِه وحدَه (قرارُ المالك 2026-09-26). المساعدُ
+        | يُنشئُ الكورسَ فيأخذُ الافتراضيَّ «عام» — ولا يُسأَلُ إلا عن غيرِه، فطلبٌ
+        | يُعيدُ القيمةَ الافتراضيّةَ صراحةً لا يُرفَض. هنا لا في الطلب، لأنّ
+        | الفعلَ هو البابُ الذي يمرُّ منه كلُّ من يُنشئ.
+        */
+        if ($dto->visibility !== CourseVisibility::Public->value) {
+            Gate::forUser($creator)->authorize('chooseVisibility', Course::class);
         }
 
         $workspaceId = (int) app(WorkspaceContext::class)->id();
