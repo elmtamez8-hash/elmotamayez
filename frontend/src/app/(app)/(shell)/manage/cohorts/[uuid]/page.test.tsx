@@ -80,6 +80,14 @@ async function open() {
 }
 
 describe("a group's own page", () => {
+  // ⛔ The same roster as the course's groups screen — with the way in and out.
+  it("carries «إضافة طالب» on its roster", async () => {
+    await open();
+
+    expect(members).toHaveBeenCalledWith("g-1");
+    expect(screen.getByRole("button", { name: /إضافة طالب/ })).toBeTruthy();
+  });
+
   it("asks only for this group's sessions, from today onwards", async () => {
     await open();
 

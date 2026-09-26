@@ -15,6 +15,7 @@ import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDate } from "@/lib/labels";
 import { useTeacherStudents } from "@/lib/use-teacher-students";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Extra time and extra days for one student (spec 008 · FR-053 · FR-055).
@@ -118,7 +119,7 @@ export default function AccommodationsPage() {
     {
       key: "time",
       header: "وقت إضافي في الاختبارات",
-      render: (row) => (row.extra_time_pct > 0 ? <bdi>{`${row.extra_time_pct}٪`}</bdi> : "—"),
+      render: (row) => (row.extra_time_pct > 0 ? <bdi>{`${arabicNumber(row.extra_time_pct)}٪`}</bdi> : "—"),
     },
     {
       key: "days",

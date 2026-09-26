@@ -17,6 +17,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { freezePeriods, type FreezePeriod, type FreezeResult } from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { counted, NOUNS } from "@/lib/labels";
 
 /**
  * Holiday freezes.
@@ -41,6 +42,8 @@ export default function ManageFreezePage() {
   const [result, setResult] = useState<FreezeResult | null>(null);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [liftError, setLiftError] = useState("");
+  const [lifted, setLifted] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -60,6 +63,8 @@ export default function ManageFreezePage() {
     setError("");
     setErrors({});
     setResult(null);
+    setLifted(false);
+    setLiftError("");
 
     try {
       setResult(
@@ -78,14 +83,25 @@ export default function ManageFreezePage() {
     }
   };
 
+  /*
+    ⛔ «جُمّدت الفترة» OUTLIVED THE FREEZE IT ANNOUNCED (2026-09-26): lifting a
+    period reloaded the list and left the creation banner — and its list of
+    suspended sessions — standing above it, reporting a freeze that no longer
+    existed. A lift clears it and says what it did; a failed lift says so under
+    its own title rather than «تعذّر التجميد», which is the other button.
+  */
   const lift = async (uuid: string) => {
     setError("");
+    setLiftError("");
+    setLifted(false);
 
     try {
       await freezePeriods.remove(uuid);
+      setResult(null);
+      setLifted(true);
       load();
     } catch (err: unknown) {
-      setError(userMessage(err));
+      setLiftError(userMessage(err));
     }
   };
 
@@ -156,7 +172,11 @@ export default function ManageFreezePage() {
         {result !== null && (
           <div className="mt-4 space-y-3">
             <Alert tone="success" title="جُمّدت الفترة">
-              أُبلغ <bdi>{result.notified}</bdi> من أصحاب المقاعد.
+              {/* «أُبلغ 0 من أصحاب المقاعد» shipped: a Latin digit, and a
+                  count that no Arabic sentence reads at zero. */}
+              {result.notified === 0
+                ? "لا أحد يحمل مقعداً في هذه الفترة، فلم يُبلَّغ أحد."
+                : `أُبلغ بالتجميد ${counted(result.notified, NOUNS.students)} من أصحاب المقاعد.`}
             </Alert>
 
             {result.suspended.length > 0 && (
@@ -173,6 +193,14 @@ export default function ManageFreezePage() {
           </div>
         )}
       </Card>
+
+      {lifted && <Alert tone="success" title="رُفع التجميد" />}
+
+      {liftError !== "" && (
+        <Alert tone="danger" title="تعذّر رفع التجميد">
+          {liftError}
+        </Alert>
+      )}
 
       {loading ? (
         <RowsSkeleton />

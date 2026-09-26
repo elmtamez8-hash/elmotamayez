@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import type { Certificate } from "@/lib/types";
 import { formatDate } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The certificate for this course — or, when there is none, THE CONDITION FOR
@@ -91,7 +92,7 @@ export function CertificateTab({
         ) : (
           <>
             تصدر الشهادة تلقائياً حين تُتِمّ المادّة أو تجتاز اختبارها. بقي لك{" "}
-            <bdi>{remaining}</bdi> من <bdi>{countableCount}</bdi>.
+            <bdi>{arabicNumber(remaining)}</bdi> من <bdi>{arabicNumber(countableCount)}</bdi>.
           </>
         )}
       </p>

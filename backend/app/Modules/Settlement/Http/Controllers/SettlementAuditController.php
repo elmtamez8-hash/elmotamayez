@@ -10,7 +10,6 @@ use App\Modules\Settlement\Support\SettlementAuditSubjects;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Spatie\Activitylog\Models\Activity;
 
 /**
  * Every administrative act on a teacher's money, and nothing else (FR-034).
@@ -37,17 +36,9 @@ class SettlementAuditController extends Controller
         // and `AttendanceController` gate the same way.
         abort_unless($this->currentUser($request)->can(Permissions::SETTLEMENT_AUDIT_VIEW), 403);
 
-        $entries = Activity::query()
-            // The filter is the query, not a pass over its results. See
-            // SettlementAuditSubjects — `activity_log` is shared with billing,
-            // and asking for the table and then removing rows is one forgotten
-            // branch away from showing the wrong context.
-            ->whereIn('subject_type', SettlementAuditSubjects::types())
-            // Morph-eager-loaded: a Resource runs once per row, so reading the
-            // subject's uuid inside one is an N+1 by construction — the lesson
-            // ClassSessionResource paid for in 005.
-            ->with(['subject', 'causer'])
-            ->latest('id')
+        // The filter is the query, not a pass over its results, and it is spelled
+        // once — see SettlementAuditSubjects::entries(), which /admin reads too.
+        $entries = SettlementAuditSubjects::entries()
             ->paginate(50);
 
         return response()->json(

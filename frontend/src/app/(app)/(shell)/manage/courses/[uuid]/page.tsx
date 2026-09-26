@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { CoursesIcon } from "@/components/icons";
+import { CoursePublicReach } from "@/components/courses/CoursePublicReach";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -102,6 +103,10 @@ export default function CourseDetailPage({
           </span>
         </div>
       </div>
+
+      {/* Published but unreachable is the state a teacher cannot see from here
+          otherwise — the badge above says «منشور» either way. */}
+      <CoursePublicReach course={course} />
 
       {/*
         No enrol and no purchase button. This page lives under /manage — it is

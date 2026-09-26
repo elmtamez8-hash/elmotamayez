@@ -59,7 +59,10 @@ describe("the new course form", () => {
   it("sends the course type picked from the tiles, and none until one is picked", async () => {
     render(<CreateCoursePage />);
 
-    expect(screen.getAllByRole("radio").some((r) => (r as HTMLInputElement).checked)).toBe(false);
+    const typeRadios = screen
+      .getAllByRole("radio")
+      .filter((r) => (r as HTMLInputElement).name === "course_type");
+    expect(typeRadios.some((r) => (r as HTMLInputElement).checked)).toBe(false);
 
     fireEvent.click(screen.getByRole("radio", { name: /جماعي/ }));
     submit();
@@ -67,5 +70,18 @@ describe("the new course form", () => {
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.course_type).toBe("group");
+  });
+
+  it("creates a public course by default, and a private one when the teacher picks it", async () => {
+    render(<CreateCoursePage />);
+
+    submit();
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect((post.mock.calls[0] as [string, Record<string, unknown>])[1].visibility).toBe("public");
+
+    fireEvent.click(screen.getByRole("radio", { name: /خاص/ }));
+    submit();
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect((post.mock.calls[1] as [string, Record<string, unknown>])[1].visibility).toBe("private");
   });
 });

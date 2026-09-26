@@ -7,6 +7,7 @@ import { SelectField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/api";
 import { courses, type ExamGate, type LessonDetail, type ReferenceTargets } from "@/lib/courses";
 import { counted, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Putting one of the course's exams at this position in the tree.
@@ -80,7 +81,7 @@ export function ExamPicker({
         placeholder="— اختر اختباراً —"
         options={targets.exams.map((exam) => ({
           value: exam.uuid,
-          label: `${exam.title} — النجاح من ${exam.passing_score}٪ · ${counted(exam.questions_count, NOUNS.questions)}`,
+          label: `${exam.title} — النجاح من ${arabicNumber(exam.passing_score)}٪ · ${counted(exam.questions_count, NOUNS.questions)}`,
         }))}
         onChange={(value) => {
           setSelected(value);

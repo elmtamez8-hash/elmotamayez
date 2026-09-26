@@ -16,6 +16,7 @@ use Carbon\CarbonInterface;
 use Database\Factories\Modules\Settlement\TeachingUnitFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One frozen seat in one delivered session, priced at the rate then in force.
@@ -134,6 +135,21 @@ class TeachingUnit extends BaseModel
     public function settlementPeriod(): BelongsTo
     {
         return $this->belongsTo(SettlementPeriod::class);
+    }
+
+    /**
+     * The corrections written against this unit — at most one, by
+     * `ReverseTeachingUnit`'s own guard.
+     *
+     * ⚠️ SCOPED LIKE ANY RELATION ON A TENANT MODEL. A platform reader repeats
+     * `withoutWorkspaceScope()` inside the eager load, or an officer whose
+     * fallback workspace is elsewhere reads «not corrected» about every unit.
+     *
+     * @return HasMany<TeachingUnit, $this>
+     */
+    public function reversals(): HasMany
+    {
+        return $this->hasMany(self::class, 'reversal_of_id');
     }
 
     public function isReversal(): bool

@@ -18,7 +18,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -163,7 +162,7 @@ class PlanResource extends Resource
 
             Section::make('سعر المنصّة')
                 ->description('اترُكْه فارغاً فلا تُعرَضُ الباقةُ للبيعِ أصلاً — وهذه هي حالتُها قبلَ التسعير، '
-                    .'لا «مجّاناً». بالوحدةِ الصغرى: ٣٠٠٫٠٠ ريالاً تُكتَبُ 30000.')
+                    .'لا «مجّاناً». بالوحدةِ الصغرى: ٣٠٠ ريال تُكتَبُ 30000.')
                 ->columns(1)
                 ->schema([
                     /*
@@ -215,7 +214,25 @@ class PlanResource extends Resource
                         : number_format($state / 100, 2))
                     ->badge()
                     ->color(fn (?int $state): string => $state === null ? 'warning' : 'gray'),
-                IconColumn::make('is_active')->label('مفعَّلة')->boolean(),
+                /*
+                | ⚠️ THE TEACHER'S THREE ANSWERS, NOT THE COLUMN'S TWO (2026-09-26).
+                | «مفعَّلة: نعم» sat here beside a plan whose teacher read «غير
+                | معروضة، تنتظر التسعير» — both true, and together they told the
+                | officer the plan was on sale when no student could buy it.
+                | `isSellable()` is the model's own spelling of «on sale», the one
+                | the catalogue and the teacher's screen already read.
+                */
+                TextColumn::make('sale_state')->label('الحالة')->badge()
+                    ->state(fn (Plan $record): string => match (true) {
+                        $record->isSellable() => 'معروضة للبيع',
+                        $record->is_active => 'بانتظار التسعير',
+                        default => 'موقوفة',
+                    })
+                    ->color(fn (Plan $record): string => match (true) {
+                        $record->isSellable() => 'success',
+                        $record->is_active => 'warning',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 Filter::make('unpriced')

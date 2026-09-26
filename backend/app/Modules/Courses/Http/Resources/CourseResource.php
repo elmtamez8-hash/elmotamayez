@@ -40,6 +40,26 @@ class CourseResource extends JsonResource
         return $this;
     }
 
+    /**
+     * Why the course is not publicly reachable — stamped in by the AUTHOR's
+     * reads only (`CourseController::show()` / `publish()` / `unpublish()`),
+     * never computed here: it walks `workspace` and `creator.teacherProfile`,
+     * and a Resource runs once per row on the index. Unstamped, the key is
+     * absent — and a student reading `/courses/{uuid}` is never told whether
+     * the teacher's workspace is in the marketplace.
+     *
+     * @var list<string>|null
+     */
+    private ?array $publicListingBlockers = null;
+
+    /** @param  list<string>  $blockers  {@see Course::publicListingBlockers()} */
+    public function withPublicListingBlockers(array $blockers): static
+    {
+        $this->publicListingBlockers = $blockers;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -89,6 +109,15 @@ class CourseResource extends JsonResource
             'status' => $this->status,
             'is_published' => $this->isPublished(),
             'visibility' => $this->visibility,
+            /*
+            | «هل يصلُ الناسُ إلى هذا الكورس؟» — للمدرّسِ وحدَه (2026-09-26).
+            | `listed` هو `isPubliclyListed()` نفسُه، و`blockers` أسبابُ الرفضِ
+            | رموزاً لا جُملاً: الشاشةُ تملكُ الكلمات.
+            */
+            'public_listing' => $this->when($this->publicListingBlockers !== null, fn (): array => [
+                'listed' => $this->publicListingBlockers === [],
+                'blockers' => $this->publicListingBlockers,
+            ]),
             'is_sequential' => $this->is_sequential,
             // ⚠️ لم يكنْ يُرسَلُ قطُّ، فشاشةُ تعديلِ الكورسِ لا تستطيعُ حتّى أن
             // تقرأَ النوعَ الذي صارَت تكتبُه.

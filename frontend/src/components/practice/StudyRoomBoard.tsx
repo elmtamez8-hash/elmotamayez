@@ -9,6 +9,7 @@ import {
   type StudyRoomBoard as Board,
   type StudyRoomState,
 } from "@/lib/study-rooms";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The live scoreboard of one study room (FR-014 · SC-006).
@@ -106,12 +107,12 @@ export function StudyRoomBoard({
               <span className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
                 <span>
                   <bdi>
-                    {row.answered}/{questionCount}
+                    {arabicNumber(row.answered)}/{arabicNumber(questionCount)}
                   </bdi>{" "}
                   سؤالاً
                 </span>
                 <Badge tone="success">
-                  <bdi>{row.score}</bdi>
+                  <bdi>{arabicNumber(row.score)}</bdi>
                 </Badge>
               </span>
             </li>

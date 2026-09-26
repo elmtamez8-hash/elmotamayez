@@ -112,7 +112,12 @@ const CATALOGUES: Record<string, unknown> = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  currentUser = { name: "خالد", photo_url: null, student_profile: null } as Partial<User>;
+  currentUser = {
+    name: "خالد",
+    photo_url: null,
+    student_profile: null,
+    teacher_profile_uuid: "p-1",
+  } as Partial<User>;
   get.mockImplementation((path: string) => Promise.resolve(CATALOGUES[path] ?? { data: [] }));
 });
 
@@ -411,7 +416,7 @@ describe("telling the teacher whether it saved", () => {
   | commoner path.
   */
   beforeEach(() => {
-    currentUser = { platform_role: "teacher" } as Partial<User>;
+    currentUser = { platform_role: "teacher", teacher_profile_uuid: "p-1" } as Partial<User>;
     get.mockImplementation((path: string) => Promise.resolve(CATALOGUES[path] ?? { data: [] }));
     teacher.mockResolvedValue(TEACHER_PROFILE);
   });
@@ -464,12 +469,17 @@ describe("an account with neither profile", () => {
     | الحسابِ بلا صلاحيّةٍ: الخادمُ كانَ يقبلُ منه، والشاشةُ وحدَها تمنعُه.
     */
     teacher.mockRejectedValue(Object.assign(new Error("forbidden"), { status: 403 }));
+    currentUser = { ...currentUser, teacher_profile_uuid: null } as Partial<User>;
 
     render(<ProfileSettingsPage />);
 
     await waitFor(() => {
       expect(screen.getByText("لا ملفّ عامّ لهذا الحساب")).toBeDefined();
     });
+
+    // ⛔ 2026-09-26: `/auth/me` already said there is no teacher profile, so the
+    // read that would only 403 is never made.
+    expect(teacher).not.toHaveBeenCalled();
 
     expect(screen.getByText("صورة الحساب")).toBeDefined();
     // ولا نموذجَ ملفٍّ عامّ: البابُ الذي يُرفَضُ فعلاً يبقى مُغلَقاً.

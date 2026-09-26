@@ -254,6 +254,16 @@ export interface Course {
   currency: string;
   status: string;
   visibility: string;
+  /**
+   * Whether a visitor can reach the course at `/courses/{slug}`, and why not —
+   * `Course::publicListingBlockers()`. Sent to the course's EDITOR on
+   * `GET /courses/{uuid}` (and the publish/unpublish answers) and absent
+   * everywhere else, so a missing key means «not told», never «reachable».
+   */
+  public_listing?: {
+    listed: boolean;
+    blockers: PublicListingBlocker[];
+  };
   is_sequential: boolean;
   /** `Course::isFree()` — the same answer as `is_free_enrollment`. */
   is_free: boolean;
@@ -275,6 +285,14 @@ export interface Course {
 // Mirrors EnrollmentResource exactly. It flattens the course into two fields
 // rather than nesting it — `course_id` and `student_user_id` are never sent, and
 // reading them rendered "كورس رقم " with nothing after it.
+/** One reason a course is not publicly reachable — see `Course::publicListingBlockers()`. */
+export type PublicListingBlocker =
+  | "draft"
+  | "archived"
+  | "private"
+  | "workspace_not_in_marketplace"
+  | "teacher_not_listed";
+
 export interface Enrollment {
   uuid: string;
   course_uuid: string;
@@ -284,6 +302,8 @@ export interface Enrollment {
   teacher_name: string | null;
   source: string;
   status: string;
+  /** The door's own answer (`Enrollment::grantsContentAccess()`) — never re-derived from `status`. */
+  grants_access: boolean;
   progress_pct: number;
   enrolled_at: string;
   completed_at: string | null;

@@ -331,6 +331,16 @@ final class RolePermissionMatrix
                 | Granted to the existing row by `2026_09_23_000200`.
                 */
                 Permissions::SETTLEMENT_PAYOUT_EXECUTE,
+                /*
+                | Reading the settlement audit and correcting a teaching unit
+                | (owner decision 2026-09-26) — the two /admin screens beside the
+                | payout one. `SETTLEMENT_PERIOD_MANAGE` is what the correction's
+                | policy asks; there is no narrower permission for it. Granted to
+                | the existing row by `2026_09_26_000500`. Both stay platform
+                | permissions: no workspace role above holds either.
+                */
+                Permissions::SETTLEMENT_AUDIT_VIEW,
+                Permissions::SETTLEMENT_PERIOD_MANAGE,
             ],
             /*
             | The data-protection officer (spec 013) — listed literally, for the

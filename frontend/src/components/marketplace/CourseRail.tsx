@@ -22,6 +22,7 @@ import { dashboardAudience } from "@/lib/dashboard-audience";
 import { openCourseTab } from "@/components/marketplace/CourseTabs";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * العمود الجانبي — وجهان: مَن يفكّر في الشراء، ومَن اشترى.
@@ -354,7 +355,7 @@ function OwnerRail({
                   many: "عنصراً بانتظارك",
                   other: "عنصر بانتظارك",
                 })}`
-              : `${done} من ${total}`}
+              : `${arabicNumber(done)} من ${arabicNumber(total)}`}
           </p>
         </div>
 

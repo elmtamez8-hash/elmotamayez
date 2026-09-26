@@ -16,10 +16,11 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { assignments, stateLabel, type Assignment, type Submission } from "@/lib/assignments";
-import { formatDateTime } from "@/lib/labels";
+import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 
 import { AssignmentForm } from "./AssignmentForm";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The teacher's homework: what is set, and what is waiting to be marked.
@@ -115,7 +116,8 @@ export default function ManageAssignmentsPage() {
               <div>
                 <h3 className="font-medium text-ink">{assignment.title}</h3>
                 <p className="mt-1 text-sm text-ink-muted">
-                  من <bdi>{assignment.points}</bdi> درجة
+                  {/* After «من» the dual is «درجتين», and 3–10 is «درجات» — «من 10 درجة» shipped. */}
+                  من {counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}
                   {assignment.due_at !== null && (
                     <> · الموعد {formatDateTime(assignment.due_at)}</>
                   )}
@@ -127,8 +129,8 @@ export default function ManageAssignmentsPage() {
             </div>
 
             <p className="mb-3 text-sm text-ink-muted">
-              سلّم <bdi>{assignment.submitted_count ?? 0}</bdi> · ينتظر التصحيح{" "}
-              <bdi>{assignment.pending_count ?? 0}</bdi>
+              سلّم <bdi>{arabicNumber(assignment.submitted_count ?? 0)}</bdi> · ينتظر التصحيح{" "}
+              <bdi>{arabicNumber(assignment.pending_count ?? 0)}</bdi>
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -336,7 +338,7 @@ function SubmissionRow({
         <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
           <NumberField
             id={`score-${row.uuid}`}
-            label={`الدرجة (${points})`}
+            label={`الدرجة (${arabicNumber(points)})`}
             value={score}
             onChange={setScore}
             error={scoreError || undefined}
@@ -363,7 +365,7 @@ function SubmissionRow({
               mark lower than the number the teacher just typed. */}
           {(row.late_penalty_applied_pct ?? 0) > 0 && (
             <p className="text-sm text-ink-muted">
-              خُصم <bdi>{row.late_penalty_applied_pct}</bdi>٪ للتأخير.
+              خُصم <bdi>{arabicNumber(row.late_penalty_applied_pct ?? 0)}</bdi>٪ للتأخير.
             </p>
           )}
         </div>

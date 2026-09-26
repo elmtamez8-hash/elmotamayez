@@ -12,6 +12,7 @@ import { CheckIcon, ExamIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { TextareaField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import { arabicNumber } from "@/lib/numerals";
 
 interface AttemptResponse {
   attempt: { uuid: string; status: string };
@@ -136,8 +137,8 @@ export default function TakeExamPage({
         title="اختبار جارٍ"
         description={
           <>
-            أجب عن الأسئلة ثم سلّم. أجبت عن <bdi>{answered}</bdi> من{" "}
-            <bdi>{data.questions.length}</bdi>.
+            أجب عن الأسئلة ثم سلّم. أجبت عن <bdi>{arabicNumber(answered)}</bdi> من{" "}
+            <bdi>{arabicNumber(data.questions.length)}</bdi>.
           </>
         }
       />

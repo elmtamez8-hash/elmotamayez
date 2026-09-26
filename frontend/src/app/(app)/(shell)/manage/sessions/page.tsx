@@ -26,6 +26,7 @@ import { localDateTimeToIso, counted, NOUNS } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
+import { useAuth } from "@/lib/auth-context";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The local date, as `YYYY-MM-DD`. */
@@ -173,6 +174,18 @@ function queryFrom(filters: Filters): Record<string, string> {
  */
 export default function ManageSessionsPage() {
   const zone = useViewerTimeZone();
+  const { user, loading: authLoading } = useAuth();
+  /*
+    ⛔ AN ACCOUNT WITH NO TEACHER PROFILE CANNOT HOST, AND IT WAS TOLD SO LAST
+    (2026-09-26). A workspace owner who never went through the teacher
+    application saw both forms whole, filled them, and read «لا يوجد ملفّ مدرّس
+    لحسابك» only after pressing the button — the server derives the host from the
+    signed-in account (`resolveTeacherProfile`), so there was never anything the
+    forms could have done. `teacher_profile_uuid` on `/auth/me` is the same
+    `$user->teacherProfile` relation that refusal reads. Decided only once the
+    session is known: `user` is null on the first paint for everybody.
+  */
+  const cannotHost = !authLoading && user !== null && user.teacher_profile_uuid == null;
   const [sessions, setSessions] = useState<ClassSession[]>([]);
   // Opens on today, which is what the shortcut of the same name writes.
   const [filters, setFilters] = useState<Filters>(() =>
@@ -297,9 +310,40 @@ export default function ManageSessionsPage() {
   };
 
   const createOne = async () => {
-    setCreating(true);
     setOneOffError("");
     setOneOffErrors({});
+
+    /*
+      ⛔ THE BUTTON USED TO BE GREY UNTIL EVERY FIELD WAS FULL, AND SAID NOTHING
+      (2026-09-26). A teacher pressing «إنشاء الحصة» before the group field had
+      even appeared — no course chosen yet, so no groups to list — got a dead
+      button and no reason. It is pressable now, and a press names what is
+      missing, beside each field and in one sentence under the button (the
+      course field lives in the card above, out of sight).
+    */
+    const missing: Record<string, string> = {};
+
+    if (courseUuid === "") missing.course_uuid = "اختر الكورس من الحقل أعلى الصفحة.";
+    if (oneOff.title.trim() === "") missing.title = "اكتب عنوان الحصة.";
+    if (oneOff.startsAt === "") missing.starts_at = "اختر موعد البدء.";
+    if (Number(oneOff.seats) > 1 && oneOff.cohortUuid === "") {
+      missing.cohort_uuid =
+        courseUuid !== "" && cohorts.length === 0
+          ? "حصة المجموعة تحتاج مجموعة، ولا مجموعة في هذا الكورس بعد."
+          : "اختر المجموعة التي تنتمي إليها الحصة.";
+    }
+
+    if (Object.keys(missing).length > 0) {
+      setOneOffErrors(missing);
+      setOneOffError(Object.values(missing).join(" "));
+      if (missing.course_uuid !== undefined) {
+        setErrors((current) => ({ ...current, course_uuid: missing.course_uuid }));
+      }
+
+      return;
+    }
+
+    setCreating(true);
 
     const seats = Number(oneOff.seats);
 
@@ -336,6 +380,15 @@ export default function ManageSessionsPage() {
     <div className="space-y-6">
       <PageHeader Icon={SessionsIcon} title="حصصي" />
 
+      {cannotHost ? (
+        <Alert tone="warning" title="لا يمكن إنشاء حصص من هذا الحساب بعد">
+          الحصة تُنشأ باسم مدرّس، ولا يوجد ملفّ مدرّس لحسابك — يُنشأ الملفّ حين
+          يُعتمد طلب انضمامك مدرّساً على المنصّة. تواصل مع إدارة المنصّة لإنشائه،
+          وبعدها يظهر هنا توليد الحصص من جدول توفّرك وإنشاء حصة واحدة. الحصص
+          الموجودة تبقى معروضة أسفله.
+        </Alert>
+      ) : (
+      <>
       <Card>
         <div className="mb-4">
           <SectionHeading id="generate-sessions" Icon={ScheduleIcon} title="توليد حصص من جدول التوفّر" />
@@ -551,16 +604,7 @@ export default function ManageSessionsPage() {
         )}
 
         <div className="mt-4">
-          <Button
-            onClick={createOne}
-            loading={creating}
-            disabled={
-              courseUuid === "" ||
-              oneOff.title === "" ||
-              oneOff.startsAt === "" ||
-              (Number(oneOff.seats) > 1 && oneOff.cohortUuid === "")
-            }
-          >
+          <Button onClick={createOne} loading={creating}>
             إنشاء الحصة
           </Button>
         </div>
@@ -573,6 +617,8 @@ export default function ManageSessionsPage() {
           </div>
         )}
       </Card>
+      </>
+      )}
 
       {/*
         The filters sit ABOVE the list and below the two forms, which is where the

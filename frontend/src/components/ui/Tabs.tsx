@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * A tab strip, with the keyboard behaviour that makes one a tab strip.
@@ -183,10 +184,15 @@ export function Tabs({
               </span>
             )}
             {tab.label}
+            {/* A real space before the count, not only a margin: without it the
+                tab's accessible name and any copied text read «المجموعات المتاحة3». */}
             {tab.badge !== undefined && tab.badge > 0 && (
-              <span className="ms-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary-ink">
-                {tab.badge}
-              </span>
+              <>
+                {" "}
+                <span className="ms-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary-ink">
+                  {arabicNumber(tab.badge)}
+                </span>
+              </>
             )}
           </button>
         );

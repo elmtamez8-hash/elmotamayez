@@ -23,6 +23,7 @@ import {
   type Plan,
   type Subscription,
 } from "@/lib/plans";
+import { subscribe } from "@/lib/subscribe";
 
 /**
  * The student's subscriptions, and what is on offer (spec 011 · US4).
@@ -47,6 +48,7 @@ export default function PlansPage() {
   const [balances, setBalances] = useState<CreditBalance[]>([]);
   const [courseUuid, setCourseUuid] = useState("");
   const [offers, setOffers] = useState<Plan[]>([]);
+  const [courseSlug, setCourseSlug] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -78,6 +80,8 @@ export default function PlansPage() {
 
     let live = true;
 
+    setCourseSlug(null);
+
     plansApi
       .forCourse(courseUuid)
       // An empty list is a real answer — this teacher sells no subscription —
@@ -88,6 +92,19 @@ export default function PlansPage() {
       .catch((error: unknown) => {
         if (live) setProblem(userMessage(error));
       });
+
+    /*
+     * The slug, for a group plan's «اشترِ» — see `planCheckoutHref` on why the
+     * uuid address loses `?tab=groups`. Swallowed on purpose: without it the
+     * link falls back to the uuid and `#groups`, which still works, and a
+     * banner about a missing slug would read as a failed purchase.
+     */
+    subscribe
+      .course(courseUuid)
+      .then((result) => {
+        if (live) setCourseSlug(result.data.slug ?? null);
+      })
+      .catch(() => undefined);
 
     return () => {
       live = false;
@@ -121,7 +138,11 @@ export default function PlansPage() {
           {subscriptions.length === 0 ? (
             <EmptyState
               title="لا اشتراك بعد"
-              description="اختر مدرّساً من القائمة أدناه لترى ما يعرضه من باقات بالمدّة."
+              description={
+                balances.length === 0
+                  ? "ابدأ من صفحة مدرّس أو كورس: الاشتراك في مجموعة أو بحصص خاصّة يبدأ من هناك."
+                  : "اختر كورساً من القائمة أدناه لترى ما يعرضه مدرّسه من باقات بالمدّة."
+              }
             />
           ) : (
             <ul className="divide-y divide-line">
@@ -157,18 +178,40 @@ export default function PlansPage() {
         <div className="space-y-4">
           <SectionHeading id="plans-offers" Icon={TagIcon} title="باقات المدرّسين" />
 
-          <SelectField
-            id="plans-course"
-            label="اختر الكورس"
-            hint="الباقة تُشترى من المدرّس صاحب الكورس، وسعرها يختلف من مدرّس لآخر."
-            value={courseUuid}
-            onChange={setCourseUuid}
-            options={balances.map((balance) => ({
-              value: balance.course.uuid,
-              label: `${balance.course.title} — ${balance.course.teacher_name}`,
-            }))}
-            placeholder="اختر كورساً"
-          />
+          {/*
+            ⚠️ THE PICKER IS BUILT FROM THE BALANCES, SO A NEW STUDENT'S IS EMPTY
+            — reported 2026-09-26: «اختر كورساً» and nothing under it, below a
+            sentence telling them to choose from it, and no way off the page.
+            The course that would fill it is bought on its own page (`/subscribe`
+            starts there), so the empty answer is a door to the teachers.
+          */}
+          {balances.length === 0 ? (
+            <EmptyState
+              title="لم تبدأ مع أي مدرّس بعد"
+              description="تظهر هنا باقات مدرّسيك بعد أول اشتراك. تصفّح المدرّسين أو الكورسات، واشترك من صفحة الكورس الذي تريده."
+              action={
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button href="/teachers">تصفّح المدرّسين</Button>
+                  <Button href="/courses" variant="secondary">
+                    تصفّح الكورسات
+                  </Button>
+                </div>
+              }
+            />
+          ) : (
+            <SelectField
+              id="plans-course"
+              label="اختر الكورس"
+              hint="الباقة تُشترى من المدرّس صاحب الكورس، وسعرها يختلف من مدرّس لآخر."
+              value={courseUuid}
+              onChange={setCourseUuid}
+              options={balances.map((balance) => ({
+                value: balance.course.uuid,
+                label: `${balance.course.title} — ${balance.course.teacher_name}`,
+              }))}
+              placeholder="اختر كورساً"
+            />
+          )}
 
           {courseUuid !== "" && offers.length === 0 && (
             <EmptyState
@@ -208,7 +251,7 @@ export default function PlansPage() {
                 </span>
 
                 {plan.is_sellable ? (
-                  <Button href={planCheckoutHref(courseUuid, plan)}>اشترِ</Button>
+                  <Button href={planCheckoutHref(courseUuid, plan, courseSlug)}>اشترِ</Button>
                 ) : (
                   <Button type="button" disabled>
                     اشترِ

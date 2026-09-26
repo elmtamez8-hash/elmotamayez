@@ -100,6 +100,14 @@ export const gamification = {
   me: () => api.get<Progress>("/gamification/me"),
 
   /**
+   * One of the reader's students (FR-042), behind `progress.view.student` AND
+   * an active enrolment in the reader's workspace — 403 for either, by design
+   * one answer for «no such student» and «not yours».
+   */
+  student: (studentUuid: string) =>
+    api.get<Progress>(`/gamification/students/${encodeURIComponent(studentUuid)}`),
+
+  /**
    * @param scope `platform` · `grade:{slug}` · `subject:{uuid}` · `teacher:{uuid}`
    *              · `course:{uuid}` · `lesson:{uuid}`
    *

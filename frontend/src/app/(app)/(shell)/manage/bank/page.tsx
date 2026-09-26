@@ -26,6 +26,7 @@ import {
   type Concept,
   type Difficulty,
 } from "@/lib/bank";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * The teacher's question bank.
@@ -170,7 +171,7 @@ export default function BankPage() {
             placeholder="كلّ الأفكار"
             options={concepts.map((c) => ({
               value: c.uuid,
-              label: c.questions_count === undefined ? c.name : `${c.name} (${c.questions_count})`,
+              label: c.questions_count === undefined ? c.name : `${c.name} (${arabicNumber(c.questions_count)})`,
             }))}
           />
           <SelectField

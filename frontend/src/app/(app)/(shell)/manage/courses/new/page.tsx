@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import type { Course } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
+import type { TeacherCourseVisibility } from "@/components/courses/CourseVisibilityField";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import {
@@ -20,6 +21,7 @@ import {
   LockIcon,
   PlayIcon,
   SessionsIcon,
+  SiteIcon,
   SparkIcon,
   TagIcon,
   UserIcon,
@@ -40,6 +42,16 @@ const TYPE_ICONS: Record<CourseType, ComponentType<IconProps>> = {
   group: UsersIcon,
   recorded: PlayIcon,
 };
+
+const VISIBILITY_OPTIONS: {
+  value: TeacherCourseVisibility;
+  title: string;
+  hint: string;
+  Icon: ComponentType<IconProps>;
+}[] = [
+  { value: "public", title: "عام", hint: "يظهر في السوق لأي زائر.", Icon: SiteIcon },
+  { value: "private", title: "خاص", hint: "لا يصل إليه إلا من تدعوه أو تسجّله.", Icon: LockIcon },
+];
 
 /** «فردي — حصص خاصّة مع الطالب» → a name and the line that explains it. */
 function splitLabel(label: string): [string, string] {
@@ -174,6 +186,8 @@ export default function CreateCoursePage() {
       browser; the server refuses an empty one.
     */
     course_type: "",
+    // عامٌّ افتراضاً — قرارُ المالك 2026-09-26.
+    visibility: "public" as "public" | "private",
   });
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -377,10 +391,57 @@ export default function CreateCoursePage() {
           <FormSection
             Icon={LockIcon}
             step={4}
-            title="الدخول والترتيب"
-            description="كيف يدخل الطالب الكورس، وبأي ترتيب يفتح الدروس."
+            title="الظهور والدخول"
+            description="من يرى الكورس، وكيف يدخله الطالب، وبأي ترتيب يفتح الدروس."
             delay={240}
           >
+            {/* عامٌّ افتراضاً والقرارُ للمدرّس (قرارُ المالك 2026-09-26)؛ `hidden`
+                قيمةُ المنصّةِ وحدَها فلا تُعرَض هنا. */}
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium text-ink">ظهور الكورس</legend>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {VISIBILITY_OPTIONS.map((option) => {
+                  const selected = form.visibility === option.value;
+
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 transition duration-200 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary motion-safe:hover:-translate-y-0.5 ${
+                        selected
+                          ? "border-primary bg-primary-soft"
+                          : "border-line hover:border-primary/40 hover:bg-primary-soft/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="visibility"
+                        value={option.value}
+                        checked={selected}
+                        onChange={() => setForm({ ...form, visibility: option.value })}
+                        className="sr-only"
+                      />
+                      <span
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition duration-200 ${
+                          selected ? "bg-primary text-white" : "bg-surface text-ink-muted"
+                        }`}
+                      >
+                        <option.Icon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-ink">{option.title}</span>
+                        <span className="mt-0.5 block text-xs text-ink-muted">{option.hint}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {fields.visibility && (
+                <p role="alert" className="mt-2 text-sm text-danger-ink">
+                  {fields.visibility}
+                </p>
+              )}
+            </fieldset>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <ToggleTile
                 id="is_free_enrollment"
@@ -429,6 +490,7 @@ export default function CreateCoursePage() {
 
             <div className="mt-4 flex flex-wrap gap-2">
               {chosenType && <Badge tone="info">{splitLabel(chosenType.label)[0]}</Badge>}
+              <Badge tone="neutral">{form.visibility === "public" ? "عام" : "خاص"}</Badge>
               <Badge tone={form.is_free_enrollment ? "success" : "neutral"}>
                 {form.is_free_enrollment ? "مجاني" : "بالباقات"}
               </Badge>

@@ -17,7 +17,8 @@ class CreateCourseDTO extends DataTransferObject
         public readonly int $priceMinor = 0,
         public readonly string $currency = 'QAR',
         public readonly string $status = 'draft',
-        public readonly string $visibility = 'private',
+        // عامٌّ افتراضاً — قرارُ المالك 2026-09-26؛ المدرّسُ يجعلُه خاصّاً إن شاء.
+        public readonly string $visibility = 'public',
         public readonly bool $isSequential = true,
         /** The platform-wide subject uuid; resolved to an id in the Action. */
         public readonly ?string $subjectUuid = null,
@@ -48,7 +49,7 @@ class CreateCourseDTO extends DataTransferObject
             priceMinor: (int) ($data['price_minor'] ?? 0),
             currency: $data['currency'] ?? 'QAR',
             status: $data['status'] ?? 'draft',
-            visibility: $data['visibility'] ?? 'private',
+            visibility: is_string($data['visibility'] ?? null) ? $data['visibility'] : 'public',
             isSequential: $data['is_sequential'] ?? true,
             subjectUuid: isset($data['subject']) && is_string($data['subject']) ? $data['subject'] : null,
             gradeLevel: isset($data['grade_level']) && is_string($data['grade_level']) ? $data['grade_level'] : null,

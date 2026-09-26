@@ -18,6 +18,8 @@ import {
   type BankQuestion,
   type ExamItem,
 } from "@/lib/bank";
+import { arabicNumber } from "@/lib/numerals";
+import { counted, NOUNS } from "@/lib/labels";
 
 type Draft = { uuid: string; content: string; points: number; points_override: number | null };
 
@@ -159,7 +161,7 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-semibold text-ink">
-          أسئلة الاختبار <bdi>({draft.length})</bdi>
+          أسئلة الاختبار <bdi>({arabicNumber(draft.length)})</bdi>
         </h3>
         <Button href="/manage/bank" variant="ghost" size="sm">
           افتح البنك
@@ -181,11 +183,11 @@ export function ExamItemsPanel({ examUuid }: { examUuid: string }) {
               <Card padding="sm">
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-ink">
-                    <bdi>{index + 1}</bdi>. {item.content}
+                    <bdi>{arabicNumber(index + 1)}</bdi>. {item.content}
                   </p>
                   <div className="flex shrink-0 items-center gap-1">
                     <Badge tone="neutral">
-                      <bdi>{item.points}</bdi> درجة
+                      {counted(item.points, NOUNS.points)}
                     </Badge>
                     <Button
                       size="sm"

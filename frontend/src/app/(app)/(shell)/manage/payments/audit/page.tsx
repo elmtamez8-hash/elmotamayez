@@ -1,66 +1,35 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
+import {
+  eventLabel,
+  paymentAudit,
+  subjectLabel,
+  type PaymentAuditEntry as AuditEntry,
+} from "@/lib/payment-audit";
+import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 import { Alert } from "@/components/ui/Alert";
 import { Table, type Column } from "@/components/ui/Table";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { OrdersIcon } from "@/components/icons";
-
-type AuditEntry = {
-  event: string;
-  subject_type: string | null;
-  subject_uuid: string | null;
-  actor_name: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  properties: Record<string, unknown>;
-  occurred_at: string | null;
-};
-
-/**
- * Arabic for what was decided.
- *
- * A slug on the wire and a sentence here: the API is read by more than this page,
- * and a sentence written into an Action is a sentence that needs a deploy to
- * correct. Anything unmapped falls through as its slug rather than as a blank —
- * an audit row that renders empty is worse than one that renders ugly.
- */
-const EVENT_LABELS: Record<string, string> = {
-  approved: "اعتماد دفعة",
-  rejected: "رفض دفعة",
-  "receipt.uploaded": "رفع إيصال",
-  "credit_limit.changed": "تعديل الحد الائتماني",
-  "exam_mode.opened": "فتح وضع الامتحانات",
-  "exam_mode.closed": "إغلاق وضع الامتحانات",
-  "payment.captured_surplus_unresolved": "دفعة زائدة تعذّر قيدها",
-};
-
-const SUBJECT_LABELS: Record<string, string> = {
-  order: "طلب",
-  payment: "عملية دفع",
-  credit_entry: "قيد رصيد",
-  balance: "حساب رصيد",
-  package: "حزمة",
-  exam_window: "نافذة امتحانات",
-  consent: "موافقة شروط",
-};
 
 export default function PaymentAuditPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [error, setError] = useState("");
+  const timeZone = useViewerTimeZone();
 
   const load = useCallback(() => {
     setLoading(true);
     setFailed(false);
     setError("");
 
-    api
-      .get<{ data: AuditEntry[] }>("/admin/payments/audit")
+    paymentAudit
+      .list()
       .then((res) => setEntries(res.data ?? []))
       .catch((err: unknown) => {
         setFailed(true);
@@ -75,19 +44,19 @@ export default function PaymentAuditPage() {
     {
       key: "occurred_at",
       header: "الوقت",
-      render: (e) => formatDateTime(e.occurred_at),
+      render: (e) => formatDateTime(e.occurred_at, timeZone),
     },
     {
       key: "event",
       header: "القرار",
-      render: (e) => EVENT_LABELS[e.event] ?? e.event,
+      render: (e) => eventLabel(e.event),
     },
     {
       key: "subject",
       header: "على",
       render: (e) => (
         <span className="text-xs text-ink-muted">
-          {e.subject_type === null ? "—" : (SUBJECT_LABELS[e.subject_type] ?? e.subject_type)}
+          {subjectLabel(e.subject_type)}
         </span>
       ),
     },
@@ -110,6 +79,25 @@ export default function PaymentAuditPage() {
           {e.ip_address ?? "—"}
         </span>
       ),
+    },
+    {
+      key: "chain",
+      header: "السلسلة",
+      // The decisions worth opening are logged on the ORDER, and the chain is
+      // addressed by the PAYMENT — so the server names the payment on both
+      // kinds of row. Everything else has no payment behind it, and says so
+      // rather than offering a link to a 404.
+      render: (e) =>
+        e.payment_uuid === null ? (
+          <span className="text-xs text-ink-muted">—</span>
+        ) : (
+          <Link
+            href={`/manage/payments/audit/${e.payment_uuid}`}
+            className="text-primary-ink hover:underline"
+          >
+            تتبّع الدفعة
+          </Link>
+        ),
     },
   ];
 

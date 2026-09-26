@@ -58,6 +58,7 @@ type SchoolYear = { slug: string; name: string };
 export default function ProfileSettingsPage() {
   const zone = useViewerTimeZone();
   const { user, refreshUser } = useAuth();
+  const hasTeacherProfile = user?.teacher_profile_uuid != null;
 
   const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
   const [subjects, setSubjects] = useState<Option[]>([]);
@@ -125,8 +126,13 @@ export default function ProfileSettingsPage() {
      * opening this page gets a refusal here by design, and an error banner about
      * a teacher profile would be noise on a page that is working correctly for
      * them — the same swallow `PublicProfileUrlCard` documents.
+     *
+     * ⛔ AND IT IS NOT ASKED AT ALL WHEN THE ANSWER IS KNOWN (2026-09-26): a
+     * workspace owner with no teacher profile took a 403 here on every visit.
+     * `teacher_profile_uuid` on `/auth/me` is the very relation this route
+     * refuses on (`$user->teacherProfile`), so null means «403», in advance.
      */
-    const mine = await profileApi.teacher().catch(() => null);
+    const mine = hasTeacherProfile ? await profileApi.teacher().catch(() => null) : null;
 
     setTeacher(mine);
 
@@ -189,7 +195,7 @@ export default function ProfileSettingsPage() {
     }
 
     setLoading(false);
-  }, [user?.student_profile, showWeek]);
+  }, [user?.student_profile, hasTeacherProfile, showWeek]);
 
   useEffect(() => {
     void load();

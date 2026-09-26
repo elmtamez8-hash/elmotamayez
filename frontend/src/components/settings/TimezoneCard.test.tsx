@@ -40,13 +40,42 @@ beforeEach(() => {
 afterEach(() => setStoredViewerTimeZone(null));
 
 describe("timezoneOptions", () => {
-  it("puts Qatar and Egypt first, in Arabic, then the rest", () => {
-    const options = timezoneOptions(["Africa/Cairo", "Europe/London", "Asia/Qatar"]);
+  it("puts Qatar and Egypt first, then the Arabic-named zones, then the rest under their IANA names", () => {
+    const options = timezoneOptions([
+      "America/Argentina/Salta",
+      "Africa/Cairo",
+      "Europe/London",
+      "Asia/Riyadh",
+      "Asia/Qatar",
+      "Asia/Amman",
+    ]);
 
-    expect(options.map((o) => o.value)).toEqual(["Asia/Qatar", "Africa/Cairo", "Europe/London"]);
-    expect(options[0].label).toContain("توقيت قطر");
-    expect(options[1].label).toContain("توقيت مصر");
-    expect(options[2].label).toBe("Europe/London");
+    expect(options.map((o) => o.value)).toEqual([
+      "Asia/Qatar",
+      "Africa/Cairo",
+      // «الأردن» · «السعودية» · «المملكة المتحدة» — Arabic alphabetical order.
+      "Asia/Amman",
+      "Asia/Riyadh",
+      "Europe/London",
+      "America/Argentina/Salta",
+    ]);
+    expect(options[0].label).toBe("قطر — الدوحة");
+    expect(options[1].label).toBe("مصر — القاهرة");
+    expect(options[4].label).toBe("المملكة المتحدة — لندن");
+    expect(options[5].label).toBe("America/Argentina/Salta");
+  });
+
+  it("names every Arab-world zone the runtime knows in Arabic", () => {
+    const arab = [
+      "Asia/Qatar", "Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Asia/Kuwait", "Asia/Bahrain",
+      "Asia/Muscat", "Asia/Baghdad", "Asia/Amman", "Asia/Damascus", "Asia/Beirut", "Asia/Gaza",
+      "Asia/Aden", "Africa/Khartoum", "Africa/Tripoli", "Africa/Tunis", "Africa/Algiers",
+      "Africa/Casablanca", "Africa/Nouakchott",
+    ];
+
+    for (const option of timezoneOptions(arab)) {
+      expect(option.label).not.toMatch(/[A-Za-z]/);
+    }
   });
 });
 

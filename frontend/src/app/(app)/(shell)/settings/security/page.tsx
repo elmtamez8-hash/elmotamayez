@@ -18,6 +18,7 @@ import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
 import { sessions, type AuthSession } from "@/lib/sessions";
 import { twoFactor, type TwoFactorState } from "@/lib/two-factor";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Where a student sees which devices are signed in, and ends any of them.
@@ -297,7 +298,7 @@ function TwoFactorSection() {
           <div className="flex items-center gap-2">
             <Badge tone="success">مفعَّل</Badge>
             <span className="text-sm text-ink-muted">
-              رموز استرداد متبقّية: {state.recovery_codes_remaining}
+              رموز استرداد متبقّية: {arabicNumber(state.recovery_codes_remaining)}
             </span>
           </div>
 

@@ -9,6 +9,7 @@ import { CheckIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
 import { TONE_CLASSES, counted, NOUNS } from "@/lib/labels";
 import { practice, type PracticePaper, type PracticeResult } from "@/lib/practice";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * Sits one generated paper and shows it marked.
@@ -144,14 +145,14 @@ export function PracticeRunner({
     <div className="space-y-6">
       <div>
         <p className="text-ink-muted">
-          أجبت عن <bdi>{answered}</bdi> من <bdi>{paper.questions.length}</bdi>.
+          أجبت عن <bdi>{arabicNumber(answered)}</bdi> من <bdi>{arabicNumber(paper.questions.length)}</bdi>.
         </p>
         {/* FR-023: a paper shorter than the request is a correct answer, said
             out loud. Silent, it reads as a number the student typed for nothing. */}
         {paper.delivered_count < paper.requested_count && (
           <p className="mt-1 text-sm text-ink-muted">
             طلبت {counted(paper.requested_count, { ...NOUNS.questions, two: "سؤالين" })}، والمتاح لك الآن{" "}
-            <bdi>{paper.delivered_count}</bdi>.
+            <bdi>{arabicNumber(paper.delivered_count)}</bdi>.
           </p>
         )}
       </div>

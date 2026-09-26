@@ -10,6 +10,7 @@ import { TextareaField } from "@/components/ui/Field";
 import { assignments, stateLabel, type Assignment } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDateTime, NOUNS } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 
 /**
  * One piece of homework, with the hand-in beside it.
@@ -88,18 +89,18 @@ export function AssignmentCard({
       )}
       {assignment.late_policy === "penalty" && (
         <p className="mb-3 text-sm text-ink-muted">
-          يُخصم <bdi>{assignment.late_penalty_pct_per_day}</bdi>٪ عن كل يوم تأخير، بحدٍّ أقصى{" "}
-          <bdi>{assignment.late_penalty_cap_pct}</bdi>٪.
+          يُخصم <bdi>{arabicNumber(assignment.late_penalty_pct_per_day)}</bdi>٪ عن كل يوم تأخير، بحدٍّ أقصى{" "}
+          <bdi>{arabicNumber(assignment.late_penalty_cap_pct)}</bdi>٪.
         </p>
       )}
 
       {mine?.is_graded === true ? (
-        <Alert tone="success" title={`درجتك ${mine.score ?? 0} من ${assignment.points}`}>
+        <Alert tone="success" title={`درجتك ${arabicNumber(mine.score ?? 0)} من ${arabicNumber(assignment.points)}`}>
           {/* The penalty is named, not left to be inferred from a mark lower
               than the student expected. */}
           {(mine.late_penalty_applied_pct ?? 0) > 0 && (
             <span>
-              خُصم <bdi>{mine.late_penalty_applied_pct}</bdi>٪ للتأخير.{" "}
+              خُصم <bdi>{arabicNumber(mine.late_penalty_applied_pct ?? 0)}</bdi>٪ للتأخير.{" "}
             </span>
           )}
           {mine.feedback}
