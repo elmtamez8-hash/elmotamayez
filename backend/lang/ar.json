@@ -13,5 +13,10 @@
     "(and :count more errors)": "(وأخطاء أخرى عددها :count)",
     "Whoops!": "عذراً!",
     "You are receiving this email because we received a password reset request for your account.": "وصلتك هذه الرسالة لأنّ طلباً لإعادة ضبط كلمة مرور حسابك وصلنا.",
-    "You must be signed in to change your password.": "يجب تسجيل الدخول لتغيير كلمة المرور."
+    "You must be signed in to change your password.": "يجب تسجيل الدخول لتغيير كلمة المرور.",
+    "Verify your email address": "تأكيد بريدك الإلكتروني",
+    "Verify Email Address": "تأكيد البريد الإلكتروني",
+    "Please click the button below to verify your email address.": "اضغط الزرّ أدناه لتأكيد بريدك الإلكتروني.",
+    "If you did not create an account, no further action is required.": "إن لم تُنشئ حساباً لدينا فتجاهل هذه الرسالة، ولن يحدث شيء.",
+    "All rights reserved.": "جميع الحقوق محفوظة."
 }
