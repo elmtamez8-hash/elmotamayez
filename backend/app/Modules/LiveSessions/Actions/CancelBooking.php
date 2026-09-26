@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Modules\LiveSessions\Enums\BookingStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Shared\Actions\Action;
@@ -26,7 +28,10 @@ use Illuminate\Support\Facades\DB;
  */
 class CancelBooking extends Action
 {
-    public function __construct(private readonly SessionCreditHolds $holds) {}
+    public function __construct(
+        private readonly SessionCreditHolds $holds,
+        private readonly CancelClassSession $sessions,
+    ) {}
 
     public function handle(SessionBooking $booking, ?string $reason = null): SessionBooking
     {
@@ -89,7 +94,63 @@ class CancelBooking extends Action
             }
         });
 
+        if ($inWindow) {
+            $this->cancelEmptyPrivateSession($session);
+        }
+
         return $booking->refresh();
+    }
+
+    /**
+     * A private hour whose only student gave it back is an hour nobody is in —
+     * so it is called off, through the teacher's own door (owner decision
+     * 2026-09-26).
+     *
+     * ⚠️ BEFORE THIS the session stayed `scheduled` with no seat taken: the
+     * teacher's hour stayed blocked (`SessionClash` counts it), the student
+     * could book it back through «احجز» without a new request, and a fresh
+     * request for the same slot was accepted as pending only for the teacher's
+     * «قبول» to answer «لديك حصة أخرى في هذا الوقت».
+     *
+     * ⚠️ WHICH 1:1 SESSIONS. One that still carries a group after
+     * `reopenEmptyIndividualSlot()` ran: a granted private request or a 1:1 the
+     * teacher scheduled for one student. A slot GENERATED from availability
+     * (`cohort_from_booking`) has just lost its group and is the teacher's
+     * published hour again — it stays open for anyone to book.
+     *
+     * ⚠️ IN-WINDOW ONLY, and the caller decides that. A late cancellation keeps
+     * its seat and its frozen credit because `CloseClassSession` charges it at
+     * delivery; `CancelClassSession` releases every hold on the hour and would
+     * never be closed, so calling it there would waive a charge the student
+     * already owes — and would take away «تراجع عن الإلغاء».
+     *
+     * ⚠️ AFTER THE BOOKING'S TRANSACTION, NEVER INSIDE IT. `CancelClassSession`
+     * dispatches `SessionCancelled` after its own transaction, and nested it
+     * would announce a cancellation an outer rollback could still undo. Its seat
+     * list is empty here (the one seat is already off `booked`), so nobody is
+     * told the lesson is off — the only person who held it is the one who just
+     * gave it up. Its claim is conditional on the status, so a session a
+     * teacher moved meanwhile is left alone rather than failing the student's
+     * cancellation, which has already happened.
+     */
+    private function cancelEmptyPrivateSession(ClassSession $session): void
+    {
+        $fresh = ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey())->first();
+
+        if ($fresh === null
+            || $fresh->type !== ClassSessionType::Individual
+            || $fresh->cohort_id === null
+            || $fresh->seats_taken > 0
+            || ! in_array($fresh->status, [ClassSessionStatus::Scheduled, ClassSessionStatus::Suspended], true)) {
+            return;
+        }
+
+        try {
+            $this->sessions->handle($fresh, 'ألغى الطالب حجزه في هذه الحصة الخاصة.');
+        } catch (DomainException) {
+            // Moved by somebody else between the read and the claim — the
+            // student's cancellation stands either way.
+        }
     }
 
     /**

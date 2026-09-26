@@ -193,6 +193,7 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - EVERY TIME IS SHOWN ON THE READER'S OWN CLOCK (`useViewerTimeZone()` · `UserClock`), AND THE PLATFORM ZONE DECIDES ONLY WHERE A DAY BEGINS.
 - A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
 - A zone the person CHOSE (`timezone_source = manual`) outranks every browser report, and «show both clocks» is decided by the OFFSET at that instant, never the zone name.
+- A private hour whose only student cancels IN TIME is called off through `CancelClassSession`; a generated open slot reopens instead, and a LATE cancellation leaves the session standing because its seat is still charged.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._
