@@ -54,6 +54,7 @@ function SubscribeScreen() {
   const courseUuid = params.get("course") ?? "";
   const cohortUuid = params.get("cohort");
   const mode: SubscriptionMode = cohortUuid !== null ? "cohort" : "private";
+  const wantedPlan = params.get("plan");
 
   const { user } = useAuth();
   /*
@@ -120,6 +121,16 @@ function SubscribeScreen() {
       setCourse(detail.data);
       setPlans(offers.data);
 
+      /*
+       * `?plan=` — the plan the buyer already pressed «اشترِ» on in `/plans`.
+       * Preselected only when the server's list for THIS mode and group still
+       * contains it: a plan withdrawn or priced out since is simply not chosen,
+       * rather than a radio pointing at a row that is not on the screen.
+       */
+      if (wantedPlan !== null && offers.data.some((plan) => plan.uuid === wantedPlan)) {
+        setPlanUuid(wantedPlan);
+      }
+
       if (isGuardian) {
         /*
          * ⚠️ **المرشِّحانِ كلاهما مطلوبٌ، وكلٌّ منهما يحرسُ رفضاً مختلفاً.**
@@ -148,7 +159,7 @@ function SubscribeScreen() {
     }
   // `cohortUuid` منها: هو ما يقرّرُ أيَّ باقاتٍ يردُّها الخادمُ (٠٣٦ · FR-016)،
   // فبدونِه تبقى القائمةُ قائمةَ المجموعةِ السابقةِ عندَ تبديلِ المجموعةِ في الرابط.
-  }, [courseUuid, cohortUuid, mode, isGuardian]);
+  }, [courseUuid, cohortUuid, mode, isGuardian, wantedPlan]);
 
   useEffect(() => {
     void load();
@@ -258,6 +269,7 @@ function SubscribeScreen() {
 
   const cohort = chosenCohort(course, cohortUuid);
   const teacher = course?.teacher?.name ?? null;
+  const chosenPlan = plans.find((plan) => plan.uuid === planUuid) ?? null;
 
   return (
     <div className="space-y-6">
@@ -437,8 +449,18 @@ function SubscribeScreen() {
 
         {/* ⚠️ الوجهةُ تحتَ الجملةِ التي تطلبُ التحويل، لا في صفحةٍ أخرى: جملةٌ
             تقولُ «حوِّلْ» ولا تقولُ «إلى أين» هي ما أبلغَ عنه المستخدِم. */}
+        {/* ⚠️ والمبلغُ معها، من الباقةِ المختارةِ نفسِها: «حوِّلْ قيمةَ الباقة»
+            بلا رقمٍ بجوارِ رقمِ الحسابِ سؤالٌ ثانٍ يُجابُ بالرجوعِ إلى القائمة.
+            والسطرُ الفرعيُّ «من الجدول» يسقطُ هنا — لا جدولَ في هذه الصفحة. */}
         <div className="mt-3">
-          <TransferDestination />
+          <TransferDestination
+            amount={
+              chosenPlan === null || chosenPlan.price_minor === null
+                ? null
+                : { minor: chosenPlan.price_minor, currency: chosenPlan.currency }
+            }
+            hint={null}
+          />
         </div>
 
         <div className="mt-3 space-y-3">
