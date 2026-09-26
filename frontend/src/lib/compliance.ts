@@ -70,6 +70,17 @@ export const compliance = {
   policy: () => api.get<PrivacyPolicy>("/privacy/policy"),
 
   /**
+   * Report a data breach (FR-040) — open to visitors with no account.
+   *
+   * ⚠️ THE ANSWER IS NOT READ. The server returns one constant sentence whatever
+   * it found, so it is never an oracle; the form shows its own fixed sentence too,
+   * so a future server change that put something in the body could not leak it
+   * onto the screen either.
+   */
+  reportBreach: (report: { description: string; reporter_contact?: string }) =>
+    api.post<unknown>("/privacy/breach-reports", report),
+
+  /**
    * Change which optional categories are consented to (FR-007).
    *
    * ⚠️ THE COMPLETE SET, NEVER A DIFF. A diff applied to state read a second ago
