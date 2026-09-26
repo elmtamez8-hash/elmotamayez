@@ -1371,9 +1371,9 @@ write and nothing else does it.
 | POST | `/settlement/rate-requests` | `settlement.rate.request` |
 | POST | `/admin/settlement/rate-requests/{r}/approve` | `settlement.rate.approve` |
 | POST | `/admin/settlement/rate-requests/{r}/reject` | `settlement.rate.approve` |
-| POST | `/admin/settlement/units/{unit}/reverse` | `settlement.period.manage` |
-| POST | `/admin/settlement/periods/{period}/close` | `settlement.period.manage` |
-| POST | `/admin/settlement/periods/{period}/payouts` | `settlement.payout.execute` |
+| POST | `/admin/settlement/units/{unit}/reverse` | `settlement.period.manage` · `2fa.required` |
+| POST | `/admin/settlement/periods/{period}/close` | `settlement.period.manage` · `2fa.required` |
+| POST | `/admin/settlement/periods/{period}/payouts` | `settlement.payout.execute` · `2fa.required` |
 | GET | `/admin/settlement/audit` | `settlement.audit.view` |
 
 **No endpoint takes a `teacher` parameter.** The profile comes from the bearer token via

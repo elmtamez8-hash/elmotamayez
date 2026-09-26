@@ -65,8 +65,8 @@ class RecordTeacherPayouts extends Page implements HasTable
     /**
      * الصلاحيّةُ نفسُها التي يسألُها مسارُ الـAPI عبرَ `SettlementPeriodPolicy::pay()`.
      *
-     * ⚠️ `settlement.payout.execute` لا يحملُها اليومَ إلّا السوبر أدمن (عبرَ
-     * `Permissions::all()`) — `finance-admin` لا يملكُها في `RolePermissionMatrix`.
+     * `settlement.payout.execute` يحملُها السوبر أدمن و`finance-admin` (قرارُ
+     * المالك ٢٠٢٦-٠٩-٢٣، والترحيل `2026_09_23_000200`).
      */
     public static function canAccess(): bool
     {

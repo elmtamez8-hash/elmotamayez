@@ -188,22 +188,44 @@ it('refuses an officer past their two-factor deadline and writes nothing', funct
 });
 
 /*
-| ⚠️ `settlement.period.manage` is not on `finance-admin` in the matrix — the
-| officer who records payouts does not correct units. That is the matrix as it
-| stands, not a decision this screen takes; granting it is the owner's call.
+| Owner decision 2026-09-26: the finance officer corrects units. Granted in the
+| matrix and, for the live row, by `2026_09_26_000500`. Their fallback workspace
+| is NOT the unit's — the five-layer defect of 024 lives exactly there.
 */
-it('is closed to the finance officer and to a teacher, and the button with it', function (): void {
+it('lets the finance officer reverse a unit from another workspace, once', function (): void {
     $finance = makePlatformStaff(Roles::FINANCE_ADMIN);
     $finance->forceFill(['last_workspace_id' => $this->officerWorkspace->getKey()])->save();
 
     reverseScreenAs($finance);
+    expect(ReverseTeachingUnits::canAccess())->toBeTrue();
+
+    Livewire::test(ReverseTeachingUnits::class)
+        ->loadTable()
+        ->assertCanSeeTableRecords([$this->unit])
+        ->assertTableColumnStateSet('teacher', $this->teacher->name, $this->unit)
+        ->callTableAction('reverse', $this->unit, ['reason' => 'وحدة نشأت خطأً'])
+        ->assertHasNoTableActionErrors();
+
+    $reversal = TeachingUnit::query()->withoutWorkspaceScope()->where('reversal_of_id', $this->unit->getKey())->sole();
+
+    expect($reversal->reversed_by)->toBe($finance->getKey())
+        ->and((int) $reversal->workspace_id)->toBe((int) $this->teacherWorkspace->getKey())
+        ->and(reverseScreenLedgerReversals())->toBe(1);
+
+    Livewire::test(ReverseTeachingUnits::class)
+        ->loadTable()
+        ->assertTableActionHidden('reverse', $this->unit);
+
+    expect(reverseScreenReversals($this->unit))->toBe(1);
+});
+
+it('is closed to every workspace role, the owner included', function (): void {
+    // The workspace owner holds every tenant permission there is; the
+    // correction is a platform one and stays out of their reach.
+    reverseScreenAs($this->teacher);
     expect(ReverseTeachingUnits::canAccess())->toBeFalse();
 
     Livewire::test(ReverseTeachingUnits::class)->assertForbidden();
-
-    $this->actingAs($this->teacher);
-    app()->forgetInstance(WorkspaceContext::class);
-    expect(ReverseTeachingUnits::canAccess())->toBeFalse();
 
     expect(reverseScreenReversals($this->unit))->toBe(0);
 });

@@ -51,12 +51,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         // The correction. An explicit administrative act with an author and a
         // reason — never an attendance edit (spec Q7).
-        Route::post('/admin/settlement/units/{unit}/reverse', [TeachingUnitController::class, 'reverse']);
+        //
+        // `2fa.required` on this and the two money acts below: the /admin screens
+        // ask `TwoFactorMandate` by hand, and the API path to the same Action must
+        // not be the door that skips it (owner decision 2026-09-26).
+        Route::post('/admin/settlement/units/{unit}/reverse', [TeachingUnitController::class, 'reverse'])->middleware('2fa.required');
 
         // The two irreversible acts, behind two different permissions. One
         // "manage settlement" permission would hand both to whoever needed
         // either — and only one of them moves money.
-        Route::post('/admin/settlement/periods/{period}/close', [SettlementPeriodController::class, 'close']);
-        Route::post('/admin/settlement/periods/{period}/payouts', [SettlementPeriodController::class, 'pay']);
+        Route::post('/admin/settlement/periods/{period}/close', [SettlementPeriodController::class, 'close'])->middleware('2fa.required');
+        Route::post('/admin/settlement/periods/{period}/payouts', [SettlementPeriodController::class, 'pay'])->middleware('2fa.required');
     });
 });

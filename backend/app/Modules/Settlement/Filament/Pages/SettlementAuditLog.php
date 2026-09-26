@@ -84,7 +84,7 @@ class SettlementAuditLog extends Page implements HasTable
         'reason' => 'السبب',
     ];
 
-    /** The API route's own permission — a platform one, held by super-admin today. */
+    /** The API route's own permission — a platform one: super-admin and `finance-admin`. */
     public static function canAccess(): bool
     {
         return Auth::user()?->can(Permissions::SETTLEMENT_AUDIT_VIEW) ?? false;

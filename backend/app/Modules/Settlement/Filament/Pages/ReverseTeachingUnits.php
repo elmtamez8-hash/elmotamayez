@@ -71,8 +71,8 @@ class ReverseTeachingUnits extends Page implements HasTable
     /**
      * `settlement.period.manage` — what `TeachingUnitPolicy::reverse()` asks.
      *
-     * ⚠️ لا يحملُها اليومَ إلّا السوبر أدمن (عبرَ `Permissions::all()`):
-     * `finance-admin` لا يملكُها في `RolePermissionMatrix`، ومنحُها قرارُ المالك.
+     * يحملُها السوبر أدمن وموظّفُ المالية `finance-admin` (قرارُ المالك ٢٠٢٦-٠٩-٢٦،
+     * والترحيل `2026_09_26_000500`) — ولا دورَ ورشةٍ يحملُها: هي صلاحيّةُ منصّة.
      */
     public static function canAccess(): bool
     {

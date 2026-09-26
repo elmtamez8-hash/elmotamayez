@@ -117,17 +117,34 @@ it('narrows by subject inside the six types, never around them', function (): vo
         ->assertCanNotSeeTableRecords([ActivityEntry::query()->findOrFail($this->billingEntry->getKey())]);
 });
 
-it('is closed to the finance officer and to a teacher', function (): void {
+// Owner decision 2026-09-26 — granted by `2026_09_26_000500`.
+it('opens to the finance officer, whose own workspace is elsewhere, on the screen and the API', function (): void {
     $finance = makePlatformStaff(Roles::FINANCE_ADMIN);
     $finance->forceFill(['last_workspace_id' => $this->officerWorkspace->getKey()])->save();
 
     settlementAuditAs($finance);
+    expect(SettlementAuditLog::canAccess())->toBeTrue();
+
+    Livewire::test(SettlementAuditLog::class)
+        ->loadTable()
+        ->assertCanSeeTableRecords([ActivityEntry::query()->findOrFail($this->entry->getKey())])
+        ->assertSee($this->period->uuid);
+
+    Sanctum::actingAs($finance);
+
+    expect($this->getJson('/api/v1/admin/settlement/audit')->assertOk()->json('data.0.subject_uuid'))
+        ->toBe($this->period->uuid);
+});
+
+it('is closed to every workspace role, the owner included', function (): void {
+    $this->actingAs($this->teacher);
+    app()->forgetInstance(WorkspaceContext::class);
+
     expect(SettlementAuditLog::canAccess())->toBeFalse();
     Livewire::test(SettlementAuditLog::class)->assertForbidden();
 
-    $this->actingAs($this->teacher);
-    app()->forgetInstance(WorkspaceContext::class);
-    expect(SettlementAuditLog::canAccess())->toBeFalse();
+    Sanctum::actingAs($this->teacher);
+    $this->getJson('/api/v1/admin/settlement/audit')->assertForbidden();
 });
 
 it('names the subject through the API too, for an officer whose own workspace is elsewhere', function (): void {
