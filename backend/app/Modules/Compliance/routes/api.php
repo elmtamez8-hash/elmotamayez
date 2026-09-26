@@ -148,7 +148,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | being edited rather than a separate ceremony.
         */
         Route::get('/breach-reports', [BreachController::class, 'index']);
-        Route::patch('/breach-reports/{breachReport}', [BreachController::class, 'update']);
+        // `2fa.required` because it stamps the moment two legal notifications were
+        // made — and the panel's buttons ask `TwoFactorMandate` for the same
+        // operation, so both doors give the one answer.
+        Route::patch('/breach-reports/{breachReport}', [BreachController::class, 'update'])
+            ->middleware('2fa.required');
 
         Route::post('/holds', [ComplianceRequestController::class, 'hold']);
         // A release, not a destruction — the row is the record that an erasure was

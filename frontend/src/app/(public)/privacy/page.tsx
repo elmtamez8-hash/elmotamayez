@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PageBanner } from "@/components/ui/PageBanner";
 import { ShieldIcon } from "@/components/icons";
+import { BreachReportForm } from "@/components/compliance/BreachReportForm";
 
 export const metadata: Metadata = {
   title: "سياسة الخصوصية",
@@ -197,6 +198,27 @@ export default async function PrivacyPage() {
           })}
         </section>
       )}
+
+      {/*
+        ⚠️ OUTSIDE THE `document === null` BRANCH ON PURPOSE. Reporting a leak must
+        not depend on the policy text loading: the two are different reads, and a
+        visitor who came here to report cannot be told to come back later because
+        an unrelated fetch failed. Reached from the footer's «الإبلاغ عن تسرّب بيانات»
+        at `/privacy#breach-report`.
+      */}
+      <section
+        id="breach-report"
+        aria-labelledby="breach-report-title"
+        className="scroll-mt-24 space-y-3 rounded-2xl border border-line p-5"
+      >
+        <h2 id="breach-report-title" className="text-lg font-semibold text-ink">
+          الإبلاغ عن تسرّب بيانات
+        </h2>
+        <p className="text-sm text-ink-muted">
+          إن رأيت بيانات شخصية مكشوفة على المنصّة أو خارجها، أخبرنا هنا. لا تحتاج إلى حساب.
+        </p>
+        <BreachReportForm />
+      </section>
     </div>
   );
 }
