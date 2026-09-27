@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Compliance\Actions\AdvanceBreachReport;
 use App\Modules\Compliance\Enums\BreachStatus;
@@ -64,7 +65,7 @@ class BreachReportResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldExclamation;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الامتثال';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::COMPLIANCE;
 
     protected static ?int $navigationSort = 20;
 
@@ -87,6 +88,38 @@ class BreachReportResource extends Resource
     public static function canViewAny(): bool
     {
         return self::canManage();
+    }
+
+    /**
+     * بلاغاتٌ لم تبلغْ الإخطارَ ولا الإغلاق — أي ما زالت ساعةُ الإخطارِ تدورُ
+     * عليها. على الفهرسِ `(status, created_at)`.
+     */
+    public static function unresolvedCount(): int
+    {
+        return BreachReport::query()
+            ->whereNotIn('status', [BreachStatus::Notified->value, BreachStatus::Closed->value])
+            ->count();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::canViewAny()) {
+            return null;
+        }
+
+        $open = static::unresolvedCount();
+
+        return $open === 0 ? null : (string) $open;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'بلاغات لم يكتمل إخطارها';
     }
 
     /**

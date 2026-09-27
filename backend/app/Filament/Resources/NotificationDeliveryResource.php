@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\NotificationDeliveryResource\Pages;
 use App\Modules\Notifications\Models\NotificationDelivery;
 use App\Modules\Notifications\Support\DeliveryStatus;
@@ -33,9 +34,9 @@ class NotificationDeliveryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPaperAirplane;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الإشعارات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::NOTIFICATIONS;
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $modelLabel = 'محاولة تسليم';
 
@@ -44,6 +45,42 @@ class NotificationDeliveryResource extends Resource
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(Permissions::NOTIFICATIONS_LOGS_VIEW) ?? false;
+    }
+
+    /**
+     * ما فشلَ تسليمُه في آخرِ أربعٍ وعشرين ساعة — على الفهرسِ `(status, …)`.
+     *
+     * ⚠️ نافذةٌ لا «كلُّ ما فشل»: الفشلُ القديمُ سجلٌّ لا إنذار، وعدّادٌ لا يعودُ
+     * صفراً أبداً يتعلّمُ القارئُ ألّا ينظرَ إليه. و`last_attempted_at` لأنّ
+     * `markFailed()` يختمُه عندَ كلِّ فشل.
+     */
+    public static function recentFailureCount(): int
+    {
+        return NotificationDelivery::query()
+            ->where('status', DeliveryStatus::Failed->value)
+            ->where('last_attempted_at', '>=', now()->subDay())
+            ->count();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::canViewAny()) {
+            return null;
+        }
+
+        $failed = static::recentFailureCount();
+
+        return $failed === 0 ? null : (string) $failed;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'danger';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'رسائل فشل تسليمها في آخر ٢٤ ساعة';
     }
 
     public static function canCreate(): bool

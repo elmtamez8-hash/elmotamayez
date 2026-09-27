@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Support\MoneyInput;
 use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Enums\SubscriptionStatus;
@@ -62,11 +63,11 @@ class SubscriptionResource extends Resource
 {
     protected static ?string $model = Subscription::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPath;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::MONEY;
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 10;
 
     public static function getNavigationLabel(): string
     {

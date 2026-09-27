@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\WorkspaceResource\Pages;
 use App\Models\User;
 use App\Modules\Identity\Support\PlatformRole;
@@ -51,7 +52,7 @@ class WorkspaceResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingLibrary;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::STUDENTS_AND_ACCOUNTS;
 
     protected static ?int $navigationSort = 30;
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Gamification\Filament\Resources\RedemptionResource\Pages;
@@ -40,15 +41,20 @@ class RedemptionResource extends Resource
 {
     protected static ?string $model = Redemption::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static string|UnitEnum|null $navigationGroup = 'التلعيب';
+    /*
+    | ⚠️ في «التلعيب» لا في «ينتظر قرارك»، وبلا عدّاد (قرارُ المالكِ ٢٠٢٦-٠٩-٢٨).
+    | البتُّ في الطلبِ للمدرّسِ من شاشتِه على الموقع، واللوحةُ تقرؤه فقط — فرقمٌ
+    | في مجموعةِ القراراتِ كانَ يَعِدُ مديرَ المنصّةِ بعملٍ لا زرَّ له هنا.
+    */
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::GAMIFICATION;
 
     protected static ?int $navigationSort = 50;
 
     public static function getNavigationLabel(): string
     {
-        return 'طلبات الاستبدال';
+        return 'طلبات استبدال المكافآت';
     }
 
     public static function getModelLabel(): string

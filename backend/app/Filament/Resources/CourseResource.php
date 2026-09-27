@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\CourseResource\Pages;
 use App\Filament\Support\MoneyInput;
 use App\Modules\Courses\Actions\CreateCourse;
@@ -44,7 +45,7 @@ class CourseResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::CONTENT;
 
     protected static ?int $navigationSort = 10;
 

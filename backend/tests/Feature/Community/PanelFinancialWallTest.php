@@ -7,6 +7,7 @@ use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Policies\OrderPolicy;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
@@ -106,9 +107,10 @@ it('shuts the panel door on the assistant before any resource', function (): voi
 });
 
 /*
-| والمالكُ كذلك — اللوحةُ لمديرِ المنصّة. لكنّ `canViewAny()` يبقى **صادقاً**
-| له: الصلاحيّةُ التي يحملُها لم تتغيّرْ، والذي تغيّرَ هو البابُ فوقَها. فصلُ
-| الاثنَين هو ما يجعلُ هذا الملفَّ يقيسُ الجدارَ الماليَّ لا سياسةَ الدخول.
+| والمالكُ كذلك — اللوحةُ لمديرِ المنصّة. وصلاحيّةُ `ORDERS_VIEW_ALL` التي يحملُها
+| لم تتغيّرْ (الـAPI يقرؤها في `OrderPolicy::viewAny()`)، لكنّها **لم تعُدْ بابَ
+| الشاشة** منذ ٢٠٢٦-٠٩-٢٨: `OrderResource::canViewAny()` يسألُ صلاحيّةَ الاعتمادِ
+| المنصّيّة، فصاحبُ إذنِ المساحةِ وحدَه لا يفتحُها ولو أُعيدَ فتحُ اللوحة.
 */
 it('shuts the panel door on the owner too, without touching their permission', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->owner);
@@ -118,5 +120,6 @@ it('shuts the panel door on the owner too, without touching their permission', f
 
     $this->get('/admin/orders')->assertForbidden();
 
-    expect(OrderResource::canViewAny())->toBeTrue();
+    expect(app(OrderPolicy::class)->viewAny($this->owner)->allowed())->toBeTrue()
+        ->and(OrderResource::canViewAny())->toBeFalse();
 });

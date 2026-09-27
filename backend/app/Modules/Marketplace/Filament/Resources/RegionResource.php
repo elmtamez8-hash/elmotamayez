@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Marketplace\Filament\Resources\RegionResource\Pages;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
@@ -47,9 +48,9 @@ class RegionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;
 
-    protected static string|UnitEnum|null $navigationGroup = 'السوق والتصنيف';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHERS_AND_MARKET;
 
-    protected static ?int $navigationSort = 31;
+    protected static ?int $navigationSort = 50;
 
     public static function getNavigationLabel(): string
     {

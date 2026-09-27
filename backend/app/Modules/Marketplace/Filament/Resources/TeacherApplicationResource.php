@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
 use App\Modules\Marketplace\Actions\RejectTeacherApplication;
@@ -35,15 +37,15 @@ use UnitEnum;
  * clicking "approve" in Filament must produce exactly what the endpoint produces,
  * including the cache flush and the notification.
  */
-class TeacherApplicationResource extends Resource
+class TeacherApplicationResource extends Resource implements AwaitsDecision
 {
     protected static ?string $model = TeacherApplication::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
 
-    protected static string|UnitEnum|null $navigationGroup = 'السوق والتصنيف';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 30;
 
     protected static ?string $recordTitleAttribute = 'uuid';
 
@@ -61,14 +63,34 @@ class TeacherApplicationResource extends Resource
     */
     public static function getNavigationBadge(): ?string
     {
-        $pending = static::getEloquentQuery()
-            ->whereIn('status', [
-                TeacherApplication::STATUS_SUBMITTED,
-                TeacherApplication::STATUS_CHANGES_REQUESTED,
-            ])
-            ->count();
+        // ⚠️ من لا يصلُ الطابورَ لا يرى عدّادَه: رقمٌ بلا بابٍ خبرٌ عن عملِ غيرِه.
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
 
         return $pending > 0 ? (string) $pending : null;
+    }
+
+    /**
+     * ما ينتظرُنا نحن: `submitted` وحدَها (قرارُ المالكِ ٢٠٢٦-٠٩-٢٨).
+     *
+     * ⚠️ لا `changes_requested`، وكانَ العدّادُ يعدُّه منذ بُني: طلبٌ طُلِبَ من
+     * صاحبِه تعديلُه ينتظرُ المدرّسَ لا المراجِع، وعدُّه يُبقي الرقمَ مرفوعاً على
+     * ما لا عملَ فيه لقارئِه. القائمةُ نفسُها تعرضُه كما كانت.
+     */
+    public static function pendingCount(): int
+    {
+        return TeacherApplication::query()
+            ->withoutWorkspaceScope()
+            ->where('status', TeacherApplication::STATUS_SUBMITTED)
+            ->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canViewAny();
     }
 
     public static function getNavigationBadgeColor(): ?string

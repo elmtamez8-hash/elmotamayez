@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\CMS\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Models\Workspace;
@@ -67,9 +68,9 @@ class CmsArticleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedNewspaper;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::CONTENT;
 
-    protected static ?int $navigationSort = 40;
+    protected static ?int $navigationSort = 60;
 
     protected static ?string $recordTitleAttribute = 'title';
 

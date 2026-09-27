@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Support\PercentInput;
 use App\Models\User;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -57,9 +58,9 @@ class ManageSessionSettings extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedVideoCamera;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::SETTINGS_AND_ACCESS;
 
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 20;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

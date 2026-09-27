@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
 use App\Modules\Marketplace\Actions\ReinstateTeacher;
@@ -80,11 +81,11 @@ class TeacherProfileResource extends Resource
 {
     protected static ?string $model = TeacherProfile::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedIdentification;
 
-    protected static string|UnitEnum|null $navigationGroup = 'السوق والتصنيف';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHERS_AND_MARKET;
 
-    protected static ?int $navigationSort = 15;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $recordTitleAttribute = 'search_name';
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Courses\Filament\Pages;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
 use App\Modules\Courses\Models\Course;
@@ -18,6 +20,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,7 +43,7 @@ use UnitEnum;
  * الطبقةُ الخامسةُ من طبقاتِ ٠٢٤. والقرارُ يمرُّ بـ{@see ReviewCoursePromoVideo}
  * الذي يقرأُ الكورسَ بلا نطاقٍ ويسألُ الصلاحيّةَ ثانيةً.
  */
-class ReviewPromoVideos extends Page implements HasTable
+class ReviewPromoVideos extends Page implements AwaitsDecision, HasTable
 {
     use InteractsWithTable;
 
@@ -49,9 +53,9 @@ class ReviewPromoVideos extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 15;
+    protected static ?int $navigationSort = 60;
 
     /**
      * ⚠️ صلاحيّةُ **منصّة**، لا يحملُها دورُ مساحةٍ أبداً — فلا يفتحُ مالكُ مساحةٍ
@@ -78,11 +82,11 @@ class ReviewPromoVideos extends Page implements HasTable
      */
     public static function getNavigationBadge(): ?string
     {
-        if (! static::canAccess()) {
+        if (! static::decisionQueueVisible()) {
             return null;
         }
 
-        $waiting = self::pending()->count();
+        $waiting = static::pendingCount();
 
         return $waiting === 0 ? null : (string) $waiting;
     }
@@ -92,20 +96,56 @@ class ReviewPromoVideos extends Page implements HasTable
         return 'warning';
     }
 
-    /** @return Builder<Course> */
-    private static function pending(): Builder
+    /** ما ينتظرُ القرارَ وحدَه — المعتمَدُ في المرشِّحِ الثاني لا يُعَدّ. */
+    public static function pendingCount(): int
+    {
+        return self::withVideoIn([Course::PROMO_PENDING])->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canAccess();
+    }
+
+    /**
+     * @param  list<string>  $statuses
+     * @return Builder<Course>
+     */
+    private static function withVideoIn(array $statuses): Builder
     {
         return Course::query()
             ->withoutWorkspaceScope()
-            ->where('promo_video_status', Course::PROMO_PENDING)
+            ->whereIn('promo_video_status', $statuses)
             ->whereNotNull('promo_video_id');
     }
 
+    /*
+    | ⛔ **المعتمَدُ كانَ يختفي من الشاشةِ لحظةَ اعتمادِه، ولا بابَ للرجوع.** فيديو
+    | اعتُمِدَ ثمّ تبيّنَ أنّه لا يصلحُ — بدّلَ صاحبُ القناةِ محتواه، أو وصلَ بلاغ —
+    | كانَ يبقى على الصفحةِ العامّةِ ولا زرَّ في اللوحةِ يسحبُه (قرارُ المالكِ
+    | ٢٠٢٦-٠٩-٢٧). فالجدولُ يقرأُ الحالتَينِ، والمرشِّحُ يبدأُ على «تنتظر المراجعة»
+    | فيبقى الطابورُ طابوراً.
+    |
+    | ⚠️ والسحبُ رفضٌ يمرُّ بـ{@see ReviewCoursePromoVideo} نفسِه، بسببٍ إلزاميّ يُحفَظُ
+    | في سجلِّ النشاط. لا إشعارَ يُرسَلُ به للمدرّسِ اليوم، فلا يَعِدُ النصُّ بذلك.
+    */
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => self::pending()->with('workspace')->latest('updated_at'))
-            ->emptyStateHeading('لا فيديوهات تنتظر المراجعة')
+            ->query(fn (): Builder => self::withVideoIn([Course::PROMO_PENDING, Course::PROMO_APPROVED])
+                ->with('workspace')
+                ->latest('updated_at'))
+            ->emptyStateHeading('لا فيديوهات هنا')
+            ->filters([
+                SelectFilter::make('promo_video_status')
+                    ->label('الحالة')
+                    ->options([
+                        Course::PROMO_PENDING => 'تنتظر المراجعة',
+                        Course::PROMO_APPROVED => 'المعتمدة',
+                    ])
+                    ->default(Course::PROMO_PENDING)
+                    ->selectablePlaceholder(false),
+            ], layout: FiltersLayout::AboveContent)
             ->columns([
                 TextColumn::make('title')->label('الكورس')->wrap()
                     ->description(fn (Course $record): ?string => $record->workspace?->name),
@@ -114,6 +154,9 @@ class ReviewPromoVideos extends Page implements HasTable
                     ->url(fn (Course $record): string => 'https://www.youtube.com/watch?v='.rawurlencode((string) $record->promo_video_id))
                     ->openUrlInNewTab(),
                 TextColumn::make('updated_at')->label('أُرسِل في')->dateTime('Y-m-d H:i')->sortable(),
+                TextColumn::make('promo_video_reviewed_at')->label('اعتُمد في')->dateTime('Y-m-d H:i')
+                    ->placeholder('—')
+                    ->visible(fn (): bool => $this->showsApproved()),
             ])
             ->recordActions([
                 Action::make('approve')
@@ -121,12 +164,14 @@ class ReviewPromoVideos extends Page implements HasTable
                     ->icon(Heroicon::OutlinedCheckCircle)
                     ->color('success')
                     ->requiresConfirmation()
+                    ->visible(fn (Course $record): bool => $record->promo_video_status === Course::PROMO_PENDING)
                     ->authorize(fn (): bool => static::canAccess())
-                    ->action(fn (Course $record) => $this->decide($record, Course::PROMO_APPROVED, null)),
+                    ->action(fn (Course $record) => $this->decide($record, Course::PROMO_APPROVED, null, 'اعتُمد الفيديو')),
                 Action::make('reject')
                     ->label('رفض')
                     ->icon(Heroicon::OutlinedXCircle)
                     ->color('danger')
+                    ->visible(fn (Course $record): bool => $record->promo_video_status === Course::PROMO_PENDING)
                     ->authorize(fn (): bool => static::canAccess())
                     ->schema([
                         // مطلوبٌ في الفعلِ نفسِه أيضاً: رفضٌ بلا سببٍ يُجيبُه المدرّسُ بلصقِ الرابطِ نفسِه.
@@ -136,11 +181,34 @@ class ReviewPromoVideos extends Page implements HasTable
                         $record,
                         Course::PROMO_REJECTED,
                         (string) ($data['reason'] ?? ''),
+                        'رُفض الفيديو',
+                    )),
+                Action::make('withdraw')
+                    ->label('سحب الاعتماد')
+                    ->icon(Heroicon::OutlinedNoSymbol)
+                    ->color('danger')
+                    ->visible(fn (Course $record): bool => $record->promo_video_status === Course::PROMO_APPROVED)
+                    ->authorize(fn (): bool => static::canAccess())
+                    ->modalDescription('يختفي الفيديو من صفحة الكورس العامّة فوراً، ويُحفَظ السبب في سجلّ النشاط.')
+                    ->schema([
+                        Textarea::make('reason')->label('سبب سحب الاعتماد')->required()->rows(3)->maxLength(1000),
+                    ])
+                    ->action(fn (Course $record, array $data) => $this->decide(
+                        $record,
+                        Course::PROMO_REJECTED,
+                        (string) ($data['reason'] ?? ''),
+                        'سُحب اعتماد الفيديو',
                     )),
             ]);
     }
 
-    private function decide(Course $record, string $decision, ?string $reason): void
+    /** هل المرشِّحُ على «المعتمدة» الآن؟ */
+    private function showsApproved(): bool
+    {
+        return ($this->tableFilters['promo_video_status']['value'] ?? null) === Course::PROMO_APPROVED;
+    }
+
+    private function decide(Course $record, string $decision, ?string $reason, string $done): void
     {
         $reviewer = Auth::user();
 
@@ -157,8 +225,6 @@ class ReviewPromoVideos extends Page implements HasTable
             return;
         }
 
-        Notification::make()->success()
-            ->title($decision === Course::PROMO_APPROVED ? 'اعتُمد الفيديو' : 'رُفض الفيديو')
-            ->send();
+        Notification::make()->success()->title($done)->send();
     }
 }

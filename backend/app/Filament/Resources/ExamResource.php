@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\ExamResource\Pages;
 use App\Modules\Assessments\Enums\ExamStatus;
 use App\Modules\Assessments\Models\Exam;
@@ -32,7 +33,7 @@ class ExamResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentCheck;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::CONTENT;
 
     protected static ?int $navigationSort = 20;
 

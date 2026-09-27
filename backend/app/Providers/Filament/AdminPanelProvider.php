@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\NavigationGroups;
+use App\Filament\Widgets\DecisionQueueWidget;
 use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\ExamStatsWidget;
 use App\Modules\Analytics\Filament\Widgets\GrowthChartWidget;
@@ -223,16 +225,12 @@ class AdminPanelProvider extends PanelProvider
                     ->isActiveWhen(fn (): bool => false)
                     ->sort(-1),
             ])
-            ->navigationGroups([
-                'المنصّة',
-                'المحتوى والتعلّم',
-                'المال والاشتراكات',
-                'السوق والتصنيف',
-                'الإشعارات',
-                'التلعيب',
-                'الامتثال',
-                'إدارة الوصول',
-            ])
+            /*
+            | ⚠️ والأسماءُ الآنَ ثوابتُ في {@see NavigationGroups} لا نصوصٌ تُنسَخ —
+            | كلُّ موردٍ يُسمّي مجموعتَه من هناك، و`AdminNavigationTest` يُسقِطُ
+            | البناءَ إن ظهرَ في القائمةِ اسمٌ لم يُعلَنْ هنا.
+            */
+            ->navigationGroups(NavigationGroups::ordered())
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             // Modules keep their own admin screens next to the code they administer.
             // Add a line per module; generalise to a scan when there are enough of
@@ -341,9 +339,10 @@ class AdminPanelProvider extends PanelProvider
             )
             /*
             | ⚠️ لا `discoverPages()`/`discoverWidgets()` على `app/Filament/Pages`
-            | ولا `app/Filament/Widgets`: المجلَّدانِ غيرُ موجودَين، والاكتشافُ
-            | على مجلَّدٍ غائبٍ لا يُنتِجُ خطأً — سطرانِ يَعِدانِ بشاشاتٍ لا وجودَ
-            | لها. حُذِفا ٢٠٢٦-٠٩-٢٧.
+            | ولا `app/Filament/Widgets`: الأوّلُ غيرُ موجود، والاكتشافُ على مجلَّدٍ
+            | غائبٍ لا يُنتِجُ خطأً — سطرانِ يَعِدانِ بشاشاتٍ لا وجودَ لها. حُذِفا
+            | ٢٠٢٦-٠٩-٢٧. والثاني يحملُ ويدجتَ «ينتظر قرارك» وحدَه، مُسجَّلاً باسمِه
+            | في `->widgets([])` أدناه كبقيّةِ الويدجتات.
             */
             ->pages([
                 Dashboard::class,
@@ -367,6 +366,8 @@ class AdminPanelProvider extends PanelProvider
             | تُصيَّرُ بترتيبٍ آخرَ ويظنُّ القارئُ أنّ شيئاً تعطّل.
             */
             ->widgets([
+                // أوّلاً بـ`$sort = -10`، وبابُه طوابيرُه لا صلاحيّةُ التحليلات.
+                DecisionQueueWidget::class,
                 AccountWidget::class,
                 PlatformPulseWidget::class,
                 MoneyPulseWidget::class,

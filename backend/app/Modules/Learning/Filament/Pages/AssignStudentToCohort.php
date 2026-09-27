@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
@@ -72,11 +73,11 @@ class AssignStudentToCohort extends Page implements HasTable
 
     protected static ?string $slug = 'assign-student-to-cohort';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserPlus;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::CONTENT;
 
-    protected static ?int $navigationSort = 31;
+    protected static ?int $navigationSort = 40;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

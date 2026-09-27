@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Gamification\Enums\BadgeRuleType;
 use App\Modules\Gamification\Filament\Resources\LevelResource\Pages;
 use App\Modules\Gamification\Models\Badge;
@@ -37,7 +38,7 @@ class LevelResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTrophy;
 
-    protected static string|UnitEnum|null $navigationGroup = 'التلعيب';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::GAMIFICATION;
 
     protected static ?int $navigationSort = 30;
 

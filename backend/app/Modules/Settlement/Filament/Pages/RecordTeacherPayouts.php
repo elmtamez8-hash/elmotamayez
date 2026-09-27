@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Settlement\Actions\RecordTeacherPayout;
@@ -60,9 +61,9 @@ class RecordTeacherPayouts extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCurrencyDollar;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHER_EARNINGS;
 
-    protected static ?int $navigationSort = 27;
+    protected static ?int $navigationSort = 10;
 
     /**
      * الصلاحيّةُ نفسُها التي يسألُها مسارُ الـAPI عبرَ `SettlementPeriodPolicy::pay()`.

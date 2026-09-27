@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Identity\Actions\RegisterParent;
 use App\Modules\Identity\Actions\RegisterStudent;
@@ -86,9 +87,9 @@ class CreateAccount extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserPlus;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::STUDENTS_AND_ACCOUNTS;
 
-    protected static ?int $navigationSort = 19;
+    protected static ?int $navigationSort = 20;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

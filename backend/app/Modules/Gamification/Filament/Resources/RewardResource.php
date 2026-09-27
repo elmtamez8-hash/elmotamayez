@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Gamification\Enums\RewardType;
@@ -53,7 +54,7 @@ class RewardResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGift;
 
-    protected static string|UnitEnum|null $navigationGroup = 'التلعيب';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::GAMIFICATION;
 
     protected static ?int $navigationSort = 40;
 

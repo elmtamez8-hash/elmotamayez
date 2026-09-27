@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Support\MoneyInput;
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\RejectOrder;
@@ -37,26 +40,127 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\HtmlString;
 use RuntimeException;
 use UnitEnum;
 
-class OrderResource extends Resource
+class OrderResource extends Resource implements AwaitsDecision
 {
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
     protected static ?int $navigationSort = 10;
 
+    /*
+    | «اعتماد المدفوعات» على القائمة، و«الطلبات» فوقَ الجدول: البندُ في مجموعةِ
+    | «ينتظر قرارك» يُسمّي القرارَ الذي يُنتظَر، والجدولُ يعرضُ كلَّ الطلباتِ
+    | بحالاتِها كلِّها — فعنوانٌ يقولُ «تنتظر الاعتماد» فوقَ صفوفٍ معتمَدةٍ يكذب.
+    */
     public static function getNavigationLabel(): string
     {
-        return 'الطلبات';
+        return 'اعتماد المدفوعات';
+    }
+
+    /**
+     * ما ينتظرُ الموظّفَ هو: طلبٌ رُفِعَ إيصالُه (`under_review`).
+     *
+     * ⚠️ **لا `awaitingDecision()`** مع أنّها ما يقبلُه `ApproveOrder`: `pending`
+     * طلبٌ ينتظرُ أن يدفعَ الطالب، ولا شيءَ يكنسُ الطلباتِ المتروكة — فعدُّه
+     * يُبقي العدّادَ فوقَ الصفرِ أبداً. قاعدةُ المالكِ نفسُها في طلباتِ
+     * المدرّسين: «يعدّ اللي مستنينك إنت بس».
+     */
+    public static function pendingCount(): int
+    {
+        return Order::query()->withoutWorkspaceScope()
+            ->where('status', OrderStatus::UnderReview->value)
+            ->count();
+    }
+
+    /** مبالغُ دُفِعَت ويجبُ ردُّها — طابورٌ ثانٍ على الشاشةِ نفسِها. */
+    public static function refundDueCount(): int
+    {
+        return Order::query()->withoutWorkspaceScope()
+            ->where('status', OrderStatus::RefundDue->value)
+            ->count();
+    }
+
+    /**
+     * ⛔ **البابُ صلاحيّةُ الاعتمادِ المنصّيّة، لا `ORDERS_VIEW_ALL` (قرارُ المالكِ
+     * ٢٠٢٦-٠٩-٢٨).** كانَ البابُ `OrderPolicy::viewAny()` = `ORDERS_VIEW_ALL`، وهي
+     * صلاحيّةُ **مساحة**: فمسؤولُ الامتثالِ الذي يملكُ مساحةً كانَ يفتحُ هذه
+     * الشاشةَ ويرى طلباتِ مساحتِه ظانّاً أنّها المنصّة — القاعدةُ المكتوبةُ في
+     * `docs/gotchas/tenancy.md` §٢٩ أنّ قائمةً منصّيّةً لا يحرسُها إذنُ مساحةٍ أبداً.
+     *
+     * `PAYMENTS_APPROVE` و`BILLING_PURCHASE_APPROVE` لا يحملُهما دورُ مساحةٍ
+     * (`RolePermissionMatrix`)، بل موظّفُ الماليّةِ ومديرُ المنصّة (`Gate::before`).
+     * والبابانِ في `OrderPolicy` للـAPI باقيانِ كما هما.
+     */
+    private static function isOrderOfficer(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User
+            && ($user->can(Permissions::PAYMENTS_APPROVE) || $user->can(Permissions::BILLING_PURCHASE_APPROVE));
+    }
+
+    public static function canViewAny(): bool
+    {
+        return self::isOrderOfficer();
+    }
+
+    /**
+     * ⚠️ صفحةُ الطلبِ تسألُ `canEdit()`، و`OrderPolicy` بلا `update()` — وFilament
+     * يقرأُ الدالّةَ الغائبةَ «مسموح». فبلا هذا يفتحُ من أُغلِقَت عليه القائمةُ
+     * أيَّ طلبٍ بعنوانِه، والاستعلامُ صارَ منصّيّاً.
+     */
+    public static function getEditAuthorizationResponse(Model $record): Response
+    {
+        return self::isOrderOfficer() ? Response::allow() : Response::deny();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    /**
+     * ⚠️ المستحَقُّ ردُّه يُقالُ هنا لا في رقمٍ ثانٍ: بندُ القائمةِ يحملُ عدّاداً
+     * واحداً، وجمعُ الطابورَينِ فيه يخلطُ «اعتمِدْ» بـ«رُدَّ المال». وله بطاقتُه
+     * الحمراءُ على لوحةِ «ينتظر قرارك».
+     */
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $refunds = static::refundDueCount();
+
+        return $refunds === 0 ? null : 'مبالغ يجب ردّها: '.$refunds;
     }
 
     public static function getModelLabel(): string
@@ -83,7 +187,8 @@ class OrderResource extends Resource
                             ->disabled(),
                         Select::make('course_id')
                             ->label('الكورس')
-                            ->relationship('course', 'title')
+                            // ⚠️ بلا نطاق: كورسُ طلبٍ من مساحةٍ أخرى كانَ يُعرَضُ فارغاً.
+                            ->relationship('course', 'title', modifyQueryUsing: fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
                             ->disabled(),
                         // للعرضِ وحدَه (معطَّلٌ فلا يُحفَظ)، وبالوحدةِ الكبرى كبقيّةِ اللوحة.
                         MoneyInput::make('amount', fn (?Order $record): ?string => $record?->currency)
@@ -565,11 +670,25 @@ class OrderResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
+                /*
+                | ⚠️ البحثُ والترتيبُ يبنيانِ استعلامَ الكورسِ بأنفسِهما، فيرجعُ
+                | نطاقُ المساحةِ عليه: بحثٌ عن كورسِ مساحةٍ أخرى لا يجدُ شيئاً،
+                | وترتيبٌ يقرأُ عنوانَه `null`. التجاوزُ يُكرَّرُ في الموضعَين.
+                */
                 TextColumn::make('course.title')
                     ->label('الكورس')
                     ->placeholder('—')
-                    ->searchable()
-                    ->sortable()
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereHas(
+                        'course',
+                        fn (Builder $course): Builder => $course->withoutGlobalScope(WorkspaceScope::class)
+                            ->where('title', 'like', '%'.$search.'%'),
+                    ))
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy(
+                        Course::query()->withoutGlobalScope(WorkspaceScope::class)
+                            ->select('title')
+                            ->whereColumn('courses.id', 'orders.course_id'),
+                        $direction === 'desc' ? 'desc' : 'asc',
+                    ))
                     ->wrap(),
                 // ⚠️ بلا بحثٍ ولا ترتيب: `name` سِمةٌ محسوبةٌ لا عمود. {@see CourseResource}
                 TextColumn::make('user.name')
@@ -779,31 +898,35 @@ class OrderResource extends Resource
         // without the platform permission, which on a panel that admits
         // `assistant-teacher` by role name is the FR-003 breach `viewAny()` was
         // fixed for. One spelling, in the enum — see `teacherListedValues()`.
+        //
+        // ⚠️ منذ ٢٠٢٦-٠٩-٢٨ لا يصلُ هذه الشاشةَ إلّا حاملُ صلاحيّةِ اعتمادٍ منصّيّة
+        // ({@see self::canViewAny()})، فالقائمةُ منصّيّةٌ لكلِّ قارئِها. قطعُ
+        // الأنواعِ باقٍ لحاملِ `PAYMENTS_APPROVE` وحدَه (اعتمادُ الكورسات) إن وُجِد.
         if ($user instanceof User && ! $user->can(Permissions::BILLING_PURCHASE_APPROVE)) {
             $query->whereIn('kind', OrderKind::teacherListedValues());
-        } else {
-            /*
-            | ⚠️ 024 — THE FIFTH LAYER OF THE SAME DEFECT, AND THE LIST IS WHERE
-            | IT LOOKS LIKE NOTHING IS WRONG.
-            |
-            | The kind cut above was already right; the workspace was not. This
-            | query runs through `BelongsToWorkspace`, and a platform officer's
-            | context falls back to `users.last_workspace_id` like everybody
-            | else's — so an officer who also owns a workspace saw that
-            | workspace's orders and no others, on the one screen whose whole
-            | purpose is approving sales across every teacher. No error, no empty
-            | state, just a short list that reads as a quiet week.
-            |
-            | Only for the holder of the platform permission, and the row-level
-            | answer is unchanged: `OrderPolicy::view()` still decides what may be
-            | opened.
-            */
-            // `withoutGlobalScope(WorkspaceScope::class)` and not the model's
-            // `withoutWorkspaceScope()` helper: Filament's parent hands back a
-            // `Builder<Model>`, on which the model's local scope is not typed.
-            // The two are the same call — see `BelongsToWorkspace::scopeWithoutWorkspaceScope()`.
-            $query->withoutGlobalScope(WorkspaceScope::class);
         }
+
+        /*
+        | ⚠️ 024 — THE FIFTH LAYER OF THE SAME DEFECT, AND THE LIST IS WHERE
+        | IT LOOKS LIKE NOTHING IS WRONG.
+        |
+        | The kind cut above was already right; the workspace was not. This
+        | query runs through `BelongsToWorkspace`, and a platform officer's
+        | context falls back to `users.last_workspace_id` like everybody
+        | else's — so an officer who also owns a workspace saw that
+        | workspace's orders and no others, on the one screen whose whole
+        | purpose is approving sales across every teacher. No error, no empty
+        | state, just a short list that reads as a quiet week.
+        |
+        | Only for the holder of the platform permission, and the row-level
+        | answer is unchanged: `OrderPolicy::view()` still decides what may be
+        | opened.
+        */
+        // `withoutGlobalScope(WorkspaceScope::class)` and not the model's
+        // `withoutWorkspaceScope()` helper: Filament's parent hands back a
+        // `Builder<Model>`, on which the model's local scope is not typed.
+        // The two are the same call — see `BelongsToWorkspace::scopeWithoutWorkspaceScope()`.
+        $query->withoutGlobalScope(WorkspaceScope::class);
 
         /*
         | ⚠️ THE BYPASS IS PER MODEL, AND THE EAGER LOAD IS A SECOND QUERY.

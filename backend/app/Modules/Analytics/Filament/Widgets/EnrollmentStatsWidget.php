@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Analytics\Filament\Widgets;
 
-use App\Modules\Analytics\Filament\Widgets\Concerns\NamesItsScope;
 use App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget;
 use App\Modules\Learning\Models\Enrollment;
 use Filament\Support\Icons\Heroicon;
@@ -13,8 +12,6 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class EnrollmentStatsWidget extends BaseWidget
 {
-    use NamesItsScope;
-
     // ⚠️ بابُ ويدجتاتِ المنصّةِ نفسُه: لا مدرّسَ يدخلُ اللوحة، فلا «أرقامُ مساحتي»
     // يبقى لها قارئٌ غيرُ موظّفٍ يرى مساحتَه مصادفة.
     use PlatformWideWidget;
@@ -22,9 +19,10 @@ class EnrollmentStatsWidget extends BaseWidget
     /*
     | بعدَ ويدجتاتِ المنصّة.
     |
-    | ⚠️ ولافتتُه تقولُ **أيَّ نطاقٍ يقرأ**: هذا الويدجتُ منطاقٌ بالمساحة، والنطاقُ
-    | خاملٌ لمن لا مساحةَ له — فهو أرقامُ المدرّسِ لمدرّسٍ ومجاميعُ المنصّةِ لمديرٍ،
-    | بالرقمِ نفسِه واللافتةِ نفسِها. {@see NamesItsScope}
+    | ⛔ **كانَ منطاقاً بالمساحة، ولافتتُه تقولُ «في مساحتك»** — على لوحةٍ لا يصلُها
+    | إلّا موظّفُ المنصّة. فمديرُ المنصّةِ الذي يملكُ مساحةً قرأَ أرقامَ مساحتِه
+    | وحدَها تحتَ ويدجتاتٍ كلُّها منصّيّة، والرقمُ نفسُه كانَ يعني شيئَينِ بحسبِ
+    | `last_workspace_id`. القراءةُ الآنَ منصّيّةٌ كجيرانِها، واللافتةُ تقولُ ذلك.
     */
     protected static ?int $sort = 20;
 
@@ -32,13 +30,14 @@ class EnrollmentStatsWidget extends BaseWidget
 
     public function getHeading(): string
     {
-        return 'التسجيلات — '.$this->scopeLabel();
+        return 'التسجيلات — على المنصّة كلّها';
     }
 
     /** @return list<Stat> */
     protected function getStats(): array
     {
         $counts = Enrollment::query()
+            ->withoutWorkspaceScope()
             ->selectRaw('status, count(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status');

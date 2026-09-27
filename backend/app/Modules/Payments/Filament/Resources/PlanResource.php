@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Support\MoneyInput;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
@@ -67,9 +68,9 @@ class PlanResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendarDays;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::MONEY;
 
-    protected static ?int $navigationSort = 25;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $recordTitleAttribute = 'title';
 

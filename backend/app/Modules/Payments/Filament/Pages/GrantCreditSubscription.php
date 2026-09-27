@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Pages;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource;
 use App\Filament\Support\MoneyInput;
 use App\Models\User;
@@ -14,6 +16,7 @@ use App\Modules\Payments\Actions\PurchaseCredits;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\PlanShape;
@@ -87,7 +90,7 @@ use UnitEnum;
  *
  * @property-read Schema $form
  */
-class GrantCreditSubscription extends Page implements HasTable
+class GrantCreditSubscription extends Page implements AwaitsDecision, HasTable
 {
     /**
      * How long an approved subscription order stays on the queue so a failed
@@ -105,11 +108,11 @@ class GrantCreditSubscription extends Page implements HasTable
 
     protected static ?string $slug = 'grant-credit-subscription';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGift;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 20;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -147,6 +150,43 @@ class GrantCreditSubscription extends Page implements HasTable
     public static function getNavigationLabel(): string
     {
         return 'طلبات الاشتراك · منح رصيد';
+    }
+
+    /**
+     * طلباتُ الاشتراكِ التي رُفِعَ إيصالُها (`under_review`) — ما ينتظرُ الموظّف.
+     *
+     * ⚠️ لا `pending` (ينتظرُ أن يدفعَ الطالب، ولا شيءَ يكنسُه)، ولا نافذةُ
+     * الأربعةَ عشرَ يوماً التي تُبقي المعتمَدَ ظاهراً (FR-027): كلاهما يُبقي
+     * العدّادَ فوقَ الصفرِ على ما لا قرارَ فيه الآن. الجدولُ نفسُه يعرضُ الثلاثة.
+     */
+    public static function pendingCount(): int
+    {
+        return Order::query()
+            ->withoutWorkspaceScope()
+            ->where('kind', OrderKind::Subscription)
+            ->where('status', OrderStatus::UnderReview->value)
+            ->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
     }
 
     public function getTitle(): string

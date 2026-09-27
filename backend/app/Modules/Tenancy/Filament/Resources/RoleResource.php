@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Tenancy\Filament\Resources\RoleResource\Pages;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Models\Scopes\TeamRoleScope;
@@ -62,9 +63,9 @@ class RoleResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShieldCheck;
 
-    protected static string|UnitEnum|null $navigationGroup = 'إدارة الوصول';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::SETTINGS_AND_ACCESS;
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $recordTitleAttribute = 'name';
 

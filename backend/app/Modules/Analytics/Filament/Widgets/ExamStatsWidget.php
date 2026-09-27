@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Analytics\Filament\Widgets;
 
-use App\Modules\Analytics\Filament\Widgets\Concerns\NamesItsScope;
 use App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget;
 use App\Modules\Assessments\Models\Attempt;
 use Filament\Support\Icons\Heroicon;
@@ -13,18 +12,14 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ExamStatsWidget extends BaseWidget
 {
-    use NamesItsScope;
-
     // ⚠️ بابُ ويدجتاتِ المنصّةِ نفسُه: لا مدرّسَ يدخلُ اللوحة، فلا «أرقامُ مساحتي»
     // يبقى لها قارئٌ غيرُ موظّفٍ يرى مساحتَه مصادفة.
     use PlatformWideWidget;
 
     /*
-    | بعدَ ويدجتاتِ المنصّة.
-    |
-    | ⚠️ ولافتتُه تقولُ **أيَّ نطاقٍ يقرأ**: هذا الويدجتُ منطاقٌ بالمساحة، والنطاقُ
-    | خاملٌ لمن لا مساحةَ له — فهو أرقامُ المدرّسِ لمدرّسٍ ومجاميعُ المنصّةِ لمديرٍ،
-    | بالرقمِ نفسِه واللافتةِ نفسِها. {@see NamesItsScope}
+    | بعدَ ويدجتاتِ المنصّة — ومنصّيٌّ مثلَها، للسببِ المكتوبِ على
+    | {@see EnrollmentStatsWidget}: كانَ منطاقاً بمساحةِ القارئِ تحتَ لافتةِ
+    | «في مساحتك» على لوحةٍ لا يقرؤها إلّا موظّفُ المنصّة.
     */
     protected static ?int $sort = 21;
 
@@ -32,13 +27,14 @@ class ExamStatsWidget extends BaseWidget
 
     public function getHeading(): string
     {
-        return 'الاختبارات — '.$this->scopeLabel();
+        return 'الاختبارات — على المنصّة كلّها';
     }
 
     /** @return list<Stat> */
     protected function getStats(): array
     {
         $stats = Attempt::query()
+            ->withoutWorkspaceScope()
             ->where('status', 'graded')
             ->selectRaw('count(*) as total, sum(passed) as passed')
             ->first();

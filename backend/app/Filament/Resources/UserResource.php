@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use App\Modules\Identity\Filament\Pages\CreateAccount;
@@ -57,9 +58,9 @@ class UserResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::STUDENTS_AND_ACCOUNTS;
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $recordTitleAttribute = 'email';
 
