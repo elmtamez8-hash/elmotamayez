@@ -198,6 +198,23 @@ class EloquentSessionCreditHolds implements SessionCreditHolds
         return (int) ($balance->remaining_credits ?? 0) - (int) ($balance->held_credits ?? 0);
     }
 
+    public function openHoldSessionIds(int $studentUserId, array $classSessionIds): array
+    {
+        if ($classSessionIds === []) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map(
+            static fn (mixed $id): int => (int) $id,
+            DB::table('credit_holds')
+                ->where('student_user_id', $studentUserId)
+                ->whereIn('class_session_id', $classSessionIds)
+                ->whereNull('settled_at')
+                ->pluck('class_session_id')
+                ->all(),
+        )));
+    }
+
     /**
      * Owned minus frozen — computed, never a column.
      *

@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Enums\RecordingStatus;
+use App\Modules\LiveSessions\Enums\SessionCanceller;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
@@ -50,6 +51,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property int|null $charged_seats ٠٣٥ — what the TEACHER IS PAID ON (FR-014)
  * @property int|null $verdict_stay_seconds the bar ACTUALLY APPLIED, so moving
  *                                          the setting cannot re-judge the past (SC-012)
+ * @property SessionCanceller|null $cancelled_by who called it off; null = the
+ *                                               teacher (every row before 2026-09-27)
  */
 class ClassSession extends BaseModel
 {
@@ -123,6 +126,10 @@ class ClassSession extends BaseModel
             'recording_attempted_at' => 'datetime',
             'delivered_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            // Not fillable: written by `CancelClassSession`'s claim alone, and it
+            // decides whether a cancellation counts against the teacher's public
+            // record (`SyncTeacherCountersJob`).
+            'cancelled_by' => SessionCanceller::class,
             // Set when the seats were charged (006). Null on a delivered session
             // is the "delivered but never billed" set the sweep repairs — and
             // that set is unavoidable, because CloseClassSession returns early on

@@ -30,11 +30,23 @@ class ReversePayment extends Action
 {
     use LogsActivity;
 
-    public function handle(PaymentTransaction $transaction, string $reason): PaymentTransaction
+    /**
+     * @param  int|null  $refundMinor  how much of the capture goes back to the
+     *                                 payer, in minor units. Null = all of it (a
+     *                                 chargeback, a bank reversal, a full undo).
+     *                                 A cancelled plan passes its unused part
+     *                                 (owner decision 2026-09-27); it is clamped to
+     *                                 `[0, amount_minor]` so no caller can record
+     *                                 more going out than came in.
+     */
+    public function handle(PaymentTransaction $transaction, string $reason, ?int $refundMinor = null): PaymentTransaction
     {
         if ($transaction->status !== PaymentStatus::Captured) {
             throw new DomainException('لا يمكن عكس عملية لم تُحصَّل.');
         }
+
+        $amount = (int) $transaction->amount_minor;
+        $refunded = $refundMinor === null ? $amount : max(0, min($amount, $refundMinor));
 
         $applied = PaymentTransaction::query()
             ->withoutWorkspaceScope()
@@ -42,6 +54,9 @@ class ReversePayment extends Action
             ->where('status', PaymentStatus::Captured->value)
             ->update([
                 'status' => PaymentStatus::Reversed->value,
+                // ⛔ The number finance sends back. It used to be implicit — the
+                // whole capture — and a partial refund has no other place to live.
+                'refunded_minor' => $refunded,
                 'failure_reason' => $reason,
                 // ⚠️ The line that lets the student pay again.
                 'captured_order_id' => null,
@@ -56,6 +71,8 @@ class ReversePayment extends Action
         $this->logActivity('payment.reversed', $transaction, [
             'order_id' => $transaction->order_id,
             'reason' => $reason,
+            'amount_minor' => $amount,
+            'refunded_minor' => $refunded,
         ]);
 
         $order = Order::query()->withoutWorkspaceScope()->findOrFail($transaction->order_id);

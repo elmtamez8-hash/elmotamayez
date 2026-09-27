@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\SessionCanceller;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
@@ -48,8 +49,19 @@ class CancelClassSession extends Action
 
     public function __construct(private readonly SessionCreditHolds $holds) {}
 
-    public function handle(ClassSession $session, ?string $reason = null): ClassSession
-    {
+    /**
+     * @param  SessionCanceller  $by  who called it off. ⛔ The default is the
+     *                                teacher because that is every door but one;
+     *                                the student's in-time give-back of a private
+     *                                hour passes `Student`, or the teacher's public
+     *                                «cancelled sessions» count and trust score
+     *                                fall for a decision the student made.
+     */
+    public function handle(
+        ClassSession $session,
+        ?string $reason = null,
+        SessionCanceller $by = SessionCanceller::Teacher,
+    ): ClassSession {
         // Advisory: the in-memory model may be stale. These give the teacher the
         // right sentence; the claim below is what actually holds the door.
         if ($session->status->isTerminal()) {
@@ -68,7 +80,7 @@ class CancelClassSession extends Action
         /** @var list<int> $seatHolderIds */
         $seatHolderIds = [];
 
-        DB::transaction(function () use ($session, $reason, $cancelledAt, &$seatHolderIds): void {
+        DB::transaction(function () use ($session, $reason, $by, $cancelledAt, &$seatHolderIds): void {
             /*
             | ⛔ THE STATUS CHANGE IS THE CLAIM — ONE CONDITIONAL UPDATE, AND IT
             | COMES FIRST.
@@ -97,6 +109,7 @@ class CancelClassSession extends Action
                     'seats_taken' => 0,
                     'cancelled_at' => $cancelledAt,
                     'cancellation_reason' => $reason,
+                    'cancelled_by' => $by->value,
                     'updated_at' => $cancelledAt,
                 ]);
 
@@ -135,6 +148,7 @@ class CancelClassSession extends Action
             'seats_taken' => 0,
             'cancelled_at' => $cancelledAt,
             'cancellation_reason' => $reason,
+            'cancelled_by' => $by,
         ])->syncOriginal();
 
         // Everyone who held a seat hears about it (FR-006). Dispatched after the

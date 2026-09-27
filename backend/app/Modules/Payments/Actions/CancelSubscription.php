@@ -16,6 +16,7 @@ use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Payments\Support\EffectiveSubscriptionEnd;
 use App\Modules\Payments\Support\SubscriptionAccess;
+use App\Modules\Payments\Support\SubscriptionRefund;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use Carbon\CarbonImmutable;
@@ -34,11 +35,16 @@ use Illuminate\Support\Facades\DB;
  * without returning the money is not a cancellation, it is a forfeiture. So the
  * access stops and the captured payment is reversed, together, in that order.
  *
- * There is deliberately NO PRORATION. No requirement asks for one, and a
- * part-month refund needs a rule about what a day of unlimited access is worth —
- * a number nobody has approved, computed differently by whoever writes it next.
- * A platform officer who wants to keep part of the money has `AdjustCredits` and
- * the ledger; this Action does the whole thing or none of it.
+ * ⛔ IT REFUNDS THE UNUSED PART ONLY (owner decision 2026-09-27). This paragraph
+ * used to say «deliberately NO PRORATION — no rule about what a day is worth has
+ * been approved». The rule is approved now, and it lives in ONE place,
+ * {@see SubscriptionRefund::forCancellation()}: unused days (from the
+ * cancellation date, which counts as unused, through the last day) ÷ the plan's
+ * length × what was captured, floored to the minor unit. The captured payment
+ * is still reversed as one act; `ReversePayment` records how much of it goes
+ * back (`payment_transactions.refunded_minor`), and the rest is the used part
+ * the platform keeps — out of which the teacher was already paid for every
+ * session delivered. No teaching unit is reversed here.
  *
  * ⚠️ AND IT TOUCHES NOTHING BUT THIS ORDER (FR-029). A student's older debts,
  * their credit balance, and any other subscription are all outside the two
@@ -60,7 +66,24 @@ class CancelSubscription extends Action
         private readonly ReversePayment $reverse,
         private readonly EffectiveSubscriptionEnd $ends,
         private readonly DispatchNotification $notify,
+        private readonly SubscriptionRefund $refunds,
     ) {}
+
+    /**
+     * What cancelling this subscription NOW would give back — the number the
+     * officer is shown before confirming, from the same rule `handle()` applies.
+     * Null: nothing was captured, so nothing goes back.
+     *
+     * @return array{refund_minor: int, unused_days: int, total_days: int, paid_minor: int}|null
+     */
+    public function refundPreview(Subscription $subscription): ?array
+    {
+        $captured = $this->capturedFor($subscription);
+
+        return $captured === null
+            ? null
+            : $this->refunds->forCancellation($subscription, (int) $captured->amount_minor);
+    }
 
     public function handle(Subscription $subscription, string $reason): Subscription
     {
@@ -140,9 +163,24 @@ class CancelSubscription extends Action
                 ->whereIn('status', [OrderStatus::Approved->value, ...Order::awaitingDecisionStatuses()])
                 ->update(['status' => OrderStatus::Cancelled->value]);
 
+            $captured = $this->capturedFor($subscription);
+
+            // Measured at the cancellation instant the claim just wrote, so the
+            // officer's preview and the recorded refund agree on the day.
+            $refund = $captured === null
+                ? null
+                : $this->refunds->forCancellation(
+                    $subscription,
+                    (int) $captured->amount_minor,
+                    $subscription->cancelled_at ?? now(),
+                );
+
             $this->logActivity('subscription.cancelled', $subscription, [
                 'order_id' => $subscription->order_id,
                 'reason' => $reason,
+                'refund_minor' => $refund['refund_minor'] ?? 0,
+                'unused_days' => $refund['unused_days'] ?? 0,
+                'total_days' => $refund['total_days'] ?? 0,
             ]);
 
             /*
@@ -158,18 +196,21 @@ class CancelSubscription extends Action
             | cancelled before the money ever arrived has an order and no capture —
             | and that is not an error: there is nothing to give back.
             */
-            $captured = PaymentTransaction::query()
-                ->withoutWorkspaceScope()
-                ->where('order_id', $subscription->order_id)
-                ->where('status', PaymentStatus::Captured->value)
-                ->first();
-
             if ($captured !== null) {
-                $this->reverse->handle($captured, $reason);
+                $this->reverse->handle($captured, $reason, $refund['refund_minor'] ?? null);
             }
         });
 
         return $subscription;
+    }
+
+    private function capturedFor(Subscription $subscription): ?PaymentTransaction
+    {
+        return PaymentTransaction::query()
+            ->withoutWorkspaceScope()
+            ->where('order_id', $subscription->order_id)
+            ->where('status', PaymentStatus::Captured->value)
+            ->first();
     }
 
     /**

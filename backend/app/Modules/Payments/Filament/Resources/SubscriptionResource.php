@@ -166,8 +166,16 @@ class SubscriptionResource extends Resource
             // panel's spelling of the two-press arm the frontend uses.
             ->requiresConfirmation()
             ->modalHeading('إلغاء الاشتراك واسترداد قيمته')
-            ->modalDescription('يتوقّف الوصول فوراً وتُعكَس الدفعة كاملةً. لا استرداد جزئيّ — '
-                .'إن أردتَ الإبقاء على جزء من المبلغ فاستعمل قيداً في الدفتر بدلَ هذا الزرّ.')
+            /*
+            | ⛔ THE NUMBER IS THE ACTION'S OWN (owner decision 2026-09-27). This
+            | said «تُعكَس الدفعة كاملةً. لا استرداد جزئيّ» until the refund became
+            | the unused part only; the preview is `CancelSubscription::refundPreview()`,
+            | the same rule `handle()` records, never an estimate beside it.
+            */
+            ->modalDescription(fn (Subscription $record): string => self::refundSentence(
+                app(CancelSubscription::class)->refundPreview($record),
+                (string) ($record->currency ?? ''),
+            ))
             ->schema([
                 Textarea::make('reason')
                     ->label('السبب')
@@ -197,8 +205,31 @@ class SubscriptionResource extends Resource
                     return;
                 }
 
-                Notification::make()->success()->title('أُلغي الاشتراك وعُكِست دفعته')->send();
+                Notification::make()->success()->title('أُلغي الاشتراك وسُجِّل المبلغ المستحقّ ردُّه')->send();
             });
+    }
+
+    /**
+     * «يتوقّف الوصولُ فوراً، ويُردُّ غيرُ المستخدَم: ١٢ يوماً من ٣٠ = ٤٨٫٠٠ QAR».
+     *
+     * @param  array{refund_minor: int, unused_days: int, total_days: int, paid_minor: int}|null  $refund
+     */
+    private static function refundSentence(?array $refund, string $currency): string
+    {
+        if ($refund === null) {
+            return 'يتوقّف الوصول فوراً. لا دفعةَ محصَّلةً على هذا الاشتراك، فلا مبلغَ يُردّ.';
+        }
+
+        return sprintf(
+            'يتوقّف الوصول فوراً ويُردُّ الجزءُ غيرُ المستخدَم فقط: %d من %d يوماً (يومُ الإلغاء يُحسَب غيرَ مستخدَم) '
+            .'= %s %s من %s %s المدفوعة، مقرَّباً إلى الأدنى. الحصصُ التي قُدِّمت يبقى أجرُها للمدرّس.',
+            $refund['unused_days'],
+            $refund['total_days'],
+            number_format($refund['refund_minor'] / 100, 2),
+            $currency,
+            number_format($refund['paid_minor'] / 100, 2),
+            $currency,
+        );
     }
 
     /** @return array<string, PageRegistration> */

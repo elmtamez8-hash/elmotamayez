@@ -197,6 +197,7 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - A private hour whose only student cancels IN TIME is called off through `CancelClassSession`; a generated open slot reopens instead, and a LATE cancellation leaves the session standing because its seat is still charged.
 - A freeze has two limits (30 days · 2 starts per month per scope, both `platform_settings` rows), and the monthly one is counted in the `freeze_period_starts` ledger AFTER the transaction's first statement locks the workspace row — an `INSERT … SELECT … WHERE (SELECT COUNT(*)) < ?` is NOT atomic on MySQL (no existing row to contend on), and the private-request ceiling locks `teacher_profiles` the same way — and never counted in `freeze_periods`, because a lift deletes that row and a lifted freeze still counts.
 - Staff in the room are never students of it: `excludingHost()` keeps SEAT HOLDERS only (an assistant with `sessions.host` has a heartbeat row and no booking), and the row itself stays for the roster and for delivery.
+- `class_sessions.cancelled_by` — only a TEACHER's cancellation counts in `cancelled_sessions_count` (a student's in-time give-back of a private hour lowered the teacher's trust score); staff deleting a student's booking RELEASE it, never bill it; a late excuse is one transaction and clears the verdict before a queued charge runs; a freeze may not start in the past.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._
@@ -249,6 +250,8 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - A LOT IS OPENED BY THE SIGN OF A MOVEMENT, NEVER BY ITS TYPE — and a type list left two credits with no batch behind them.
 - `subscriptions.ends_on` IS INCLUSIVE — the last day that opens — so N days end on `starts + N − 1`, and a renewal already bought moves when a later freeze extends the month before it.
 - A GATEWAY-CAPTURED ORDER NEVER READS `approved`, so «has this order been taken back?» is `cancelled`/`rejected`, never «not approved».
+- Cancelling a plan refunds its UNUSED part only (days, or sessions for an hours plan), floored to the minor unit, and the amount is `payment_transactions.refunded_minor` — «reversed» no longer means «all of it went back»; the teacher keeps delivered sessions' pay.
+- A subscription that ends early releases the no-hold seats inside its window that no live subscription covers — even when the student keeps an outright enrolment in the course — and `liveOn($moment)` judges the status at that moment.
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._

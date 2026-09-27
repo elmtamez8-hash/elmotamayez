@@ -7,10 +7,13 @@ use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Enums\SessionCanceller;
+use App\Modules\LiveSessions\Jobs\SyncTeacherCountersJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Laravel\Sanctum\Sanctum;
 
@@ -254,4 +257,62 @@ it('leaves a private session standing when its student cancels late, because tha
     $session = ClassSession::query()->withoutWorkspaceScope()->findOrFail($request->class_session_id);
     expect($session->status)->toBe(ClassSessionStatus::Scheduled)
         ->and($booking->refresh()->status)->toBe(BookingStatus::CancelledLate);
+});
+
+/*
+| Audit 2026-09-27 — WHO called the hour off. The student's in-time give-back
+| runs `CancelClassSession`, and `SyncTeacherCountersJob` counted every cancelled
+| row against the teacher: each student who changed their mind lowered the
+| teacher's public trust score.
+*/
+it('does not count a student’s in-time give-back against the teacher', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    ['request' => $request] = acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+
+    Sanctum::actingAs($fx['student']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    $session = ClassSession::query()->withoutWorkspaceScope()->findOrFail($request->class_session_id);
+
+    (new SyncTeacherCountersJob((int) $fx['profile']->getKey()))->handle(app(WorkspaceContext::class));
+
+    expect($session->status)->toBe(ClassSessionStatus::Cancelled)
+        ->and($session->cancelled_by)->toBe(SessionCanceller::Student)
+        ->and((int) $fx['profile']->refresh()->cancelled_sessions_count)->toBe(0);
+});
+
+/*
+| Audit 2026-09-27 — the teacher pressing «إلغاء» on a student's seat went
+| through the STUDENT's door: late, it wrote `cancelled_late` + billable, so the
+| student paid for the teacher's decision.
+*/
+it('releases, never bills, a seat the teacher takes back after the deadline', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    ['request' => $request] = acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+    $this->travelTo($fx['startsAt']->subHours(2));
+
+    $this->setCurrentWorkspace($fx['workspace'], $fx['owner']);
+    Sanctum::actingAs($fx['owner']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    $session = ClassSession::query()->withoutWorkspaceScope()->findOrFail($request->class_session_id);
+
+    (new SyncTeacherCountersJob((int) $fx['profile']->getKey()))->handle(app(WorkspaceContext::class));
+
+    expect($booking->refresh()->status)->toBe(BookingStatus::Released)
+        ->and($booking->is_billable)->toBeFalse()
+        // Their own decision: counted as the teacher's, and nobody tells the
+        // teacher «the student cancelled».
+        ->and($session->status)->toBe(ClassSessionStatus::Cancelled)
+        ->and($session->cancelled_by)->toBe(SessionCanceller::Teacher)
+        ->and((int) $fx['profile']->refresh()->cancelled_sessions_count)->toBe(1)
+        ->and(wasNotified($fx['profile']->user, NotificationType::PrivateSessionCancelledByStudent))->toBeFalse();
 });

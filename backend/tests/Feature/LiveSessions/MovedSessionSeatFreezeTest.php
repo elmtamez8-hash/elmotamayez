@@ -68,3 +68,36 @@ it('freezes when the job was armed for the start the session still has', functio
 
     expect($this->session->refresh()->seats_frozen_at)->not->toBeNull();
 });
+
+/*
+| ⛔ A payload queued BEFORE 9b861e53 carries no `armedForStart` key at all, and
+| six of them sat delayed in Redis when the first one threw «must not be accessed
+| before initialization» (2026-09-25). The string below is the old class's own
+| serialisation, written out by hand so no change to the class can regenerate it.
+*/
+function oldShapeFreezePayload(int $classSessionId): string
+{
+    $class = FreezeBillableSeatsJob::class;
+    $key = "\0{$class}\0classSessionId";
+
+    return sprintf('O:%d:"%s":1:{s:%d:"%s";i:%d;}', strlen($class), $class, strlen($key), $key, $classSessionId);
+}
+
+it('runs a job queued before it carried a start, exactly as the old job did', function (): void {
+    $job = unserialize(oldShapeFreezePayload((int) $this->session->getKey()));
+
+    expect($job)->toBeInstanceOf(FreezeBillableSeatsJob::class);
+
+    $job->handle(app(WorkspaceContext::class));
+
+    // The old job was tied to no start: it froze whatever the session held.
+    expect($this->session->refresh()->seats_frozen_at)->not->toBeNull()
+        ->and($this->session->billable_seats)->toBe(0);
+});
+
+it('writes the payload the old class wrote when no start is given', function (): void {
+    $payload = serialize(new FreezeBillableSeatsJob((int) $this->session->getKey()));
+
+    expect($payload)->not->toContain('armedForStart')
+        ->and(unserialize($payload))->toBeInstanceOf(FreezeBillableSeatsJob::class);
+});

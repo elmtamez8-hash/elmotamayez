@@ -129,6 +129,10 @@ class BuildCollectionReport extends Action
             ])
             ->selectRaw('COUNT(*) as transactions')
             ->selectRaw('SUM(payment_transactions.amount_minor) as amount_minor')
+            // ⛔ What actually went back (2026-09-27). A cancelled subscription
+            // refunds its unused part only, so a `reversed` row no longer means
+            // «all of it left»; the report says how much did.
+            ->selectRaw('SUM(COALESCE(payment_transactions.refunded_minor, 0)) as refunded_minor')
             ->tap(fn (QueryBuilder $query) => $this->constrain($query, $filter))
             ->groupBy('payment_transactions.method', 'payment_transactions.status', 'payment_transactions.currency', 'orders.kind')
             ->get();
@@ -165,9 +169,10 @@ class BuildCollectionReport extends Action
             $key = $dimension === null ? null : ($row[$dimension] === null ? null : (string) $row[$dimension]);
             $index = $currency.'|'.($key ?? '');
 
-            $totals[$index] ??= ['key' => $key, 'currency' => $currency, 'transactions' => 0, 'amount_minor' => 0];
+            $totals[$index] ??= ['key' => $key, 'currency' => $currency, 'transactions' => 0, 'amount_minor' => 0, 'refunded_minor' => 0];
             $totals[$index]['transactions'] += (int) $row['transactions'];
             $totals[$index]['amount_minor'] += (int) $row['amount_minor'];
+            $totals[$index]['refunded_minor'] += (int) $row['refunded_minor'];
         }
 
         return array_values($totals);

@@ -38,7 +38,11 @@ use App\Shared\Data\CreditHoldResult;
  * moves `starts_at` on the SAME session row through `UpdateClassSession`, so
  * the booking, the seat and the hold all keep their identities and the hold
  * simply rides along. Adding the reschedule to a caller list in good faith
- * hands out one free session per postponement.
+ * hands out one free session per postponement. ⚠️ The ONE seat a move does
+ * release is one with NO hold — a subscription paid for it — moved past the
+ * subscription's end (`UpdateClassSession::releaseSeatsMovedPastTheirSubscription()`):
+ * nothing funds it any more, and left booked it is charged a credit with the
+ * floor off. A held seat is never touched by a move.
  */
 interface SessionCreditHolds
 {
@@ -102,4 +106,23 @@ interface SessionCreditHolds
      * credit hold two seats.
      */
     public function availableFor(User $student, int $courseId): int;
+
+    /**
+     * Which of these sessions this student holds an OPEN credit hold on.
+     *
+     * ⛔ THE QUESTION «WHO PAYS FOR THIS SEAT?» FROM THE SIDE THAT MAY NOT NAME
+     * `credit_holds` (audit 2026-09-27). A seat with an open hold is funded by
+     * credits; a seat without one was waived at booking — a subscription covered
+     * it (or the workspace collects by hand). When a subscription ends early, or
+     * a seat it covered is moved past its end, the seats it was paying for are
+     * exactly the ones with NO hold that no live subscription covers any more,
+     * and left booked they are charged a credit at delivery with the floor off.
+     *
+     * Bulk by signature, for the reason every contract here is: the caller walks
+     * a month of seats.
+     *
+     * @param  list<int>  $classSessionIds
+     * @return list<int> the subset with an unsettled hold for this student
+     */
+    public function openHoldSessionIds(int $studentUserId, array $classSessionIds): array;
 }

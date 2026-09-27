@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Actions;
 
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
@@ -11,6 +12,8 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionClash;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\SessionCreditHolds;
+use App\Shared\Contracts\SubscriptionDirectory;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +27,12 @@ use Illuminate\Support\Facades\DB;
  */
 class UpdateClassSession extends Action
 {
+    public function __construct(
+        private readonly SubscriptionDirectory $subscriptions,
+        private readonly SessionCreditHolds $holds,
+        private readonly CancelBooking $bookings,
+    ) {}
+
     /** @param array<string, mixed> $attributes */
     public function handle(ClassSession $session, array $attributes): ClassSession
     {
@@ -106,6 +115,9 @@ class UpdateClassSession extends Action
         | move (two reschedule approvals, a teacher's edit racing one) from landing
         | on the same hour before this row commits.
         */
+        // Read BEFORE the save: `getOriginal()` is re-synced by it.
+        $previousStart = CarbonImmutable::instance($session->starts_at);
+
         DB::transaction(function () use ($session, $attributes, $window): void {
             if ($window !== null) {
                 SessionClash::assertFree(
@@ -134,9 +146,82 @@ class UpdateClassSession extends Action
                 ->update(['reminded_at' => null]);
 
             $this->rearmSeatFreeze($session);
+
+            $this->releaseSeatsMovedPastTheirSubscription($session, $previousStart);
         }
 
         return $session->refresh();
+    }
+
+    /**
+     * ⛔ A SEAT A SUBSCRIPTION PAID FOR, MOVED PAST THE SUBSCRIPTION'S END, IS
+     * NOBODY'S (audit 2026-09-27).
+     *
+     * The automatic claim books a subscriber with NO credit hold (027 · FR-041),
+     * because the subscription pays. Moved to a day after the subscription ends
+     * — a teacher's edit, or an accepted reschedule request, which comes through
+     * here — the seat stayed booked with no hold and no subscription behind it,
+     * and the charge billed it −1 with the floor off: a debt for a lesson the
+     * student never booked on credit.
+     *
+     * So after a move, a seat that was covered at the OLD start, has no open
+     * hold, and is not covered at the NEW start is released — `Released`, never
+     * billable. Nothing else moves: a credit-funded seat keeps its hold (the
+     * reschedule rule in `SessionCreditHolds` — a moved hold rides along), and a
+     * seat still covered at the new time (a renewal, a second plan) stays.
+     */
+    private function releaseSeatsMovedPastTheirSubscription(ClassSession $session, CarbonImmutable $previousStart): void
+    {
+        if ($session->course_id === null) {
+            return;
+        }
+
+        $seats = SessionBooking::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->where('status', BookingStatus::Booked->value)
+            ->get();
+
+        if ($seats->isEmpty()) {
+            return;
+        }
+
+        $studentIds = array_values(array_unique(array_map(
+            static fn (mixed $id): int => (int) $id,
+            $seats->pluck('student_user_id')->all(),
+        )));
+
+        $coveredBefore = $this->subscriptions->subscriberIdsAmong(
+            $studentIds,
+            (int) $session->course_id,
+            $session->type->value,
+            $previousStart,
+        );
+
+        if ($coveredBefore === []) {
+            return;
+        }
+
+        $coveredAfter = $this->subscriptions->subscriberIdsAmong(
+            $coveredBefore,
+            (int) $session->course_id,
+            $session->type->value,
+            $session->starts_at,
+        );
+
+        foreach ($seats as $seat) {
+            $studentId = (int) $seat->student_user_id;
+
+            if (! in_array($studentId, $coveredBefore, true) || in_array($studentId, $coveredAfter, true)) {
+                continue;
+            }
+
+            if ($this->holds->openHoldSessionIds($studentId, [(int) $session->getKey()]) !== []) {
+                continue;
+            }
+
+            $this->bookings->release($seat, 'نُقلت الحصة إلى ما بعد انتهاء اشتراكك.');
+        }
     }
 
     /**

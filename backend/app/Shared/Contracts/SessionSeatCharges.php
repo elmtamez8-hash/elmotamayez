@@ -29,18 +29,21 @@ use App\Models\User;
  * for that exact shape once already, in `award_entries`.
  *
  * ⚠️ THE TEACHER'S UNIT IS REVOKED WITH IT, and NOT from here. That belongs to
- * Settlement, which reaches it through the `AttendanceOverridden` event it is
- * already allowed to consume — and without it the platform pays for an excuse
- * out of its own pocket.
+ * Settlement, through {@see SessionUnitReversal} — called by `OverrideAttendance`
+ * in the SAME transaction as this reversal and the register save (a listener on
+ * `AttendanceOverridden` was the first draft, and `ContextIsolationTest` refuses
+ * it) — and without it the platform pays for an excuse out of its own pocket.
  */
 interface SessionSeatCharges
 {
     /**
      * Give back the credit this student was charged for this session.
      *
-     * @return bool whether a charge was found and reversed — false means there
-     *              was nothing to give back, which is the ordinary answer for a
-     *              seat that was exempt in the first place
+     * @return bool whether this seat's charge is now reversed — by this call OR
+     *              an earlier one (a retry after a partial failure must still
+     *              reach the teacher's side). False means there was no charge
+     *              to give back: a seat exempt or covered in the first place, or
+     *              one whose charge has not run yet
      */
     public function reverse(User $student, int $classSessionId, string $reason): bool;
 }

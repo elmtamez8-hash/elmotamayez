@@ -91,7 +91,11 @@ it('clears a seat count frozen while the session was suspended', function (): vo
 });
 
 it('does not reopen a session that has already started', function (): void {
-    $period = declareLiftableFreeze(CarbonImmutable::now()->subDay()->startOfDay(), $this->liftStart);
+    // Declared YESTERDAY, when its start was today: a freeze may not be dated
+    // into the past (audit 2026-09-27), so the clock goes back to declare it.
+    $this->travel(-1)->days();
+    $period = declareLiftableFreeze(CarbonImmutable::now()->startOfDay(), $this->liftStart);
+    $this->travelBack();
 
     // Suspended by the freeze, and the hour has since passed.
     $past = liftableSession(CarbonImmutable::now()->subHours(3));

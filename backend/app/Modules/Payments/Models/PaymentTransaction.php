@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property PaymentStatus $status
  * @property ?PaymentMethod $method
  * @property int $amount_minor
+ * @property ?int $refunded_minor what went back to the payer when this was
+ *                                reversed — the whole amount, or the unused part
+ *                                of a cancelled plan (2026-09-27). Null: not reversed
  * @property string $provider
  * @property ?int $captured_order_id
  * @property int $order_id order_id is NOT NULL
@@ -57,6 +60,8 @@ class PaymentTransaction extends BaseModel
     {
         return [
             'amount_minor' => 'integer',
+            // Not fillable: written by `ReversePayment`'s conditional UPDATE only.
+            'refunded_minor' => 'integer',
             'status' => PaymentStatus::class,
             'method' => PaymentMethod::class,
             'settled_at' => 'datetime',

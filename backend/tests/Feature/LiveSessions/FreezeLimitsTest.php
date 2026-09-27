@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\UserClock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -153,6 +154,30 @@ it('answers 422 in Arabic over the API and shows the limits beside the list', fu
         'ends_on' => $this->month->addDays(40)->toDateString(),
     ])->assertStatus(422)
         ->assertJsonPath('message', 'لا يجوز أن تتجاوز فترة التجميد الواحدة ٣٠ يوماً.');
+});
+
+/*
+| Audit 2026-09-27 — a period dated into the past counted against the month of
+| its `starts_on` (last month, whose ceiling nobody was watching) and extended
+| subscriptions by days already used. Today, in the PLATFORM zone, is the floor.
+*/
+it('refuses a period that starts in the past, at the Action and over the API', function (): void {
+    $today = CarbonImmutable::now(UserClock::platformZone())->startOfDay();
+
+    expect(fn () => freezeLimitsCreate($today->subDay(), $today->addDay()))
+        ->toThrow(DomainException::class, 'لا يجوز أن تبدأ فترة التجميد في يومٍ مضى.');
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/freeze-periods', [
+        'starts_on' => $today->subDays(20)->toDateString(),
+        'ends_on' => $today->toDateString(),
+    ])->assertStatus(422)->assertJsonValidationErrors('starts_on');
+
+    expect(FreezePeriod::query()->count())->toBe(0);
+
+    // Today itself is allowed: the freeze starts now.
+    expect(freezeLimitsCreate($today, $today->addDay())->exists)->toBeTrue();
 });
 
 it('backfills the ledger from the periods that already exist, so they count this month', function (): void {

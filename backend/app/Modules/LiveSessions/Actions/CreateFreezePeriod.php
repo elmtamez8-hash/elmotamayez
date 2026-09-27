@@ -83,6 +83,20 @@ class CreateFreezePeriod extends Action
             throw new DomainException('تاريخ نهاية التجميد قبل بدايته.');
         }
 
+        /*
+        | ⛔ A FREEZE STARTS TODAY OR LATER (audit 2026-09-27). Dated into the
+        | past, it counted against the month of its `starts_on` — last month,
+        | whose ceiling nobody was watching any more — and `FreezePeriodChanged`
+        | extended every subscription it touched by days the student had already
+        | had. The day is the PLATFORM's (`SessionSettings::timezone()`): both
+        | dates were picked off the platform calendar.
+        */
+        $today = CarbonImmutable::now($this->settings->timezone())->toDateString();
+
+        if ($startsOn->toDateString() < $today) {
+            throw new DomainException('لا يجوز أن تبدأ فترة التجميد في يومٍ مضى.');
+        }
+
         // NFR-001أ — a teacher may not act on, or learn anything about, someone
         // with no active enrolment in their own workspace. Without this the uuid
         // is an identity probe: pass any user's and the response comes back

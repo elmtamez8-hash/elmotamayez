@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Payments\Actions\PlaceCreditHold;
 use App\Modules\Payments\Data\CreditMovement;
 use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditExpired;
@@ -17,6 +19,8 @@ use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\SessionCreditHolds;
+use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -209,6 +213,63 @@ it('writes off an expired lot through the ledger, and takes it once', function (
     expect($this->balance->refresh()->remaining_credits)->toBe(2);
 
     Event::assertDispatchedTimes(CreditExpired::class, 1);
+});
+
+/*
+| Audit 2026-09-27 — the write-off took the part of a lot that was HOLDING a
+| future seat. The seat stayed booked, its charge then found no credit, and the
+| student ended the lesson negative for a lesson paid for before the date.
+*/
+it('never expires a credit that is holding a seat, and expires it once the seat lets go', function (): void {
+    Event::fake([CreditExpired::class]);
+
+    // A package with a validity: three credits that lapse tomorrow.
+    grantCredits($this->balance, 3, 'dated', CarbonImmutable::now()->addDay());
+
+    $sessions = collect([10, 12])->map(fn (int $days) => app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn (): ClassSession => ClassSession::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'course_id' => $this->course->getKey(),
+            'starts_at' => CarbonImmutable::now()->addDays($days),
+            'ends_at' => CarbonImmutable::now()->addDays($days)->addHour(),
+        ]),
+    ));
+
+    foreach ($sessions as $session) {
+        expect(app(PlaceCreditHold::class)->handle($this->balance->refresh(), (int) $session->getKey()))->toBeTrue();
+    }
+
+    $this->travel(2)->days();
+
+    app(ExpireCreditLotsJob::class)->handle(app(CreditLedger::class));
+
+    // Only the FREE credit lapsed; the two holding seats are still owned.
+    expect($this->balance->refresh()->remaining_credits)->toBe(2)
+        ->and($this->balance->held_credits)->toBe(2)
+        ->and((int) CreditLot::query()->withoutWorkspaceScope()->sum('credits_remaining'))->toBe(2);
+
+    app(ReconcileCreditBalancesJob::class)->handle();
+    expect(lastRun()->findings_count)->toBe(0);
+
+    // One seat is given back in time: its credit is free now, and lapses on the
+    // next run under a key of its own — the first part's key would swallow it.
+    app(SessionCreditHolds::class)->release((int) $sessions->first()->getKey(), [(int) $this->student->getKey()]);
+
+    app(ExpireCreditLotsJob::class)->handle(app(CreditLedger::class));
+
+    expect($this->balance->refresh()->remaining_credits)->toBe(1)
+        ->and($this->balance->held_credits)->toBe(1)
+        ->and(DB::table('credit_transactions')
+            ->where('type', CreditTransactionType::Expire->value)
+            ->orderBy('id')
+            ->pluck('source_type')
+            ->all())->toBe(['credit_lot', 'credit_lot_2']);
+
+    app(ReconcileCreditBalancesJob::class)->handle();
+    expect(lastRun()->findings_count)->toBe(0);
+
+    Event::assertDispatchedTimes(CreditExpired::class, 2);
 });
 
 // Dormancy — a reminder, never an expiry ---------------------------------------

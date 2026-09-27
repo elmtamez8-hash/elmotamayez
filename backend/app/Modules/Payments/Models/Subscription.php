@@ -145,8 +145,34 @@ class Subscription extends BaseModel
         $tomorrow = $today->addDay()->toDateString();
         $today = $today->toDateString();
 
+        /*
+        | ⛔ THE STATUS IS JUDGED AT THE MOMENT TOO, NOT TODAY (audit 2026-09-27).
+        | `status = active` asked a question about NOW of a moment that may be in
+        | the past: a lesson delivered on the 10th and closed after the nightly
+        | sweep expired the month on the 11th read as «not covered» and was
+        | charged a credit; a subscription cancelled this afternoon un-covered
+        | the lesson it had paid for this morning. So:
+        |
+        |  · `expired` — the sweep writes it only once `effective_ends_on` has
+        |    passed, so the date bounds below already say which moments it
+        |    covered. Admitted, and the bounds decide.
+        |  · `cancelled` — covered only before the INSTANT it was cancelled
+        |    (`cancelled_at > $moment`, a timestamp against a timestamp, never a
+        |    platform date). A future session is never covered by it.
+        |
+        | For `$moment = now()` nothing changes: an expired row fails the date
+        | bound and a cancelled row's `cancelled_at` is never after now. The
+        | charge (`ChargeSessionSeats` via `coveringSessionFor()`) and the pay
+        | (`CloseClassSession::subscriptionSeatsOf()` via `subscriberIdsAmong()`)
+        | both ask this scope at the session's own start, so they agree by
+        | construction.
+        */
         return $query
-            ->where('status', SubscriptionStatus::Active->value)
+            ->where(fn (Builder $status) => $status
+                ->whereIn('status', [SubscriptionStatus::Active->value, SubscriptionStatus::Expired->value])
+                ->orWhere(fn (Builder $cancelled) => $cancelled
+                    ->where('status', SubscriptionStatus::Cancelled->value)
+                    ->where('cancelled_at', '>', CarbonImmutable::instance($moment)->utc())))
             ->where('starts_on', '<', $tomorrow)
             ->where('effective_ends_on', '>=', $today);
     }
