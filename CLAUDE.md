@@ -155,6 +155,7 @@ _Read before touching `Modules/Assessments/`, exams, the question bank, practice
 - `PracticePool::withheldQuestionIds()` is computed PER STUDENT, so a room's door is «my own pool contains every question in it», never «I am enrolled here».
 - The course certificate issues on `CourseCompleted` ALONE, and an exam reaches it only by completing its item — and `ShouldHandleEventsAfterCommit` does NOTHING for a queued listener.
 - Starting an exam asks the course's sequence, and the attempt allowance is a claim.
+- Any code that deletes `exam_answers` (or an attempt that has them) must call `QuestionStatRollupState::requestFullRecompute()` — `AssessmentsPersonalData::answersDeleted()` is the door — or the incremental rollup keeps counting deleted answers for ever.
 
 ### Live sessions, the broadcast room and attendance → [`docs/gotchas/live-sessions.md`](docs/gotchas/live-sessions.md)
 _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room UI, attendance._
