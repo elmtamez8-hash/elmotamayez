@@ -34,7 +34,7 @@ return new class extends Migration
             $table->date('starts_on');
             $table->timestamp('created_at')->nullable();
 
-            $table->index(['workspace_id', 'student_user_id', 'starts_on']);
+            $table->index(['workspace_id', 'student_user_id', 'starts_on'], 'freeze_period_starts_scope_month_index');
         });
 
         DB::table('freeze_periods')
