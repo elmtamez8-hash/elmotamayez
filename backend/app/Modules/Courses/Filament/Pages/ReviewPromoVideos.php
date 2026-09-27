@@ -126,8 +126,8 @@ class ReviewPromoVideos extends Page implements AwaitsDecision, HasTable
     | ٢٠٢٦-٠٩-٢٧). فالجدولُ يقرأُ الحالتَينِ، والمرشِّحُ يبدأُ على «تنتظر المراجعة»
     | فيبقى الطابورُ طابوراً.
     |
-    | ⚠️ والسحبُ رفضٌ يمرُّ بـ{@see ReviewCoursePromoVideo} نفسِه، بسببٍ إلزاميّ: هو
-    | ما يقرؤه المدرّسُ ليعرفَ لماذا اختفى فيديو كان ظاهراً.
+    | ⚠️ والسحبُ رفضٌ يمرُّ بـ{@see ReviewCoursePromoVideo} نفسِه، بسببٍ إلزاميّ يُحفَظُ
+    | في سجلِّ النشاط. لا إشعارَ يُرسَلُ به للمدرّسِ اليوم، فلا يَعِدُ النصُّ بذلك.
     */
     public function table(Table $table): Table
     {
@@ -189,7 +189,7 @@ class ReviewPromoVideos extends Page implements AwaitsDecision, HasTable
                     ->color('danger')
                     ->visible(fn (Course $record): bool => $record->promo_video_status === Course::PROMO_APPROVED)
                     ->authorize(fn (): bool => static::canAccess())
-                    ->modalDescription('يختفي الفيديو من صفحة الكورس العامّة فوراً، ويصل المدرّسَ السببُ ليُصحِّح.')
+                    ->modalDescription('يختفي الفيديو من صفحة الكورس العامّة فوراً، ويُحفَظ السبب في سجلّ النشاط.')
                     ->schema([
                         Textarea::make('reason')->label('سبب سحب الاعتماد')->required()->rows(3)->maxLength(1000),
                     ])

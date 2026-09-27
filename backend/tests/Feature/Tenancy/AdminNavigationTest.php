@@ -31,6 +31,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
+use Filament\Pages\Dashboard;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Collection;
 use Livewire\Livewire;
@@ -63,9 +64,12 @@ beforeEach(function (): void {
     ]);
 
     // ثلاثةٌ تنتظرُ القرار (واحدٌ منها في مساحةِ الموظّفِ نفسِه)، وواحدٌ يُرَدُّ، وواحدٌ منتهٍ.
-    $order($this->home, OrderKind::Course, 'pending');
+    // ⚠️ `under_review` = رُفِعَ الإيصال، وهو وحدَه ما ينتظرُ الموظّف. `pending`
+    // ينتظرُ الطالبَ أن يدفع، فلا يُعَدُّ في أيِّ عدّاد.
+    $order($this->home, OrderKind::Course, 'under_review');
     $order($this->away, OrderKind::Course, 'pending');
     $order($this->away, OrderKind::Subscription, 'under_review');
+    $order($this->away, OrderKind::Subscription, 'pending');
     $order($this->away, OrderKind::Course, 'refund_due');
     $order($this->away, OrderKind::Course, 'approved');
 
@@ -151,12 +155,16 @@ it('puts every screen in a declared group, with a sort no sibling shares', funct
     $sorts = [];
 
     foreach (panelScreens() as $screen) {
-        $group = $screen::getNavigationGroup();
-
-        if ($group === null) {
+        // الصفحةُ الرئيسيّةُ للّوحةِ وحدَها بلا مجموعةٍ عن قصد، ورابطُ «الصفحة
+        // الرئيسية» ليس شاشةً مسجَّلةً أصلاً (بندٌ في `navigationItems()`).
+        if ($screen === Dashboard::class) {
             continue;
         }
 
+        $group = $screen::getNavigationGroup();
+
+        // ⚠️ لا تخطّي: شاشةٌ بلا مجموعةٍ تسقطُ في أعلى القائمةِ خارجَ كلِّ ترتيب.
+        expect($group)->not->toBeNull("{$screen} has no navigation group");
         expect(NavigationGroups::ordered())->toContain($group);
 
         $sort = $screen::getNavigationSort();
@@ -216,7 +224,7 @@ it('keeps the decision queues in «ينتظر قرارك» and nowhere else', fu
 it('counts every workspace\'s queue for a super admin who has one', function (): void {
     navigationAs(User::factory()->create(['is_super_admin' => true]), $this->home);
 
-    expect(OrderResource::getNavigationBadge())->toBe('3')
+    expect(OrderResource::getNavigationBadge())->toBe('2')
         ->and(OrderResource::getNavigationBadgeColor())->toBe('warning')
         ->and(OrderResource::getNavigationBadgeTooltip())->toBe('مبالغ يجب ردّها: 1')
         ->and(GrantCreditSubscription::getNavigationBadge())->toBe('1')
@@ -233,7 +241,7 @@ it('counts every workspace\'s queue for a super admin who has one', function ():
 it('gives the finance officer who owns a workspace the money queues, platform-wide, and nothing else', function (): void {
     navigationAs(makePlatformStaff(Roles::FINANCE_ADMIN, $this->homeOwner), $this->home);
 
-    expect(OrderResource::getNavigationBadge())->toBe('3')
+    expect(OrderResource::getNavigationBadge())->toBe('2')
         ->and(GrantCreditSubscription::getNavigationBadge())->toBe('1')
         ->and(ReviewPlanChanges::decisionQueueVisible())->toBeTrue()
         ->and(ReviewRateRequests::getNavigationBadge())->toBeNull()
@@ -277,7 +285,7 @@ it('gives the finance officer who owns a workspace every workspace\'s orders, an
     $home = Order::query()->withoutWorkspaceScope()->where('workspace_id', $this->home->getKey())->get();
 
     expect(OrderResource::canViewAny())->toBeTrue()
-        ->and(OrderResource::getEloquentQuery()->count())->toBe(5);
+        ->and(OrderResource::getEloquentQuery()->count())->toBe(6);
 
     $this->get(OrderResource::getUrl('index'))->assertOk();
     $this->get(OrderResource::getUrl('edit', ['record' => $away->first()]))->assertOk();
@@ -294,7 +302,7 @@ it('shows the super admin a card per queue, with the badge\'s own numbers, first
         ->and(DecisionQueueWidget::getSort())->toBeLessThan(-3)
         ->and(Filament::getPanel('admin')->getWidgets())->toContain(DecisionQueueWidget::class)
         ->and(decisionStats())->toBe([
-            'اعتماد المدفوعات' => '3',
+            'اعتماد المدفوعات' => '2',
             'طلبات الاشتراك' => '1',
             'طلبات المدرّسين' => '1',
             'اعتماد أسعار المدرّسين' => '1',
@@ -310,7 +318,7 @@ it('shows each officer only the cards for screens they can open', function (stri
     expect(decisionStats())->toBe($expected);
 })->with([
     'finance officer' => [Roles::FINANCE_ADMIN, [
-        'اعتماد المدفوعات' => '3',
+        'اعتماد المدفوعات' => '2',
         'طلبات الاشتراك' => '1',
         'طلبات تعديل الباقات' => '0',
         'مبالغ يجب ردّها' => '1',
@@ -365,6 +373,18 @@ it('lists the approved videos behind a filter and withdraws one through the revi
 
     expect(Course::query()->withoutWorkspaceScope()->whereKey($this->approvedVideo->getKey())->value('promo_video_status'))
         ->toBe(Course::PROMO_APPROVED);
+
+    // ⚠️ استدعاءٌ مباشرٌ على فيديو منتظِر، لا الاكتفاءُ بإخفاءِ الزرّ: Livewire
+    // يقبلُ نداءَ زرٍّ لم يُرسَم، فالحارسُ هو ما لا يتغيّرُ في الصفّ.
+    // نداءٌ خامٌ لـLivewire، لأنّ `callTableAction()` يرفضُ الزرَّ المخفيَّ قبلَ أن
+    // يصلَ الخادم — والمطلوبُ قياسُ ما يفعلُه الخادمُ بطلبٍ مصنوعٍ باليد.
+    Livewire::test(ReviewPromoVideos::class)
+        ->call('mountAction', 'withdraw', [], ['table' => true, 'recordKey' => (string) $this->pendingVideo->getKey()])
+        ->set('mountedActions.0.data.reason', 'محاولة على فيديو لم يُعتمد')
+        ->call('callMountedAction');
+
+    expect(Course::query()->withoutWorkspaceScope()->whereKey($this->pendingVideo->getKey())->value('promo_video_status'))
+        ->toBe(Course::PROMO_PENDING);
 
     Livewire::test(ReviewPromoVideos::class)
         ->filterTable('promo_video_status', Course::PROMO_APPROVED)

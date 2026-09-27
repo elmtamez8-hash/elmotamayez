@@ -113,7 +113,10 @@ class DecisionQueueWidget extends BaseWidget
     private static function queues(): array
     {
         return [
-            ['class' => OrderResource::class, 'label' => OrderResource::getNavigationLabel(), 'url' => fn (): string => OrderResource::getUrl('index')],
+            ['class' => OrderResource::class, 'label' => OrderResource::getNavigationLabel(), 'url' => fn (): string => OrderResource::getUrl('index', [
+                // ما تعدُّه البطاقةُ نفسُه: الإيصالاتُ المرفوعة، لا كلُّ الطلبات.
+                'filters' => ['status' => ['value' => OrderStatus::UnderReview->value]],
+            ])],
             ['class' => GrantCreditSubscription::class, 'label' => 'طلبات الاشتراك', 'url' => fn (): string => GrantCreditSubscription::getUrl()],
             ['class' => TeacherApplicationResource::class, 'label' => TeacherApplicationResource::getNavigationLabel(), 'url' => fn (): string => TeacherApplicationResource::getUrl('index')],
             ['class' => ReviewRateRequests::class, 'label' => ReviewRateRequests::getNavigationLabel(), 'url' => fn (): string => ReviewRateRequests::getUrl()],

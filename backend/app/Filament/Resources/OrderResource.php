@@ -69,12 +69,18 @@ class OrderResource extends Resource implements AwaitsDecision
     }
 
     /**
-     * ما ينتظرُ الاعتمادَ أو الرفض — `awaitingDecisionStatuses()` نفسُها التي
-     * يسألُها `ApproveOrder` و`RejectOrder`، لا قائمةٌ ثانيةٌ تُكتَبُ هنا.
+     * ما ينتظرُ الموظّفَ هو: طلبٌ رُفِعَ إيصالُه (`under_review`).
+     *
+     * ⚠️ **لا `awaitingDecision()`** مع أنّها ما يقبلُه `ApproveOrder`: `pending`
+     * طلبٌ ينتظرُ أن يدفعَ الطالب، ولا شيءَ يكنسُ الطلباتِ المتروكة — فعدُّه
+     * يُبقي العدّادَ فوقَ الصفرِ أبداً. قاعدةُ المالكِ نفسُها في طلباتِ
+     * المدرّسين: «يعدّ اللي مستنينك إنت بس».
      */
     public static function pendingCount(): int
     {
-        return Order::query()->withoutWorkspaceScope()->awaitingDecision()->count();
+        return Order::query()->withoutWorkspaceScope()
+            ->where('status', OrderStatus::UnderReview->value)
+            ->count();
     }
 
     /** مبالغُ دُفِعَت ويجبُ ردُّها — طابورٌ ثانٍ على الشاشةِ نفسِها. */

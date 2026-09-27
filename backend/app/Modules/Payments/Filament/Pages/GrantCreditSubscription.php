@@ -15,6 +15,7 @@ use App\Modules\Payments\Actions\PurchaseCredits;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
 use App\Modules\Payments\Data\SubscriptionIntent;
 use App\Modules\Payments\Enums\OrderKind;
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\PlanShape;
@@ -150,18 +151,18 @@ class GrantCreditSubscription extends Page implements AwaitsDecision, HasTable
     }
 
     /**
-     * طلباتُ الاشتراكِ التي تنتظرُ القرار — نصفُ الطابورِ من الجدولِ أدناه.
+     * طلباتُ الاشتراكِ التي رُفِعَ إيصالُها (`under_review`) — ما ينتظرُ الموظّف.
      *
-     * ⚠️ `awaitingDecision()` وحدَها، لا نافذةُ الأربعةَ عشرَ يوماً التي تُبقي
-     * المعتمَدَ ظاهراً (FR-027): تلك صفوفٌ تُراقَبُ لا تُقرَّر، وعدُّها يجعلُ
-     * العدّادَ لا يصلُ صفراً أبداً.
+     * ⚠️ لا `pending` (ينتظرُ أن يدفعَ الطالب، ولا شيءَ يكنسُه)، ولا نافذةُ
+     * الأربعةَ عشرَ يوماً التي تُبقي المعتمَدَ ظاهراً (FR-027): كلاهما يُبقي
+     * العدّادَ فوقَ الصفرِ على ما لا قرارَ فيه الآن. الجدولُ نفسُه يعرضُ الثلاثة.
      */
     public static function pendingCount(): int
     {
         return Order::query()
             ->withoutWorkspaceScope()
             ->where('kind', OrderKind::Subscription)
-            ->awaitingDecision()
+            ->where('status', OrderStatus::UnderReview->value)
             ->count();
     }
 
