@@ -38,6 +38,15 @@ class CreateRole extends CreateRecord
         // اسمُ الحارسِ صريحٌ ولا يُترَكُ للافتراضِ: عمودٌ في مفتاحِ التفرّد.
         $data['guard_name'] = 'web';
 
+        /*
+        | ⚠️ الحارسُ الثاني لمنتقي المساحة: من يحملُ `roles.manage` يحملُه في
+        | مساحتِه هو، فلا يُنشئُ دوراً إلّا فيها. القائمةُ المُرشَّحةُ تُشكِّلُ
+        | طلباً واحداً، وطلبُ Livewire مصنوعٌ باليدِ يحملُ أيَّ رقم.
+        */
+        if (! array_key_exists((int) ($data['team_id'] ?? 0), RoleResource::workspaceOptions())) {
+            throw new DomainException('لا يُنشَأُ دورٌ إلّا في مساحةِ عملِك.');
+        }
+
         return DB::transaction(function () use ($data, $permissions): Model {
             /*
             | ⚠️ `Role::query()->create()` لا `Role::create()`: الثانيةُ من spatie
