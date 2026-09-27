@@ -33,9 +33,15 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 | answered 401 to every person who registered (measured 2026-09-25, the day after
 | real mail went live). `signed` covers `{id}` and `{hash}`: neither can be edited
 | without invalidating the URL, which is exactly what makes the id safe to trust.
+|
+| ⚠️ THE SIGNATURE IS CHECKED IN `verifyEmail()`, NOT BY THE `signed` MIDDLEWARE
+| (2026-09-27). The middleware answers an EXPIRED link — the ordinary case, a
+| mail opened the next day — with a raw 403 page, so the person never reached
+| `/login?verified=0` and its «resend» prompt. Same check, same strictness; only
+| the refusal is a redirect now. Nothing is written before it passes.
 */
 Route::get('/auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed', 'throttle:public'])
+    ->middleware(['throttle:public'])
     ->name('verification.verify');
 
 /*
@@ -80,7 +86,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
-    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    /*
+    | ⛔ It had NO limiter until 2026-09-27: a stolen bearer token could guess
+    | the current password here without end, a bcrypt comparison per try. Its
+    | OWN limiter, keyed by the account, and NOT `throttle:auth` — that one's
+    | second key is `email:` + a field this request does not carry, so it would
+    | be one bucket for every account on the platform (the `panel-handoff`
+    | defect above).
+    */
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:change-password');
     /*
     | صورةُ الحسابِ وبياناتُ الطالبِ الدراسيّة — بابانِ لم يكونا موجودَينِ إطلاقاً.
     |

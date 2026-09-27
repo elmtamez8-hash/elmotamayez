@@ -336,4 +336,36 @@ describe('profile management', function (): void {
             'password_confirmation' => 'samepass1',
         ])->assertStatus(422)->assertJsonValidationErrors(['password']);
     });
+
+    /*
+    | ⛔ No limiter until 2026-09-27: a stolen token could guess the current
+    | password here for ever. Keyed by the ACCOUNT — `throttle:auth` would have
+    | been one bucket for everybody, its `email:` key being empty on this route —
+    | so the sixth guess is refused and a different account is untouched.
+    */
+    it('limits guesses at the current password per account', function (): void {
+        $user = User::factory()->create(['password' => 'oldpass123']);
+        Sanctum::actingAs($user);
+
+        $guess = fn () => $this->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'wrongpassword',
+            'password' => 'newpass456',
+            'password_confirmation' => 'newpass456',
+        ]);
+
+        foreach (range(1, 5) as $ignored) {
+            $guess()->assertStatus(422);
+        }
+
+        $guess()->assertStatus(429);
+
+        $other = User::factory()->create(['password' => 'otherpass1']);
+        Sanctum::actingAs($other);
+
+        $this->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'otherpass1',
+            'password' => 'newpass456',
+            'password_confirmation' => 'newpass456',
+        ])->assertOk();
+    });
 });

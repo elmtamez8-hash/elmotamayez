@@ -392,6 +392,15 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('panel-handoff', fn (Request $request) => Limit::perMinute(5)
             ->by('user:'.(string) $request->user()?->getKey()));
 
+        // Changing the password — a guess at the CURRENT one per try. Behind
+        // `auth:sanctum`, so the account is always known and is the key; the
+        // address beside it caps one machine working through several stolen
+        // tokens. Never `throttle:auth`: its `email:` key is empty here.
+        RateLimiter::for('change-password', fn (Request $request) => [
+            Limit::perMinute(5)->by('user:'.(string) $request->user()?->getKey()),
+            Limit::perMinute(20)->by('ip:'.$request->ip()),
+        ]);
+
         // Session writes: booking, cancelling, issuing a join ticket. By user for
         // the same reason as playback — a school behind one address is many
         // legitimate students racing for the same seats.

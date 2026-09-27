@@ -6,6 +6,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Tenancy\Support\Roles;
@@ -106,6 +107,34 @@ it('lets a platform admin approve, and tells the teacher when it takes effect', 
     expect($notification)->not->toBeNull()
         ->and($notification->body)->toContain('يسري من');
 });
+
+/*
+| ⛔ `2fa.required` on the decision, like the three money routes beside it.
+| `ReviewRateRequests` in /admin refused a lapsed officer by hand and said the
+| API routes did too — they did not until 2026-09-27. Asserted by the `code`,
+| never a bare 403 (the policy answers 403 as well), and by the ROW: a refusal
+| after the Action ran refused nothing.
+*/
+it('refuses a lapsed approver on both decision routes and decides nothing', function (string $verb): void {
+    $request = RateChangeRequest::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'requested_by' => $this->owner->getKey(),
+    ]);
+
+    $admin = $this->addWorkspaceMember($this->workspace, Roles::TENANT_OWNER);
+    $admin->forceFill(['is_super_admin' => true])->save();
+    $admin->securitySettings()->updateOrCreate([], ['two_factor_required_at' => CarbonImmutable::now()->subDay()]);
+    $this->setCurrentWorkspace($this->workspace, $admin);
+
+    Sanctum::actingAs($admin->refresh());
+
+    $this->postJson("/api/v1/admin/settlement/rate-requests/{$request->uuid}/{$verb}", ['reason' => 'السعر أعلى من السوق'])
+        ->assertForbidden()
+        ->assertJsonPath('code', 'two_factor_required');
+
+    expect($request->fresh()?->status)->toBe(RateRequestStatus::Pending)
+        ->and(SettlementRate::query()->where('amount_minor', '!=', 5000)->exists())->toBeFalse();
+})->with(['approve', 'reject']);
 
 it('refuses a student the settlement routes entirely', function (): void {
     $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);

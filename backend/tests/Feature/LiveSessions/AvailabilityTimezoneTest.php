@@ -119,6 +119,45 @@ it('asks a private-session request on the slot\'s own clock, on both sides of th
         ->and($slot->containsSpan(CarbonImmutable::parse('2026-11-03 14:00', 'UTC'), CarbonImmutable::parse('2026-11-03 15:00', 'UTC')))->toBeFalse();
 });
 
+/*
+| ⛔ A LESSON ENDING EXACTLY AT MIDNIGHT (2026-09-27). Its end reads 00:00 on the
+| next local date, and the one-date rule refused 23:00–00:00 inside a window
+| «until midnight» — which a time input stores as 23:59. Asked on both sides of
+| Egypt's change, because the midnight is the teacher's, not UTC's.
+*/
+it('fits a lesson ending exactly at midnight into a window that runs to midnight', function (string $endTime): void {
+    $slot = (new AvailabilitySlot)->forceFill([
+        'day_of_week' => 2, // Tuesday
+        'start_time' => '20:00:00',
+        'end_time' => $endTime,
+        'timezone' => 'Africa/Cairo',
+    ]);
+
+    // Summer (UTC+3): Tuesday 23:00 Cairo is 20:00Z; winter (UTC+2) it is 21:00Z.
+    $july = CarbonImmutable::parse('2026-07-14 20:00', 'UTC');
+    $november = CarbonImmutable::parse('2026-11-03 21:00', 'UTC');
+
+    expect($slot->containsSpan($july, $july->addHour()))->toBeTrue()
+        ->and($slot->containsSpan($november, $november->addHour()))->toBeTrue()
+        // Crossing midnight is still refused: 23:30–00:30 is on two dates.
+        ->and($slot->containsSpan($november->addMinutes(30), $november->addMinutes(90)))->toBeFalse()
+        // And UTC's midnight is not the teacher's: 00:00Z is 02:00 Wednesday in Cairo.
+        ->and($slot->containsSpan(CarbonImmutable::parse('2026-11-03 23:00', 'UTC'), CarbonImmutable::parse('2026-11-04 00:00', 'UTC')))->toBeFalse();
+})->with(['stored from the form' => '23:59:00', 'stored by the wall-clock migration' => '23:59:59']);
+
+it('does not stretch a window that ends before midnight', function (): void {
+    $slot = (new AvailabilitySlot)->forceFill([
+        'day_of_week' => 2,
+        'start_time' => '20:00:00',
+        'end_time' => '22:00:00',
+        'timezone' => 'Africa/Cairo',
+    ]);
+
+    $november = CarbonImmutable::parse('2026-11-03 21:00', 'UTC'); // 23:00 Cairo
+
+    expect($slot->containsSpan($november, $november->addHour()))->toBeFalse();
+});
+
 it('says «available now» on the slot\'s own clock', function (): void {
     cairoTuesdayAtFive($this->teacher);
 
