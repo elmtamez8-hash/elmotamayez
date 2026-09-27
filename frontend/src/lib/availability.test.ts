@@ -107,3 +107,56 @@ describe("a cleared time", () => {
     expect(blankTimeIndex([{ day_of_week: 2, start_time: "09:00", end_time: " " }])).toBe(0);
   });
 });
+
+/*
+| ⛔ A window «until midnight» is typed 23:59 — a time input cannot say 24:00 —
+| and read literally it never offered its last hour: a 23:00 one-hour start ends
+| one minute past it. 23:59 (and 23:59:59) now mean the end of that day, as the
+| server's `AvailabilitySlot::containsSpan()` reads them (PR #260).
+*/
+describe("startsWithin — a window that runs to midnight", () => {
+  it("offers the 23:00 hour of a Doha evening ending 23:59", () => {
+    const starts = startsWithin(
+      [{ day_of_week: 4, start_time: "22:00", end_time: "23:59", timezone: DOHA }],
+      60,
+      new Date("2026-11-02T00:00:00Z"),
+      1,
+    );
+
+    expect(starts.map((at) => at.toISOString())).toEqual([
+      "2026-11-05T19:00:00.000Z",
+      "2026-11-05T20:00:00.000Z",
+    ]);
+  });
+
+  it("reads 23:59:59 the same way", () => {
+    const starts = startsWithin(
+      [{ day_of_week: 4, start_time: "23:00", end_time: "23:59:59", timezone: DOHA }],
+      60,
+      new Date("2026-11-02T00:00:00Z"),
+      1,
+    );
+
+    expect(starts.map((at) => at.toISOString())).toEqual(["2026-11-05T20:00:00.000Z"]);
+  });
+
+  it("still refuses an hour that does not fit a window ending 23:30", () => {
+    const starts = startsWithin([cairo(4, "22:00", "23:30")], 60, new Date("2026-11-02T00:00:00Z"), 1);
+
+    expect(starts.map((at) => at.toISOString())).toEqual(["2026-11-05T20:00:00.000Z"]);
+  });
+
+  it("ends the day at the real midnight on the night Egypt skips it (2026-04-24)", () => {
+    /*
+     | Egypt springs forward at Friday 00:00 → 01:00. Thursday's «24:00» is the
+     | instant of the jump (22:00Z), which is where a next-day midnight that does
+     | not exist lands — so the 23:00 hour (21:00Z–22:00Z) still fits exactly.
+     */
+    const starts = startsWithin([cairo(4, "22:00", "23:59")], 60, new Date("2026-04-20T00:00:00Z"), 1);
+
+    expect(starts.map((at) => at.toISOString())).toEqual([
+      "2026-04-23T20:00:00.000Z",
+      "2026-04-23T21:00:00.000Z",
+    ]);
+  });
+});
