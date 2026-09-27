@@ -24,7 +24,7 @@ describe("CohortScheduleSlots", () => {
 
     expect(screen.getByText(formatCohortSlot(SATURDAY_FIVE_DOHA, "Africa/Cairo"))).toBeTruthy();
     expect(screen.queryByText("السبت 17:00")).toBeNull();
-    expect(screen.getByText("توقيت مصر")).toBeTruthy();
+    expect(screen.getByText("مصر — القاهرة")).toBeTruthy();
   });
 
   it("falls back to the labels when the payload carries no instants", () => {

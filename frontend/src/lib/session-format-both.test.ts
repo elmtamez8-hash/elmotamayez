@@ -25,7 +25,7 @@ describe("formatSessionTimeBoth", () => {
     const line = formatSessionTimeBoth(summer, CAIRO, DOHA, "المدرّس");
 
     expect(line).not.toContain("بتوقيتك");
-    expect(line).toContain("توقيت مصر");
+    expect(line).toContain("(توقيت مصر — القاهرة)");
   });
 
   it("prints one time when the other clock is unknown or the same", () => {

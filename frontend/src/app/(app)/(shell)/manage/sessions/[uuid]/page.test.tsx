@@ -135,7 +135,7 @@ describe("the timezone", () => {
     show.mockResolvedValue(session());
     await openPage();
 
-    expect(screen.getByText("توقيت قطر")).toBeTruthy();
+    expect(screen.getByText("قطر — الدوحة")).toBeTruthy();
     expect(screen.queryByText("Asia/Qatar")).toBeNull();
   });
 
@@ -144,8 +144,8 @@ describe("the timezone", () => {
     show.mockResolvedValue(session());
     await openPage();
 
-    expect(screen.getByText("توقيت مصر")).toBeTruthy();
-    expect(screen.queryByText("توقيت قطر")).toBeNull();
+    expect(screen.getByText("مصر — القاهرة")).toBeTruthy();
+    expect(screen.queryByText("قطر — الدوحة")).toBeNull();
   });
 });
 

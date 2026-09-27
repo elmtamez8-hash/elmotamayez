@@ -86,7 +86,7 @@ describe("the student's private-session requests", () => {
 
     // The two zones must disagree, or this proves nothing about which one ran.
     expect(cairo).not.toBe(formatSessionTime("2026-11-10T15:00:00Z", "Asia/Qatar"));
-    expect(screen.getByText((text) => text.includes(`${cairo} (توقيت مصر)`))).toBeTruthy();
+    expect(screen.getByText((text) => text.includes(`${cairo} (توقيت مصر — القاهرة)`))).toBeTruthy();
   });
 
   it("prints the teacher's hour beside the student's when their clocks differ (2026-09-26)", async () => {
