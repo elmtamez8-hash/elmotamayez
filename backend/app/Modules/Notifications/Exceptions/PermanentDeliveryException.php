@@ -17,13 +17,28 @@ use RuntimeException;
 final class PermanentDeliveryException extends RuntimeException
 {
     /**
-     * `$providerCode` rides in the exception CODE so a caller can log it: the
-     * message may echo what the provider was sent (a phone number), the code
-     * never does.
+     * ⚠️ `$reason` IS TEXT WE WROTE, NEVER TEXT A PROVIDER SENT. The message of
+     * every exception here is stored verbatim in `notification_deliveries.
+     * failure_reason`, and a provider's own error text can quote the number or
+     * the message it refused. A provider's refusal goes through
+     * {@see self::providerRefused()}, which carries only its status and code.
      */
     public static function invalidRecipient(string $reason, int $providerCode = 0): self
     {
         return new self($reason, $providerCode);
+    }
+
+    /**
+     * The provider refused the message and said retrying will not help.
+     *
+     * Built from the HTTP status and the provider's NUMERIC code alone — both
+     * enough for an operator to look the refusal up, neither able to carry a
+     * phone number or a line of the message. `$providerCode` also rides in the
+     * exception CODE, as it always has, so a caller can log it.
+     */
+    public static function providerRefused(int $status, int $providerCode = 0): self
+    {
+        return new self("رفض مزوّد القناة الرسالة (HTTP {$status}، رمز المزوّد {$providerCode}).", $providerCode);
     }
 
     public static function templateMissing(string $key): self

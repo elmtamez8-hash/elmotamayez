@@ -118,8 +118,25 @@ class DeliverNotificationJob implements ShouldQueue
             return;
         } catch (Throwable $e) {
             if ($this->attempts() >= $this->tries) {
-                $delivery->markFailed($e->getMessage());
-                NotificationFailed::dispatch($delivery, $e->getMessage(), false);
+                /*
+                | ⚠️ THE CLASS AND THE CODE, NEVER `getMessage()`. This branch
+                | catches ANY throwable, and the ordinary one is not ours: an
+                | HTTP client's message quotes the URL it called, and a
+                | `QueryException` interpolates its bindings — a phone number, a
+                | name. `failure_reason` is rendered to every operator in the
+                | admin log (http-and-security.md, the log-leak rule). The class
+                | and the code say what kind of failure it was, which is all the
+                | row is for.
+                */
+                $reason = sprintf(
+                    'تعذّر التسليم بعد %d محاولات (%s، رمز %s).',
+                    $this->tries,
+                    class_basename($e),
+                    (string) $e->getCode(),
+                );
+
+                $delivery->markFailed($reason);
+                NotificationFailed::dispatch($delivery, $reason, false);
 
                 return;
             }

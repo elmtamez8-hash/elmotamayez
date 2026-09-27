@@ -221,9 +221,6 @@ class WhatsAppChannel implements NotificationChannelInterface, SendsVerification
         $error = $response->json('error');
         $isTransient = is_array($error) && ($error['is_transient'] ?? false) === true;
         $status = $response->status();
-        $reason = is_array($error) && is_string($error['message'] ?? null)
-            ? $error['message']
-            : 'HTTP '.$status;
         $providerCode = is_array($error) && is_int($error['code'] ?? null) ? $error['code'] : 0;
 
         // ⚠️ The number is MASKED, and the provider's MESSAGE is not logged at
@@ -240,10 +237,16 @@ class WhatsAppChannel implements NotificationChannelInterface, SendsVerification
         ]);
 
         if ($status >= 400 && $status < 500 && $status !== 429 && ! $isTransient) {
-            throw PermanentDeliveryException::invalidRecipient($reason, $providerCode);
+            // ⚠️ THE STATUS AND THE CODE, NEVER THE PROVIDER'S `message`. That is
+            // free text which can quote the number it refused or the message it
+            // was asked to carry, and this exception's message is what the job
+            // stores in `notification_deliveries.failure_reason` — a column the
+            // admin log renders to every operator. The classification needs
+            // nothing from it: `is_transient` and the status decided it above.
+            throw PermanentDeliveryException::providerRefused($status, $providerCode);
         }
 
-        // ⚠️ NOT `$reason`. A transient failure is RETHROWN by the job, and the
+        // ⚠️ NOT the provider's message. A transient failure is RETHROWN by the job, and the
         // worker reports a rethrown exception — message and all — to the log.
         throw new RuntimeException('HTTP '.$status, $providerCode);
     }
