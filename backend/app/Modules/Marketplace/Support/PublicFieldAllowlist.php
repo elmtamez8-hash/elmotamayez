@@ -492,6 +492,18 @@ final class PublicFieldAllowlist
      * test is the same one the support number passed: printed on the page it
      * belongs on, by design. The operating fee and the device limit beside
      * them in `platform_settings` still fail it.
+     *
+     * ⚠️ AND THE REST OF THE NUMBERS /terms AND /refunds STATE JOIN THEM
+     * (2026-09-27, owner decision from the pre-launch audit), by the same test
+     * and nothing wider. Each one is a sentence the pages already printed to
+     * every visitor as a literal — «٢٤ حصة», «٦٠ يوماً», «٤٨ ساعة» — so publishing
+     * the live value discloses nothing that was not public, and stops the page
+     * promising a number the Action has stopped enforcing. They are durations,
+     * counts and a percentage of a session: none opens anything, prices anything
+     * or names anybody. What still fails the test is unchanged — the operating
+     * fee and the gateway's basis points (a price), the device limit and the
+     * grant TTL (a security knob), `billing.transfer` (an account). A new field
+     * here is a deliberate edit to this list AND to `PlatformIdentityTest`.
      */
     public const PLATFORM_IDENTITY = [
         'name',
@@ -501,5 +513,24 @@ final class PublicFieldAllowlist
         'contact_email',
         'freeze_max_days',
         'freeze_max_per_month',
+        'two_factor_grace_days',
+        'max_unredeemed_credits',
+        'stop_selling_after_days',
+        'dormant_notice_months',
+        'receipt_review_sla_hours',
+        'deferred_initial_credits',
+        'deferred_increase_after_on_time',
+        'deferred_increase_by_credits',
+        'deferred_max_credits',
+        'deferred_reset_after_late_days',
+        'cancellation_window_minutes',
+        'attendance_required_stay_percent',
+        'attendance_edit_window_hours',
+        'renewal_notice_days',
+        'chat_max_messages_per_minute',
+        'review_min_sessions',
+        'review_period_days',
+        'offboarding_notice_days',
+        'store_refund_window_hours',
     ];
 }

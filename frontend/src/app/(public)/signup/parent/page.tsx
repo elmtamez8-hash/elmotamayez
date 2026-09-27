@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "تسجيل وليّ أمر",
   description:
     "أنشئ حساب وليّ أمر لمتابعة حصص أبنائك وتقاريرهم الأسبوعية واختيار المدرّس المناسب لهم.",
+  // A registration form is a door, not a page to land on from a search result —
+  // and its fields would be all a crawler indexed. `follow` keeps the links.
+  robots: { index: false, follow: true },
 };
 
 export default function ParentSignupPage() {

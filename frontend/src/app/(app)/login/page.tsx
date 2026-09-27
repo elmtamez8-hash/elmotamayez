@@ -75,7 +75,14 @@ function LoginForm() {
     router.push(
       invitation
         ? `/invitations/${invitation}`
-        : safeNext(next, homePathFor(user)),
+        : safeNext(
+            next,
+            // Arrived on a broken confirmation link: the resend button needs a
+            // session, so signing in lands on the card that has it.
+            verified === "0" && user.email_verified_at === null
+              ? "/settings/security"
+              : homePathFor(user),
+          ),
     );
 
   const submit = async (e: React.FormEvent) => {
@@ -119,7 +126,15 @@ function LoginForm() {
           </Alert>
         )}
         {verified === "0" && error === "" && (
-          <Alert tone="warning" title="رابط التأكيد غير صالح أو انتهت مدّته" />
+          /*
+            ⚠️ NOT A DEAD END ANY MORE. The resend route is behind `auth:sanctum`
+            (it mails the signed-in account's own address, never one typed into
+            a form), so it cannot be called from this page — signing in takes
+            the reader straight to the card that has the button.
+          */
+          <Alert tone="warning" title="رابط التأكيد غير صالح أو انتهت مدّته">
+            سجّل الدخول، ثم اضغط «أرسل رابطًا جديدًا» في صفحة الأمان — سننقلك إليها مباشرةً.
+          </Alert>
         )}
 
         {ended !== null && error === "" && (

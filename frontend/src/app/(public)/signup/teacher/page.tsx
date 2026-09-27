@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   title: "التقديم كمدرّس",
   description:
     "قدّم طلبك للتدريس على المنصة في أربع خطوات: بياناتك، تخصصك، المستندات، ثم السعر والتوفّر.",
+  // A registration form is a door, not a page to land on from a search result —
+  // and its fields would be all a crawler indexed. `follow` keeps the links.
+  robots: { index: false, follow: true },
 };
 
 /*

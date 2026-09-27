@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class GetMarketplaceStats extends Action
 {
-    /** @return array{students: int, teachers: int, sessions: int, satisfaction_rate: int} */
+    /** @return array{students: int, teachers: int, sessions: int, satisfaction_rate: int|null} */
     public function handle(): array
     {
         return Cache::remember(
@@ -39,8 +39,16 @@ class GetMarketplaceStats extends Action
                     'students' => (int) ($aggregate?->getAttribute('students') ?? 0),
                     'teachers' => $teachers->count(),
                     'sessions' => (int) ($aggregate?->getAttribute('sessions') ?? 0),
-                    // Average stars out of 5 expressed as a percentage.
-                    'satisfaction_rate' => $rating === null ? 0 : (int) round((float) $rating / 5 * 100),
+                    /*
+                    | Average stars out of 5 expressed as a percentage — and NULL,
+                    | never 0, when no listed teacher has a rating yet. `avg()`
+                    | over no ratings is «unknown», and the home page printed it
+                    | as «٠٪ معدّل الرضا» under the platform's own name: a claim
+                    | that every family was unhappy, made by a platform nobody had
+                    | rated. The trust score has the same rule (`null`, band
+                    | `building`), for the same reason.
+                    */
+                    'satisfaction_rate' => $rating === null ? null : (int) round((float) $rating / 5 * 100),
                 ];
             },
         );

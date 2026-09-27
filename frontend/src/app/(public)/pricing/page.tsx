@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import {
   NeverExpiresIcon,
@@ -13,11 +14,16 @@ import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { PageBanner } from "@/components/ui/PageBanner";
 import { platformName } from "@/lib/platform";
 
-export const metadata: Metadata = {
-  title: "الأسعار",
-  description:
-    "لا اشتراك ولا رسوم تسجيل. تشتري رصيد حصص وتستهلكه حصة بحصة، والسعر يظهر كاملاً قبل الشراء.",
-};
+// Canonical and `og:url` on the bare path — see `publicPageMetadata()`.
+export function generateMetadata(): Promise<Metadata> {
+  return publicPageMetadata({
+    path: "/pricing",
+    title: "الأسعار",
+    description:
+      "لا اشتراك ولا رسوم تسجيل. تشتري رصيد حصص وتستهلكه حصة بحصة، والسعر يظهر كاملاً قبل الشراء.",
+    image: "/marketplace/banner-pricing.webp",
+  });
+}
 
 /*
  * ⚠️ THIS PAGE NO LONGER QUOTES A NUMBER, AND THAT IS THE FIX (spec 006, T087).

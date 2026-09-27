@@ -76,7 +76,76 @@ export type PlatformIdentity = {
    */
   freezeMaxDays: number | null;
   freezeMaxPerMonth: number | null;
+  /*
+   * Every other number /terms and /refunds state (2026-09-27, the pre-launch
+   * audit) — each a `platform_settings` row the Action that enforces it reads.
+   * `null` means «the API did not say», and the page drops that sentence.
+   */
+  terms: TermsNumbers;
 };
+
+/**
+ * The operational numbers the legal pages quote, as `GET /api/v1/platform`
+ * sends them. Whole numbers, zero allowed — a zero is a real setting (no
+ * opening credit, no store refund window) and the page words it, never a
+ * reason to fall back to a remembered default.
+ */
+export type TermsNumbers = {
+  twoFactorGraceDays: number | null;
+  maxUnredeemedCredits: number | null;
+  stopSellingAfterDays: number | null;
+  dormantNoticeMonths: number | null;
+  receiptReviewSlaHours: number | null;
+  deferredInitialCredits: number | null;
+  deferredIncreaseAfterOnTime: number | null;
+  deferredIncreaseByCredits: number | null;
+  deferredMaxCredits: number | null;
+  deferredResetAfterLateDays: number | null;
+  cancellationWindowMinutes: number | null;
+  attendanceRequiredStayPercent: number | null;
+  attendanceEditWindowHours: number | null;
+  renewalNoticeDays: number | null;
+  chatMaxMessagesPerMinute: number | null;
+  reviewMinSessions: number | null;
+  reviewPeriodDays: number | null;
+  offboardingNoticeDays: number | null;
+  storeRefundWindowHours: number | null;
+};
+
+/** The wire name of each terms number — one list, so reader and type agree. */
+const TERMS_FIELDS: Record<keyof TermsNumbers, string> = {
+  twoFactorGraceDays: "two_factor_grace_days",
+  maxUnredeemedCredits: "max_unredeemed_credits",
+  stopSellingAfterDays: "stop_selling_after_days",
+  dormantNoticeMonths: "dormant_notice_months",
+  receiptReviewSlaHours: "receipt_review_sla_hours",
+  deferredInitialCredits: "deferred_initial_credits",
+  deferredIncreaseAfterOnTime: "deferred_increase_after_on_time",
+  deferredIncreaseByCredits: "deferred_increase_by_credits",
+  deferredMaxCredits: "deferred_max_credits",
+  deferredResetAfterLateDays: "deferred_reset_after_late_days",
+  cancellationWindowMinutes: "cancellation_window_minutes",
+  attendanceRequiredStayPercent: "attendance_required_stay_percent",
+  attendanceEditWindowHours: "attendance_edit_window_hours",
+  renewalNoticeDays: "renewal_notice_days",
+  chatMaxMessagesPerMinute: "chat_max_messages_per_minute",
+  reviewMinSessions: "review_min_sessions",
+  reviewPeriodDays: "review_period_days",
+  offboardingNoticeDays: "offboarding_notice_days",
+  storeRefundWindowHours: "store_refund_window_hours",
+};
+
+/** A whole number ≥ 0, or «unknown». */
+function wholeNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** Reads every terms number out of the payload; exported for its test. */
+export function readTermsNumbers(data: Record<string, unknown> | undefined): TermsNumbers {
+  const entries = Object.entries(TERMS_FIELDS).map(([key, wire]) => [key, wholeNumber(data?.[wire])]);
+
+  return Object.fromEntries(entries) as TermsNumbers;
+}
 
 /** What the product is, when the API cannot say. */
 const IDENTITY_FALLBACK: PlatformIdentity = {
@@ -97,6 +166,8 @@ const IDENTITY_FALLBACK: PlatformIdentity = {
    */
   freezeMaxDays: null,
   freezeMaxPerMonth: null,
+  // Null throughout, for the same reason as the freeze limits.
+  terms: readTermsNumbers(undefined),
 };
 
 /**
@@ -143,6 +214,7 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
         contact_email?: unknown;
         freeze_max_days?: unknown;
         freeze_max_per_month?: unknown;
+        [field: string]: unknown;
       };
     };
     const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
@@ -169,6 +241,7 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
       contactEmail: text(body.data?.contact_email),
       freezeMaxDays: limit(body.data?.freeze_max_days),
       freezeMaxPerMonth: limit(body.data?.freeze_max_per_month),
+      terms: readTermsNumbers(body.data),
     };
   } catch {
     return IDENTITY_FALLBACK;

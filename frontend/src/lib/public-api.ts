@@ -357,7 +357,8 @@ export type MarketplaceStats = {
   students: number;
   teachers: number;
   sessions: number;
-  satisfaction_rate: number;
+  /** Null when no listed teacher has a rating yet — hidden, never shown as 0%. */
+  satisfaction_rate: number | null;
 };
 
 export type HomePayload = {

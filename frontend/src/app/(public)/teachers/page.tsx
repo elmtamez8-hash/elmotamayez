@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import {
   publicApi,
@@ -21,11 +22,16 @@ import { counted } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "المدرسون",
-  description:
-    "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والتقييم ودرجة الثقة، واحجز حصة تجريبية.",
-};
+// Canonical and `og:url` on the bare path — see `publicPageMetadata()`.
+export function generateMetadata(): Promise<Metadata> {
+  return publicPageMetadata({
+    path: "/teachers",
+    title: "المدرسون",
+    description:
+      "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والتقييم ودرجة الثقة، واحجز حصة تجريبية.",
+    image: "/marketplace/banner-teachers.webp",
+  });
+}
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

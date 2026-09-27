@@ -27,6 +27,7 @@ import type { Course } from "@/lib/types";
 import { manageCohorts, type CohortOption } from "@/lib/cohorts";
 import { userMessage } from "@/lib/errors";
 import { useAuth } from "@/lib/auth-context";
+import { can, P } from "@/lib/permissions";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The local date, as `YYYY-MM-DD`. */
@@ -448,10 +449,14 @@ export default function ManageSessionsPage() {
             توليد
           </Button>
           {/* Reached from here rather than from the nav: freezing is an action
-              on the calendar, not a section of the product. */}
-          <Button href="/manage/freeze" variant="secondary">
-            فترات التجميد
-          </Button>
+              on the calendar, not a section of the product. Gated on
+              `freeze.manage`, the permission `POST /freeze-periods` asks — not
+              on `sessions.manage`, which an assistant holds without it. */}
+          {can(user, P.freezeManage) && (
+            <Button href="/manage/freeze" variant="secondary">
+              فترات التجميد
+            </Button>
+          )}
         </div>
 
         {error !== "" && (

@@ -54,7 +54,7 @@ vi.mock("@/lib/api", () => ({
   teacher profile read, after filling both forms (2026-09-26). The page asks
   `/auth/me` up front now, so every case below names whose session it is.
 */
-let mockUser: { uuid: string; teacher_profile_uuid: string | null } | null = null;
+let mockUser: { uuid: string; teacher_profile_uuid: string | null; permissions?: string[] } | null = null;
 let mockAuthLoading = false;
 
 vi.mock("@/lib/auth-context", () => ({
@@ -399,5 +399,29 @@ describe("an account with no teacher profile", () => {
     await waitFor(() => expect(list).toHaveBeenCalled());
 
     expect(screen.queryByText("لا يمكن إنشاء حصص من هذا الحساب بعد")).toBeNull();
+  });
+});
+
+/*
+  ⛔ «فترات التجميد» was offered to everyone who could open this calendar, and
+  `/manage/freeze` writes through `POST /freeze-periods`, which asks
+  `freeze.manage` — a teacher's permission an assistant does not hold. The
+  button now asks the same permission the server does.
+*/
+describe("ManageSessionsPage — the freeze periods link", () => {
+  it("is offered to a reader who holds freeze.manage", async () => {
+    mockUser = { uuid: "u-1", teacher_profile_uuid: "p-1", permissions: ["sessions.manage", "freeze.manage"] };
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    expect(screen.getByRole("link", { name: "فترات التجميد" }).getAttribute("href")).toBe("/manage/freeze");
+  });
+
+  it("is not offered on sessions.manage alone", async () => {
+    mockUser = { uuid: "u-1", teacher_profile_uuid: "p-1", permissions: ["sessions.manage"] };
+    render(<ManageSessionsPage />);
+    await waitFor(() => expect(list).toHaveBeenCalled());
+
+    expect(screen.queryByText("فترات التجميد")).toBeNull();
   });
 });

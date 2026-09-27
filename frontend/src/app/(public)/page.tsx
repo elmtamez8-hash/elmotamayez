@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
-import { platformName } from "@/lib/platform";
+import { platformIdentity, platformName } from "@/lib/platform";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
@@ -102,12 +104,24 @@ const STEPS = [
  * reader would read «مجموعة أشخاص، ٤٤٢، طالب».
  */
 function StatBar({ stats }: { stats: HomePayload["stats"] }) {
+  /*
+   * ⚠️ A NUMBER WITH NOTHING BEHIND IT IS LEFT OUT, NEVER PRINTED AS ZERO. The
+   * bar read «٠٪ معدّل الرضا» on a platform nobody had rated yet — the API
+   * turned «no ratings» into 0 — which is a claim that every family was
+   * unhappy, under the platform's own name. The API now sends `null`; zero is
+   * dropped too, because a cached answer from before that fix still carries it,
+   * and «٠ طالب» is no more a fact about the platform than «٠٪» was.
+   */
   const items = [
     { label: "طالب", value: stats.students, Icon: UsersIcon },
     { label: "مدرّس", value: stats.teachers, Icon: AcademicCapIcon },
     { label: "حصة مكتملة", value: stats.sessions, Icon: SessionsIcon },
     { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "٪", Icon: StarIcon },
-  ];
+  ].flatMap((item) =>
+    typeof item.value === "number" && item.value > 0 ? [{ ...item, value: item.value }] : [],
+  );
+
+  if (items.length === 0) return null;
 
   return (
     <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
@@ -161,7 +175,8 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
 }
 
 export default async function HomePage() {
-  const name = await platformName();
+  const identity = await platformIdentity();
+  const name = identity.name;
 
   let home: HomePayload;
 
@@ -177,6 +192,10 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Who the platform is, for a search engine — built from the same
+          identity row the footer prints (`organizationLd`). */}
+      <JsonLd data={organizationLd(identity)} />
+
       {/* bg-grid paints squared-paper lines behind the hero and fades them out
           before they reach the body copy. Decorative only — it is a ::before with
           no content, so nothing new lands in the accessibility tree. */}

@@ -36,7 +36,8 @@ import { arabicNumber } from "@/lib/numerals";
 import { counted, YEARS_OF_EXPERIENCE } from "@/lib/labels";
 import { platformName } from "@/lib/platform";
 import { siteUrl } from "@/lib/site";
-import { absoluteHttpUrl } from "@/components/seo/JsonLd";
+import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
+import { personLd } from "@/lib/structured-data";
 import {
   ProfileTabs,
   isProfileTab,
@@ -180,6 +181,13 @@ export default async function TeacherProfilePage({
   return (
     // pb-28 on mobile keeps the fixed booking bar from covering the last section.
     <div className="mx-auto max-w-7xl px-4 py-10 pb-28 sm:px-6 lg:pb-10">
+      {/* The same canonical `generateMetadata` names — slug, encoded. */}
+      <JsonLd
+        data={personLd(
+          teacher,
+          siteUrl(`/teachers/${encodeURIComponent(teacher.slug ?? teacher.uuid)}`),
+        )}
+      />
       {/*
         | The masthead spans the page; the two-column grid starts BELOW it.
         |

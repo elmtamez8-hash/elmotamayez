@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Compliance\Support\ComplianceSettings;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Support\PublicFieldAllowlist;
+use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Store\Support\StoreSettings;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Filament\Facades\Filament;
 
@@ -87,6 +92,27 @@ it('sends the name and nothing else from the settings table', function (): void 
             'contact_email',
             'freeze_max_days',
             'freeze_max_per_month',
+            // ⚠️ And the rest of the numbers /terms and /refunds state
+            // (2026-09-27, the pre-launch audit) — the reason is on the constant.
+            'two_factor_grace_days',
+            'max_unredeemed_credits',
+            'stop_selling_after_days',
+            'dormant_notice_months',
+            'receipt_review_sla_hours',
+            'deferred_initial_credits',
+            'deferred_increase_after_on_time',
+            'deferred_increase_by_credits',
+            'deferred_max_credits',
+            'deferred_reset_after_late_days',
+            'cancellation_window_minutes',
+            'attendance_required_stay_percent',
+            'attendance_edit_window_hours',
+            'renewal_notice_days',
+            'chat_max_messages_per_minute',
+            'review_min_sessions',
+            'review_period_days',
+            'offboarding_notice_days',
+            'store_refund_window_hours',
         ]);
 });
 
@@ -117,6 +143,118 @@ it('states the freeze limits the Action enforces, as integers, and follows an op
         ->and($payload['freeze_max_per_month'])->toBe(3)
         ->and($payload['freeze_max_days'])->toBe($settings->freezeMaxDays())
         ->and($payload['freeze_max_per_month'])->toBe($settings->freezeMaxPerMonth());
+});
+
+/*
+| The rest of the numbers /terms and /refunds state, pinned to the reader each
+| Action enforces with — the freeze-limit test above, for every clause.
+|
+| ⚠️ THE CONTROLLER SPELLS EACH DEFAULT AND CLAMP A SECOND TIME (the modules that
+| own them depend on Tenancy), so two readers answer one question. This is what
+| keeps them one answer: every field against its accessor on the shipped
+| defaults, then again after an operator has moved every row — a copied default
+| that drifted from its accessor fails the first half, a field that ignores the
+| row fails the second.
+|
+| Two have no accessor of their own and are compared with the read their user
+| makes, verbatim: `TwoFactorMandate::applyTo()` and `ExpireSubscriptionsJob::warn()`.
+*/
+function termsNumbersFromAccessors(): array
+{
+    $billing = app(BillingSettings::class);
+    $sessions = app(SessionSettings::class);
+    // A 100-minute session: `requiredStaySeconds() / 60` is the percentage itself.
+    $session = (new ClassSession)->forceFill(['duration_minutes' => 100]);
+
+    return [
+        'two_factor_grace_days' => max(0, (int) PlatformSettings::get('auth.two_factor_grace_days', 14)),
+        'max_unredeemed_credits' => $billing->maxUnredeemedCredits(),
+        'stop_selling_after_days' => $billing->stopSellingAfterDays(),
+        'dormant_notice_months' => $billing->dormantNoticeMonths(),
+        'receipt_review_sla_hours' => $billing->reviewSlaHours(),
+        'deferred_initial_credits' => $billing->initialLimitCredits(),
+        'deferred_increase_after_on_time' => $billing->increaseAfterOnTime(),
+        'deferred_increase_by_credits' => $billing->increaseByCredits(),
+        'deferred_max_credits' => $billing->maxLimitCredits(),
+        'deferred_reset_after_late_days' => $billing->decreaseAfterLateDays(),
+        'cancellation_window_minutes' => $sessions->cancellationWindowMinutes(),
+        'attendance_required_stay_percent' => intdiv($sessions->requiredStaySeconds($session), 60),
+        'attendance_edit_window_hours' => $sessions->attendanceEditWindowHours(),
+        'renewal_notice_days' => (int) PlatformSettings::get('subscription.expiring_notice_days', (int) config('subscriptions.expiring_notice_days', 3)),
+        'chat_max_messages_per_minute' => CommunitySettings::maxMessagesPerMinute(),
+        'review_min_sessions' => CommunitySettings::reviewMinSessions(),
+        'review_period_days' => CommunitySettings::reviewPeriodDays(),
+        'offboarding_notice_days' => ComplianceSettings::offboardingNoticeDays(),
+        'store_refund_window_hours' => StoreSettings::refundWindowHours(),
+    ];
+}
+
+it('states every terms number the Actions enforce, as integers, and follows an operator edit', function (): void {
+    $payload = $this->getJson('/api/v1/platform')->assertOk()->json('data');
+
+    foreach (termsNumbersFromAccessors() as $field => $value) {
+        expect($payload[$field])->toBe($value, $field);
+    }
+
+    // The shipped defaults the pages used to spell by hand, so a default that
+    // moves is a decision somebody sees rather than a sentence that changes.
+    expect($payload)->toMatchArray([
+        'two_factor_grace_days' => 14,
+        'max_unredeemed_credits' => 24,
+        'stop_selling_after_days' => 60,
+        'dormant_notice_months' => 12,
+        'cancellation_window_minutes' => 1440,
+        'attendance_required_stay_percent' => 50,
+        'attendance_edit_window_hours' => 48,
+        'deferred_initial_credits' => 1,
+        'deferred_increase_after_on_time' => 3,
+        'deferred_increase_by_credits' => 1,
+        'deferred_max_credits' => 4,
+        'deferred_reset_after_late_days' => 14,
+        'renewal_notice_days' => 3,
+        'chat_max_messages_per_minute' => 30,
+    ]);
+
+    // Every row moved by an operator — stored as the strings the panel writes.
+    foreach ([
+        'auth.two_factor_grace_days' => '7',
+        'billing.max_unredeemed_credits' => '30',
+        'billing.stop_selling_after_days' => '45',
+        'billing.dormant_notice_months' => '6',
+        'billing.review_sla_hours' => '12',
+        'billing.limit.initial_credits' => '2',
+        'billing.limit.increase_after_on_time' => '5',
+        'billing.limit.increase_by_credits' => '2',
+        'billing.limit.max_credits' => '6',
+        'billing.limit.decrease_after_late_days' => '10',
+        'sessions.cancellation_window_minutes' => '720',
+        'sessions.required_stay_ratio' => '0.75',
+        'sessions.attendance_edit_window_hours' => '72',
+        'subscription.expiring_notice_days' => '5',
+        'community.chat.max_messages_per_minute' => '20',
+        'community.review.min_sessions' => '6',
+        'community.review.period_days' => '45',
+        'compliance.offboarding_notice_days' => '60',
+        'store.refund_window_hours' => '24',
+    ] as $key => $value) {
+        PlatformSettings::set($key, $value);
+    }
+
+    $payload = $this->getJson('/api/v1/platform')->assertOk()->json('data');
+
+    foreach (termsNumbersFromAccessors() as $field => $value) {
+        // `toBe()` — an integer, never the string the settings row stores.
+        expect($payload[$field])->toBe($value, $field);
+    }
+
+    expect($payload)->toMatchArray([
+        'two_factor_grace_days' => 7,
+        'cancellation_window_minutes' => 720,
+        'attendance_required_stay_percent' => 75,
+        'deferred_max_credits' => 6,
+        'renewal_notice_days' => 5,
+        'store_refund_window_hours' => 24,
+    ]);
 });
 
 /*

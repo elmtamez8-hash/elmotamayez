@@ -53,8 +53,36 @@ export const ANNOUNCEMENT_SCOPES: { key: AnnouncementScope; label: string; hint:
   { key: "session", label: "حصة واحدة", hint: "من حجز مقعداً في هذه الحصة." },
 ];
 
+/**
+ * One page of the list. `meta` and `links` arrive once the API paginates
+ * (50 a page, 2026-09-27); before that deploy the answer is a bare array,
+ * which `request()` re-wraps as `{ data }` with neither — read as «no more».
+ */
+export interface AnnouncementPage {
+  data: Announcement[];
+  meta?: { current_page?: number; last_page?: number };
+  links?: { next?: string | null };
+}
+
+/**
+ * Whether another page exists. `meta` answers first, `links.next` second, and
+ * an answer carrying neither — the unpaginated shape — has no second page.
+ */
+export function hasMoreAnnouncements(page: AnnouncementPage): boolean {
+  const { current_page: current, last_page: last } = page.meta ?? {};
+
+  if (typeof current === "number" && typeof last === "number") return current < last;
+
+  return typeof page.links?.next === "string" && page.links.next !== "";
+}
+
 export const announcements = {
-  list: () => api.get<{ data: Announcement[] }>("/manage/announcements"),
+  /*
+   * ⚠️ PAGINATED SINCE 2026-09-27 (50 a page), and it used to read `.data`
+   * alone — so the 51st announcement onwards simply did not exist on the
+   * screen. The page asks `hasMoreAnnouncements()` and offers «عرض المزيد».
+   */
+  list: (page = 1) => api.get<AnnouncementPage>(`/manage/announcements?page=${page}`),
 
   create: (input: AnnouncementInput) => api.post<Announcement>("/manage/announcements", input),
 

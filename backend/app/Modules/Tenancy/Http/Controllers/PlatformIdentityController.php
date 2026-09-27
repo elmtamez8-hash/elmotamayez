@@ -64,7 +64,60 @@ class PlatformIdentityController extends Controller
                  */
                 'freeze_max_days' => max(1, (int) PlatformSettings::get('sessions.freeze_max_days')),
                 'freeze_max_per_month' => max(1, (int) PlatformSettings::get('sessions.freeze_max_per_month')),
+                ...$this->termsNumbers(),
             ],
         ]);
+    }
+
+    /**
+     * Every other operational number /terms and /refunds state (owner decision
+     * 2026-09-27, the pre-launch audit). Same reason as the freeze limits above:
+     * the pages spelled «٢٤ حصة», «٦٠ يوماً», «٢٤ ساعة»… in their text while each is
+     * a `platform_settings` row an operator edits from the panel — so the day one
+     * moved, the page promised a number the Action no longer honoured.
+     *
+     * ⚠️ EACH LINE REPEATS ITS ACCESSOR'S DEFAULT AND CLAMP, CHARACTER FOR
+     * CHARACTER, and `PlatformIdentityTest` compares every field against the
+     * accessor itself (`BillingSettings`, `SessionSettings`, `CommunitySettings`,
+     * `ComplianceSettings`, `StoreSettings`, `TwoFactorMandate`) before and after
+     * an operator edit. Read here rather than through those classes for the
+     * reason the freeze limits give: they live in modules that depend on this one.
+     *
+     * @return array<string, int>
+     */
+    private function termsNumbers(): array
+    {
+        return [
+            // TwoFactorMandate::applyTo() — clamped at the point of use.
+            'two_factor_grace_days' => max(0, (int) PlatformSettings::get('auth.two_factor_grace_days', 14)),
+            // BillingSettings — the escrow guards and the dormancy notice.
+            'max_unredeemed_credits' => max(1, (int) PlatformSettings::get('billing.max_unredeemed_credits', config('billing.max_unredeemed_credits', 24))),
+            'stop_selling_after_days' => max(1, (int) PlatformSettings::get('billing.stop_selling_after_days', config('billing.stop_selling_after_days', 60))),
+            'dormant_notice_months' => max(1, (int) PlatformSettings::get('billing.dormant_notice_months', 12)),
+            'receipt_review_sla_hours' => max(1, (int) PlatformSettings::get('billing.review_sla_hours', config('billing.review_sla_hours', 24))),
+            // BillingSettings — the deferred-payment (credit-limit) ladder.
+            'deferred_initial_credits' => max(0, (int) PlatformSettings::get('billing.limit.initial_credits', 1)),
+            'deferred_increase_after_on_time' => max(1, (int) PlatformSettings::get('billing.limit.increase_after_on_time', 3)),
+            'deferred_increase_by_credits' => max(0, (int) PlatformSettings::get('billing.limit.increase_by_credits', 1)),
+            'deferred_max_credits' => max(0, (int) PlatformSettings::get('billing.limit.max_credits', 4)),
+            'deferred_reset_after_late_days' => max(1, (int) PlatformSettings::get('billing.limit.decrease_after_late_days', 14)),
+            // SessionSettings — cancellation, the attendance bar, corrections.
+            'cancellation_window_minutes' => (int) PlatformSettings::get('sessions.cancellation_window_minutes', 1440),
+            // The share of the session a student must stay to count as having
+            // attended (`requiredStaySeconds()` — the bar `CloseClassSession`
+            // charges against), as a whole percentage.
+            'attendance_required_stay_percent' => (int) round((float) PlatformSettings::get('sessions.required_stay_ratio', 0.5) * 100),
+            'attendance_edit_window_hours' => (int) PlatformSettings::get('sessions.attendance_edit_window_hours', 48),
+            // ExpireSubscriptionsJob::warn() — below one, no reminder is sent.
+            'renewal_notice_days' => (int) PlatformSettings::get('subscription.expiring_notice_days', (int) config('subscriptions.expiring_notice_days', 3)),
+            // CommunitySettings — the chat limiter and the review door.
+            'chat_max_messages_per_minute' => (int) PlatformSettings::get('community.chat.max_messages_per_minute', 30),
+            'review_min_sessions' => (int) PlatformSettings::get('community.review.min_sessions', 4),
+            'review_period_days' => (int) PlatformSettings::get('community.review.period_days', 30),
+            // ComplianceSettings — a departing teacher's notice period.
+            'offboarding_notice_days' => (int) PlatformSettings::get('compliance.offboarding_notice_days', 30),
+            // StoreSettings — the store's self-service refund window.
+            'store_refund_window_hours' => max(0, (int) PlatformSettings::get('store.refund_window_hours', config('store.refund_window_hours', 48))),
+        ];
     }
 }

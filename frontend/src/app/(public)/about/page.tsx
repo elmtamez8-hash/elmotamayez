@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "@/lib/seo";
 import Link from "next/link";
 import {
   ApplicationIcon,
@@ -18,11 +19,14 @@ import {
 export async function generateMetadata(): Promise<Metadata> {
   const name = await platformName();
 
-  return {
+  // Canonical and `og:url` on the bare path — see `publicPageMetadata()`.
+  return publicPageMetadata({
+    path: "/about",
     title: "عن المنصة",
     description:
       `${name} منصة عربية تنطلق من قطر تربط الطلاب وأولياء الأمور بمدرّسين يمرّون بمراجعة أكاديمية، مع درجة ثقة شفّافة لكل مدرّس.`,
-  };
+    image: "/marketplace/banner-about.webp",
+  });
 }
 
 /**

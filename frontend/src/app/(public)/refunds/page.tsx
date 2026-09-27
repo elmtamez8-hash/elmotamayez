@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { LegalDraft } from "@/components/marketplace/LegalDraft";
 import { RefundIcon } from "@/components/icons";
+import {
+  attendanceBar,
+  cancellationWindow,
+  dormancyPeriod,
+  storeRefundSentence,
+} from "@/lib/legal-terms";
 import { platformIdentity } from "@/lib/platform";
 
 export const metadata: Metadata = {
@@ -19,9 +25,18 @@ export const metadata: Metadata = {
  * in `refund_due` until an officer marks the transfer made.
  *
  * ⚠️ AND NO PROCESSING TIME IS PROMISED, because nothing enforces one.
+ *
+ * ⚠️ AND NO OPERATIONAL NUMBER IS WRITTEN HERE — the same rule as `/terms`:
+ * each is a `platform_settings` row read live from `GET /api/v1/platform`, and
+ * a number the API did not send drops its sentence.
  */
 export default async function RefundsPage() {
   const identity = await platformIdentity();
+  const { terms } = identity;
+  const freeWindow = cancellationWindow(terms.cancellationWindowMinutes);
+  const bar = attendanceBar(terms.attendanceRequiredStayPercent);
+  const dormancy = dormancyPeriod(terms.dormantNoticeMonths);
+  const storeRefund = storeRefundSentence(terms.storeRefundWindowHours);
 
   return (
     <LegalDraft
@@ -51,12 +66,15 @@ export default async function RefundsPage() {
       <h2>الحصص التي لا تُخصم أصلاً</h2>
       <p>في هذه الحالات لا يُخصم شيء، أو تعود الحصة إلى رصيدك دون أن تطلب:</p>
       <ul>
-        <li>ألغيت الحجز قبل موعد الحصة بـ٢٤ ساعة على الأقل.</li>
+        {freeWindow && <li>{`ألغيت الحجز قبل موعد الحصة بما لا يقلّ عن ${freeWindow}.`}</li>}
         <li>ألغى المدرّس الحصة، أو لم يحضر، أو لم يقدّمها.</li>
         <li>قبل المدرّس عذرك قبل انتهاء الحصة، أو أخرجك منها.</li>
         <li>صُحّح حضورك إلى «معذور» بعد الخصم، فتعود الحصة إلى رصيدك.</li>
       </ul>
-      <p>أما الغياب دون عذر، أو الإلغاء المتأخر، أو حضور أقل من نصف الحصة، فتُخصم فيه الحصة.</p>
+      <p>
+        أما الغياب دون عذر، أو الإلغاء المتأخر{bar && `، أو حضور أقل من ${bar}`}، فتُخصم فيه
+        الحصة.
+      </p>
 
       <h2>الكورسات</h2>
       <p>
@@ -68,22 +86,29 @@ export default async function RefundsPage() {
       <ul>
         <li>يُردّ من الشحنة ما لم تستهلكه منها فقط. الحصص التي حضرتها أو خُصمت منك تبقى مخصومة.</li>
         <li>تُلغى الحجوزات القادمة التي كانت ممولةً من تلك الحصص.</li>
-        <li>الرصيد الذي لا يتحرّك لا يسقط؛ نرسل لك تنبيهاً بعد ١٢ شهراً، وإن أردت استرداده فتواصل مع الدعم.</li>
+        <li>
+          الرصيد الذي لا يتحرّك لا يسقط؛
+          {dormancy ? ` نرسل لك تنبيهاً بعد ${dormancy}، ` : " "}
+          وإن أردت استرداده فتواصل مع الدعم.
+        </li>
       </ul>
 
       <h2>الاشتراكات</h2>
-      <p>
-        إلغاء الاشتراك تتولّاه المنصّة، وهو ردٌّ للمبلغ كاملاً مع إغلاق الوصول، بلا تقسيطٍ على الأيام
-        المستعملة. وإن كنت قد اشتريت تجديداً، يبدأ التجديد من يوم الإلغاء. ولا يتجدّد أي اشتراك
-        تلقائياً، فلا حاجة لإلغاء شيءٍ إن لم تُرد شهراً آخر.
-      </p>
+      {/* The owner's rule of 2026-09-27 — the same words as `/terms`. */}
+      <ul>
+        <li>إلغاء الاشتراك تتولّاه المنصّة، ويُغلق الوصول عند الإلغاء.</li>
+        <li>
+          يُردّ لك الجزء غير المستعمل من الاشتراك فقط: في اشتراك المدّة بنسبة الأيام المتبقّية منه،
+          وفي اشتراك عدد الحصص بعدد الحصص التي لم تُقدَّم لك بعد.
+        </li>
+        <li>الحصص التي قُدِّمت لك لا يُردّ ثمنها.</li>
+        <li>إن كنت قد اشتريت تجديداً، يبدأ التجديد من يوم الإلغاء.</li>
+        <li>لا يتجدّد أي اشتراك تلقائياً، فلا حاجة لإلغاء شيءٍ إن لم تُرد مدّةً أخرى.</li>
+      </ul>
 
       <h2>المتجر</h2>
       <ul>
-        <li>
-          يمكنك طلب الاسترداد من صفحة مشترياتك خلال ٤٨ ساعة من الشراء، بشرط ألّا تكون قد فتحت الملف
-          الرقمي، وألّا تكون النسخة المطبوعة قد شُحنت. ولكل مشترى طلب استرداد واحد.
-        </li>
+        {storeRefund && <li>{storeRefund}</li>}
         <li>إن نفد المخزون بعد دفعك، يصير طلبك مستحقَّ الردّ تلقائياً ونُبلغك بذلك.</li>
         <li>يبقى الطلب «مستحقّ الردّ» حتى تحوّل إليك الإدارةُ المبلغ فعلاً، ثم يُغلق.</li>
       </ul>

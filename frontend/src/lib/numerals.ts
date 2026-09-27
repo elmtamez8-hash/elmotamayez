@@ -46,3 +46,16 @@ export function arabicDecimal(value: number, digits = 1): string {
     maximumFractionDigits: digits,
   });
 }
+
+/**
+ * Every Western digit in a string as its Arabic-Indic twin, and nothing else
+ * touched — for numbers that are TEXT rather than quantities: a year, a version,
+ * a phone number.
+ *
+ * ⚠️ NOT `arabicNumber()`, WHICH GROUPS. `arabicNumber(2026)` is «٢٬٠٢٦» — a
+ * thousands separator inside a year — and a phone number or «1.1» is not a
+ * number to format at all: its separators and leading zeros are part of it.
+ */
+export function arabicDigits(text: string | number): string {
+  return String(text).replace(/[0-9]/g, (digit) => String.fromCharCode(0x0660 + Number(digit)));
+}

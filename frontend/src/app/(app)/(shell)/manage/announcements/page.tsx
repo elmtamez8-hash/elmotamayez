@@ -15,6 +15,7 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { api } from "@/lib/api";
 import {
   announcements,
+  hasMoreAnnouncements,
   type Announcement,
   type AnnouncementInput,
 } from "@/lib/announcements";
@@ -45,18 +46,48 @@ export default function AnnouncementsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  // The list is paginated (50 a page): the last page read, and whether another exists.
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState<string | null>(null);
 
+  // Back to page one — after every write too, so a new or edited notice is
+  // never hiding behind pages the reader had already opened.
   const load = useCallback(() => {
     setState("loading");
+    setMoreError(null);
 
     announcements
-      .list()
+      .list(1)
       .then((response) => {
         setRows(response.data ?? []);
+        setPage(1);
+        setHasMore(hasMoreAnnouncements(response));
         setState("ready");
       })
       .catch(() => setState("error"));
   }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    setMoreError(null);
+
+    try {
+      const response = await announcements.list(page + 1);
+      const seen = new Set(rows.map((row) => row.uuid));
+
+      // A notice published meanwhile shifts every page by one; the uuid check
+      // keeps the row that slid across the boundary from appearing twice.
+      setRows([...rows, ...(response.data ?? []).filter((row) => !seen.has(row.uuid))]);
+      setPage(page + 1);
+      setHasMore(hasMoreAnnouncements(response));
+    } catch (err) {
+      setMoreError(userMessage(err));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(load, [load]);
 
@@ -250,6 +281,15 @@ export default function AnnouncementsPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {state === "ready" && hasMore && (
+        <div className="flex flex-col items-center gap-2">
+          {moreError !== null && <p className="text-sm text-danger-ink">{moreError}</p>}
+          <Button variant="secondary" onClick={loadMore} loading={loadingMore}>
+            عرض المزيد
+          </Button>
+        </div>
       )}
     </div>
   );

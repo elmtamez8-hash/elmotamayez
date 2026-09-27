@@ -79,6 +79,19 @@ export function toViewerSlot(slot: Slot, viewerZone: string, from: Date = new Da
 }
 
 /**
+ * Whether a window runs to the END of its day. A time input cannot say 24:00, so
+ * a teacher free «until midnight» types 23:59 (or the API echoes 23:59:59).
+ *
+ * ⛔ READ LITERALLY, 23:59 LOST THE LAST HOUR OF EVERY SUCH EVENING: a 23:00
+ * one-hour start ends at 24:00, one minute past the window, so it was never
+ * offered. The server reads it the same way since PR #260
+ * (`AvailabilitySlot::containsSpan()`), so the hour offered here is accepted.
+ */
+function endsAtMidnight(slot: Slot): boolean {
+  return slot.end_time === "23:59" || slot.end_time.startsWith("23:59:");
+}
+
+/**
  * Every start a student could ask for: each declared window, cut into slots that
  * FIT — the whole duration, never merely its first minute (FR-016ب).
  *
@@ -94,13 +107,18 @@ export function startsWithin(windows: Slot[], minutes: number, from: Date, weeks
     const firstKey = dateKeyIn(from, zone);
 
     for (let day = 0; day <= weeks * 7; day += 1) {
-      const occurrence = occurrenceOn(window, addDaysToKey(firstKey, day));
+      const dateKey = addDaysToKey(firstKey, day);
+      const occurrence = occurrenceOn(window, dateKey);
 
       if (occurrence === null) continue;
 
+      const end = endsAtMidnight(window)
+        ? zonedWallTimeToInstant(addDaysToKey(dateKey, 1), "00:00", zone).getTime()
+        : occurrence.end.getTime();
+
       for (
         let slot = occurrence.start.getTime();
-        slot + minutes * 60_000 <= occurrence.end.getTime();
+        slot + minutes * 60_000 <= end;
         slot += minutes * 60_000
       ) {
         if (slot > from.getTime()) out.push(new Date(slot));

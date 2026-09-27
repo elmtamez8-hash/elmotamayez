@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { EmailVerificationSection } from "./EmailVerificationSection";
 import { SetupQr } from "./SetupQr";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -77,6 +78,10 @@ export default function SecuritySettingsPage() {
         *because* they were told to turn it on. Order by what the reader came to
         do, not by what the endpoint returns first.
       */}
+      {/* Shown only to an unconfirmed address — and first, because the login
+          page's «رابط التأكيد غير صالح» sends its reader here for it. */}
+      <EmailVerificationSection />
+
       <TwoFactorSection />
 
       <PageHeader
