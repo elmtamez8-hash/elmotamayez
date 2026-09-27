@@ -26,6 +26,14 @@ ENV NEXT_PUBLIC_REVERB_SCHEME=$NEXT_PUBLIC_REVERB_SCHEME
 # The PUBLIC half only — it is the JWT `iss` by protocol. Empty until the server
 # `.env` carries VAPID keys, and `pushAvailable()` then hides the card.
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+# ⚠️ الأصلُ المطلقُ للموقع **وقتَ البناءِ أيضاً**، لا وقتَ التشغيلِ وحدَه. الصفحاتُ
+# التي يُصيِّرُها Next أثناءَ `next build` (‏/terms و/refunds وصفحةُ ٤٠٤) تخبزُ
+# `canonical` و`og:image` في HTML حينَها، و`environment:` في compose لا وجودَ له
+# داخلَ `docker build` — فكانت أوّلُ استجابةٍ بعدَ كلِّ نشرةٍ تقولُ لمحرّكاتِ البحثِ
+# إنّ الصفحةَ على `http://localhost:3000`. ليسَ `NEXT_PUBLIC_`: يقرؤه كودُ الخادمِ
+# وحدَه (`lib/site.ts`)، ويبقى في `environment:` لِما يُصيَّرُ وقتَ الطلب.
+ARG SITE_URL
+ENV SITE_URL=$SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # ⚠️ يبني بلا API، ويجبُ أن ينجحَ كذلك: صفحاتُ المتجرِ الأربعُ تُهيَّأُ مسبقاً
