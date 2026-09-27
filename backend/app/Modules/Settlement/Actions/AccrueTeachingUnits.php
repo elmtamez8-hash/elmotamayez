@@ -108,6 +108,11 @@ class AccrueTeachingUnits extends Action
         | `AttendanceHasNoFinancialEffectTest` fails the build over a breach. A
         | student who bought a LESSON bought the seat and pays for it whether they
         | come or not; a subscriber bought a MONTH, and the month has already paid.
+        |
+        | ⚠️ ONE OTHER READER, BY OWNER DECISION (2026-09-27): `compensateEmptySession()`
+        | asks the same measured join to tell «booked and did not attend» from «an
+        | open slot nobody took». It moves nothing on the STUDENT's side, and it is
+        | reached only when no seat is charged at all.
         */
         $attended = $subscriptionSeats === [] ? [] : $this->attendedStudentIds($session);
 
@@ -401,7 +406,8 @@ class AccrueTeachingUnits extends Action
     }
 
     /**
-     * A session nobody booked.
+     * A session with no seat holder — nobody booked it, or every booking was
+     * cancelled in time or released. Only the second can ever be compensated.
      *
      * Earns nothing by default (FR-008هـ): zero seats is a suspicious state —
      * a mis-scheduled slot, a test, an attempt to route around the platform — and
@@ -414,6 +420,32 @@ class AccrueTeachingUnits extends Action
     private function compensateEmptySession(ClassSession $session, int $billableSeats): array
     {
         if (! $this->settings->zeroAttendanceCompensationEnabled()) {
+            return [];
+        }
+
+        /*
+        | ⛔ ONLY A SESSION SOMEBODY BOOKED AND DID NOT ATTEND (owner decision
+        | 2026-09-27). An open slot nobody ever booked earns nothing, with the
+        | switch on or off: paying for it is paying a teacher to publish empty
+        | hours, which is the habit FR-008هـ exists to stop.
+        |
+        | ⚠️ AND WHAT CAN ACTUALLY REACH THIS LINE IS NARROWER THAN IT SOUNDS. A
+        | student who booked and did not come still holds their seat (`Booked`),
+        | so that session takes the normal path above and is paid IN FULL. The
+        | bookings left here are the ones that no longer hold a seat — cancelled
+        | in time or released — so «booked and did not attend» means one of those,
+        | for a student with no measured join (`first_joined_at`).
+        |
+        | Enforced here, in the Action, and not in the setting's help text: the
+        | seeders, the listener and the repair paths all come through this door.
+        */
+        $attended = $this->attendedStudentIds($session);
+
+        $bookedAndAbsent = $session->bookings()
+            ->when($attended !== [], fn ($query) => $query->whereNotIn('student_user_id', $attended))
+            ->exists();
+
+        if (! $bookedAndAbsent) {
             return [];
         }
 

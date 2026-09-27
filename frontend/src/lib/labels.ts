@@ -1,5 +1,6 @@
 import { arabicNumber } from "./numerals";
 import { zonedWallTimeToInstant } from "./timezone";
+import { timezonePlace } from "./timezone-names";
 /**
  * Arabic labels for the status strings the API returns.
  *
@@ -325,23 +326,19 @@ export function certificateReasonLabel(reason: string): string {
 }
 
 /**
- * Arabic for an IANA timezone name. `Asia/Qatar` was printed raw on the
+ * Arabic for an IANA timezone name — «قطر — الدوحة», the SAME name the
+ * «المنطقة الزمنية» picker shows (owner decision 2026-09-27: one naming, the
+ * «البلد — المدينة» form, everywhere). `Asia/Qatar` was printed raw on the
  * teacher's session page. The fallback is the name itself: a zone nobody has
  * translated yet is still correct, and a blank would hide it.
+ *
+ * ⚠️ The label is a PLACE, not a phrase: a sentence that means «on that clock»
+ * writes «بتوقيت» / «توقيت» itself («بتوقيت قطر — الدوحة»). The map lives in
+ * `timezone-names.ts`, and the server's copy (`TimezoneLabel.php`) is held to
+ * it by `TimezoneLabelParityTest`.
  */
 export function timezoneLabel(timezone: string): string {
-  return (
-    {
-      "Asia/Qatar": "توقيت قطر",
-      "Asia/Riyadh": "توقيت السعودية",
-      "Asia/Dubai": "توقيت الإمارات",
-      "Asia/Kuwait": "توقيت الكويت",
-      "Asia/Bahrain": "توقيت البحرين",
-      "Asia/Muscat": "توقيت عُمان",
-      "Africa/Cairo": "توقيت مصر",
-      UTC: "التوقيت العالمي",
-    }[timezone] ?? timezone
-  );
+  return timezonePlace(timezone) ?? timezone;
 }
 
 export function roleLabel(role: string, label?: string | null): string {

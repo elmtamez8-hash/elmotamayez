@@ -286,7 +286,7 @@ export function PrivateSessionRequestForm({
     <div className="flex flex-col gap-4">
       <p className="text-sm text-ink-muted">
         مدة الحصة الخاصة في هذا الكورس {counted(length, NOUNS.minutes)}، يحدّدها المدرّس. اختر موعداً
-        من مواعيده المعلَنة. المواعيد بـ<bdi>{timezoneLabel(zone)}</bdi>.
+        من مواعيده المعلَنة. المواعيد بتوقيت <bdi>{timezoneLabel(zone)}</bdi>.
       </p>
 
       {error && <Alert tone="danger" title="لم يُرسل الطلب">{error}</Alert>}

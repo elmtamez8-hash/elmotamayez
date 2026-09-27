@@ -31,6 +31,11 @@ done
 echo "▸ :latest ← :$TAG"
 docker tag "elmotamayez-backend:$TAG" elmotamayez-backend:latest
 docker tag "elmotamayez-frontend:$TAG" elmotamayez-frontend:latest
+# ⚠️ و`:reverb` معها (له وسمُه منذُ ٢٠٢٦-٠٩-٢٧، انظر `deploy.sh`)، وتُحذَفُ علامتُه:
+# العلامةُ تقولُ «Reverb مبنيٌّ من commit كذا»، وبعدَ التراجعِ لم يعدْ ذلك صحيحاً —
+# فتتركُ النشرةَ التاليةَ تقرّرُ من جديدٍ وتَسِمُه من بنائِها.
+docker tag "elmotamayez-backend:$TAG" elmotamayez-backend:reverb
+rm -f docker/.reverb-image.sha
 
 echo "▸ إعادةُ إنشاءِ الخدماتِ من الصورةِ المُستعادة"
 $COMPOSE up -d --no-deps --no-build backend frontend horizon scheduler reverb

@@ -384,6 +384,7 @@ _Read before touching `docker/`, `scripts/`, Horizon, the scheduler, env and sec
 - The backend image had NO `php.ini` until 2026-09-25 — and `opcache.validate_timestamps=0` now means a manual `artisan config:cache` in a running container is invisible to FPM until it restarts.
 - A job that fails for good mails `HORIZON_NOTIFICATION_EMAIL` once per class per hour; a server that is DOWN alerts nobody without an external uptime check.
 - The deploy checks out the SHA CI tested, and rollback is `bash scripts/rollback.sh` — images only, never the code or the migrations.
+- `reverb` runs its own `:reverb` tag, moved only when what it reads changed — and that tag must never be pruned; a Meilisearch image bump is a new volume plus `search:rebuild-indexes`, once per tag.
 
 ### Testing (pest, vitest, Playwright) → [`docs/gotchas/testing.md`](docs/gotchas/testing.md)
 _Read before touching writing or debugging any test._

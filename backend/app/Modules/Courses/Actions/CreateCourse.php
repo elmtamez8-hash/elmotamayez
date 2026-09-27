@@ -11,6 +11,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\CourseSlug;
 use App\Modules\Courses\Support\CourseTeacherProfile;
 use App\Modules\Courses\Support\SubjectResolver;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
@@ -80,7 +81,7 @@ class CreateCourse extends Action
             'slug' => $dto->slug ?? CourseSlug::for($dto->title),
             'description' => $dto->description,
             'price_minor' => $dto->priceMinor,
-            'currency' => $dto->currency,
+            'currency' => $dto->currency ?? app(BillingSettings::class)->currency(),
             'status' => $dto->status,
             'visibility' => $dto->visibility,
             'is_sequential' => $dto->isSequential,

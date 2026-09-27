@@ -80,7 +80,10 @@ const ZONE_PLACES: Record<string, string> = {
   "America/Los_Angeles": "الولايات المتحدة — لوس أنجلوس",
   "America/Toronto": "كندا — تورونتو",
   "America/Sao_Paulo": "البرازيل — ساو باولو",
-  UTC: "التوقيت العالمي (UTC)",
+  // Not a country, so not «البلد — المدينة»: «غرينتش (UTC)» (owner decision
+  // 2026-09-27), because every sentence writes «توقيت» before the label and
+  // «توقيت التوقيت العالمي» said it twice.
+  UTC: "غرينتش (UTC)",
 };
 
 /** The Arabic place for a zone, or `null` when nobody has named it yet. */

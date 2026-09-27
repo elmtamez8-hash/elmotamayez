@@ -53,7 +53,7 @@ class SessionSettings
         return UserClock::zoneFor($user);
     }
 
-    /** «2026-10-30 17:00 (توقيت مصر)» — {@see UserClock::format()}. */
+    /** «2026-10-30 17:00 (توقيت مصر — القاهرة)» — {@see UserClock::format()}. */
     public function formatFor(?User $user, DateTimeInterface $at): string
     {
         return UserClock::format($user, $at);

@@ -217,8 +217,17 @@ services:
   # ⚠️ Reverb هو السوكِت، وبدونه النقاشُ **يعملُ متأخّراً** لا ينكسر: الحفظُ هو
   # المرجعُ (FR-048) والرسالةُ تُقرأُ عندَ أوّلِ تحديث. فغيابُه عطلٌ صامتٌ يُشتكى
   # منه بجملةِ «النقاش لا يظهر لحظيّاً» ولا يظهرُ في أيِّ سجلّ.
+  #
+  # ⛔ **وسمٌ خاصٌّ به (`:reverb`) لا `:latest`، وهذا ما يُبقيه حيّاً عبرَ النشرات.**
+  # كانَ على `:latest`، وكلُّ بناءٍ يُعطي `:latest` صورةً جديدة، فكانَ `up -d` يُعيدُ
+  # إنشاءَه في **كلِّ** نشرة: ثوانٍ من ٥٠٢ على السوكِت وانقطاعُ كلِّ اتّصالٍ مفتوح،
+  # ولو لم يتغيّرْ فيه حرف. الآن يَسِمُ `deploy.sh` الصورةَ الجديدةَ `:reverb` حينَ
+  # يتغيّرُ ما يقرؤه Reverb فعلاً (الحزمُ، إعدادُه، بيئةُ PHP) — وإلّا بقيَ الوسمُ على
+  # صورتِه وبقيَت الحاوية. وتغيّرُ `.env` يُعيدُ إنشاءَه كما كان: compose يرى البيئة.
+  # ⚠️ ولا `build:` هنا: الوسمُ محلّيٌّ، فإن غابَ حاولَ compose سحبَه وفشل —
+  # لذلك يُستثنى من تنظيفِ الوسومِ في `deploy.sh` ويُنشَأُ فيه قبلَ أيِّ `up`.
   reverb:
-    image: elmotamayez-backend:latest
+    image: elmotamayez-backend:reverb
     restart: unless-stopped
     logging: *logging
     working_dir: /var/www/html
@@ -438,20 +447,46 @@ services:
     logging: *logging
     # الاستمرارُ على القرص: الطابورُ يعيشُ هنا، وإعادةُ تشغيلٍ بلا AOF تفقدُ كلَّ
     # مهمّةٍ لم تُصرَفْ بعد — إشعاراتٍ وتسجيلاتٍ وتقاريرَ لا سبيلَ إلى إعادتِها.
-    command: redis-server --appendonly yes
+    #
+    # ⛔ سقفُ ذاكرةٍ بلا طردٍ (`noeviction`، قرارُ المالك ٢٠٢٦-٠٩-٢٧). الطابورُ يعيشُ
+    # هنا، وسياسةُ طردٍ مثلُ `allkeys-lru` تحذفُ مهمّةً لم تُصرَفْ بصمتٍ حينَ تمتلئُ
+    # الذاكرة — أسوأُ من خطأٍ ظاهر. وسقفُ ١ جيجا يمنعُ Redis من أكلِ ذاكرةِ الخادمِ
+    # كلِّها قبلَ MySQL.
+    # ⚠️ **والثمنُ مكتوب**: الذاكرةُ المؤقّتةُ والجلساتُ هنا أيضاً (`CACHE_STORE` و
+    # `SESSION_DRIVER` = redis)، فبلوغُ السقفِ يجعلُ كلَّ **كتابةٍ** جديدةٍ تفشلُ بـ
+    # `OOM command not allowed` — طلباتٌ بـ٥٠٠ ومهامُّ لا تُدفَعُ — بدلَ أن يُحذَفَ شيء.
+    # الرقمُ يُراقَبُ بـ`redis-cli info memory` (`used_memory_human`).
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     networks: [elmotamayez]
 
+  # ⛔ **v1.6.2 ← v1.54.0 (قرارُ المالك ٢٠٢٦-٠٩-٢٧)، ومجلّدُ بياناتٍ جديد.** صيغةُ
+  # الفهرسِ على القرصِ تتغيّرُ بينَ النسختَين، وv1.6 أقدمُ من أن يُرقّى بلا dump.
+  # والفهرسُ هنا **مشتقٌّ** كلُّه من MySQL (Scout)، فالطريقُ الآمنُ مجلّدٌ فارغٌ
+  # ثمّ إعادةُ بناء: `deploy.sh` يرفعُ هذه الخدمةَ قبلَ التبديل ويُشغِّلُ
+  # `search:rebuild-indexes` مرّةً واحدةً لكلِّ وسمِ صورة (علامةٌ في
+  # `docker/.meilisearch-indexed`). والمجلّدُ القديمُ `meili-data` يبقى على القرصِ
+  # للتراجعِ ولا يقرؤه شيء؛ يُحذَفُ باليدِ بعدَ أن تستقرَّ النسخة:
+  #   docker volume rm elmotamayez_meili-data
+  # ⚠️ ترقيةٌ قادمةٌ تُغيِّرُ اسمَ المجلّدِ مع الوسم، فالعلامةُ تُطلِقُ إعادةَ البناء.
   meilisearch:
-    image: getmeili/meilisearch:v1.6.2
+    image: getmeili/meilisearch:v1.54.0
     restart: unless-stopped
     logging: *logging
     environment:
       MEILI_MASTER_KEY: ${MEILISEARCH_KEY}
       MEILI_ENV: production
+    # `/health` يردُّه Meilisearch بلا مفتاح، و`curl` داخلَ صورتِه (قِيسَ على
+    # v1.54.0). `deploy.sh` ينتظرُه قبلَ إعادةِ بناءِ الفهارس.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7700/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     volumes:
-      - meili-data:/meili_data
+      - meili-data-1-54:/meili_data
     networks: [elmotamayez]
 
 networks:
@@ -461,7 +496,10 @@ networks:
 volumes:
   mysql-data:
   redis-data:
+  # بياناتُ v1.6.2 — لا يستعملُها شيء، وتبقى معرَّفةً كي لا يراها compose غريبة
+  # وليجدَها التراجعُ. انظر ملاحظةَ `meilisearch` أعلاه.
   meili-data:
+  meili-data-1-54:
   storage:
   certbot-www:
   certbot-conf:

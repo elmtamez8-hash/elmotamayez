@@ -32,16 +32,16 @@ it('reads one lesson on two clocks — Cairo and Doha — a winter hour apart', 
     $doha = (new User)->forceFill(['timezone' => 'Asia/Qatar']);
     $at = CarbonImmutable::parse('2026-11-18 15:00', 'UTC');
 
-    expect(UserClock::format($cairo, $at))->toBe('2026-11-18 17:00 (توقيت مصر)')
-        ->and(UserClock::format($doha, $at))->toBe('2026-11-18 18:00 (توقيت قطر)');
+    expect(UserClock::format($cairo, $at))->toBe('2026-11-18 17:00 (توقيت مصر — القاهرة)')
+        ->and(UserClock::format($doha, $at))->toBe('2026-11-18 18:00 (توقيت قطر — الدوحة)');
 });
 
 it('falls back to the platform zone for an account with none — or with a name PHP does not know', function (): void {
     $at = CarbonImmutable::parse('2026-11-18 15:00', 'UTC');
 
-    expect(UserClock::format(new User, $at))->toBe('2026-11-18 18:00 (توقيت قطر)')
-        ->and(UserClock::format((new User)->forceFill(['timezone' => 'Mars/Olympus']), $at))->toBe('2026-11-18 18:00 (توقيت قطر)')
-        ->and(UserClock::format(null, $at))->toBe('2026-11-18 18:00 (توقيت قطر)');
+    expect(UserClock::format(new User, $at))->toBe('2026-11-18 18:00 (توقيت قطر — الدوحة)')
+        ->and(UserClock::format((new User)->forceFill(['timezone' => 'Mars/Olympus']), $at))->toBe('2026-11-18 18:00 (توقيت قطر — الدوحة)')
+        ->and(UserClock::format(null, $at))->toBe('2026-11-18 18:00 (توقيت قطر — الدوحة)');
 });
 
 it('tells a Cairo teacher the asked hour on BOTH clocks, and a Doha student the answer on both too', function (): void {
@@ -170,7 +170,7 @@ describe('both clocks', function (): void {
             ->toBe('2026-11-18 17:00 بتوقيتك · 18:00 بتوقيت المدرّس')
             // October: both UTC+3 — two names, one hour, so one time, zone named.
             ->and(UserClock::formatBoth($cairo, $doha, CarbonImmutable::parse('2026-10-20 14:00', 'UTC'), 'المدرّس'))
-            ->toBe('2026-10-20 17:00 (توقيت مصر)')
+            ->toBe('2026-10-20 17:00 (توقيت مصر — القاهرة)')
             // The other side of midnight carries its own date.
             ->and(UserClock::formatBoth($cairo, $doha, CarbonImmutable::parse('2026-11-18 21:30', 'UTC'), 'المدرّس'))
             ->toBe('2026-11-18 23:30 بتوقيتك · 2026-11-19 00:30 بتوقيت المدرّس');

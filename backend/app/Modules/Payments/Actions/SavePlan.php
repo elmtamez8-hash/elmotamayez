@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
@@ -102,7 +103,7 @@ class SavePlan extends Action
             'session_type' => $sessionType,
             'coverage_type' => $coverage,
             'coverage_uuid' => $coverageUuid,
-            'currency' => (string) ($data['currency'] ?? 'QAR'),
+            'currency' => (string) ($data['currency'] ?? app(BillingSettings::class)->currency()),
             'is_active' => (bool) ($data['is_active'] ?? true),
         ]);
 

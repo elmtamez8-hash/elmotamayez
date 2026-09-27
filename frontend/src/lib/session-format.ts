@@ -27,14 +27,14 @@ export function formatSessionTime(iso: string, timeZone: string): string {
 }
 
 /**
- * The same, with the zone NAMED: «الثلاثاء ٣ نوفمبر ١٧:٠٠ (توقيت مصر)».
+ * The same, with the zone NAMED: «الثلاثاء ٣ نوفمبر ١٧:٠٠ (توقيت مصر — القاهرة)».
  *
  * For the screens where two people in two countries read one time — a private
  * request and its answer, a reschedule — so neither has to guess which clock a
  * bare «17:00» is on.
  */
 export function formatSessionTimeWithZone(iso: string, timeZone: string): string {
-  return `${formatSessionTime(iso, timeZone)} (${timezoneLabel(timeZone)})`;
+  return `${formatSessionTime(iso, timeZone)} (توقيت ${timezoneLabel(timeZone)})`;
 }
 
 /**

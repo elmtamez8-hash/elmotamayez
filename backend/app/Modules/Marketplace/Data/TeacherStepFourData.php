@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Data;
 
 use App\Modules\Marketplace\Support\AvailabilityRules;
+use App\Modules\Settlement\Support\SettlementSettings;
 use App\Shared\Data\DataTransferObject;
 use App\Shared\Support\UserClock;
 
@@ -27,7 +28,10 @@ class TeacherStepFourData extends DataTransferObject
     {
         return new self(
             hourlyRate: number_format((float) $data['hourly_rate'], 2, '.', ''),
-            currency: strtoupper((string) ($data['currency'] ?? 'QAR')),
+            // The teacher's own rate is settlement's money (a change to it is a
+            // settlement rate request), so its default is settlement's currency —
+            // never a literal here (owner decision 2026-09-27: one source).
+            currency: strtoupper((string) ($data['currency'] ?? app(SettlementSettings::class)->currency())),
             // التسويةُ في {@see AvailabilityRules} لا هنا: البابُ الآخرُ
             // (`PUT /teacher/availability`) يكتبُ الصفوفَ نفسَها، ونسختانِ من
             // قاعدةِ التسويةِ تفترقانِ عندَ أوّلِ تعديل.

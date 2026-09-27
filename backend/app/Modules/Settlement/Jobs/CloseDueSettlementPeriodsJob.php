@@ -9,6 +9,7 @@ use App\Modules\Settlement\Enums\SettlementPeriodStatus;
 use App\Modules\Settlement\Enums\TeachingUnitStatus;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Settlement\Support\SettlementSettings;
 use App\Modules\Settlement\Support\SettlementWindow;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Support\WorkspaceContext;
@@ -154,7 +155,7 @@ class CloseDueSettlementPeriodsJob implements ShouldQueue
                 'ends_on' => $endsOn,
                 'status' => SettlementPeriodStatus::Open,
                 'currency' => $lastClosed === null
-                    ? (string) config('settlement.currency', 'QAR')
+                    ? app(SettlementSettings::class)->currency()
                     : (string) $lastClosed->currency,
             ]);
         } catch (QueryException $e) {

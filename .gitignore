@@ -23,3 +23,7 @@ docker/.env
 
 # بصمةُ آخرِ nginx.prod.conf وصلَ إلى الحاوية — يكتبُها `scripts/deploy.sh` على الخادم.
 docker/.nginx.prod.conf.sha256
+# الـcommit الذي بُنِيَت منه صورةُ `:reverb`، ووسمُ Meilisearch الذي بُنِيَت له الفهارس —
+# علامتانِ يكتبُهما `scripts/deploy.sh` على الخادم.
+docker/.reverb-image.sha
+docker/.meilisearch-indexed

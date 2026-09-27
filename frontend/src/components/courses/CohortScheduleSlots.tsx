@@ -56,7 +56,7 @@ export function CohortScheduleSlots({
       </ul>
       {zone !== null && (
         <p className="text-xs text-ink-muted">
-          بـ<bdi>{timezoneLabel(zone)}</bdi>
+          بتوقيت <bdi>{timezoneLabel(zone)}</bdi>
         </p>
       )}
     </div>

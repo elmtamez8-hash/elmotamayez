@@ -83,12 +83,12 @@ final class UserClock
         return $mine->format('Y-m-d H:i').' بتوقيتك · '.$other.' بتوقيت '.$counterpartRole;
     }
 
-    /** «2026-10-30 17:00 (توقيت مصر)» — the reader's clock, with the clock named. */
+    /** «2026-10-30 17:00 (توقيت مصر — القاهرة)» — the reader's clock, with the clock named. */
     public static function format(?User $user, DateTimeInterface $at): string
     {
         $zone = self::zoneFor($user);
 
         return CarbonImmutable::instance($at)->setTimezone($zone)->format('Y-m-d H:i')
-            .' ('.TimezoneLabel::for($zone).')';
+            .' (توقيت '.TimezoneLabel::for($zone).')';
     }
 }
