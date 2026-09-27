@@ -374,9 +374,11 @@ class CourseResource extends Resource
     }
 
     /**
-     * The people who may be named as a course's author: the owners and teachers
-     * of the COURSE's workspace, by pivot role — never every member, because
-     * `workspace_members` carries student rows too.
+     * The people who may be named as a course's author: every STAFF member of
+     * the COURSE's workspace (owner, teacher, assistant, custom role), by pivot
+     * role — never a student, because `workspace_members` carries student rows
+     * too. An assistant holds `courses.create`, so an allow-list of owner and
+     * teacher refused to save every course an assistant wrote.
      *
      * @return array<int, string>
      */
@@ -390,7 +392,7 @@ class CourseResource extends Resource
 
         /** @var array<int, string> $authors */
         $authors = $workspace->members()
-            ->wherePivotIn('role', [Roles::TENANT_OWNER, Roles::TEACHER])
+            ->wherePivot('role', '!=', Roles::STUDENT)
             ->pluck('users.email', 'users.id')
             ->all();
 

@@ -105,6 +105,16 @@ it('offers the course\'s owners and teachers as its author, never its students',
         ->toBe($this->awayOwner->getKey());
 });
 
+it('saves a course an ASSISTANT wrote — an assistant holds courses.create, so it is an author', function (): void {
+    $assistant = $this->addWorkspaceMember($this->away, Roles::ASSISTANT_TEACHER);
+    $this->course->forceFill(['created_by' => $assistant->getKey()])->save();
+    coursePanelAs(User::factory()->create(['is_super_admin' => true]), $this->home);
+
+    Livewire::test(EditCourse::class, ['record' => $this->course->getRouteKey()])
+        ->call('save')
+        ->assertHasNoFormErrors();
+});
+
 it('gives the compliance officer who owns a workspace the promo queue — every workspace\'s', function (): void {
     $officer = makePlatformStaff(Roles::COMPLIANCE_OFFICER, $this->homeOwner);
     coursePanelAs($officer, $this->home);

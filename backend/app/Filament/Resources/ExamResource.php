@@ -262,7 +262,9 @@ class ExamResource extends Resource
         }
 
         /** @var array<int, string> $courses */
+        // withTrashed: an exam whose course was soft-deleted must still save.
         $courses = Course::query()
+            ->withTrashed()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $exam->workspace_id)
             ->orderBy('title')
