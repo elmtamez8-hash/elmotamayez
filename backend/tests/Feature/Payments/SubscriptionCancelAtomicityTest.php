@@ -57,7 +57,7 @@ it('leaves a retryable subscription when the reversal fails, and finishes on the
 
     $this->app->instance(ReversePayment::class, new class extends ReversePayment
     {
-        public function handle(PaymentTransaction $transaction, string $reason): PaymentTransaction
+        public function handle(PaymentTransaction $transaction, string $reason, ?int $refundMinor = null): PaymentTransaction
         {
             throw new RuntimeException('gateway unavailable');
         }
