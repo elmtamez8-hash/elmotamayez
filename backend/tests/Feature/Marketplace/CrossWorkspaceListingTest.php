@@ -78,6 +78,28 @@ it('counts marketplace stats across all participating workspaces', function () {
     expect($stats)->toHaveKeys(['students', 'teachers', 'sessions', 'satisfaction_rate']);
 });
 
+/*
+| ⛔ The home page printed «٠٪ معدّل الرضا» on a platform nobody had rated yet:
+| `avg()` over no ratings is NULL, and the Action turned it into 0. Unknown is
+| null — the page hides the tile — and a real average still arrives as a whole
+| percentage.
+*/
+it('answers a null satisfaction rate when no listed teacher is rated, never zero', function () {
+    marketplaceTeacher(marketplaceWorkspace('Academy A'), ['average_rating' => null]);
+
+    $this->asGuest();
+
+    expect($this->getJson('/api/v1/marketplace/stats')->json('satisfaction_rate'))->toBeNull();
+});
+
+it('answers the satisfaction rate as a whole percentage once a teacher is rated', function () {
+    marketplaceTeacher(marketplaceWorkspace('Academy A'), ['average_rating' => 4.5]);
+
+    $this->asGuest();
+
+    expect($this->getJson('/api/v1/marketplace/stats')->json('satisfaction_rate'))->toBe(90);
+});
+
 it('lists only subjects that have a publicly listed teacher', function () {
     $workspace = marketplaceWorkspace();
     $teacher = marketplaceTeacher($workspace);
