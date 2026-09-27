@@ -184,3 +184,31 @@ it('never holds a mandatory whatsapp message, whatever the hour', function (): v
         ->where('channel', NotificationChannel::WhatsApp->value)
         ->value('deferred_until'))->toBeNull();
 });
+
+/*
+| ⚠️ THE PROVIDER'S ERROR TEXT NEVER REACHES `failure_reason`. That column is
+| rendered to every operator in the admin log, and a provider's `message` is free
+| text that can quote the number it refused. The sentinel is ASCII digits on
+| purpose: an Arabic needle is `\u`-escaped in JSON and vacuously absent.
+*/
+it('stores the status and provider code of a permanent refusal, never the provider message', function (): void {
+    configureWhatsApp();
+    approveWhatsAppTemplate(NotificationType::SessionReport->value);
+    Http::fake(['provider.test/*' => Http::response([
+        'error' => ['message' => 'Recipient 201001234567 is not a valid WhatsApp user', 'code' => 131026],
+    ], 400)]);
+
+    reportTo(withVerifiedWhatsApp('+201001234567'));
+
+    $delivery = NotificationDelivery::query()
+        ->where('channel', NotificationChannel::WhatsApp->value)
+        ->sole();
+
+    // Still permanent — the classification is untouched, only the text changed.
+    expect($delivery->status)->toBe(DeliveryStatus::Failed->value)
+        ->and($delivery->attempts)->toBe(1)
+        ->and((string) $delivery->failure_reason)->not->toContain('201001234567')
+        ->and((string) $delivery->failure_reason)->not->toContain('Recipient')
+        ->and((string) $delivery->failure_reason)->toContain('131026')
+        ->and((string) $delivery->failure_reason)->toContain('400');
+});

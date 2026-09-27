@@ -14,8 +14,9 @@ use Laravel\Sanctum\PersonalAccessToken;
 | presented. This file is the other half: the token nobody presents again, whose
 | session stayed `active` — holding a device slot — for ever.
 |
-| ⚠️ Real sign-ins, so `last_used_at` is written by Sanctum itself and the sweep
-| is measured against the same column the guard reads.
+| ⚠️ Real sign-ins, so `last_used_at` is written by the real stamp
+| (`StampTokenLastUsed`, on Sanctum's `TokenAuthenticated`) and the sweep is
+| measured against the same column the guard reads.
 */
 function sweepSignIn(string $email): array
 {

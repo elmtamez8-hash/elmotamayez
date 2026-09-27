@@ -30,7 +30,12 @@ class NotificationController extends Controller
             ->with(['subject', 'workspace'])
             ->latest('id');
 
-        $this->muteDuringFocus($query, $user);
+        // Asked ONCE for the whole request: the feed, the unread count and the
+        // category strip below all filter on the same answer, and asking three
+        // times was three identical queries per page of the bell.
+        $focusing = $this->isFocusing($user);
+
+        $this->muteDuringFocus($query, $focusing);
 
         if ($request->boolean('unread')) {
             $query->unread();
@@ -74,8 +79,8 @@ class NotificationController extends Controller
 
         return NotificationResource::collection($query->paginate($perPage))
             ->additional(['meta' => [
-                'unread_count' => $this->unreadCountFor($user),
-                'categories' => $this->categoriesFor($user),
+                'unread_count' => $this->unreadCountFor($user, $focusing),
+                'categories' => $this->categoriesFor($user, $focusing),
             ]]);
     }
 
@@ -85,7 +90,9 @@ class NotificationController extends Controller
      */
     public function unreadCount(Request $request): JsonResponse
     {
-        return response()->json(['unread_count' => $this->unreadCountFor($this->currentUser($request))]);
+        $user = $this->currentUser($request);
+
+        return response()->json(['unread_count' => $this->unreadCountFor($user, $this->isFocusing($user))]);
     }
 
     public function markRead(Request $request, string $uuid, MarkNotificationRead $action): JsonResponse
@@ -98,7 +105,7 @@ class NotificationController extends Controller
 
         $action->handle($notification);
 
-        return response()->json(['unread_count' => $this->unreadCountFor($user)]);
+        return response()->json(['unread_count' => $this->unreadCountFor($user, $this->isFocusing($user))]);
     }
 
     public function markAllRead(Request $request, MarkAllNotificationsRead $action): JsonResponse
@@ -135,11 +142,11 @@ class NotificationController extends Controller
      *
      * @return list<array{key: string, label: string, unread: int, total: int}>
      */
-    private function categoriesFor(User $user): array
+    private function categoriesFor(User $user, bool $focusing): array
     {
         $query = Notification::query()->forRecipient($user);
 
-        $this->muteDuringFocus($query, $user);
+        $this->muteDuringFocus($query, $focusing);
 
         $rows = $query
             ->selectRaw('type, COUNT(*) as total, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread')
@@ -182,11 +189,11 @@ class NotificationController extends Controller
         return $categories;
     }
 
-    private function unreadCountFor(User $user): int
+    private function unreadCountFor(User $user, bool $focusing): int
     {
         $query = Notification::query()->forRecipient($user)->unread();
 
-        $this->muteDuringFocus($query, $user);
+        $this->muteDuringFocus($query, $focusing);
 
         return $query->count();
     }
@@ -218,12 +225,22 @@ class NotificationController extends Controller
      *
      * @param  Builder<Notification>  $query
      */
-    private function muteDuringFocus($query, User $user): void
+    private function muteDuringFocus($query, bool $focusing): void
     {
-        if (! app(FocusState::class)->isFocusing($user)) {
+        if (! $focusing) {
             return;
         }
 
         $query->whereIn('type', NotificationType::mandatoryValues());
+    }
+
+    /**
+     * Whether the reader is in a focus session right now — asked once per request
+     * and handed to every filter, never memoised on the controller: a value kept
+     * on an instance outlives the request under any runtime that reuses it.
+     */
+    private function isFocusing(User $user): bool
+    {
+        return app(FocusState::class)->isFocusing($user);
     }
 }

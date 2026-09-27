@@ -97,6 +97,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Last Used Timestamp
+    |--------------------------------------------------------------------------
+    |
+    | ⚠️ OFF, AND NOT BECAUSE THE COLUMN IS UNUSED. Sanctum's guard would write
+    | `personal_access_tokens.last_used_at` on EVERY bearer request — one UPDATE
+    | per bell poll and presence heartbeat per open tab. The column is stamped
+    | instead by `Identity\Listeners\StampTokenLastUsed` on Sanctum's own
+    | `TokenAuthenticated` event, at most once every five minutes per token. Its
+    | readers (the 30-day idle expiry and its nightly sweep) measure in days.
+    |
+    | Turning this back on is harmless but restores the per-request write.
+    |
+    */
+
+    'last_used_at' => false,
+
+    /*
+    |--------------------------------------------------------------------------
     | Token Prefix
     |--------------------------------------------------------------------------
     |
