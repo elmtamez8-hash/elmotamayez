@@ -161,7 +161,7 @@ it('lets a finance officer who owns a workspace price another teacher\'s plan', 
     expect(PlanResource::canEdit($this->plan))->toBeTrue();
 
     Livewire::test(EditPlan::class, ['record' => $this->plan->getRouteKey()])
-        ->fillForm(['price_minor' => 45_000])
+        ->fillForm(['price_minor' => '450'])
         ->call('save')
         ->assertHasNoFormErrors();
 
