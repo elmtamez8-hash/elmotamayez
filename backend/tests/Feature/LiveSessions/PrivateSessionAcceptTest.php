@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Notifications\Support\NotificationType;
 use Carbon\CarbonImmutable;
 use Laravel\Sanctum\Sanctum;
 
@@ -194,6 +195,46 @@ it('cancels a granted private session when its student cancels in time, and free
 
     expect($again->status)->toBe(PrivateSessionRequest::ACCEPTED)
         ->and((int) $again->class_session_id)->not->toBe((int) $session->getKey());
+});
+
+/*
+| Owner decision 2026-09-27: the hour a student gave back in time is the
+| teacher's again, and the teacher is TOLD — `SessionCancelled` leaves that door
+| with an empty seat list, so nothing else reached them.
+*/
+it('tells the teacher the hour is free when the student cancels a private session in time', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+
+    Sanctum::actingAs($fx['student']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    $teacher = $fx['profile']->user;
+    $notice = assertNotifiedOnce($teacher, NotificationType::PrivateSessionCancelledByStudent);
+
+    expect((string) $notice->body)->toContain($fx['student']->name)
+        ->and($notice->action_url)->toBe('/manage/sessions')
+        // The student gave the hour back; they are not told about their own act.
+        ->and(wasNotified($fx['student'], NotificationType::PrivateSessionCancelledByStudent))->toBeFalse();
+});
+
+it('does not tell the teacher anything when the cancellation is late and the session stands', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+    acceptedPrivateRequest($fx);
+
+    $booking = SessionBooking::query()->withoutWorkspaceScope()->sole();
+    $this->travelTo($fx['startsAt']->subHours(2));
+
+    Sanctum::actingAs($fx['student']);
+    $this->deleteJson("/api/v1/bookings/{$booking->uuid}")->assertOk();
+
+    expect(wasNotified($fx['profile']->user, NotificationType::PrivateSessionCancelledByStudent))->toBeFalse();
 });
 
 it('leaves a private session standing when its student cancels late, because that seat is still charged', function (): void {

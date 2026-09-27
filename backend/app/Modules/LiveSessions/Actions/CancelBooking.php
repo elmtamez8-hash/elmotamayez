@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\LiveSessions\Actions;
 
+use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\LiveSessions\Support\SessionSettings;
+use App\Modules\Notifications\Actions\DispatchNotification;
+use App\Modules\Notifications\Data\NotificationRequest;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionCreditHolds;
 use DomainException;
@@ -31,6 +36,8 @@ class CancelBooking extends Action
     public function __construct(
         private readonly SessionCreditHolds $holds,
         private readonly CancelClassSession $sessions,
+        private readonly DispatchNotification $notify,
+        private readonly SessionSettings $settings,
     ) {}
 
     public function handle(SessionBooking $booking, ?string $reason = null): SessionBooking
@@ -95,7 +102,7 @@ class CancelBooking extends Action
         });
 
         if ($inWindow) {
-            $this->cancelEmptyPrivateSession($session);
+            $this->cancelEmptyPrivateSession($session, (int) $booking->student_user_id);
         }
 
         return $booking->refresh();
@@ -133,7 +140,7 @@ class CancelBooking extends Action
      * teacher moved meanwhile is left alone rather than failing the student's
      * cancellation, which has already happened.
      */
-    private function cancelEmptyPrivateSession(ClassSession $session): void
+    private function cancelEmptyPrivateSession(ClassSession $session, int $studentUserId): void
     {
         $fresh = ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey())->first();
 
@@ -150,7 +157,49 @@ class CancelBooking extends Action
         } catch (DomainException) {
             // Moved by somebody else between the read and the claim — the
             // student's cancellation stands either way.
+            return;
         }
+
+        $this->tellTeacherTheHourIsFree($fresh, $studentUserId);
+    }
+
+    /**
+     * «ألغى سامي حصته الخاصة يوم … — الموعد متاح لك الآن» (owner decision
+     * 2026-09-27).
+     *
+     * ⚠️ ONLY ONCE THE SESSION WAS ACTUALLY CALLED OFF. `SessionCancelled`
+     * leaves this door with an empty seat list — the one holder is the student
+     * who just gave it up — so before this nobody at all learned that the
+     * teacher's hour had come back, and the teacher found out by looking.
+     *
+     * Through `DispatchNotification` with a type and nothing else: the channel is
+     * the recipient's preference, never this Action's call. The hour is written
+     * on the TEACHER's own clock, since the row is a UTC instant and the student
+     * who cancelled may be in another country. After the commit, so the notice
+     * never describes a cancellation an outer rollback undid.
+     */
+    private function tellTeacherTheHourIsFree(ClassSession $session, int $studentUserId): void
+    {
+        $teacher = $session->teacherProfile()->withoutGlobalScopes()->first()?->user;
+        $student = User::query()->find($studentUserId);
+
+        // A profile whose account is gone has nobody to tell, and neither is a
+        // fault worth failing the student's cancellation over.
+        if ($teacher === null || $student === null) {
+            return;
+        }
+
+        DB::afterCommit(fn () => $this->notify->handle(new NotificationRequest(
+            recipient: $teacher,
+            type: NotificationType::PrivateSessionCancelledByStudent,
+            variables: [
+                'student_name' => $student->name,
+                'session_time' => $this->settings->formatFor($teacher, $session->starts_at),
+            ],
+            actionUrl: '/manage/sessions',
+            subject: $student,
+            workspaceId: (int) $session->workspace_id,
+        )));
     }
 
     /**

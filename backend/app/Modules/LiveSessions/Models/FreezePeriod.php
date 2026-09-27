@@ -68,6 +68,12 @@ class FreezePeriod extends BaseModel
      *
      * The listener lives in Payments and is queued; this side names nothing about
      * subscriptions, exactly as `SessionDelivered` names nothing about money.
+     *
+     * ⚠️ ONE WRITE PATH BYPASSES THESE HOOKS ON PURPOSE: `CreateFreezePeriod::
+     * claimMonthlySlot()` inserts with one conditional statement (the monthly
+     * ceiling is a claim, and `count()` then `create()` is a race), so it
+     * dispatches `FreezePeriodChanged` itself. A listener added here must be
+     * added there too.
      */
     protected static function booted(): void
     {

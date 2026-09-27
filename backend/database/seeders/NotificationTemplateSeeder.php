@@ -259,7 +259,7 @@ class NotificationTemplateSeeder extends Seeder
             */
             NotificationType::CreditBalanceDormant->value => [
                 'لديك رصيد غير مستخدَم في {{ course }}',
-                'لم تستخدم رصيدك في «{{ course }}» منذ {{ months }} شهراً، وما زالت لديك {{ credits }} حصة. الرصيد لا ينتهي، ويمكنك استخدامه في أي وقت أو طلب استرداده.',
+                'لم تستخدم رصيدك في «{{ course }}» منذ {{ months }} شهراً، وما زالت لديك {{ credits }} حصة. الرصيد لا ينتهي، ويمكنك استخدامه في أي وقت، أو تواصل مع الدعم لطلب استرداد رصيدك.',
                 ['course', 'months', 'credits'],
             ],
             /*
@@ -388,6 +388,15 @@ class NotificationTemplateSeeder extends Seeder
                 'انتهت مهلة طلبك ليوم {{ session_time }}',
                 'لم يصل ردّ على طلب حصتك الخاصة يوم {{ session_time }} في «{{ course_title }}»، فانتهت مهلته. لم يُخصم من رصيدك شيء، ويمكنك الطلب من جديد.',
                 ['course_title', 'session_time'],
+            ],
+            /*
+            | To the teacher: a student gave back a private hour in time and the
+            | session was called off, so the slot is theirs again.
+            */
+            NotificationType::PrivateSessionCancelledByStudent->value => [
+                'موعد خاص عاد متاحاً',
+                'ألغى {{ student_name }} حجزه في الحصة الخاصة يوم {{ session_time }} قبل موعدها بوقت كافٍ، فأُلغيت الحصة وعاد هذا الموعد متاحاً في جدولك.',
+                ['student_name', 'session_time'],
             ],
             NotificationType::SessionRescheduleRequested->value => [
                 'طلب تأجيل «{{ title }}»',

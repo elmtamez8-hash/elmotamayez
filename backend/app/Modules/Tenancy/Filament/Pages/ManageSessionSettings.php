@@ -90,6 +90,8 @@ class ManageSessionSettings extends Page
             'private_request_ttl_hours' => ['key' => 'sessions.private_request_ttl_hours', 'cast' => 'int'],
             'private_request_max_pending' => ['key' => 'sessions.private_request_max_pending', 'cast' => 'int'],
             'min_lead_minutes' => ['key' => 'sessions.min_lead_minutes', 'cast' => 'int'],
+            'freeze_max_days' => ['key' => 'sessions.freeze_max_days', 'cast' => 'int'],
+            'freeze_max_per_month' => ['key' => 'sessions.freeze_max_per_month', 'cast' => 'int'],
             'report_delay_minutes' => ['key' => 'sessions.report_delay_minutes', 'cast' => 'int'],
             'recording_failure_alert_threshold' => ['key' => 'sessions.recording_failure_alert_threshold', 'cast' => 'int'],
             'recording_failure_alert_window_hours' => ['key' => 'sessions.recording_failure_alert_window_hours', 'cast' => 'int'],
@@ -143,6 +145,8 @@ class ManageSessionSettings extends Page
             'private_request_ttl_hours' => $settings->privateRequestTtlHours(),
             'private_request_max_pending' => $settings->privateRequestMaxPending(),
             'min_lead_minutes' => $settings->minLeadMinutes(),
+            'freeze_max_days' => $settings->freezeMaxDays(),
+            'freeze_max_per_month' => $settings->freezeMaxPerMonth(),
             'report_delay_minutes' => $settings->reportDelayMinutes(),
             'recording_failure_alert_threshold' => $settings->recordingFailureAlertThreshold(),
             'recording_failure_alert_window_hours' => $settings->recordingFailureAlertWindowHours(),
@@ -294,6 +298,20 @@ class ManageSessionSettings extends Page
                                 ->label('أقلّ مهلة قبل موعد الحصة المطلوبة (دقائق)')
                                 ->helperText('لا يُطلَب موعدٌ خاصّ ولا يُقترَح تأجيلٌ إلى وقتٍ أقربَ من هذا، ولا تعرضه صفحة الكورس.')
                                 ->numeric()->minValue(0)->maxValue(10080)->required(),
+                        ]),
+
+                    Section::make('فترات التجميد')
+                        ->description('حدودُ ما يُجمِّدُه المدرّس. تُطبَّقُ على كلِّ فترةٍ جديدة، ولا تمسُّ الفتراتِ القائمة.')
+                        ->columns(2)
+                        ->schema([
+                            TextInput::make('freeze_max_days')
+                                ->label('أقصى مدة لفترة تجميد واحدة (أيام)')
+                                ->helperText('تُعدّ الأيامُ شاملةً يومَ البداية ويومَ النهاية.')
+                                ->numeric()->minValue(1)->maxValue(365)->required(),
+                            TextInput::make('freeze_max_per_month')
+                                ->label('أقصى عدد فترات تبدأ في الشهر نفسه')
+                                ->helperText('لكلِّ نطاقٍ على حدة: تجميدُ كلِّ الطلاب، أو تجميدُ طالبٍ بعينه.')
+                                ->numeric()->minValue(1)->maxValue(31)->required(),
                         ]),
 
                     Section::make('التقارير والتسجيل')

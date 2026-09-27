@@ -93,6 +93,16 @@ return [
     // offers no slot inside it.
     'min_lead_minutes' => 120,
 
+    /*
+    | Freeze limits (owner decision 2026-09-27). One period may cover at most
+    | this many days, counted inclusively (a period ending on its first day is
+    | one day), and at most this many periods may START in one calendar month of
+    | the platform zone for the same scope — the whole workspace, or one student
+    | in it. Enforced in `CreateFreezePeriod`; existing periods are untouched.
+    */
+    'freeze_max_days' => 30,
+    'freeze_max_per_month' => 2,
+
     // How long a join ticket is good for, in minutes (017 FR-007).
     //
     // The library's own default is SIX HOURS, and the contract test asserted

@@ -139,6 +139,7 @@ enum NotificationCategory: string
                 NotificationType::PrivateSessionAccepted,
                 NotificationType::PrivateSessionRejected,
                 NotificationType::PrivateSessionExpired,
+                NotificationType::PrivateSessionCancelledByStudent,
                 /*
                 | ⚠️ ADDED 2026-08-30, AND IT HAD BEEN UNFILED SINCE SPEC 011
                 | SHIPPED IT (a588a97) — `NotificationCategoryTest` red on `main`

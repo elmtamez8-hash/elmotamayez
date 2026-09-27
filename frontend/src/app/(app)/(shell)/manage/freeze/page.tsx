@@ -14,7 +14,13 @@ import { ScheduleIcon, SessionsIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { freezePeriods, type FreezePeriod, type FreezeResult } from "@/lib/class-sessions";
+import {
+  freezeLimitsHint,
+  freezePeriods,
+  type FreezeLimits,
+  type FreezePeriod,
+  type FreezeResult,
+} from "@/lib/class-sessions";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { counted, NOUNS } from "@/lib/labels";
@@ -32,6 +38,7 @@ import { counted, NOUNS } from "@/lib/labels";
  */
 export default function ManageFreezePage() {
   const [periods, setPeriods] = useState<FreezePeriod[]>([]);
+  const [limits, setLimits] = useState<FreezeLimits | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -51,7 +58,10 @@ export default function ManageFreezePage() {
 
     freezePeriods
       .list()
-      .then((response) => setPeriods(response.data ?? []))
+      .then((response) => {
+        setPeriods(response.data ?? []);
+        setLimits(response.limits ?? null);
+      })
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
@@ -126,6 +136,11 @@ export default function ManageFreezePage() {
             title="تجميد فترة"
             description="خلال الفترة لا تُجدول حصص جديدة ولا يُحتسب غياب ولا يتقدّم أي عدّاد، وتُعلَّق الحصص المحجوزة داخلها مع إبلاغ من حجز مقعده."
           />
+          {/* The limits the server enforces, from the server — so a refusal
+              never comes as a surprise, and an operator's change shows here. */}
+          {limits !== null && (
+            <p className="mt-2 text-sm text-ink-muted">{freezeLimitsHint(limits)}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

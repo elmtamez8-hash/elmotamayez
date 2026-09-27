@@ -165,6 +165,29 @@ class SessionSettings
         return (int) PlatformSettings::get('sessions.private_request_max_pending', 3);
     }
 
+    /**
+     * The longest one freeze period may run, in days, counted inclusively.
+     *
+     * Read by `CreateFreezePeriod` and sent to the freeze screen, so the limit
+     * shown is the limit the server enforces.
+     */
+    public function freezeMaxDays(): int
+    {
+        return max(1, (int) PlatformSettings::get(
+            'sessions.freeze_max_days',
+            (int) config('sessions.freeze_max_days', 30),
+        ));
+    }
+
+    /** How many freeze periods may START in one platform-zone month, per scope. */
+    public function freezeMaxPerMonth(): int
+    {
+        return max(1, (int) PlatformSettings::get(
+            'sessions.freeze_max_per_month',
+            (int) config('sessions.freeze_max_per_month', 2),
+        ));
+    }
+
     /** The room's ceiling, passed to the provider — never hard-coded (017 FR-003). */
     public function maxParticipants(): int
     {
