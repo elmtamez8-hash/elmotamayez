@@ -8,8 +8,10 @@ use App\Models\User;
 use App\Modules\Settlement\Enums\TeachingUnitStatus;
 use App\Modules\Settlement\Events\TeachingUnitAccrued;
 use App\Modules\Settlement\Models\TeachingUnit;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
@@ -26,6 +28,17 @@ class ReverseTeachingUnit extends Action
 
     public function handle(TeachingUnit $original, string $reason, ?User $by = null): ?TeachingUnit
     {
+        /*
+        | ⚠️ ASKED ONLY WHEN A PERSON IS NAMED — AND THAT IS NOT A GAP. A null
+        | `$by` is the SYSTEM reversing a unit (`EloquentSessionUnitReversal`,
+        | when a session's delivery is undone), which no permission describes. A
+        | person is asked the permission the API's `TeachingUnitPolicy::reverse()`
+        | and the panel page both ask, because this Action is the door they share.
+        */
+        if ($by !== null && ! $by->can(Permissions::SETTLEMENT_PERIOD_MANAGE)) {
+            throw new AuthorizationException('تصحيحُ وحدةِ التدريسِ قرارُ المنصّة.');
+        }
+
         if ($original->isReversal() || $original->status === TeachingUnitStatus::Reversed) {
             return null;
         }

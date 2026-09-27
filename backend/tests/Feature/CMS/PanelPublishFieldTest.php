@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource;
 use App\Modules\CMS\Models\Article;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Filament\Schemas\Components\Component;
@@ -98,29 +99,20 @@ it('keeps the fields shut when nobody is signed in', function (): void {
 });
 
 /*
-| ⛔ AND THE THREE ORDINARY GATES ARE MEASURED HERE, because after the API went
-| this Resource is the only thing that reads `cms.create`, `cms.update` and
-| `cms.delete` at all. `CMSTest` asked them of the routes — a student refused a
-| write, a student refused a delete — and a claim proved only against a deleted
-| door is a claim nobody is making any more.
+| ⛔ THE SCREEN'S OWN DOOR IS THE SUPER ADMIN, AND NO `cms.*` PERMISSION OPENS IT.
 |
-| ⚠️ THE ASSISTANT IS THE CASE THAT MATTERS. The matrix gives them `cms.update`
-| and withholds `cms.delete`, so «may edit» and «may delete» must come apart in
-| the same fixture; a test that only ever asks an owner and a student passes
-| against a Resource that reads one permission for both.
-|
-| ⚠️ AND `canViewAny()` IS TRUE FOR A STUDENT, WHICH IS NOT A HOLE HERE AND WOULD
-| BE ONE ELSEWHERE. `cms.view` is «may read the blog» and every student holds it
-| by the matrix. What keeps them out of THIS screen is not a Resource method at
-| all — it is `mayAccessAdminPanel()`, which admits a super admin and
-| `platform_staff` and NOBODY holding a workspace role, asserted below. The API
-| has no such door in front of it, which is why `/manage/articles` is gated on
-| `cms.update` instead and `ArticlePolicy::viewAny()` says so in writing. These per-ability gates are
-| the second lock on a door the first one already shuts; both are wanted, and a
-| test that pretended the first one was `canViewAny()` would be measuring the
-| wrong thing and would break the day the panel is widened again.
+| This case used to assert the opposite — the owner opening the screen through
+| `cms.view`/`cms.create`/`cms.update`, the assistant stopped at `cms.delete` —
+| and argued that was safe because `mayAccessAdminPanel()` keeps every workspace
+| role out of the panel. It keeps out the ROLES, not the PEOPLE: a finance or
+| compliance officer who also owns a workspace passes the panel's door AND holds
+| all four permissions in their own workspace. With the list platform-wide (it
+| showed the super admin their own blog as the platform's), a `cms.*` door would
+| hand that officer every teacher's drafts. The teacher's own screen is
+| `/manage/articles`, and `cms.create`/`cms.update`/`cms.delete` are measured
+| there, by `ArticlePublishPermissionTest` and `ManageArticleIndexTest`.
 */
-it('offers the panel by permission and not by role name', function (): void {
+it('opens the screen to the super admin and to nobody who holds cms.* in a workspace', function (string $who): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $article = Article::create([
         'workspace_id' => $workspace->getKey(),
@@ -128,31 +120,23 @@ it('offers the panel by permission and not by role name', function (): void {
         'body' => 'نصّ',
     ]);
 
-    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
-    $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
+    $user = match ($who) {
+        'owner' => $owner,
+        'assistant' => $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER),
+        'officer who owns the workspace' => makePlatformStaff(Roles::FINANCE_ADMIN, $owner),
+    };
 
     app(WorkspaceContext::class)->set($workspace);
+    Auth::login($user);
 
-    Auth::login($owner);
-    expect(CmsArticleResource::canViewAny())->toBeTrue()
-        ->and(CmsArticleResource::canCreate())->toBeTrue()
-        ->and(CmsArticleResource::canEdit($article))->toBeTrue()
-        ->and(CmsArticleResource::canDelete($article))->toBeTrue();
-
-    Auth::login($assistant);
-    expect(CmsArticleResource::canCreate())->toBeTrue()
-        ->and(CmsArticleResource::canEdit($article))->toBeTrue()
-        // `cms.delete` is the teacher's alone — taking a post off the blog for
-        // good is not the same act as fixing a paragraph in it.
-        ->and(CmsArticleResource::canDelete($article))->toBeFalse();
-
-    Auth::login($student);
-    expect(CmsArticleResource::canCreate())->toBeFalse()
+    expect($user->can(Permissions::CMS_VIEW))->toBeTrue()
+        ->and(CmsArticleResource::canViewAny())->toBeFalse()
+        ->and(CmsArticleResource::canCreate())->toBeFalse()
         ->and(CmsArticleResource::canEdit($article))->toBeFalse()
         ->and(CmsArticleResource::canDelete($article))->toBeFalse();
 
-    // The door itself, and the reason the three sets above are a second lock.
-    expect($owner->mayAccessAdminPanel())->toBeFalse()
-        ->and($assistant->mayAccessAdminPanel())->toBeFalse()
-        ->and($student->mayAccessAdminPanel())->toBeFalse();
-});
+    Auth::login(User::factory()->create(['is_super_admin' => true]));
+
+    expect(CmsArticleResource::canViewAny())->toBeTrue()
+        ->and(CmsArticleResource::canEdit($article))->toBeTrue();
+})->with(['owner', 'assistant', 'officer who owns the workspace']);

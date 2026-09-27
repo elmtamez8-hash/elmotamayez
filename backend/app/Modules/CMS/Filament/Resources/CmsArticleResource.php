@@ -6,7 +6,9 @@ namespace App\Modules\CMS\Filament\Resources;
 
 use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages;
 use App\Modules\CMS\Models\Article;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -26,7 +28,9 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use UnitEnum;
@@ -49,11 +53,13 @@ use UnitEnum;
  * answer over a policy declaring another is how `PlatformStaffResource` once
  * opened the platform's delegation screen to a workspace owner.
  *
- * ⚠️ THE QUERY STAYS WORKSPACE-SCOPED, unlike `PlanResource`'s. Every teacher can
- * reach this panel, and an article is the teacher's own writing — an unscoped list
- * would hand one teacher another's drafts with an edit button beside each. That is
- * the opposite call from the pricing queue, where the reader is a platform officer
- * and a scoped list silently shows one arbitrary teacher's rows as the whole queue.
+ * ⚠️ THE QUERY IS PLATFORM-WIDE NOW, AND THE REASON IT WAS NOT HAS GONE. This
+ * docblock used to say «every teacher can reach this panel, so an unscoped list
+ * would hand one teacher another's drafts». No teacher reaches `/admin` since it
+ * was narrowed to the platform (`User::mayAccessAdminPanel()`); the reader is the
+ * super admin, and a scoped list silently showed them their OWN workspace's blog
+ * as the platform's — the pricing queue's defect, reached from the other side.
+ * The door moved with it: see {@see canViewAny()}.
  */
 class CmsArticleResource extends Resource
 {
@@ -71,24 +77,52 @@ class CmsArticleResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المدوّنة';
 
+    /**
+     * ⚠️ THE SUPER ADMIN — NOT `cms.view`/`cms.create`/`cms.update`/`cms.delete`.
+     *
+     * Those are TENANT permissions (every student holds `cms.view`; the owner
+     * holds all four), and this list is platform-wide ({@see getEloquentQuery()}).
+     * A platform officer who owns a workspace holds them there, so a door that
+     * reads them hands that officer every teacher's drafts with an edit button
+     * beside each. The teacher's own door onto their blog is `/manage/articles`,
+     * where the scope and the permission are one condition asked twice.
+     */
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can(Permissions::CMS_VIEW) === true;
+        return auth()->user()?->isSuperAdmin() === true;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can(Permissions::CMS_CREATE) === true;
+        return self::canViewAny();
     }
 
     public static function canEdit(Model $record): bool
     {
-        return auth()->user()?->can(Permissions::CMS_UPDATE) === true;
+        return self::canViewAny();
     }
 
     public static function canDelete(Model $record): bool
     {
-        return auth()->user()?->can(Permissions::CMS_DELETE) === true;
+        return self::canViewAny();
+    }
+
+    /**
+     * ⚠️ PLATFORM-WIDE, AND THE BYPASS IS REPEATED IN THE `category` EAGER LOAD.
+     * The reader is the super admin, whose context falls back to their own
+     * `last_workspace_id` — a scoped list showed their own blog as the
+     * platform's, and another workspace's article could not even be opened.
+     *
+     * @return Builder<Model>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->with([
+                'workspace',
+                'category' => fn (Relation $relation): Relation => $relation->withoutGlobalScope(WorkspaceScope::class),
+            ]);
     }
 
     /** Read by the two form fields that decide whether the public sees the row. */
@@ -103,6 +137,28 @@ class CmsArticleResource extends Resource
             Section::make('المقال')
                 ->columns(2)
                 ->schema([
+                    /*
+                    | ⛔ **المساحةُ تُختارُ صراحةً، ولا تُستنتَجُ من مساحةِ الكاتب.**
+                    | صفحةُ الإنشاءِ كانت `new Article($data)` فيملأُ
+                    | `BelongsToWorkspace` العمودَ من سياقِ **الموظّف** — مقالٌ على
+                    | مدوّنةِ مساحتِه هو — ويُجيبُ بخطأ خادمٍ لمن لا مساحةَ له
+                    | (`workspace_id` ليس nullable). على صفحةِ الإنشاءِ وحدَها:
+                    | المساحةُ لا تُنقَلُ بعدَ النشر. النمطُ نمطُ `CreatePlan`.
+                    */
+                    Select::make('workspace')
+                        ->label('مساحة العمل (المدوّنة التي يُنشَرُ عليها)')
+                        ->required()
+                        ->searchable()
+                        ->visibleOn('create')
+                        ->getSearchResultsUsing(fn (string $search): array => Workspace::query()
+                            ->where('name', 'like', '%'.$search.'%')
+                            ->limit(20)
+                            ->pluck('name', 'uuid')
+                            ->all())
+                        ->getOptionLabelUsing(fn (mixed $value): ?string => Workspace::query()
+                            ->where('uuid', $value)->value('name'))
+                        ->columnSpanFull(),
+
                     TextInput::make('title')->label('العنوان')->required()->maxLength(255)->columnSpanFull(),
 
                     /*
@@ -297,7 +353,10 @@ class CmsArticleResource extends Resource
                 // ⚠️ عمودُ صورةٍ لا نصُّ مسار: الغلافُ يُراجَعُ بالنظرِ إليه،
                 // ومسارٌ مكتوبٌ يُخبِرُ أنّ حقلاً مُلِئَ لا أنّ الصورةَ صحيحة.
                 ImageColumn::make('cover_path')->label('الغلاف')->disk('public')->square(),
-                TextColumn::make('title')->label('العنوان')->searchable()->limit(60),
+                TextColumn::make('title')->label('العنوان')->searchable()->limit(60)
+                    // Every workspace's articles share this list now; the blog an
+                    // article belongs to is the first thing to know about it.
+                    ->description(fn (Article $record): ?string => $record->workspace?->name),
                 TextColumn::make('slug')->label('الرابط')->searchable()->limit(40)->toggleable(),
                 TextColumn::make('status')
                     ->label('الحالة')

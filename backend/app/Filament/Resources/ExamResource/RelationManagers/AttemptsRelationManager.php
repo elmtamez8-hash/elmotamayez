@@ -6,6 +6,7 @@ namespace App\Filament\Resources\ExamResource\RelationManagers;
 
 use App\Modules\Assessments\Enums\AttemptStatus;
 use App\Modules\Assessments\Models\Attempt;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
@@ -13,6 +14,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * كلُّ محاولةٍ على هذهِ الورقة — قراءةً فقط.
@@ -42,6 +44,11 @@ class AttemptsRelationManager extends RelationManager
     {
         return $table
             ->defaultSort('started_at', 'desc')
+            // ⚠️ The exam is another workspace's for a super admin with a
+            // `last_workspace_id`, and `Attempt`'s scope would AND their own
+            // workspace onto `exam_id = …` — an empty tab under a paper
+            // hundreds of students sat.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
             ->columns([
                 TextColumn::make('student.email')->label('الطالب')->searchable()->copyable(),
                 TextColumn::make('status')->label('الحالة')->badge()

@@ -189,10 +189,14 @@ Route::middleware(['auth:sanctum', 'throttle:billing'])->group(function (): void
     | route it replaced went with the others rather than standing as a second
     | writer beside the Action's conditional UPDATE. The panel is the door that is
     | used, and it is the complete twin: `EditPlan::handleRecordUpdate()` runs
-    | `SetPlanPrice`, so the negative-price refusal AND the `plan.priced`
-    | activity-log entry come with it, and both resources fall through to their
-    | own policies for the platform permissions the controllers asked
-    | (`billing.packages.manage` · `plans.price`).
+    | `SetPlanPrice`, so the negative-price refusal, the `plans.price` check AND
+    | the `plan.priced` activity-log entry come with it. The two resources are
+    | NOT gated the same way: `CreditPackageResource` falls through to
+    | `CreditPackagePolicy` (`billing.packages.manage`), while `PlanResource`
+    | declares `canViewAny()`/`canCreate()`/`canEdit()` itself on `plans.price` —
+    | `PlanPolicy` is the TEACHER's policy (`plans.manage` in their own
+    | workspace), and falling through to it once left the finance officer unable
+    | to price anything (it said «fall through» here until 2026-09-27).
     |
     | The rules those routes carried in their comments are still true and still
     | enforced where they belong: a package is retired with `is_active = false`

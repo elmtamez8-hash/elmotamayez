@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources\PlanResource\Pages;
 
+use App\Models\User;
 use App\Modules\Payments\Actions\SetPlanPrice;
 use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Payments\Models\Plan;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * 036 . T072 -- THE DECISION: THIS SCREEN PRICES A PLAN AND EDITS NOTHING ELSE.
@@ -59,7 +62,14 @@ class EditPlan extends EditRecord
         /** @var Plan $record */
         $raw = $data['price_minor'] ?? null;
 
+        $officer = Auth::user();
+
+        if (! $officer instanceof User) {
+            throw new AuthorizationException;
+        }
+
         return app(SetPlanPrice::class)->handle(
+            $officer,
             $record,
             $raw === null || $raw === '' ? null : (int) $raw,
         );

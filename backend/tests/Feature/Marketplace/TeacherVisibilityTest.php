@@ -2,10 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Marketplace\Actions\ReinstateTeacher;
 use App\Modules\Marketplace\Actions\SetMarketplaceParticipation;
 use App\Modules\Marketplace\Actions\SuspendTeacher;
 use App\Modules\Marketplace\Models\TeacherProfile;
+
+/**
+ * The officer who suspends and reinstates — the Actions ask the platform
+ * permission themselves now, so the fixture names a person who holds it.
+ */
+function marketplaceDecider(): User
+{
+    return User::factory()->create(['is_super_admin' => true]);
+}
 
 /**
  * Who the marketplace shows, and how fast it stops showing them.
@@ -42,12 +52,12 @@ it('shows an approved teacher immediately after suspension is lifted', function 
     $this->asGuest();
     expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(1);
 
-    app(SuspendTeacher::class)->handle($teacher);
+    app(SuspendTeacher::class)->handle($teacher, marketplaceDecider());
 
     expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(0)
         ->and($this->getJson("/api/v1/marketplace/teachers/{$teacher->uuid}")->status())->toBe(404);
 
-    app(ReinstateTeacher::class)->handle($teacher);
+    app(ReinstateTeacher::class)->handle($teacher, marketplaceDecider());
 
     expect($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(1);
 });
@@ -55,9 +65,9 @@ it('shows an approved teacher immediately after suspension is lifted', function 
 it('reinstates without listing when the workspace has left the marketplace', function (): void {
     $teacher = marketplaceTeacher($this->workspace);
 
-    app(SuspendTeacher::class)->handle($teacher);
+    app(SuspendTeacher::class)->handle($teacher, marketplaceDecider());
     app(SetMarketplaceParticipation::class)->handle($this->workspace, false);
-    app(ReinstateTeacher::class)->handle($teacher);
+    app(ReinstateTeacher::class)->handle($teacher, marketplaceDecider());
 
     $this->asGuest();
 

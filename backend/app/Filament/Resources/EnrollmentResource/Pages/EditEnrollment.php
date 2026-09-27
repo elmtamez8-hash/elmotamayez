@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Filament\Resources\EnrollmentResource\Pages;
 
 use App\Filament\Resources\EnrollmentResource;
+use App\Models\User;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
-use App\Modules\Payments\Support\SubscriptionAccess;
-use App\Shared\Events\CourseAccessEnded;
+use App\Modules\Payments\Actions\ChangeEnrollmentStatus;
+use DomainException;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
 class EditEnrollment extends EditRecord
@@ -19,114 +20,30 @@ class EditEnrollment extends EditRecord
     protected static string $resource = EnrollmentResource::class;
 
     /**
-     * ⚠️ الحارسُ الثاني، لأنّ القائمةَ المُرشَّحةَ لا تحرسُ إلّا الطلبَ الذي
-     * رسمَته. الانتقالُ **إلى** «ملغى» يُرفَضُ هنا: كتابةُ العمودِ وحدَه لا تُطلِقُ
-     * `CourseAccessWithdrawn`، فيبقى مقعدٌ محجوزٌ وعضويّةُ مجموعةٍ لطالبٍ لم يعدْ
-     * له شيء. الإلغاءُ مكانُه «عكس الدفعة» على الطلب (`ReverseCourseOrder`).
+     * ⚠️ الحالةُ تمرُّ بـ{@see ChangeEnrollmentStatus} وحدَه، وفيه الرفضُ كلُّه:
+     * «ملغى» لا يُختارُ من هنا، وصفٌّ مُلغى لا تُقبَلُ له حالة، وتسجيلُ اشتراكٍ
+     * انتهى وصولُه لا يُعادُ فتحُه، و«منتهٍ» على تسجيلٍ يمنحُ الوصولَ يُحرِّرُ
+     * مقاعدَه. كانت هذه القواعدُ مكتوبةً في الصفحةِ وحدَها — والقائمةُ المُرشَّحةُ
+     * تُشكِّلُ طلباً واحداً لا الذي يليه، فالحارسُ في الفعل.
      *
-     * وصفٌّ مُلغى أصلاً لا تُقبَلُ له حالةٌ جديدةٌ أيضاً: الحقلُ مُقفَلٌ فلا
-     * يُرسَل، وأيُّ قيمةٍ تصلُ رغمَ ذلكَ تُسقَط — إعادةُ الفتحِ شراءٌ جديد.
-     *
-     * ⚠️ وتسجيلُ اشتراكٍ انتهى وصولُه لا يُعادُ فتحُه من هنا
-     * ({@see EnrollmentResource::isLapsedSubscription()}): وصولٌ مدفوعٌ لمدّةٍ
-     * يُفتَحُ بلا دفعٍ ولا اشتراكٍ يُغلقُه يوماً.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        $record = $this->getRecord();
-        $cancelled = EnrollmentStatus::Cancelled->value;
-
-        if ($record instanceof Enrollment && $record->status === $cancelled) {
-            unset($data['status']);
-
-            return $data;
-        }
-
-        if (($data['status'] ?? null) === $cancelled) {
-            throw ValidationException::withMessages([
-                'data.status' => 'الإلغاءُ يتمُّ من «عكس الدفعة» في الطلب، لا من هنا.',
-            ]);
-        }
-
-        if ($record instanceof Enrollment
-            && EnrollmentResource::isLapsedSubscription($record)
-            && in_array($data['status'] ?? null, Enrollment::GRANTING_STATUSES, true)) {
-            throw ValidationException::withMessages([
-                'data.status' => 'وصولُ الاشتراكِ يعودُ بتجديده، لا بتعديلِ الحالةِ من هنا.',
-            ]);
-        }
-
-        return $data;
-    }
-
-    /**
-     * ⚠️ «منتهٍ» على تسجيلِ اشتراكٍ يمرُّ بـ`SubscriptionAccess::closeEnrollment()`
-     * لا بـ`$record->update()`: الكتابةُ الخامُ لا تُطلِقُ `SubscriptionEnded`،
-     * فيبقى الطالبُ محجوزاً في حصصِ كورسٍ لم يعدْ يفتحُه — ويُخصَمُ منه عندَ
-     * تسليمِ كلِّ حصّة.
-     *
-     * ⚠️ والتسجيلُ المشترى (وأيُّ مصدرٍ غيرِ الاشتراك) له العطبُ نفسُه: كان
-     * يُكتَبُ خاماً فتبقى مقاعدُه القادمةُ محجوزةً ويُخصَمُ عنها عندَ التسليم.
-     * يُغلَقُ الآنَ بتحديثٍ مشروطٍ ويُطلَقُ `CourseAccessEnded` فتُحرِّرُ
-     * `ReleaseSeatsOnSubscriptionEnd` المقاعدَ من الطريقِ نفسِه (غيرَ محسوبةٍ،
-     * ويُفَكُّ الرصيدُ المحجوز). لا `CourseAccessWithdrawn`: ذاك يُخرجُ الطالبَ
-     * من مجموعته بسببِ «استرداد» لم يحدث. بقيّةُ الانتقالاتِ تُحفَظُ كما كانت.
+     * رفضُ الفعلِ يصلُ المشغِّلَ خطأً على الحقل، لا صفحةَ خطأ.
      *
      * @param  array<string, mixed>  $data
      */
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Enrollment $record */
-        $closesAccess = ($data['status'] ?? null) === EnrollmentStatus::Expired->value
-            && in_array($record->status, Enrollment::GRANTING_STATUSES, true);
+        $actor = Auth::user();
+        $to = is_string($data['status'] ?? null) ? EnrollmentStatus::tryFrom($data['status']) : null;
 
-        if (! $closesAccess) {
-            $record->update($data);
-
+        if (! $actor instanceof User || $to === null) {
             return $record;
         }
 
-        unset($data['status']);
-
-        return DB::transaction(function () use ($record, $data): Enrollment {
-            if ($data !== []) {
-                $record->update($data);
-            }
-
-            if ($record->source === 'subscription') {
-                SubscriptionAccess::closeEnrollment($record);
-            } else {
-                self::closeGrantedEnrollment($record);
-            }
-
-            return $record->refresh();
-        });
-    }
-
-    /**
-     * The non-subscription half: close the row with a conditional UPDATE (so a
-     * second save, or a sweep in between, announces nothing twice) and say that
-     * access ended. The listener runs after commit.
-     */
-    private static function closeGrantedEnrollment(Enrollment $enrollment): void
-    {
-        $closed = Enrollment::query()
-            ->withoutWorkspaceScope()
-            ->whereKey($enrollment->getKey())
-            ->whereIn('status', Enrollment::GRANTING_STATUSES)
-            ->update(['status' => EnrollmentStatus::Expired->value]);
-
-        if ($closed === 0) {
-            return;
+        try {
+            return app(ChangeEnrollmentStatus::class)->handle($actor, $record, $to);
+        } catch (DomainException $refusal) {
+            throw ValidationException::withMessages(['data.status' => $refusal->getMessage()]);
         }
-
-        CourseAccessEnded::dispatch(
-            (int) $enrollment->workspace_id,
-            (int) $enrollment->student_user_id,
-            [(int) $enrollment->course_id],
-        );
     }
 }

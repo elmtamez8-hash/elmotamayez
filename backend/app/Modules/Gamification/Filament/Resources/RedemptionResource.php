@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Gamification\Filament\Resources\RedemptionResource\Pages;
 use App\Modules\Gamification\Models\Redemption;
-use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Resources\Pages\PageRegistration;
@@ -19,6 +19,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
@@ -75,7 +76,19 @@ class RedemptionResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['student', 'reward', 'decider']);
+        /*
+        | ⚠️ بلا نطاق، والتجاوزُ مُكرَّرٌ في ضمِّ `reward` — قارئُ الطابورِ مديرُ
+        | المنصّة ({@see canViewAny()})، وتحتَ النطاقِ كانَ يرى طلباتِ مساحتِه
+        | وحدَها، وضمُّ المكافأةِ استعلامٌ ثانٍ يُطبَّقُ عليه نطاقُها من جديد.
+        | `student` و`decider` مستخدمونَ، مملوكونَ للمنصّةِ بلا نطاق.
+        */
+        return parent::getEloquentQuery()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->with([
+                'student',
+                'reward' => fn (Relation $relation): Relation => $relation->withoutGlobalScope(WorkspaceScope::class),
+                'decider',
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -88,7 +101,14 @@ class RedemptionResource extends Resource
                 TextColumn::make('student.first_name')->label('الطالب')
                     ->formatStateUsing(fn (Redemption $record): string => $record->student->name ?? '—')
                     ->searchable(['first_name', 'last_name']),
-                TextColumn::make('reward.title')->label('المكافأة')->searchable(),
+                // A plain `searchable()` here is a `whereHas('reward')` that the
+                // `Reward` scope narrows back to the reader's own workspace.
+                TextColumn::make('reward.title')->label('المكافأة')
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereHas(
+                        'reward',
+                        fn (Builder $reward): Builder => $reward->withoutGlobalScope(WorkspaceScope::class)
+                            ->where('title', 'like', '%'.$search.'%'),
+                    )),
                 TextColumn::make('coins_spent')->label('العملات المخصومة')->sortable()
                     ->description('مجمَّدةٌ لحظةَ الطلب: السعرُ قد يتغيّر بعدها.'),
                 TextColumn::make('status')->label('الحالة')->badge()
@@ -147,11 +167,16 @@ class RedemptionResource extends Resource
         return CarbonImmutable::parse($key.'-01')->settings(['locale' => 'ar'])->translatedFormat('F Y');
     }
 
+    /**
+     * ⚠️ مديرُ المنصّةِ وحدَه — لا `redemptions.fulfill`، وهي صلاحيّةُ مساحةٍ
+     * يحملُها موظّفُ المنصّةِ الذي يملكُ مساحةً هناك، فوقَ قائمةٍ بلا نطاق.
+     * {@see RewardResource::canViewAny()} للقصّةِ كاملة.
+     */
     public static function canViewAny(): bool
     {
         $user = Auth::user();
 
-        return $user instanceof User && $user->can(Permissions::REDEMPTIONS_FULFILL);
+        return $user instanceof User && $user->isSuperAdmin();
     }
 
     public static function canCreate(): bool

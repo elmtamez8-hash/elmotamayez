@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Settlement\Actions\ReverseTeachingUnit;
 use App\Modules\Settlement\Enums\LedgerEntryType;
@@ -24,6 +25,9 @@ use Illuminate\Database\QueryException;
 
 beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
+    // The ACTOR of a settlement decision is a platform officer: the Actions ask
+    // the platform permission themselves now, and the owner holds none.
+    $this->officer = User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
@@ -36,13 +40,13 @@ beforeEach(function (): void {
 
 it('corrects by writing a new row and leaves the original standing', function (): void {
     $reversal = app(ReverseTeachingUnit::class)
-        ->handle($this->unit, 'نزاع حُسم لصالح الطالب', $this->owner);
+        ->handle($this->unit, 'نزاع حُسم لصالح الطالب', $this->officer);
 
     expect($reversal)->not->toBeNull()
         ->and($reversal->amount_minor)->toBe(-5000)
         ->and($reversal->reversal_of_id)->toBe($this->unit->getKey())
         ->and($reversal->reversal_reason)->toBe('نزاع حُسم لصالح الطالب')
-        ->and($reversal->reversed_by)->toBe($this->owner->getKey())
+        ->and($reversal->reversed_by)->toBe($this->officer->getKey())
         ->and($reversal->status)->toBe(TeachingUnitStatus::Reversed);
 
     // Untouched. Not "updated to reflect the correction" — untouched.
@@ -53,7 +57,7 @@ it('corrects by writing a new row and leaves the original standing', function ()
 });
 
 it('nets the ledger to zero after a correction', function (): void {
-    app(ReverseTeachingUnit::class)->handle($this->unit, 'وحدة نشأت خطأً', $this->owner);
+    app(ReverseTeachingUnit::class)->handle($this->unit, 'وحدة نشأت خطأً', $this->officer);
 
     // Two rows summing to nothing, rather than one row deleted. The balance is
     // right either way; only one of them can still explain itself.
@@ -62,11 +66,11 @@ it('nets the ledger to zero after a correction', function (): void {
 });
 
 it('refuses to reverse a reversal', function (): void {
-    $reversal = app(ReverseTeachingUnit::class)->handle($this->unit, 'أول تصحيح', $this->owner);
+    $reversal = app(ReverseTeachingUnit::class)->handle($this->unit, 'أول تصحيح', $this->officer);
 
     // Otherwise a correction of a correction re-credits the teacher, and the
     // second reversal looks exactly like the first in the ledger.
-    expect(app(ReverseTeachingUnit::class)->handle($reversal, 'تصحيح التصحيح', $this->owner))
+    expect(app(ReverseTeachingUnit::class)->handle($reversal, 'تصحيح التصحيح', $this->officer))
         ->toBeNull();
 });
 

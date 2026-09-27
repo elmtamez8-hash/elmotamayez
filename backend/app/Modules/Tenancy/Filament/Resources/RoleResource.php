@@ -6,10 +6,12 @@ namespace App\Modules\Tenancy\Filament\Resources;
 
 use App\Modules\Tenancy\Filament\Resources\RoleResource\Pages;
 use App\Modules\Tenancy\Models\Role;
+use App\Modules\Tenancy\Models\Scopes\TeamRoleScope;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Policies\RolePolicy;
 use App\Modules\Tenancy\Support\PermissionLabels;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\WorkspaceContext;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -24,8 +26,10 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use UnitEnum;
 
@@ -118,12 +122,17 @@ class RoleResource extends Resource
                     | **دورَ منصّة**، ثمّ يُخفيه `TeamRoleScope` فوراً: صفٌّ يُكتَبُ
                     | ولا يُرى ولا يُحذَف.
                     */
+                    /*
+                    | ⚠️ كلُّ المساحاتِ لمديرِ المنصّةِ وحدَه. من يصلُ الشاشةَ
+                    | بـ`roles.manage` يحملُها في **مساحتِه** — فقائمةٌ بكلِّ
+                    | المساحاتِ كانت تُنشئُ له دوراً في مساحةِ مدرّسٍ آخر.
+                    | والرفضُ مُكرَّرٌ في `CreateRole` لأنّ القائمةَ تُشكِّلُ طلباً
+                    | واحداً لا الذي يليه.
+                    */
                     Select::make('team_id')
                         ->label('مساحة العمل')
-                        ->options(fn (): array => Workspace::query()
-                            ->orderBy('name')
-                            ->pluck('name', 'id')
-                            ->all())
+                        ->options(fn (): array => self::workspaceOptions())
+                        ->in(fn (): array => array_keys(self::workspaceOptions()))
                         ->searchable()
                         ->required()
                         ->disabled(fn (?Role $record): bool => $record !== null)
@@ -199,12 +208,13 @@ class RoleResource extends Resource
                     ->sortable(),
             ])
             ->filters([
+                // Only where there is more than one workspace to pick: for a
+                // reader under `TeamRoleScope` a filter naming every workspace
+                // offered choices that always answered an empty list.
                 SelectFilter::make('team_id')
                     ->label('مساحة العمل')
-                    ->options(fn (): array => Workspace::query()
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->all()),
+                    ->options(fn (): array => self::workspaceOptions())
+                    ->visible(fn (): bool => self::readsEveryWorkspace()),
             ])
             ->actions([
                 EditAction::make(),
@@ -212,11 +222,95 @@ class RoleResource extends Resource
             ]);
     }
 
+    /**
+     * ⚠️ THE REFUSAL IS REPEATED HERE, AND ON THE RESPONSE — NOT ON `canDelete()`.
+     *
+     * `RolePolicy::delete()` refuses a default role, but `AppServiceProvider`'s
+     * `Gate::before` answers `true` for the super admin before any policy runs —
+     * and the super admin is exactly who stands at this screen. So the row and
+     * header delete buttons deleted `teacher` or `tenant-owner` from a workspace,
+     * and `SeedDefaultRoles` never runs again to put it back: every member holding
+     * it lost everything at once. The same discovery `PlanResource` and
+     * `CreditPackageResource` wrote down.
+     *
+     * ⚠️ AND IT OVERRIDES `getDeleteAuthorizationResponse()`, NOT `canDelete()`.
+     * In Filament v5 a `DeleteAction` is authorised by
+     * `Page::getDefaultActionAuthorizationResponse()`, which calls this method
+     * directly — `canDelete()` is only a wrapper around it, and overriding the
+     * wrapper leaves the button working.
+     */
+    public static function getDeleteAuthorizationResponse(Model $record): Response
+    {
+        if ($record instanceof Role && in_array(
+            $record->name,
+            [...Roles::workspaceRoles(), ...Roles::platformRoles()],
+            true,
+        )) {
+            return Response::deny('الأدوارُ الافتراضيّةُ وأدوارُ المنصّةِ لا تُحذَف.');
+        }
+
+        return parent::getDeleteAuthorizationResponse($record);
+    }
+
+    /**
+     * ⚠️ EVERY WORKSPACE'S ROLES FOR THE SUPER ADMIN — which is what the
+     * «مساحة العمل» column above exists for.
+     *
+     * `TeamRoleScope` filters by spatie's team id, which the panel's middleware
+     * sets from `WorkspaceContext` — and that falls back to `last_workspace_id`.
+     * A super admin who has a workspace therefore saw that one workspace's roles
+     * under a filter offering every workspace, each choice answering an empty
+     * list. `whereNotNull('team_id')` keeps the teamless PLATFORM roles out, as
+     * the scope itself does: those are code-owned and edited nowhere.
+     *
+     * Anybody else here holds `roles.manage` in their own workspace and stays
+     * under the scope.
+     *
+     * @return Builder<Model>
+     */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery();
+
+        if (self::readsEveryWorkspace()) {
+            $query->withoutGlobalScope(TeamRoleScope::class)
+                ->whereNotNull($query->getModel()->getTable().'.team_id');
+        }
+
+        return $query
             ->with(['workspace'])
             ->withCount(['permissions']);
+    }
+
+    public static function readsEveryWorkspace(): bool
+    {
+        return Auth::user()?->isSuperAdmin() ?? false;
+    }
+
+    /**
+     * The workspaces a role may be created in or filtered by: all of them for
+     * the super admin, the reader's own for anybody else.
+     *
+     * @return array<int, string>
+     */
+    public static function workspaceOptions(): array
+    {
+        $query = Workspace::query()->orderBy('name');
+
+        if (! self::readsEveryWorkspace()) {
+            $current = app(WorkspaceContext::class)->id();
+
+            if ($current === null) {
+                return [];
+            }
+
+            $query->whereKey($current);
+        }
+
+        /** @var array<int, string> $options */
+        $options = $query->pluck('name', 'id')->all();
+
+        return $options;
     }
 
     /** @return array<string, PageRegistration> */

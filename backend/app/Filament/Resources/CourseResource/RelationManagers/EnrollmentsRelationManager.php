@@ -6,11 +6,13 @@ namespace App\Filament\Resources\CourseResource\RelationManagers;
 
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * من سجّل في هذا الكورس — قراءةً فقط.
@@ -40,6 +42,11 @@ class EnrollmentsRelationManager extends RelationManager
     {
         return $table
             ->defaultSort('enrolled_at', 'desc')
+            // ⚠️ The course is another workspace's for a super admin with a
+            // `last_workspace_id`, and `Enrollment`'s scope would AND their own
+            // workspace onto `course_id = …` — «لا يوجد تسجيلات» under a course
+            // with a full class.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
             ->columns([
                 TextColumn::make('student.email')
                     ->label('الطالب')

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Analytics\Filament\Widgets;
 
 use App\Modules\Analytics\Filament\Widgets\Concerns\NamesItsScope;
+use App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget;
 use App\Modules\Learning\Models\Enrollment;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -13,6 +14,10 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class EnrollmentStatsWidget extends BaseWidget
 {
     use NamesItsScope;
+
+    // ⚠️ بابُ ويدجتاتِ المنصّةِ نفسُه: لا مدرّسَ يدخلُ اللوحة، فلا «أرقامُ مساحتي»
+    // يبقى لها قارئٌ غيرُ موظّفٍ يرى مساحتَه مصادفة.
+    use PlatformWideWidget;
 
     /*
     | بعدَ ويدجتاتِ المنصّة.

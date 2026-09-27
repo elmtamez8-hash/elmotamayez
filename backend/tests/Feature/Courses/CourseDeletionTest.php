@@ -117,9 +117,9 @@ it('counts the enrolments of ANOTHER workspace than the one the deleter stands i
 it('refuses the panel delete with a notification, not an error page', function (): void {
     courseDeletionEnrol($this->course, User::factory()->create());
 
-    $this->setCurrentWorkspace($this->workspace, $this->owner);
-    $this->actingAs($this->owner);
-    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    // The panel is the super admin's (`CourseResource::canViewAny()`); the owner
+    // who stood here reached it only because Livewire skips the panel's door.
+    courseDeletionActAsPanelAdmin();
 
     Livewire::test(EditCourse::class, ['record' => $this->course->getRouteKey()])
         ->callAction(DeleteAction::class)
@@ -136,9 +136,7 @@ it('refuses a bulk delete that holds one bought course, and deletes nothing', fu
         'created_by' => $this->owner->getKey(),
     ]);
 
-    $this->setCurrentWorkspace($this->workspace, $this->owner);
-    $this->actingAs($this->owner);
-    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    courseDeletionActAsPanelAdmin();
 
     Livewire::test(ListCourses::class)
         ->callTableBulkAction('delete', [$this->course, $free])
@@ -147,6 +145,22 @@ it('refuses a bulk delete that holds one bought course, and deletes nothing', fu
     expect(DB::table('courses')->whereIn('id', [$this->course->getKey(), $free->getKey()])->whereNotNull('deleted_at')->count())
         ->toBe(0);
 });
+
+/**
+ * A super admin who has a workspace of their own — a DIFFERENT one from the
+ * course's, so the panel's platform-wide reads are exercised as well.
+ */
+function courseDeletionActAsPanelAdmin(): void
+{
+    [$own] = test()->createWorkspaceWithOwner();
+
+    $admin = User::factory()->create(['is_super_admin' => true]);
+    $admin->forceFill(['last_workspace_id' => $own->getKey()])->save();
+
+    test()->actingAs($admin);
+    app()->forgetInstance(WorkspaceContext::class);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+}
 
 dataset('buyer shapes', [
     'null context' => [false],

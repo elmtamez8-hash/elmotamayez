@@ -145,11 +145,17 @@ class ReviewRateRequests extends Page implements HasTable
                     ->requiresConfirmation()
                     ->modalHeading('اعتماد السعر')
                     ->modalDescription('الاعتماد يكتب سعراً سارياً، ولا يُتراجَع عنه إلّا بتصحيحٍ إداريٍّ له كاتبٌ وسبب.')
+                    // Filament v5 actions carry NO default authorisation: a
+                    // custom `Action` is open to everyone who reaches the page
+                    // until it says otherwise. The page's own door is asked
+                    // again per action, and `decide()` asks it a third time.
+                    ->authorize(fn (): bool => static::canAccess())
                     ->action(fn (RateChangeRequest $record) => $this->decide($record, true, null)),
                 Action::make('reject')
                     ->label('ارفض')
                     ->icon(Heroicon::OutlinedXCircle)
                     ->color('danger')
+                    ->authorize(fn (): bool => static::canAccess())
                     ->schema([
                         /*
                         | ⚠️ السببُ مطلوبٌ في الفعلِ نفسِه (`DecideRateChange:81`)،
@@ -178,6 +184,8 @@ class ReviewRateRequests extends Page implements HasTable
         if (! $officer instanceof User) {
             return;
         }
+
+        abort_unless(static::canAccess(), 403);
 
         /*
         | ⛔ التحقّقُ بخطوتَينِ يُسأَلُ هنا بِيَدٍ، ولا يصلُ من الوسيط.

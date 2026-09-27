@@ -217,7 +217,7 @@ it('refuses to move what the platform has already priced', function (): void {
     */
     $plan = savePlanAs(overrides: ['session_count' => 1, 'title' => 'حصّة واحدة']);
 
-    app(SetPlanPrice::class)->handle($plan, 10_000);
+    app(SetPlanPrice::class)->handle($this->officer, $plan, 10_000);
 
     foreach ([
         'the count widens' => ['session_count' => 200],
@@ -243,7 +243,7 @@ it('leaves the title and the on-off switch to the teacher', function (): void {
     */
     $plan = savePlanAs(overrides: ['session_count' => 1, 'title' => 'حصّة واحدة']);
 
-    app(SetPlanPrice::class)->handle($plan, 10_000);
+    app(SetPlanPrice::class)->handle($this->officer, $plan, 10_000);
 
     $saved = savePlanAs(overrides: [
         'session_count' => 1,
@@ -261,7 +261,7 @@ it('lets the platform itself move a priced plan', function (): void {
     // التعديل، فلو مُنِعَ لصارَ الطلبُ طابوراً لا مخرجَ له.
     $plan = savePlanAs(overrides: ['session_count' => 1]);
 
-    app(SetPlanPrice::class)->handle($plan, 10_000);
+    app(SetPlanPrice::class)->handle($this->officer, $plan, 10_000);
 
     expect((int) savePlanAs($this->officer, ['session_count' => 5], plan: $plan->fresh())->session_count)->toBe(5);
 });

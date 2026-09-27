@@ -269,12 +269,18 @@ class AdminPanelProvider extends PanelProvider
             | (`compliance.requests.execute` و`compliance.registry.manage`) تحرسان
             | لا شيء. صلاحيةٌ لا يقرؤها ملفٌّ واحدٌ تمرُّ في كلِّ اختبارٍ لها وهي
             | تحرسُ العدم — وهذا المستودعُ سجَّلَ العيبَ نفسَه في `taxonomy.manage`.
+            |
+            | ⚠️ **والثانيةُ ما زالت كذلك** (قِيسَ ٢٠٢٦-٠٩-٢٧): الموارِدُ هنا تقرأُ
+            | `compliance.requests.execute` و`holds` و`offboarding` و`breaches`،
+            | ولا شاشةَ لسجلِّ فئاتِ البيانات (`data_categories`) — فـ
+            | `compliance.registry.manage` لا يقرؤها ملفٌّ في الشجرة، وسجلُّ
+            | الفئاتِ يُكتَبُ من الشيفرةِ والبذورِ وحدَها. شاشتُه عملٌ لم يُبنَ بعد،
+            | لا سطرٌ ناقصٌ هنا.
             */
             ->discoverResources(
                 in: app_path('Modules/Compliance/Filament/Resources'),
                 for: 'App\Modules\Compliance\Filament\Resources',
             )
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             /*
             | ⚠️ ANALYTICS HAS NO `Pages/` DIRECTORY, AND THAT IS THE DESIGN. The
             | comment that stood here promised a `PlatformAnalytics` screen and
@@ -326,10 +332,22 @@ class AdminPanelProvider extends PanelProvider
                 in: app_path('Modules/Settlement/Filament/Pages'),
                 for: 'App\Modules\Settlement\Filament\Pages',
             )
+            // ⚠️ والخامسةُ بالسببِ عينِه: «فيديوهات تنتظر المراجعة» تسكنُ هذا
+            // المجلَّد، وبلا السطرِ تمرُّ `marketplace.promo.review` في كلِّ
+            // اختبارٍ لها ولا يصلُ مسؤولُ الامتثالِ فيديو واحداً.
+            ->discoverPages(
+                in: app_path('Modules/Courses/Filament/Pages'),
+                for: 'App\Modules\Courses\Filament\Pages',
+            )
+            /*
+            | ⚠️ لا `discoverPages()`/`discoverWidgets()` على `app/Filament/Pages`
+            | ولا `app/Filament/Widgets`: المجلَّدانِ غيرُ موجودَين، والاكتشافُ
+            | على مجلَّدٍ غائبٍ لا يُنتِجُ خطأً — سطرانِ يَعِدانِ بشاشاتٍ لا وجودَ
+            | لها. حُذِفا ٢٠٢٦-٠٩-٢٧.
+            */
             ->pages([
                 Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             /*
             | ⚠️ **القائمةُ مُرشَّحةٌ بـ`canView()` قبلَ التصيير**، وهذا ما يجعلُ
             | ويدجتَ إيراداتٍ آمناً على لوحةٍ يصلُها كلُّ مدرّس:
@@ -338,9 +356,11 @@ class AdminPanelProvider extends PanelProvider
             |
             | عشرةُ ويدجتاتِ المنصّةِ تحملُ
             | {@see \App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget}
-            | فيراها حاملُ `analytics.cross_teacher.view` وحدَه؛ والاثنانِ فوقَها
-            | بلا بابٍ عمداً — أرقامُ مساحةِ القارئِ نفسِه، وهي ما يبقى للمدرّسِ
-            | على هذه الشاشة.
+            | فيراها حاملُ `analytics.cross_teacher.view` وحدَه — والاثنانِ الأخيرانِ
+            | (`EnrollmentStatsWidget` و`ExamStatsWidget`) كذلك منذ ٢٠٢٦-٠٩-٢٧.
+            | كانا بلا بابٍ «لأنّهما أرقامُ مساحةِ القارئِ، ما يبقى للمدرّس» — ولا
+            | مدرّسَ يدخلُ هذه اللوحةَ منذ ضُيِّقَ بابُها على المنصّة، فصارا رقمَينِ
+            | عن مساحةِ موظّفٍ ماليٍّ مصادفةً على لوحةِ المنصّة.
             |
             | ⚠️ والترتيبُ من `$sort` على كلِّ صنفٍ لا من ترتيبِ هذه القائمة:
             | Filament يفرزُ بالسِمةِ لا بالمصفوفة، فقائمةٌ مرتَّبةٌ بصريّاً هنا
