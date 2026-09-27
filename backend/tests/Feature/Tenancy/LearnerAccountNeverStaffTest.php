@@ -13,9 +13,8 @@ use Laravel\Sanctum\Sanctum;
 
 /*
 | ⛔ حسابُ الطالبِ أو وليِّ الأمرِ لا يصيرُ عضواً في فريقِ العمل — قرارُ المالك
-| 2026-09-26. بابانِ يكتبانِ صفَّ موظّف، وكلاهُما يُسأَل: قبولُ الدعوة، وترقيةُ
-| صفِّ `student` — والدعوةُ نفسُها لا تُسأَلُ منذ 2026-09-27، لأنّ رفضَها كانَ
-| يكشفُ أيَّ بريدٍ لطالب. والحسابُ الذي لم يُعلِنْ دورَه (`platform_role` فارغ)
+| 2026-09-26. ثلاثةُ أبوابٍ تكتبُ صفَّ موظّف، وكلُّها تُسأَل: الدعوة، وقبولُها،
+| وترقيةُ صفِّ `student`. والحسابُ الذي لم يُعلِنْ دورَه (`platform_role` فارغ)
 | يمرّ — القاعدةُ عن حسابٍ قالَ إنّه طالبٌ أو وليُّ أمر.
 */
 
@@ -32,39 +31,19 @@ function pendingInvitation(mixed $workspace, string $email, string $role): Invit
 }
 
 describe('InviteMember', function (): void {
-    /*
-    | ⛔ THE INVITATION NO LONGER ASKS (2026-09-27). A 422 for a learner's address
-    | and a 201 for anyone else's was an account-existence oracle: every holder of
-    | `members.invite` could learn which emails on the platform are students. The
-    | two answers are now the same, and the refusal stands at acceptance — the
-    | door that writes the row.
-    */
-    it('answers a learner\'s address exactly as it answers any other, and refuses at acceptance', function (PlatformRole $role): void {
+    it('refuses a staff invitation to a student or parent account', function (PlatformRole $role): void {
         [$workspace, $owner] = $this->createWorkspaceWithOwner();
-        $learner = User::factory()->create(['email' => 'learner@example.test', 'platform_role' => $role]);
+        User::factory()->create(['email' => 'learner@example.test', 'platform_role' => $role]);
 
         Sanctum::actingAs($owner);
 
-        $forLearner = $this->postJson("/api/v1/workspaces/{$workspace->uuid}/invitations", [
+        $this->postJson("/api/v1/workspaces/{$workspace->uuid}/invitations", [
             // A different case than the stored address: SQLite compares case-sensitively.
             'email' => 'Learner@Example.test',
             'role' => Roles::ASSISTANT_TEACHER,
-        ])->assertCreated();
+        ])->assertStatus(422)->assertJsonPath('message', StaffAccounts::REFUSAL);
 
-        $forNobody = $this->postJson("/api/v1/workspaces/{$workspace->uuid}/invitations", [
-            'email' => 'nobody-yet@example.test',
-            'role' => Roles::ASSISTANT_TEACHER,
-        ])->assertCreated();
-
-        expect(array_keys($forLearner->json()))->toBe(array_keys($forNobody->json()));
-
-        Sanctum::actingAs($learner);
-
-        $this->postJson('/api/v1/workspaces/invitations/'.$forLearner->json('token').'/accept')
-            ->assertStatus(422)
-            ->assertJsonPath('message', StaffAccounts::REFUSAL);
-
-        expect(DB::table('workspace_members')->where('user_id', $learner->getKey())->exists())->toBeFalse();
+        expect(Invitation::query()->withoutWorkspaceScope()->count())->toBe(0);
     })->with([PlatformRole::Student, PlatformRole::Parent]);
 
     it('still invites a student account AS a student', function (): void {

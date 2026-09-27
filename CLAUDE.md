@@ -108,7 +108,7 @@ _Read before touching `Modules/Tenancy/`, any policy, `WorkspaceScope`/`Workspac
 - A PUBLIC PAGE THAT READS SOMETHING WORKSPACE-OWNED HAS A VICTIM, AND IT IS NOT THE VISITOR.
 - A permission whose only reader sits behind a route no client calls guards NOTHING — and the screen people actually use is the one to check.
 - A FILAMENT CREATE PAGE'S DEFAULT `handleRecordCreation()` IS `new Model($data)` — SO IT STAMPS THE *OFFICER'S* WORKSPACE AND DROPS EVERY NON-FILLABLE COLUMN, SILENTLY.
-- A student or parent account never becomes staff, and the refusal stands at the TWO doors that write a row (accept · role change) through `StaffAccounts` — NOT at invite, where a 422 told the inviter which emails are students (2026-09-27) — and a null `platform_role` passes.
+- A student or parent account never becomes staff, and the refusal stands at THREE doors (invite · accept · role change) through `StaffAccounts` — a null `platform_role` passes.
 
 ### Identity and sign-in → [`docs/gotchas/identity.md`](docs/gotchas/identity.md)
 _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessions._

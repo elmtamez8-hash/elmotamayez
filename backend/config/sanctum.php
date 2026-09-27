@@ -93,23 +93,7 @@ return [
     |
     */
 
-    /*
-    | ⚠️ AN ABSOLUTE CEILING, ON TOP OF THE IDLE EXPIRY — added 2026-09-27.
-    |
-    | Until then this was null and `IdleSessionGuard` was the only clock: a token
-    | died after `auth.session_idle_days` of silence and never otherwise. That
-    | leaves the one token that matters most alive for ever — a stolen one that
-    | is USED, daily, never idles. Thirty days by default, from the environment.
-    |
-    | ⛔ SANCTUM ALONE WOULD ONLY ANSWER 401. It hands `$isValid = false` to
-    | `IdleSessionGuard::allows()`, which is what ends the `auth_sessions` row with
-    | reason `expired` — without that the devices screen keeps a live-looking row
-    | for a dead token and the sign-in screen cannot say why the person is there.
-    | So the guard reads THIS value to tell «expired» from any other refusal.
-    */
-    //
-    // `0` or empty switches the ceiling off, like the idle setting's zero.
-    'expiration' => ((int) env('SANCTUM_EXPIRATION', 43200)) ?: null,
+    'expiration' => null,
 
     /*
     |--------------------------------------------------------------------------

@@ -33,9 +33,15 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 | answered 401 to every person who registered (measured 2026-09-25, the day after
 | real mail went live). `signed` covers `{id}` and `{hash}`: neither can be edited
 | without invalidating the URL, which is exactly what makes the id safe to trust.
+|
+| ⚠️ THE SIGNATURE IS CHECKED IN `verifyEmail()`, NOT BY THE `signed` MIDDLEWARE
+| (2026-09-27). The middleware answers an EXPIRED link — the ordinary case, a
+| mail opened the next day — with a raw 403 page, so the person never reached
+| `/login?verified=0` and its «resend» prompt. Same check, same strictness; only
+| the refusal is a redirect now. Nothing is written before it passes.
 */
 Route::get('/auth/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
-    ->middleware(['signed', 'throttle:public'])
+    ->middleware(['throttle:public'])
     ->name('verification.verify');
 
 /*

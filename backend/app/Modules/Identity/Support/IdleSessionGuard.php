@@ -15,14 +15,6 @@ use Laravel\Sanctum\PersonalAccessToken;
 /**
  * Ends a bearer-token session nobody has used for `auth.session_idle_days`.
  *
- * ⚠️ AND SINCE 2026-09-27 THERE IS A SECOND CLOCK BESIDE IT: `sanctum.expiration`
- * (`SANCTUM_EXPIRATION`, thirty days by default) is an ABSOLUTE lifetime. This
- * AMENDS the 2026-09-23 decision below, with the owner's approval after a
- * pre-launch audit: idle expiry alone never kills a stolen token that is being
- * used, so a person who opens the product every week now signs in again once a
- * month. Sanctum refuses such a token itself; {@see allows()} then ends its
- * session with reason `expired`, so the row and the sign-in screen say so.
- *
  * ⛔ UNTIL 2026-09-23 A TOKEN NEVER EXPIRED. `sanctum.expiration` is null and
  * `AuthSession::active()` asks the status alone, so a token copied off a shared
  * computer opened the account for as long as the account existed. The owner's
@@ -63,17 +55,6 @@ final class IdleSessionGuard
     public function allows(PersonalAccessToken $token, bool $isValid): bool
     {
         if (! $isValid) {
-            // Sanctum refused it. When the reason is the absolute lifetime, end
-            // the session row with a reason the sign-in screen can print —
-            // otherwise the row stays «active» over a token that no longer works.
-            // Idle is asked FIRST: a token past both limits was abandoned, and
-            // «unused for a long time» is the truer sentence for its owner.
-            if ($this->isIdle($token)) {
-                $this->end($token);
-            } elseif ($this->isPastLifetime($token)) {
-                $this->end($token, SessionEndReason::Expired);
-            }
-
             return false;
         }
 
@@ -110,21 +91,6 @@ final class IdleSessionGuard
         return now()->subDays($days);
     }
 
-    /**
-     * Older than `sanctum.expiration` — the absolute ceiling (2026-09-27), asked
-     * the way Sanctum's own guard asks it: from `created_at`, not from use.
-     */
-    private function isPastLifetime(PersonalAccessToken $token): bool
-    {
-        $minutes = config('sanctum.expiration');
-
-        if (! is_numeric($minutes) || (int) $minutes <= 0 || $token->created_at === null) {
-            return false;
-        }
-
-        return $token->created_at->lte(now()->subMinutes((int) $minutes));
-    }
-
     private function isIdle(PersonalAccessToken $token): bool
     {
         $cutoff = $this->cutoff();
@@ -142,7 +108,7 @@ final class IdleSessionGuard
      * End an idle token's session with the reason the sign-in screen prints, or
      * delete the token outright when it predates sessions and has no row.
      */
-    public function end(PersonalAccessToken $token, SessionEndReason $reason = SessionEndReason::Idle): void
+    public function end(PersonalAccessToken $token): void
     {
         $session = AuthSession::query()
             ->active()
@@ -150,7 +116,7 @@ final class IdleSessionGuard
             ->first();
 
         if ($session !== null) {
-            $this->terminate->handle($session, $reason);
+            $this->terminate->handle($session, SessionEndReason::Idle);
 
             return;
         }
