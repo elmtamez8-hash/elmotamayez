@@ -102,12 +102,24 @@ const STEPS = [
  * reader would read «مجموعة أشخاص، ٤٤٢، طالب».
  */
 function StatBar({ stats }: { stats: HomePayload["stats"] }) {
+  /*
+   * ⚠️ A NUMBER WITH NOTHING BEHIND IT IS LEFT OUT, NEVER PRINTED AS ZERO. The
+   * bar read «٠٪ معدّل الرضا» on a platform nobody had rated yet — the API
+   * turned «no ratings» into 0 — which is a claim that every family was
+   * unhappy, under the platform's own name. The API now sends `null`; zero is
+   * dropped too, because a cached answer from before that fix still carries it,
+   * and «٠ طالب» is no more a fact about the platform than «٠٪» was.
+   */
   const items = [
     { label: "طالب", value: stats.students, Icon: UsersIcon },
     { label: "مدرّس", value: stats.teachers, Icon: AcademicCapIcon },
     { label: "حصة مكتملة", value: stats.sessions, Icon: SessionsIcon },
     { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "٪", Icon: StarIcon },
-  ];
+  ].flatMap((item) =>
+    typeof item.value === "number" && item.value > 0 ? [{ ...item, value: item.value }] : [],
+  );
+
+  if (items.length === 0) return null;
 
   return (
     <section aria-label="أرقام المنصة" className="border-y border-line bg-surface-raised">
