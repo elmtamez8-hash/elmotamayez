@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalDraft } from "@/components/marketplace/LegalDraft";
 import { DocumentIcon } from "@/components/icons";
+import { freezeLimitsHint } from "@/lib/class-sessions";
 import { platformIdentity } from "@/lib/platform";
 
 export const metadata: Metadata = {
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
  * clause added here with nothing behind it is a promise the product breaks —
  * write the code first, or leave the clause out. The numbers are the shipped
  * defaults of settings an operator can change from the panel, which is why the
- * page says «حالياً» beside them.
+ * page says «حالياً» beside them — except the two freeze limits, which are read
+ * live from `GET /api/v1/platform` (see below).
  *
  * ⚠️ AND WHAT IS NOT ENFORCED IS DELIBERATELY ABSENT: the exam timer is stored
  * and shown but never checked on the server, and refusing the recording
@@ -26,6 +28,18 @@ export const metadata: Metadata = {
  */
 export default async function TermsPage() {
   const identity = await platformIdentity();
+  /*
+   * ⚠️ THE FREEZE LIMITS ARE READ, NOT WRITTEN HERE. They were «٣٠ يوماً» and
+   * «فترتَي تجميد» in this file while both are `platform_settings` rows, so the
+   * day an operator changed one the page promised a number `CreateFreezePeriod`
+   * no longer honoured. Spelled by `freezeLimitsHint()` — the sentence the
+   * teacher's freeze screen already shows — so the two can never disagree, and
+   * left out whole when the API could not say.
+   */
+  const freezeLimits =
+    identity.freezeMaxDays !== null && identity.freezeMaxPerMonth !== null
+      ? { max_days: identity.freezeMaxDays, max_per_month: identity.freezeMaxPerMonth }
+      : null;
 
   return (
     <LegalDraft
@@ -141,8 +155,8 @@ export default async function TermsPage() {
         <li>لا يتجدّد الاشتراك تلقائياً. نرسل لك تنبيهاً قبل انتهائه بـ٣ أيام، وعند انتهائه يُغلق ما كان يفتحه.</li>
         <li>إن اشتريت تجديداً قبل انتهاء اشتراكك الحالي، يبدأ التجديد في اليوم التالي لانتهائه.</li>
         <li>
-          إذا جمّد المدرّس الحصص في فترة ما، يُمدَّد اشتراكك بعدد أيام التجميد. ولا تزيد فترة التجميد
-          الواحدة على ٣٠ يوماً، ولا تبدأ في الشهر الواحد أكثر من فترتَي تجميد.
+          إذا جمّد المدرّس الحصص في فترة ما، يُمدَّد اشتراكك بعدد أيام التجميد.
+          {freezeLimits && ` ${freezeLimitsHint(freezeLimits)}`}
         </li>
         <li>
           إلغاء الاشتراك تتولّاه المنصّة، ويعني ردَّ المبلغ كاملاً وإغلاق الوصول معاً، بلا تقسيط على

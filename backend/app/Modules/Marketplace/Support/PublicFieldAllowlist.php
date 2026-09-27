@@ -483,6 +483,23 @@ final class PublicFieldAllowlist
      * privacy policy that does not say who is responsible and how to reach them
      * is not a privacy policy; they are published on /privacy, /terms and
      * /refunds by design, exactly as the support number is on every page.
+     *
+     * ⚠️ AND THE TWO FREEZE LIMITS ARE TERMS OF SERVICE, NOT CONFIGURATION
+     * (2026-09-27, owner decision). /terms promises them to every family in
+     * words; hard-coded there, the page kept saying «٣٠ يوماً» and «مرتين» the
+     * day an operator changed either row, while `CreateFreezePeriod` refused at
+     * the new number. They open nothing, price nothing and name nobody — the
+     * test is the same one the support number passed: printed on the page it
+     * belongs on, by design. The operating fee and the device limit beside
+     * them in `platform_settings` still fail it.
      */
-    public const PLATFORM_IDENTITY = ['name', 'support_whatsapp', 'legal_name', 'postal_address', 'contact_email'];
+    public const PLATFORM_IDENTITY = [
+        'name',
+        'support_whatsapp',
+        'legal_name',
+        'postal_address',
+        'contact_email',
+        'freeze_max_days',
+        'freeze_max_per_month',
+    ];
 }

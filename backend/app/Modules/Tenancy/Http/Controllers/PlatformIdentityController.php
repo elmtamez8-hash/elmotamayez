@@ -49,6 +49,21 @@ class PlatformIdentityController extends Controller
                 'legal_name' => (string) PlatformSettings::get('platform.legal_name'),
                 'postal_address' => (string) PlatformSettings::get('platform.postal_address'),
                 'contact_email' => (string) PlatformSettings::get('platform.contact_email'),
+                /*
+                 * The two freeze limits /terms states (owner decision
+                 * 2026-09-27). Integers, clamped to at least one exactly as
+                 * `SessionSettings::freezeMaxDays()` / `freezeMaxPerMonth()`
+                 * clamp them — `PlatformIdentityTest` pins the two readers
+                 * together, because a page that promised a different number
+                 * from the one `CreateFreezePeriod` refuses at is a clause the
+                 * product breaks.
+                 *
+                 * ⚠️ READ HERE RATHER THAN THROUGH `SessionSettings`, because
+                 * LiveSessions already depends on Tenancy for these very rows;
+                 * the reverse import would make the two modules a cycle.
+                 */
+                'freeze_max_days' => max(1, (int) PlatformSettings::get('sessions.freeze_max_days')),
+                'freeze_max_per_month' => max(1, (int) PlatformSettings::get('sessions.freeze_max_per_month')),
             ],
         ]);
     }

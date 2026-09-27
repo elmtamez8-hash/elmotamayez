@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Support\PublicFieldAllowlist;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use Filament\Facades\Filament;
@@ -77,7 +78,45 @@ it('sends the name and nothing else from the settings table', function (): void 
     expect(array_keys($payload))->toBe(PublicFieldAllowlist::PLATFORM_IDENTITY)
         // ⚠️ Widened on purpose (2026-09-26, owner decision): the legal pages'
         // controller identity. Any further field is a deliberate edit here too.
-        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe(['name', 'support_whatsapp', 'legal_name', 'postal_address', 'contact_email']);
+        // ⚠️ And again on 2026-09-27: the two freeze limits /terms states.
+        ->and(PublicFieldAllowlist::PLATFORM_IDENTITY)->toBe([
+            'name',
+            'support_whatsapp',
+            'legal_name',
+            'postal_address',
+            'contact_email',
+            'freeze_max_days',
+            'freeze_max_per_month',
+        ]);
+});
+
+/*
+| ⛔ /terms قالت «٣٠ يوماً» و«فترتَي تجميد» نصّاً مكتوباً في الصفحة، والرقمانِ
+| صفّانِ في `platform_settings` يعدّلُهما المشغّلُ من اللوحة. فيومَ يتغيّرُ أحدُهما
+| يرفضُ `CreateFreezePeriod` عندَ الرقمِ الجديد والصفحةُ تَعِدُ بالقديم.
+|
+| ⚠️ والمقارنةُ بـ`SessionSettings` نفسِه لا بثابت: المتحكّمُ يقرأُ الصفَّينِ
+| بنفسِه (الاستيرادُ العكسيُّ حلقةٌ بين الوحدتين)، فقراءتانِ لسؤالٍ واحد —
+| وهذه الحالةُ هي ما يُبقيهما جواباً واحداً.
+*/
+it('states the freeze limits the Action enforces, as integers, and follows an operator edit', function (): void {
+    $settings = app(SessionSettings::class);
+
+    $this->getJson('/api/v1/platform')
+        ->assertOk()
+        ->assertJsonPath('data.freeze_max_days', $settings->freezeMaxDays())
+        ->assertJsonPath('data.freeze_max_per_month', $settings->freezeMaxPerMonth());
+
+    PlatformSettings::set('sessions.freeze_max_days', '14');
+    PlatformSettings::set('sessions.freeze_max_per_month', '3');
+
+    $payload = $this->getJson('/api/v1/platform')->assertOk()->json('data');
+
+    // `toBe()` — an integer, never the string the settings row stores.
+    expect($payload['freeze_max_days'])->toBe(14)
+        ->and($payload['freeze_max_per_month'])->toBe(3)
+        ->and($payload['freeze_max_days'])->toBe($settings->freezeMaxDays())
+        ->and($payload['freeze_max_per_month'])->toBe($settings->freezeMaxPerMonth());
 });
 
 /*
