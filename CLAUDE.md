@@ -194,7 +194,7 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
 - A zone the person CHOSE (`timezone_source = manual`) outranks every browser report, and «show both clocks» is decided by the OFFSET at that instant, never the zone name.
 - A private hour whose only student cancels IN TIME is called off through `CancelClassSession`; a generated open slot reopens instead, and a LATE cancellation leaves the session standing because its seat is still charged.
-- A freeze has two limits (30 days · 2 starts per month per scope, both `platform_settings` rows), and the monthly one is a conditional INSERT on the `freeze_period_starts` ledger, never `count()` then `create()` — and never counted in `freeze_periods`, because a lift deletes that row and a lifted freeze still counts.
+- A freeze has two limits (30 days · 2 starts per month per scope, both `platform_settings` rows), and the monthly one is counted in the `freeze_period_starts` ledger AFTER the transaction's first statement locks the workspace row — an `INSERT … SELECT … WHERE (SELECT COUNT(*)) < ?` is NOT atomic on MySQL (no existing row to contend on), and the private-request ceiling locks `teacher_profiles` the same way — and never counted in `freeze_periods`, because a lift deletes that row and a lifted freeze still counts.
 - Staff in the room are never students of it: `excludingHost()` keeps SEAT HOLDERS only (an assistant with `sessions.host` has a heartbeat row and no booking), and the row itself stays for the roster and for delivery.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)

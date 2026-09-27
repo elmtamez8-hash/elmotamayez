@@ -19,7 +19,9 @@ use App\Shared\Support\CountedNoun;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Support\Facades\DB;
+use PDOException;
 
 /**
  * A stretch of days where nothing counts (FR-039).
@@ -47,6 +49,8 @@ use Illuminate\Support\Facades\DB;
  */
 class CreateFreezePeriod extends Action
 {
+    use DetectsConcurrencyErrors;
+
     /**
      * The reason written on the group seat a freeze on ONE student takes.
      *
@@ -146,13 +150,35 @@ class CreateFreezePeriod extends Action
      * freeze still counts (owner decision 2026-09-27); the ledger row is written
      * here, once, and nothing deletes it.
      *
-     * ⚠️ ONE CONDITIONAL INSERT ON THE LEDGER, NEVER `count()` THEN `create()` —
-     * that pair is the definition of the race, and a double-tapped «تجميد
-     * الفترة» is exactly two concurrent requests. Same shape `RequestPrivateSession`
-     * uses for its ceiling. The period itself is then written through the model,
-     * in the same transaction, so `HasUuid`, `BelongsToWorkspace` and the
-     * `created` hook (`FreezePeriodChanged`, which spec 011 extends
-     * subscriptions from) all run as they always did.
+     * ⚠️ SERIALISED ON THE WORKSPACE ROW BEFORE IT COUNTS. A double-tapped
+     * «تجميد الفترة» is exactly two concurrent requests, and a bare count then
+     * insert lets both read one start and both write a second.
+     *
+     * ⛔ UNTIL 2026-09-27 THIS WAS `INSERT … SELECT … WHERE (SELECT COUNT(*) …) < ?`
+     * AND ITS DOCBLOCK CALLED THAT ATOMIC. IT IS NOT. A conditional UPDATE is
+     * safe because both requests contend on ONE EXISTING ROW; a count of rows
+     * that do not exist yet has none to contend on. On MySQL under REPEATABLE
+     * READ both requests could read the count below the ceiling, or deadlock on
+     * the gap locks the subquery takes — which reached the teacher as a 500.
+     *
+     * So the transaction's first statement writes the scope's parent row
+     * (`workspaces`, for both scopes: a workspace's freezes are rare, and
+     * serialising all of them costs nothing). InnoDB holds that row's lock until
+     * commit, so the second request waits there until the first has committed
+     * its ledger row, and only then counts — with a plain read whose snapshot
+     * opens AFTER the lock was granted, so it sees that row.
+     *
+     * ⚠️ WHICH IS WHY THE GATE MUST STAY THE FIRST STATEMENT OF AN OUTERMOST
+     * TRANSACTION. A read hoisted above it, or a caller wrapping this in a
+     * transaction that already read something, pins a snapshot taken before
+     * the winner committed and the ceiling is open again. A deadlock is retried
+     * (`attempts: 3`) and, if it persists, refused as «حاول مرة أخرى» — never a
+     * 500, and never the ceiling message, since the teacher did not reach it.
+     *
+     * The period itself is then written through the model, in the same
+     * transaction, so `HasUuid`, `BelongsToWorkspace` and the `created` hook
+     * (`FreezePeriodChanged`, which spec 011 extends subscriptions from) all run
+     * as they always did.
      */
     private function claimMonthlySlot(
         User $actor,
@@ -170,48 +196,77 @@ class CreateFreezePeriod extends Action
         $limit = $this->settings->freezeMaxPerMonth();
         $studentId = $student?->getKey();
 
-        return DB::transaction(function () use ($actor, $startsOn, $endsOn, $reason, $workspaceId, $limit, $studentId): FreezePeriod {
-            // `IS NULL` for the workspace scope, never `= ?` with a null binding:
-            // `student_user_id = NULL` matches no row at all, and the ceiling
-            // would never bite on the scope teachers actually use.
-            $scope = $studentId === null ? 'student_user_id IS NULL' : 'student_user_id = ?';
-            $scopeBindings = $studentId === null ? [] : [$studentId];
-
-            $claimed = DB::affectingStatement(
-                'INSERT INTO freeze_period_starts (workspace_id, student_user_id, starts_on, created_at)
-                 SELECT ?, ?, ?, ?
-                   FROM (SELECT 1) AS guard
-                  WHERE (SELECT COUNT(*) FROM freeze_period_starts
-                          WHERE workspace_id = ?
-                            AND '.$scope.'
-                            AND starts_on >= ?
-                            AND starts_on < ?) < ?',
-                [
-                    $workspaceId, $studentId, $startsOn->toDateString(), now()->format('Y-m-d H:i:s'),
-                    $workspaceId, ...$scopeBindings,
-                    $startsOn->startOfMonth()->toDateString(),
-                    $startsOn->startOfMonth()->addMonthNoOverflow()->toDateString(),
-                    $limit,
-                ],
+        try {
+            return DB::transaction(
+                fn (): FreezePeriod => $this->claimInsideGate($actor, $startsOn, $endsOn, $reason, $workspaceId, $limit, $studentId),
+                attempts: 3,
             );
-
-            if ($claimed === 0) {
-                throw new DomainException(
-                    'لا تبدأ في الشهر الواحد أكثر من '
-                    .CountedNoun::of($limit, ['one' => 'فترة تجميد واحدة', 'two' => 'فترتي تجميد', 'few' => 'فترات تجميد', 'many' => 'فترة تجميد', 'other' => 'فترة تجميد'])
-                    .($studentId === null ? '' : ' لهذا الطالب')
-                    .' — والفترة التي رُفعت تُحسب أيضاً. اختر بداية في شهر آخر.',
-                );
+        } catch (PDOException $e) {
+            // A deadlock or lock wait the retries could not clear. Neither is
+            // the ceiling — the teacher did not reach it — and neither is a 500.
+            if (! $this->causedByConcurrencyError($e)) {
+                throw $e;
             }
 
-            return FreezePeriod::query()->create([
-                'student_user_id' => $studentId,
-                'starts_on' => $startsOn->toDateString(),
-                'ends_on' => $endsOn->toDateString(),
-                'reason' => $reason,
-                'created_by' => $actor->getKey(),
-            ]);
-        });
+            throw new DomainException('تعذّر تسجيل فترة التجميد الآن. حاول مرة أخرى.');
+        }
+    }
+
+    /**
+     * The body of {@see claimMonthlySlot()}'s transaction. The gate is its FIRST
+     * statement — nothing may be read above it.
+     */
+    private function claimInsideGate(
+        User $actor,
+        CarbonImmutable $startsOn,
+        CarbonImmutable $endsOn,
+        ?string $reason,
+        int $workspaceId,
+        int $limit,
+        mixed $studentId,
+    ): FreezePeriod {
+        // `SET id = id` changes nothing and still takes the row's exclusive
+        // lock, held until commit. Its affected-row count means nothing (MySQL
+        // reports CHANGED rows), so it is not read.
+        DB::update('UPDATE workspaces SET id = id WHERE id = ?', [$workspaceId]);
+
+        // `whereNull()` for the workspace scope, never `= ?` with a null
+        // binding: `student_user_id = NULL` matches no row at all, and the
+        // ceiling would never bite on the scope teachers actually use.
+        $started = DB::table('freeze_period_starts')
+            ->where('workspace_id', $workspaceId)
+            ->when(
+                $studentId === null,
+                fn ($query) => $query->whereNull('student_user_id'),
+                fn ($query) => $query->where('student_user_id', $studentId),
+            )
+            ->where('starts_on', '>=', $startsOn->startOfMonth()->toDateString())
+            ->where('starts_on', '<', $startsOn->startOfMonth()->addMonthNoOverflow()->toDateString())
+            ->count();
+
+        if ($started >= $limit) {
+            throw new DomainException(
+                'لا تبدأ في الشهر الواحد أكثر من '
+                .CountedNoun::of($limit, ['one' => 'فترة تجميد واحدة', 'two' => 'فترتي تجميد', 'few' => 'فترات تجميد', 'many' => 'فترة تجميد', 'other' => 'فترة تجميد'])
+                .($studentId === null ? '' : ' لهذا الطالب')
+                .' — والفترة التي رُفعت تُحسب أيضاً. اختر بداية في شهر آخر.',
+            );
+        }
+
+        DB::table('freeze_period_starts')->insert([
+            'workspace_id' => $workspaceId,
+            'student_user_id' => $studentId,
+            'starts_on' => $startsOn->toDateString(),
+            'created_at' => now()->format('Y-m-d H:i:s'),
+        ]);
+
+        return FreezePeriod::query()->create([
+            'student_user_id' => $studentId,
+            'starts_on' => $startsOn->toDateString(),
+            'ends_on' => $endsOn->toDateString(),
+            'reason' => $reason,
+            'created_by' => $actor->getKey(),
+        ]);
     }
 
     /**

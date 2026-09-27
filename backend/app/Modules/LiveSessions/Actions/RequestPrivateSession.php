@@ -19,9 +19,11 @@ use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\CountedNoun;
 use Carbon\CarbonImmutable;
 use DomainException;
+use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PDOException;
 
 /**
  * «أريد حصّة خاصّة في هذا الكورس، الثلاثاء ٦م».
@@ -42,6 +44,8 @@ use Illuminate\Support\Str;
  */
 class RequestPrivateSession extends Action
 {
+    use DetectsConcurrencyErrors;
+
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly BookingEligibility $eligibility,
@@ -157,13 +161,29 @@ class RequestPrivateSession extends Action
     }
 
     /**
-     * The write, the duplicate guard and the ceiling — in one statement.
+     * The write, the duplicate guard and the ceiling — in one transaction,
+     * serialised on the teacher's profile row.
      *
-     * ⚠️ `count()` THEN `insert()` IS THE DEFINITION OF THE RACE, and a request
-     * is the cheapest row in the product to produce: it holds no seat and moves
-     * no credit, so a student with a script fills a teacher's whole week in a
-     * minute. The count is a correlated subquery in the INSERT's own WHERE, so
-     * the number is read and the row written under one lock.
+     * ⚠️ A BARE `count()` THEN `insert()` IS THE DEFINITION OF THE RACE, and a
+     * request is the cheapest row in the product to produce: it holds no seat
+     * and moves no credit, so a student with a script fills a teacher's whole
+     * week in a minute.
+     *
+     * ⛔ UNTIL 2026-09-27 THE COUNT WAS A SUBQUERY IN AN `INSERT … SELECT`, AND
+     * THIS DOCBLOCK SAID THAT READ THE NUMBER AND WROTE THE ROW «UNDER ONE
+     * LOCK». IT DID NOT: there is no row to lock in a count of rows that do not
+     * exist yet. On MySQL under REPEATABLE READ two requests could both read the
+     * count below the ceiling, or deadlock on the subquery's gap locks — a 500.
+     *
+     * So the transaction's FIRST statement writes the scope's parent row — the
+     * teacher's profile (every request to one teacher waits in turn; a handful a
+     * minute at most). InnoDB holds that lock until commit, so a second request
+     * waits there until the first has committed, and only then counts, with a
+     * plain read whose snapshot opens AFTER the lock was granted. ⚠️ Nothing may
+     * be read above the gate, and this may not run inside a caller's
+     * transaction: either pins a snapshot from before the winner committed. A
+     * deadlock is retried (`attempts: 3`) and then refused as «حاول مرة أخرى» —
+     * not as the ceiling, and not as a duplicate.
      *
      * ⚠️ AND NO MODEL IS BOOTED BY A RAW INSERT, so `HasUuid` never fires. Left
      * to the database that is a NOT NULL violation MySQL downgrades to a warning
@@ -171,7 +191,7 @@ class RequestPrivateSession extends Action
      * collides with that one row on `unique(uuid)` and is silently swallowed.
      * `uuid` and both timestamps are named explicitly for that reason.
      *
-     * ⚠️ AND THE STATEMENT HAS TWO DISTINCT FAILURES. Zero rows affected is the
+     * ⚠️ AND THE WRITE HAS TWO DISTINCT FAILURES. A refused count is the
      * ceiling; a unique violation is the same moment asked for twice. One
      * sentence for both would send a student to cancel a request they do not
      * have.
@@ -201,31 +221,56 @@ class RequestPrivateSession extends Action
             $expiresAt = $startsAt->utc()->toMutable();
         }
 
+        $row = [
+            'workspace_id' => $course->workspace_id,
+            'uuid' => $uuid,
+            'course_id' => $course->getKey(),
+            'student_user_id' => $student->getKey(),
+            'teacher_profile_id' => $teacherProfileId,
+            'starts_at' => $startsAt->utc()->format('Y-m-d H:i:s'),
+            'duration_minutes' => $minutes,
+            'status' => PrivateSessionRequest::PENDING,
+            'expires_at' => $expiresAt->utc()->format('Y-m-d H:i:s'),
+            'pending_slot' => 0,
+            'created_at' => $now->format('Y-m-d H:i:s'),
+            'updated_at' => $now->format('Y-m-d H:i:s'),
+        ];
+
         try {
-            $written = DB::affectingStatement(
-                'INSERT INTO private_session_requests
-                    (workspace_id, uuid, course_id, student_user_id, teacher_profile_id,
-                     starts_at, duration_minutes, status, expires_at, pending_slot,
-                     created_at, updated_at)
-                 SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?
-                   FROM (SELECT 1) AS guard
-                  WHERE (SELECT COUNT(*) FROM private_session_requests
-                          WHERE student_user_id = ?
-                            AND teacher_profile_id = ?
-                            AND status = ?) < ?',
-                [
-                    $course->workspace_id, $uuid, $course->getKey(), $student->getKey(), $teacherProfileId,
-                    $startsAt->utc()->format('Y-m-d H:i:s'), $minutes, PrivateSessionRequest::PENDING,
-                    $expiresAt->utc()->format('Y-m-d H:i:s'),
-                    $now->format('Y-m-d H:i:s'), $now->format('Y-m-d H:i:s'),
-                    $student->getKey(), $teacherProfileId, PrivateSessionRequest::PENDING, $limit,
-                ],
-            );
+            $written = DB::transaction(function () use ($row, $teacherProfileId, $student, $limit): bool {
+                // The gate — the transaction's FIRST statement, see above.
+                // `SET id = id` changes nothing and still takes the row's
+                // exclusive lock until commit; its affected-row count means
+                // nothing (MySQL reports CHANGED rows), so it is not read.
+                DB::update('UPDATE teacher_profiles SET id = id WHERE id = ?', [$teacherProfileId]);
+
+                $pending = DB::table('private_session_requests')
+                    ->where('student_user_id', $student->getKey())
+                    ->where('teacher_profile_id', $teacherProfileId)
+                    ->where('status', PrivateSessionRequest::PENDING)
+                    ->count();
+
+                if ($pending >= $limit) {
+                    return false;
+                }
+
+                DB::table('private_session_requests')->insert($row);
+
+                return true;
+            }, attempts: 3);
         } catch (UniqueConstraintViolationException) {
             throw new DomainException('لديك طلب قائم على هذا الموعد بالفعل.');
+        } catch (PDOException $e) {
+            // A deadlock or lock wait the retries could not clear: neither the
+            // ceiling nor a duplicate, and never a 500.
+            if (! $this->causedByConcurrencyError($e)) {
+                throw $e;
+            }
+
+            throw new DomainException('تعذّر تسجيل الطلب. حاول مرة أخرى.');
         }
 
-        if ($written === 0) {
+        if (! $written) {
             throw new DomainException('لديك '.CountedNoun::of($limit, ['one' => 'طلب واحد ينتظر', 'two' => 'طلبان ينتظران', 'few' => 'طلبات تنتظر', 'many' => 'طلباً تنتظر', 'other' => 'طلب ينتظر']).' الردّ عند هذا المدرّس. انتظر الردّ أو اسحب أحدها.');
         }
 
