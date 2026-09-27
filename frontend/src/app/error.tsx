@@ -48,13 +48,12 @@ import { reloadOnceForStaleChunk } from "@/lib/stale-chunk";
  * itself (`lib/stale-chunk.ts`, guarded so it can never loop); a second one
  * inside the guard window falls through to this screen, buttons and all.
  *
- * ⚠️ AND THERE IS DELIBERATELY NO `global-error.tsx`. That file must render its
- * own `<html>` and `<body>`, and this repository has exactly one root layout on
- * purpose — «adding a second `<html>` anywhere re-splits the product». It would
- * only ever fire for a throw inside the root layout itself, which is a server
- * component doing two reads; the cost of a second document shell is not worth
- * covering it. Everything below the root layout — every page, every nested
- * layout, every client component — lands here.
+ * ⚠️ `global-error.tsx` EXISTS SINCE 2026-09-27, AND IT IS NOT THIS SCREEN. It
+ * fires ONLY for a throw inside the root layout itself, which this boundary
+ * cannot catch because it renders inside that layout; it declares its own
+ * `<html lang="ar" dir="rtl">` because it stands in for the root layout, never
+ * beside it. Everything below the root layout — every page, every nested
+ * layout, every client component — still lands here.
  */
 
 /** Where somebody whose screen just broke most plausibly wants to be. */

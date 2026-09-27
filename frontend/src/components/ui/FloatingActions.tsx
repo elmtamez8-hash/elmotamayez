@@ -32,8 +32,10 @@ const NO_FLOATING_CHROME = ["/room", "/take"];
  *
  * One component for both so they share a stacking context and the same bottom
  * offset. The teacher profile page pins a booking bar to the bottom on mobile;
- * these sit above it (bottom-24) below `lg` and drop to bottom-6 once that bar
- * is gone. Two separate components would each have to know about that bar.
+ * these stand 1.5rem above whatever `StickyCtaBar` publishes as its height
+ * (`--sticky-cta-height`, 0 when there is no bar or it is hidden at `lg`). It
+ * was a fixed `bottom-24` below `lg` — a guess at the bar's height that sat a
+ * few pixels from «احجز الآن» and floated needlessly high on every other page.
  *
  * ⚠️ THE NUMBER COMES FROM THE CONTEXT, NOT FROM A BUILD-TIME CONSTANT, AND THAT
  * IS WHY THIS BUTTON EXISTED FOR MONTHS WITHOUT EVER BEING SEEN. It read
@@ -78,7 +80,7 @@ export function FloatingActions() {
   return (
     // end-6, not right-6: the page is RTL, and a logical property puts these on
     // the correct side without a second rule.
-    <div className="fixed bottom-24 end-6 z-40 flex flex-col gap-3 lg:bottom-6">
+    <div className="fixed bottom-[calc(var(--sticky-cta-height,0px)+1.5rem)] end-6 z-40 flex flex-col gap-3">
       {supportWhatsapp !== "" && (
         <a
           href={`https://wa.me/${supportWhatsapp}`}

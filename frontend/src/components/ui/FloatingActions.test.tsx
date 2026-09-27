@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FloatingActions } from "./FloatingActions";
+import { STICKY_CTA_HEIGHT_VAR, StickyCtaBar } from "./StickyCtaBar";
 import { PlatformProvider } from "@/lib/platform-context";
 
 /*
@@ -85,4 +86,30 @@ describe("where it deliberately does not appear", () => {
       expect(screen.queryByRole("button", { name: "العودة إلى أعلى الصفحة" })).toBeNull();
     },
   );
+});
+
+/*
+| ⚠️ The button stands on the height a sticky bottom bar publishes, not on a
+| guessed `bottom-24`: on a phone it sat a few pixels from «احجز الآن». A typo in
+| the variable name would fall back to 0 in silence, so the name is asserted.
+*/
+describe("its distance from a sticky bottom bar", () => {
+  it("stands above the height the bar publishes", () => {
+    mount("97455512345");
+
+    const stack = screen.getByRole("link", { name: "تواصل معنا عبر واتساب" }).parentElement;
+
+    expect(stack?.className).toContain(`bottom-[calc(var(${STICKY_CTA_HEIGHT_VAR},0px)+1.5rem)]`);
+    expect(stack?.className).not.toContain("bottom-24");
+  });
+
+  it("the bar publishes its height and takes it back when it leaves", () => {
+    const { unmount } = render(<StickyCtaBar className="fixed">احجز الآن</StickyCtaBar>);
+
+    expect(document.documentElement.style.getPropertyValue(STICKY_CTA_HEIGHT_VAR)).toBe("0px");
+
+    unmount();
+
+    expect(document.documentElement.style.getPropertyValue(STICKY_CTA_HEIGHT_VAR)).toBe("");
+  });
 });

@@ -17,10 +17,17 @@ import {
   type JoinTicket,
   type PresenceState,
 } from "@/lib/class-sessions";
+import { Button } from "@/components/ui/Button";
 import { userMessage } from "@/lib/errors";
 import { formatSessionTime } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
+import { backoffDelay, isTransientFailure, MAX_AUTOMATIC_TRIES } from "@/lib/retry";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
+
+/** How often a student who is early asks whether the host has opened the room. */
+const WAITING_POLL_MS = 20_000;
+/** Consecutive failed reads before the waiting poll stops on its own. */
+const WAITING_POLL_GIVE_UP_AFTER = 5;
 
 /**
  * The room.
@@ -72,13 +79,19 @@ export default function SessionRoomPage({
   const [cancelledSession, setCancelledSession] = useState(false);
   // The window is open and the HOST has not opened the room yet. The join
   // refusal is uniform (FR-015) and reads «تأكّد من حجز مقعدك» — a dead end for
-  // a student who is simply early. So we say so, and knock again.
+  // a student who is simply early. So we say so, watch the session for the
+  // room to open, and knock once when it does.
   const [waiting, setWaiting] = useState(false);
-  // Bumped to knock again; the effect below re-runs the join on each change.
+  // Bumped to knock again — by the person (the retry button) or by the waiting
+  // poll once the host has opened the room. The join effect re-runs on each change.
   const [attempt, setAttempt] = useState(0);
+  // A transient failure (offline, 5xx, 429) is being retried on its own, so the
+  // loading line says so instead of a bare «جارٍ التحضير» for half a minute.
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
     // Alongside the join, not inside its failure branch: the room needs a name
     // whether or not the door opens, and a refused student reading WHICH lesson
@@ -90,66 +103,157 @@ export default function SessionRoomPage({
       })
       .catch(() => undefined);
 
-    classSessions
-      .join(uuid)
-      .then((result) => {
-        if (cancelled) return;
-        setTicket(result);
-        // Inside now: stop knocking, or the poll re-joins under a live room.
-        setWaiting(false);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
+    /*
+      ⛔ ONE POST PER KNOCK, AND A REFUSAL IS NEVER KNOCKED AGAIN ON ITS OWN.
+      On 2026-09-26 one device sent 228 joins in two hours, every one a 403: the
+      waiting poll re-posted the join every twenty seconds for the whole window.
+      A 4xx is the server's answer and asking again cannot change it — so only a
+      transient failure (`isTransientFailure`: offline, 5xx, 429) is retried
+      here, with a capped backoff, and anything else stops and waits for a
+      person to press «حاول مرة أخرى».
+    */
+    const knock = (failedTries: number) => {
+      classSessions
+        .join(uuid)
+        .then((result) => {
+          if (cancelled) return;
+          setTicket(result);
+          setError("");
+          setRetrying(false);
+          setLoading(false);
+          // Inside now: stop watching for the host.
+          setWaiting(false);
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
 
-        setError(userMessage(err));
+          const tries = failedTries + 1;
+          if (isTransientFailure(err) && tries < MAX_AUTOMATIC_TRIES) {
+            setRetrying(true);
+            retryTimer = setTimeout(() => knock(tries), backoffDelay(tries));
+            return;
+          }
 
-        /*
-          ⚠️ THE HOST WHO RELOADS AFTER ENDING THEIR OWN LESSON READS «تأكّد من
-          حجز مقعدك». The join refusal is deliberately identical for every reason
-          (FR-015), and the `ended` banner below only survives while the page
-          does — so a refresh, a closed laptop, or coming back an hour later all
-          answer a teacher with a sentence written for a student.
+          setRetrying(false);
+          setLoading(false);
+          setError(userMessage(err));
 
-          Asking the session itself is what separates them, and it leaks nothing:
-          `room_closed` is not an entitlement fact, and this endpoint is refused
-          to anyone who could not read the session anyway — a stranger's fetch
-          fails and they keep the uniform sentence, which is the requirement.
-        */
+          /*
+            ⚠️ THE HOST WHO RELOADS AFTER ENDING THEIR OWN LESSON READS «تأكّد من
+            حجز مقعدك». The join refusal is deliberately identical for every reason
+            (FR-015), and the `ended` banner below only survives while the page
+            does — so a refresh, a closed laptop, or coming back an hour later all
+            answer a teacher with a sentence written for a student.
+
+            Asking the session itself is what separates them, and it leaks nothing:
+            `room_closed` is not an entitlement fact, and this endpoint is refused
+            to anyone who could not read the session anyway — a stranger's fetch
+            fails and they keep the uniform sentence, which is the requirement.
+          */
+          classSessions
+            .show(uuid)
+            .then((result) => {
+              if (cancelled) return;
+              if (result.status === "cancelled") {
+                setCancelledSession(true);
+                return;
+              }
+              if (result.room_closed) setClosed(true);
+              // Self-terminating: once the window shuts `join_open` goes false
+              // and the ordinary refusal takes over.
+              setWaiting(result.join_open && !result.room_opened && !result.room_closed);
+            })
+            .catch(() => undefined);
+        });
+    };
+
+    knock(0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [uuid, attempt]);
+
+  /*
+    Waiting for the host. ⛔ IT POLLS THE SESSION (a GET), NEVER THE JOIN.
+
+    It used to re-post the join every twenty seconds and read the refusal as
+    «not yet» — which is also exactly what a student with no seat receives, so a
+    refused tab knocked for the whole window (the 228 requests above). The session
+    resource already says whether the room is open, so the page watches that and
+    knocks ONCE when `room_opened` turns true; a refusal on that knock is final.
+
+    Bounded three ways: the window shutting (`join_open` false), the room closing
+    or the lesson being cancelled, and five consecutive failed reads. The
+    `sessions` limiter allows 60/min per user; this is 3.
+  */
+  useEffect(() => {
+    if (!waiting) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let misses = 0;
+
+    const look = () => {
+      timer = setTimeout(() => {
         classSessions
           .show(uuid)
           .then((result) => {
             if (cancelled) return;
+            misses = 0;
+            setSession(result);
+
             if (result.status === "cancelled") {
               setCancelledSession(true);
+              setWaiting(false);
               return;
             }
-            if (result.room_closed) setClosed(true);
-            // Self-terminating: once the window shuts `join_open` goes false
-            // and the ordinary refusal takes over.
-            setWaiting(result.join_open && !result.room_opened && !result.room_closed);
+            if (result.room_closed) {
+              setClosed(true);
+              setWaiting(false);
+              return;
+            }
+            if (!result.join_open) {
+              setWaiting(false);
+              return;
+            }
+            if (result.room_opened) {
+              setWaiting(false);
+              setError("");
+              setLoading(true);
+              setAttempt((n) => n + 1);
+              return;
+            }
+
+            look();
           })
-          .catch(() => undefined);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+          .catch(() => {
+            if (cancelled) return;
+            misses += 1;
+            if (misses >= WAITING_POLL_GIVE_UP_AFTER) {
+              setWaiting(false);
+              return;
+            }
+            look();
+          });
+      }, WAITING_POLL_MS);
+    };
+
+    look();
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [uuid, attempt]);
+  }, [waiting, uuid]);
 
-  // ponytail: a fixed 20s poll; the `sessions` limiter allows 60/min per user.
-  useEffect(() => {
-    if (!waiting) return;
-
-    const timer = setTimeout(() => {
-      setError("");
-      setAttempt((n) => n + 1);
-    }, 20_000);
-
-    return () => clearTimeout(timer);
-  }, [waiting, attempt]);
+  // The person asked: one knock, and the automatic budget starts again from zero.
+  const retry = () => {
+    setError("");
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  };
 
   const onPresence = useCallback((state: PresenceState) => setPresence(state), []);
 
@@ -185,7 +289,11 @@ export default function SessionRoomPage({
         )}
       </div>
 
-      {loading && <p className="text-sm text-ink-muted">جارٍ التحضير…</p>}
+      {loading && (
+        <p role="status" className="text-sm text-ink-muted">
+          {retrying ? "تعذّر الاتصال بالغرفة — نعيد المحاولة تلقائياً…" : "جارٍ التحضير…"}
+        </p>
+      )}
 
       {error !== "" && cancelledSession && (
         <Alert tone="info" title="هذه الحصة ملغاة">
@@ -217,6 +325,13 @@ export default function SessionRoomPage({
         <>
           <Alert tone="danger" title="تعذّر الدخول">
             {error}
+            {/* Nothing knocks again on its own after a refusal, so the one way
+                back is a button — pressed by a person, one request per press. */}
+            <div className="mt-3">
+              <Button variant="secondary" size="sm" onClick={retry}>
+                حاول مرة أخرى
+              </Button>
+            </div>
           </Alert>
           {/*
             ⚠️ ONLY AFTER A REFUSAL, and only then. The join answer says the door

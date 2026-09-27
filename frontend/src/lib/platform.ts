@@ -254,4 +254,3 @@ export async function platformName(): Promise<string> {
 }
 
 export const CURRENCY = "QAR";
-export const CURRENCY_LABEL = "ر.ق";
