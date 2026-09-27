@@ -56,6 +56,19 @@ class EditCourse extends EditRecord
         $status = is_string($data['status'] ?? null) ? CourseStatus::tryFrom($data['status']) : null;
         unset($data['status']);
 
+        /*
+        | ⚠️ The form binds `price` — the model's major-unit attribute over
+        | `price_minor` — and `price` is NOT `$fillable` (the API's course writes
+        | name `price_minor`, and a second mass-assignable spelling of one column
+        | is a second door to it). So it is assigned here explicitly, and the
+        | model's setter stores minor units; left in `$data`, `update()` would
+        | DISCARD it in silence and the toast would still say «تم الحفظ».
+        */
+        if (array_key_exists('price', $data)) {
+            $record->price = $data['price'];
+            unset($data['price']);
+        }
+
         return DB::transaction(function () use ($record, $data, $status): Course {
             $record->update($data);
 

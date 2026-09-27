@@ -56,17 +56,17 @@ class TransactionsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('provider')->label('المزوّد')->badge()
                     ->formatStateUsing(fn (mixed $state): string => PaymentProviderLabel::for($state)),
-                TextColumn::make('amount_minor')
+                TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money(fn (PaymentTransaction $record): string => (string) $record->currency, divideBy: 100),
+                    ->money(fn (PaymentTransaction $record): string => (string) $record->currency),
                 /*
                 | ⛔ المبلغُ المردودُ عمودٌ مستقلّ (٢٠٢٦-٠٩-٢٧): إلغاءُ الاشتراكِ يَرُدُّ
                 | غيرَ المستخدَمِ وحدَه، فـ«معكوسة» لم تعُدْ تعني «رُدَّ المبلغُ كلُّه».
                 */
-                TextColumn::make('refunded_minor')
+                TextColumn::make('refunded_amount')
                     ->label('المبلغ المردود')
                     ->placeholder('—')
-                    ->money(fn (PaymentTransaction $record): string => (string) $record->currency, divideBy: 100),
+                    ->money(fn (PaymentTransaction $record): string => (string) $record->currency),
                 /*
                 | ⛔ كان الإغلاقانِ يشترطانِ `string` — و`PaymentTransaction::$status`
                 | **مصبوبٌ إلى `PaymentStatus`**، فيصلُ الحالةُ كائنَ enum لا نصّاً.

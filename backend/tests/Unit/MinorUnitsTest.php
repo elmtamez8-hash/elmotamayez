@@ -41,15 +41,30 @@ it('shows a stored minor amount in major units', function (?int $minor, ?string 
     [null, null],
 ]);
 
-it('opens the money box on the stored amount whatever numeric shape the cast gave it', function (): void {
-    // `numeric()` hands the hydration hook 30000.0, not 30000 — measured, and
-    // the reason the box once opened empty.
-    expect(MoneyInput::hydrate(30000.0))->toBe('300.00')
-        ->and(MoneyInput::hydrate(4999))->toBe('49.99')
-        ->and(MoneyInput::hydrate('4999'))->toBe('49.99')
-        ->and(MoneyInput::hydrate(null))->toBeNull()
-        ->and(MoneyInput::currencyLabel('QAR'))->toBe('ر.ق')
-        ->and(MoneyInput::currencyLabel('XYZ'))->toBe('XYZ');
+it('names the currency beside the money box', function (): void {
+    expect(MoneyInput::currencyLabel('QAR'))->toBe('ر.ق')
+        ->and(MoneyInput::currencyLabel('XYZ'))->toBe('XYZ')
+        ->and(MoneyInput::currencyLabel(null))->toBe('');
+});
+
+/*
+| ⚠️ Filament's `numeric()` hands the model's setter a FLOAT, and
+| `number_format()` rounds: 49.999 would have become 5000 in silence.
+*/
+it('refuses a float with a third decimal instead of rounding it', function (): void {
+    expect(MinorUnits::fromMajor(49.999))->toBeNull()
+        ->and(MinorUnits::fromMajor(0.5))->toBe(50)
+        ->and(MinorUnits::fromMajor(1_000_000.0))->toBe(100_000_000)
+        ->and(MinorUnits::fromMajor(0.0))->toBe(0);
+});
+
+it('throws on a filled value that is not an amount, and lets blank through as null', function (): void {
+    expect(MinorUnits::fromMajorOrFail(''))->toBeNull()
+        ->and(MinorUnits::fromMajorOrFail('  '))->toBeNull()
+        ->and(MinorUnits::fromMajorOrFail(null))->toBeNull()
+        ->and(MinorUnits::fromMajorOrFail('49.99'))->toBe(4999)
+        ->and(fn () => MinorUnits::fromMajorOrFail('abc'))->toThrow(InvalidArgumentException::class)
+        ->and(fn () => MinorUnits::fromMajorOrFail('1.999'))->toThrow(InvalidArgumentException::class);
 });
 
 it('shows a stored ratio as a percentage and stores it back as the ratio', function (): void {

@@ -126,9 +126,9 @@ class SubscriptionResource extends Resource
                     ->description(fn (Subscription $record): ?string => $record->cancelled_at === null
                         ? null
                         : 'أُلغي '.$record->cancelled_at->diffForHumans()),
-                TextColumn::make('price_minor')->label('المدفوع')
+                TextColumn::make('price')->label('المدفوع')
                     ->placeholder('—')
-                    ->money(fn (Subscription $record): string => (string) $record->currency, divideBy: 100),
+                    ->money(fn (Subscription $record): string => (string) $record->currency),
             ])
             ->filters([
                 SelectFilter::make('status')

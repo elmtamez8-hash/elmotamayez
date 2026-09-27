@@ -74,7 +74,7 @@ it('writes a single-course plan into the named teacher\'s workspace, not the off
         'session_type' => ClassSessionType::Group->value,
         'coverage_type' => PlanCoverage::Course->value,
         'coverage_uuid' => (string) $this->course->uuid,
-        'price_minor' => '30000',
+        'price' => '300', // major units, as the form sends them
         'is_active' => true,
     ]);
 

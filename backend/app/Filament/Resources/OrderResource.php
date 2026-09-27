@@ -85,7 +85,7 @@ class OrderResource extends Resource
                             ->relationship('course', 'title')
                             ->disabled(),
                         // للعرضِ وحدَه (معطَّلٌ فلا يُحفَظ)، وبالوحدةِ الكبرى كبقيّةِ اللوحة.
-                        MoneyInput::make('amount_minor', fn (?Order $record): ?string => $record?->currency)
+                        MoneyInput::make('amount', fn (?Order $record): ?string => $record?->currency)
                             ->label('المبلغ')
                             ->disabled(),
                         TextInput::make('currency')
@@ -583,10 +583,11 @@ class OrderResource extends Resource
                     ->formatStateUsing(fn (mixed $state): string => (
                         $state instanceof OrderKind ? $state : OrderKind::tryFrom(is_scalar($state) ? (string) $state : '')
                     )?->label() ?? (is_scalar($state) ? (string) $state : '—')),
-                TextColumn::make('amount_minor')
+                // The model's major-unit attribute; the sort stays on the stored column.
+                TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money(fn (Order $record): string => $record->currency, divideBy: 100)
-                    ->sortable(),
+                    ->money(fn (Order $record): string => $record->currency)
+                    ->sortable(['amount_minor']),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => OrderStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {

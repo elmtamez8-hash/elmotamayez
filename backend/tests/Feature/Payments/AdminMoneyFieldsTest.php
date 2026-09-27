@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\CouponScope;
+use App\Modules\Payments\Enums\CouponValueKind;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\CouponResource;
 use App\Modules\Payments\Filament\Resources\CouponResource\Pages\CreateCoupon;
@@ -57,7 +58,7 @@ it('stores 49.99 typed into a new plan as 4999, not 49', function (): void {
             'duration_days' => 30,
             'session_type' => ClassSessionType::Individual->value,
             'coverage_type' => PlanCoverage::Workspace->value,
-            'price_minor' => '49.99',
+            'price' => '49.99',
             'is_active' => true,
         ])
         ->call('create')
@@ -77,8 +78,8 @@ it('opens a priced plan in major units and saves an edit back in minor ones', fu
 
     Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
         ->test(EditPlan::class, ['record' => $plan->getRouteKey()])
-        ->assertFormSet(['price_minor' => '300.00'])
-        ->fillForm(['price_minor' => '49.99'])
+        ->assertFormSet(['price' => '300.00'])
+        ->fillForm(['price' => '49.99'])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -90,9 +91,9 @@ it('refuses a negative plan price and a third decimal', function (string $price)
 
     Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
         ->test(EditPlan::class, ['record' => $plan->getRouteKey()])
-        ->fillForm(['price_minor' => $price])
+        ->fillForm(['price' => $price])
         ->call('save')
-        ->assertHasFormErrors(['price_minor']);
+        ->assertHasFormErrors(['price']);
 
     expect((int) $plan->refresh()->price_minor)->toBe(30_000);
 })->with(['negative' => '-1', 'three decimals' => '49.999']);
@@ -102,7 +103,7 @@ it('keeps an emptied plan price as «awaiting pricing», never zero', function (
 
     Livewire::actingAs(User::factory()->create(['is_super_admin' => true]))
         ->test(EditPlan::class, ['record' => $plan->getRouteKey()])
-        ->fillForm(['price_minor' => ''])
+        ->fillForm(['price' => ''])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -130,8 +131,8 @@ describe('course price', function (): void {
     it('stores 49.99 as 4999', function (): void {
         Livewire::actingAs($this->admin)
             ->test(EditCourse::class, ['record' => $this->course->getRouteKey()])
-            ->assertFormSet(['price_minor' => '100.00'])
-            ->fillForm(['price_minor' => '49.99'])
+            ->assertFormSet(['price' => '100.00'])
+            ->fillForm(['price' => '49.99'])
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -141,9 +142,9 @@ describe('course price', function (): void {
     it('refuses a negative or an empty price instead of storing it', function (string $price): void {
         Livewire::actingAs($this->admin)
             ->test(EditCourse::class, ['record' => $this->course->getRouteKey()])
-            ->fillForm(['price_minor' => $price])
+            ->fillForm(['price' => $price])
             ->call('save')
-            ->assertHasFormErrors(['price_minor']);
+            ->assertHasFormErrors(['price']);
 
         expect((int) Course::query()->withoutWorkspaceScope()->whereKey($this->course->getKey())->value('price_minor'))->toBe(10_000);
     })->with(['negative' => '-5', 'empty' => '']);
@@ -157,7 +158,7 @@ describe('coupon', function (): void {
     it('stores a fixed amount of 49.99 as 4999', function (): void {
         Livewire::actingAs($this->admin)
             ->test(CreateCoupon::class)
-            ->fillForm(['code' => 'FIXED', 'value_kind' => 'fixed_minor', 'value' => '49.99', 'is_active' => true])
+            ->fillForm(['code' => 'FIXED', 'value_kind' => 'fixed_minor', 'amount' => '49.99', 'is_active' => true])
             ->call('create')
             ->assertHasNoFormErrors();
 
@@ -169,7 +170,7 @@ describe('coupon', function (): void {
 
         Livewire::actingAs($this->admin)
             ->test(EditCoupon::class, ['record' => $coupon->getRouteKey()])
-            ->assertFormSet(['value' => '25.00'])
+            ->assertFormSet(['amount' => '25.00'])
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -196,12 +197,45 @@ describe('coupon', function (): void {
         expect(Coupon::query()->where('code', 'TOOMUCH')->exists())->toBeFalse();
     });
 
+    /*
+    | ⚠️ The review note on #266: filling asked the STORED kind and saving asked
+    | the LIVE one, so a fixed coupon switched to a percent opened on «2500».
+    | Two fields now, one per meaning, and only the visible one is saved.
+    */
+    it('switches a fixed coupon to a percent and back, writing `value` in each meaning', function (): void {
+        $coupon = Coupon::factory()->create(['value_kind' => 'fixed_minor', 'value' => 2_500]);
+
+        Livewire::actingAs($this->admin)
+            ->test(EditCoupon::class, ['record' => $coupon->getRouteKey()])
+            // The percent box does not open on the minor amount.
+            ->fillForm(['value_kind' => 'percent'])
+            ->assertFormSet(['value' => null])
+            ->fillForm(['value' => 15])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        expect($coupon->refresh()->value_kind)->toBe(CouponValueKind::Percent)
+            ->and($coupon->value)->toBe(15)
+            ->and($coupon->amount)->toBeNull();
+
+        Livewire::actingAs($this->admin)
+            ->test(EditCoupon::class, ['record' => $coupon->getRouteKey()])
+            ->assertFormSet(['value' => 15, 'amount' => null])
+            ->fillForm(['value_kind' => 'fixed_minor', 'amount' => '12.50'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        expect($coupon->refresh()->value_kind)->toBe(CouponValueKind::FixedMinor)
+            ->and($coupon->value)->toBe(1_250)
+            ->and($coupon->amount)->toBe('12.50');
+    });
+
     it('refuses a negative fixed amount', function (): void {
         Livewire::actingAs($this->admin)
             ->test(CreateCoupon::class)
-            ->fillForm(['code' => 'NEG', 'value_kind' => 'fixed_minor', 'value' => '-10', 'is_active' => true])
+            ->fillForm(['code' => 'NEG', 'value_kind' => 'fixed_minor', 'amount' => '-10', 'is_active' => true])
             ->call('create')
-            ->assertHasFormErrors(['value']);
+            ->assertHasFormErrors(['amount']);
 
         expect(Coupon::query()->where('code', 'NEG')->exists())->toBeFalse();
     });
@@ -277,7 +311,7 @@ it('stores platform fees typed in major units as minor units', function (): void
         ->fillForm([
             'operating_fee_individual' => '5.50',
             'operating_fee_group' => '2',
-            'gateway_fixed_fee_minor' => '0.75',
+            'gateway_fixed_fee' => '0.75',
         ])
         ->call('save')
         ->assertHasNoFormErrors();
@@ -289,7 +323,7 @@ it('stores platform fees typed in major units as minor units', function (): void
         ->and($billing->gatewayFixedFeeMinor())->toBe(75);
 
     Livewire::test(ManagePlatformSettings::class)
-        ->assertFormSet(['operating_fee_individual' => '5.50', 'gateway_fixed_fee_minor' => '0.75'])
+        ->assertFormSet(['operating_fee_individual' => '5.50', 'gateway_fixed_fee' => '0.75'])
         ->fillForm(['operating_fee_group' => '-1'])
         ->call('save')
         ->assertHasFormErrors(['operating_fee_group']);

@@ -16,7 +16,6 @@ use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Models\Workspace;
-use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -115,29 +114,36 @@ class CouponResource extends Resource
 
                     /*
                     | ⛔ عمودٌ واحدٌ بمعنيَين: نسبةٌ صحيحةٌ من ١ إلى ١٠٠، أو مبلغٌ
-                    | بالوحدةِ الصغرى. كانَ الحقلُ رقماً حرّاً يقبلُ ١٥٠٪ ويطلبُ
-                    | المبلغَ بالهللات. الآن النسبةُ عددٌ صحيحٌ بسقفِ ١٠٠، والمبلغُ
-                    | يُكتَبُ بالوحدةِ الكبرى (قرارُ المالك ٢٠٢٦-٠٩-٢٧) ويُخزَّنُ بالصغرى.
-                    | الملءُ يسألُ الصفَّ المخزَّن، والحفظُ يسألُ النوعَ المختارَ الآن.
+                    | بالوحدةِ الصغرى. فهما حقلان لا حقلٌ واحد: `value` للنسبة، و
+                    | `amount` — خاصّيّةُ النموذجِ الافتراضيّةُ بالوحدةِ الكبرى
+                    | (قرارُ المالك ٢٠٢٦-٠٩-٢٧) — للمبلغ. يظهرُ أحدُهما بحسبِ النوعِ
+                    | المختارِ الآن، والمخفيُّ لا يُحفَظ، فلا يصلُ إلى النموذجِ إلّا
+                    | معنىً واحد، والنموذجُ يكتبُ `value` بالصغرى.
+                    |
+                    | ⚠️ كانَ الملءُ يسألُ الصفَّ المخزَّن والحفظُ يسألُ النوعَ الحيّ:
+                    | كوبونٌ ثابتٌ بـ2500 قُلِبَ إلى نسبةٍ يفتحُ على «2500٪». الآن
+                    | خانةُ النسبةِ تُفتَحُ فارغةً على كوبونٍ ثابت، وخانةُ المبلغِ
+                    | فارغةً على كوبونِ نسبة، فتبديلُ النوعِ يطلبُ رقماً جديداً.
                     */
                     TextInput::make('value')
-                        ->label('القيمة')
+                        ->label('النسبة')
                         ->numeric()
                         ->required()
-                        ->minValue(fn (Get $get): int|float => self::isFixed($get('value_kind')) ? 0.01 : 1)
-                        ->maxValue(fn (Get $get): int => self::isFixed($get('value_kind')) ? 1_000_000 : 100)
-                        ->rule(fn (Get $get): string => self::isFixed($get('value_kind')) ? 'decimal:0,2' : 'integer')
-                        ->suffix(fn (Get $get): string => self::isFixed($get('value_kind'))
-                            ? MoneyInput::currencyLabel(app(BillingSettings::class)->currency())
-                            : '٪')
-                        ->formatStateUsing(fn (mixed $state, ?Coupon $record): mixed => $record?->value_kind === CouponValueKind::FixedMinor && is_numeric($state)
-                            ? MinorUnits::toMajor((int) $state)
-                            : $state)
-                        ->dehydrateStateUsing(fn (mixed $state, Get $get): ?int => self::isFixed($get('value_kind'))
-                            ? MinorUnits::fromMajor($state)
-                            : (is_numeric($state) ? (int) $state : null))
-                        ->helperText('نسبة: عددٌ صحيحٌ من ١ إلى ١٠٠. مبلغ ثابت: بالعملة نفسِها (٤٩٫٩٩ تُكتَبُ 49.99)، '
-                            .'ويُقَصّ عند قيمة السطر فلا يهبط المبلغُ تحت الصفر.'),
+                        ->minValue(1)
+                        ->maxValue(100)
+                        ->rule('integer')
+                        ->suffix('٪')
+                        ->visible(fn (Get $get): bool => ! self::isFixed($get('value_kind')))
+                        ->formatStateUsing(fn (mixed $state, ?Coupon $record): mixed => $record?->value_kind === CouponValueKind::FixedMinor ? null : $state)
+                        ->dehydrateStateUsing(fn (mixed $state): ?int => is_numeric($state) ? (int) $state : null)
+                        ->helperText('عددٌ صحيحٌ من ١ إلى ١٠٠.'),
+
+                    MoneyInput::make('amount', fn (): string => app(BillingSettings::class)->currency())
+                        ->label('المبلغ')
+                        ->required()
+                        ->minValue(0.01)
+                        ->visible(fn (Get $get): bool => self::isFixed($get('value_kind')))
+                        ->helperText('بالعملة نفسِها (٤٩٫٩٩ تُكتَبُ 49.99)، ويُقَصّ عند قيمة السطر فلا يهبط المبلغُ تحت الصفر.'),
                 ]),
 
             Section::make('النطاق')
@@ -234,7 +240,7 @@ class CouponResource extends Resource
                 TextColumn::make('value')->label('القيمة')->formatStateUsing(
                     fn (mixed $state, Coupon $record): string => $record->value_kind === CouponValueKind::Percent
                         ? (int) $state.'٪'
-                        : MinorUnits::toMajor((int) $state).' '.MoneyInput::currencyLabel(app(BillingSettings::class)->currency()),
+                        : $record->amount.' '.MoneyInput::currencyLabel(app(BillingSettings::class)->currency()),
                 ),
                 TextColumn::make('scope_type')->label('النطاق')->badge()
                     ->placeholder('كل شيء')

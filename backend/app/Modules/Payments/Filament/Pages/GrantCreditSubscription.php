@@ -230,8 +230,8 @@ class GrantCreditSubscription extends Page implements HasTable
                     // «حصص خاصّة» in words, never a blank — a dash here is
                     // indistinguishable from data that failed to load (FR-017).
                     ->state(fn (Order $record): ?string => SubscriptionIntent::fromOrder($record)?->targetLabel()),
-                TextColumn::make('amount_minor')->label('المبلغ')
-                    ->formatStateUsing(fn (mixed $state, Order $record): string => number_format(((int) $state) / 100, 2).' '.$record->currency),
+                TextColumn::make('amount')->label('المبلغ')
+                    ->formatStateUsing(fn (mixed $state, Order $record): string => $record->amount.' '.$record->currency),
                 TextColumn::make('receipt')->label('الإيصال')
                     ->state(fn (Order $record): HtmlString|string => self::receiptLink($record)),
                 TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),

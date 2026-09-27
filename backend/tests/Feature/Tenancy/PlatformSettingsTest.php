@@ -120,7 +120,7 @@ it('writes the platform margin where the pricing engine reads it', function (): 
             'operating_fee_individual' => '5.00',
             'operating_fee_group' => '2',
             'gateway_fee_bps' => 250,
-            'gateway_fixed_fee_minor' => '1.00',
+            'gateway_fixed_fee' => '1.00',
             'stop_selling_after_days' => 45,
             'max_unredeemed_credits' => 30,
         ])

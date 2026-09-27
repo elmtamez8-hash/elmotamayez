@@ -107,10 +107,11 @@ class ManagePlatformSettings extends Page
             | الإنتاج. قراءةٌ خامٌّ هنا تعرضُ خانةً فارغةً عن رقمٍ يعملُ فعلاً،
             | فيحفظُها المشغِّلُ صفراً ظانّاً أنّه لم يغيّرْ شيئاً.
             */
-            'operating_fee_individual' => $billing->operatingFeeMinor(ClassSessionType::Individual),
-            'operating_fee_group' => $billing->operatingFeeMinor(ClassSessionType::Group),
+            // بالوحدةِ الكبرى، والتحويلُ في `BillingSettings` صاحبِ المفاتيح.
+            'operating_fee_individual' => $billing->operatingFee(ClassSessionType::Individual),
+            'operating_fee_group' => $billing->operatingFee(ClassSessionType::Group),
             'gateway_fee_bps' => $billing->gatewayFeeBps(),
-            'gateway_fixed_fee_minor' => $billing->gatewayFixedFeeMinor(),
+            'gateway_fixed_fee' => $billing->gatewayFixedFee(),
             'stop_selling_after_days' => $billing->stopSellingAfterDays(),
             'max_unredeemed_credits' => $billing->maxUnredeemedCredits(),
         ]);
@@ -301,7 +302,8 @@ class ManagePlatformSettings extends Page
                         ->schema([
                             /*
                             | ⛔ بالوحدةِ الكبرى (قرارُ المالك ٢٠٢٦-٠٩-٢٧): ‏٥٫٠٠ تُكتَبُ 5،
-                            | و`MoneyInput` يحفظُ 500. الحفظُ أدناه يستلمُ الصغرى كما كان.
+                            | ويُخزَّنُ 500. هذه صفوفُ مفتاحٍ وقيمةٍ لا عمودُ نموذج، فالتحويلُ
+                            | في `BillingSettings` — صاحبِ المفاتيح — قراءةً وكتابة، لا هنا.
                             */
                             MoneyInput::make('operating_fee_individual', fn (): string => app(BillingSettings::class)->currency())
                                 ->label('رسوم التشغيل — حصّة فرديّة')
@@ -326,7 +328,7 @@ class ManagePlatformSettings extends Page
                                 ->label('نسبة بوابة الدفع (نقاط أساس)')
                                 ->helperText('‏٢٫٥٪ تُكتب 250 — والحدّ الأقصى 9999')
                                 ->integer()->minValue(0)->maxValue(9999)->required(),
-                            MoneyInput::make('gateway_fixed_fee_minor', fn (): string => app(BillingSettings::class)->currency())
+                            MoneyInput::make('gateway_fixed_fee', fn (): string => app(BillingSettings::class)->currency())
                                 ->label('الرسم الثابت للبوّابة')
                                 ->required(),
                             TextInput::make('stop_selling_after_days')
@@ -400,10 +402,11 @@ class ManagePlatformSettings extends Page
 
         // المفاتيحُ بنصِّها كما يقرؤها `BillingSettings` — هجاءٌ ثانٍ هنا يكتبُ
         // صفّاً لا يقرؤه أحدٌ وشاشةً تُظهِرُ ما لا يُسعِّرُ به المنتَج.
-        PlatformSettings::set('billing.operating_fee_minor.individual', (int) $data['operating_fee_individual'], $userId);
-        PlatformSettings::set('billing.operating_fee_minor.group', (int) $data['operating_fee_group'], $userId);
+        $billing = app(BillingSettings::class);
+        $billing->setOperatingFee(ClassSessionType::Individual, $data['operating_fee_individual'], $userId);
+        $billing->setOperatingFee(ClassSessionType::Group, $data['operating_fee_group'], $userId);
         PlatformSettings::set('billing.gateway_fee_bps', (int) $data['gateway_fee_bps'], $userId);
-        PlatformSettings::set('billing.gateway_fixed_fee_minor', (int) $data['gateway_fixed_fee_minor'], $userId);
+        $billing->setGatewayFixedFee($data['gateway_fixed_fee'], $userId);
         PlatformSettings::set('billing.stop_selling_after_days', (int) $data['stop_selling_after_days'], $userId);
         PlatformSettings::set('billing.max_unredeemed_credits', (int) $data['max_unredeemed_credits'], $userId);
 
