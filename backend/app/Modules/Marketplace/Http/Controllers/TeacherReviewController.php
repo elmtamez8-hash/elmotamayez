@@ -117,7 +117,7 @@ class TeacherReviewController extends Controller
     {
         $this->authorizePermission($request, Permissions::MARKETPLACE_TEACHERS_SUSPEND);
 
-        $teacher = $action->handle($this->teacher($uuid));
+        $teacher = $action->handle($this->teacher($uuid), $this->currentUser($request));
 
         return response()->json(['approval_status' => $teacher->approval_status]);
     }
@@ -126,7 +126,7 @@ class TeacherReviewController extends Controller
     {
         $this->authorizePermission($request, Permissions::MARKETPLACE_TEACHERS_SUSPEND);
 
-        $teacher = $action->handle($this->teacher($uuid));
+        $teacher = $action->handle($this->teacher($uuid), $this->currentUser($request));
 
         return response()->json([
             'approval_status' => $teacher->approval_status,

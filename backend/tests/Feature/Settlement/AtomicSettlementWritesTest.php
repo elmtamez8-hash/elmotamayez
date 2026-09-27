@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\LiveSessions\Events\SessionDelivered;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
@@ -37,7 +38,7 @@ beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     // The ACTOR of a settlement decision is a platform officer: the Actions ask
     // the platform permission themselves now, and the owner holds none.
-    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
+    $this->officer = User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);

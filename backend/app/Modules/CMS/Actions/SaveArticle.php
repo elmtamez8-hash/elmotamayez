@@ -61,8 +61,10 @@ class SaveArticle extends Action
         | to its author and invisible to the public blog, with nothing on any
         | screen to say so.
         */
-        if (($data['status'] ?? $article?->status ?? 'draft') === 'published') {
-            $data['published_at'] ??= $article?->published_at ?? now();
+        $status = $data['status'] ?? ($article === null ? 'draft' : $article->status);
+
+        if ($status === 'published') {
+            $data['published_at'] ??= $article === null ? now() : ($article->published_at ?? now());
         }
 
         $tagIds = array_key_exists('tag_ids', $data) && is_array($data['tag_ids']) ? $data['tag_ids'] : null;

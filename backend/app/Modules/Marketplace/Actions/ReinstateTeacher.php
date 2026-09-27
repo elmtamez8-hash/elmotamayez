@@ -14,14 +14,17 @@ use Illuminate\Auth\Access\AuthorizationException;
 class ReinstateTeacher extends Action
 {
     /**
-     * ⚠️ `marketplace.teachers.approve`, not `…suspend`: the only door here is
-     * the profile screen's «اعتماد» button, which reinstates when there is no
-     * application left to approve — lifting a suspension is putting a teacher
-     * back on the marketplace, the approver's act.
+     * ⚠️ EITHER PERMISSION, BECAUSE THE TWO DOORS ASK DIFFERENT ONES — and this
+     * re-check must not refuse what a door already admits. The API's
+     * `/reinstate` asks `marketplace.teachers.suspend` (lifting a suspension is
+     * the suspender's act); the profile screen reaches here through its
+     * «اعتماد» button, gated on `marketplace.teachers.approve`, when there is no
+     * application left to approve. Somebody holding neither is refused.
      */
     public function handle(TeacherProfile $teacher, User $by): TeacherProfile
     {
-        if (! $by->can(Permissions::MARKETPLACE_TEACHERS_APPROVE)) {
+        if (! $by->can(Permissions::MARKETPLACE_TEACHERS_SUSPEND)
+            && ! $by->can(Permissions::MARKETPLACE_TEACHERS_APPROVE)) {
             throw new AuthorizationException('إعادةُ المدرّسِ إلى السوقِ قرارُ المنصّة.');
         }
 

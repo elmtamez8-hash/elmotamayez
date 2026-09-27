@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Marketplace\Actions\ReinstateTeacher;
 use App\Modules\Marketplace\Actions\SetMarketplaceParticipation;
 use App\Modules\Marketplace\Actions\SuspendTeacher;
-use App\Models\User;
 use App\Modules\Marketplace\Models\TeacherProfile;
 
 /**

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
@@ -42,7 +43,7 @@ beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     // The ACTOR of a settlement decision is a platform officer: the Actions ask
     // the platform permission themselves now, and the owner holds none.
-    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
+    $this->officer = User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);

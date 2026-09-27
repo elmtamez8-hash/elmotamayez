@@ -249,7 +249,7 @@ class ExamResource extends Resource
      */
     private static function coursesOf(?Exam $exam): array
     {
-        if (! $exam instanceof Exam || $exam->workspace_id === null) {
+        if (! $exam instanceof Exam) {
             return [];
         }
 
