@@ -367,11 +367,11 @@ class AssessmentsPersonalData implements PersonalDataOwner
             return $adaptive;
         }
 
-        $answers = $adaptive + Answer::query()
+        $answers = $adaptive + $this->answersDeleted(Answer::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $userId)
             ->limit($limit - $adaptive)
-            ->delete();
+            ->delete());
 
         if ($answers >= $limit) {
             return $answers;
@@ -534,7 +534,7 @@ class AssessmentsPersonalData implements PersonalDataOwner
                 $answers->whereNotIn('student_user_id', $exemptUserIds);
             }
 
-            return $answers->limit($limit)->delete();
+            return $this->answersDeleted($answers->limit($limit)->delete());
         }
 
         if ($category !== 'exam_attempt') {
@@ -568,11 +568,11 @@ class AssessmentsPersonalData implements PersonalDataOwner
         | `exam_answer`'s retention leaves rows whose foreign key would refuse the
         | DELETE below and kill the whole sweep on its first night.
         */
-        $children = Answer::query()
+        $children = $this->answersDeleted(Answer::query()
             ->withoutWorkspaceScope()
             ->whereIn('attempt_id', $attemptIds)
             ->limit($limit)
-            ->delete();
+            ->delete());
 
         if ($children >= $limit) {
             return $children;
@@ -593,5 +593,20 @@ class AssessmentsPersonalData implements PersonalDataOwner
             ->withoutWorkspaceScope()
             ->whereIn('id', $attemptIds)
             ->delete();
+    }
+
+    /**
+     * ⚠️ EVERY DELETE OF `exam_answers` GOES THROUGH HERE. A deleted answer leaves
+     * no `updated_at` for the incremental item-analysis rollup to find, so without
+     * this a question would keep counting answers the sweep or an erasure removed
+     * — for ever, with no error. It asks the next run to recompute everything.
+     */
+    private function answersDeleted(int $count): int
+    {
+        if ($count > 0) {
+            QuestionStatRollupState::requestFullRecompute();
+        }
+
+        return $count;
     }
 }
