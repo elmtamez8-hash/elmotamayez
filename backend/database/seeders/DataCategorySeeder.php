@@ -583,6 +583,41 @@ class DataCategorySeeder extends Seeder
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
 
+            /*
+            | ⛔ `freeze_periods` AND `freeze_period_starts` BOTH NAME ONE STUDENT
+            | AND NEITHER WAS EXPORTED, SWEPT OR ERASED — the per-MODULE limit of
+            | `PersonalDataContractCoverageTest` a fourth time: `livesessions` was
+            | already covered by `attendance_record`, so two tables landed inside it
+            | with the suite green. Both are walked by `LiveSessionsPersonalData`
+            | under this one key; this row names the first because it is the one a
+            | reader of the privacy screen would recognise.
+            |
+            | ⛔ `erasure_mode` IS `Anonymise` BECAUSE `attendance_record` IS —
+            | `ExecuteDataErasure::modeFor()` requires ONE mode per module and
+            | switches LiveSessions' erasure off entirely otherwise. What
+            | «anonymise» does to these rows is the module's, and it is DELETE: on
+            | both tables a null `student_user_id` means THE WHOLE WORKSPACE, so
+            | severing the pointer would turn one student's holiday into everyone's.
+            |
+            | 1095 days, `Delete`: a freeze is the explanation for a gap in the
+            | attendance register beside it, so it lives as long as that register
+            | and not a day longer.
+            */
+            [
+                'key' => 'freeze_period',
+                'subject_roles' => ['student'],
+                'label' => 'فترات تجميد حصصك',
+                'purpose' => 'لإيقاف احتساب حصصك وحضورك واشتراكك أثناء فترة التجميد، ولتطبيق حدّ التجميد الشهري.',
+                'audience' => 'المدرّس المسجَّل عنده · ولي الأمر إن كان مُخوَّلاً بالحضور',
+                'is_required' => true,
+                'owning_module' => 'livesessions',
+                'table_name' => 'freeze_periods',
+                'column_name' => 'student_user_id',
+                'retain_days' => 1095,
+                'expiry_behaviour' => ExpiryBehaviour::Delete->value,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+
             // ── Media ───────────────────────────────────────────────────────
             [
                 'key' => 'class_recording',
