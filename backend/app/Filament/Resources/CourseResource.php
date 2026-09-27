@@ -12,6 +12,7 @@ use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\Currency;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceContext;
 use BackedEnum;
@@ -172,13 +173,13 @@ class CourseResource extends Resource
                         | ⚠️ الافتراضُ كانَ `'USD'` — بقيّةٌ من هيكلِ لارافيل لا من
                         | المنتَج — وكانَ الحقلُ نصّاً حرّاً. فكلُّ كورسٍ يُنشَأُ دونَ
                         | لمسِ الحقلِ كانَ يُسعَّرُ بالدولارِ ويُعرَضُ به، بينما عملةُ
-                        | المنصّةِ هي `config('billing.currency')` — الريالُ القطريّ.
+                        | المنصّةِ هي `BillingSettings::currency()` — الريالُ القطريّ.
                         */
                         Select::make('currency')
                             ->label('العملة')
                             ->options(Currency::options())
                             ->required()
-                            ->default((string) config('billing.currency')),
+                            ->default(fn (): string => app(BillingSettings::class)->currency()),
                         /*
                         | ⛔ «مجاني» قرارٌ صريحٌ لا استنتاجٌ من السعر (قرارُ المالك
                         | ٢٠٢٦-٠٩-٢٥): الكورسُ يُباعُ بالباقاتِ وحدَها، وكلُّ كورسٍ

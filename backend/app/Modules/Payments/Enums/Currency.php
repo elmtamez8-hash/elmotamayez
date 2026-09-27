@@ -13,10 +13,10 @@ use App\Shared\Enums\HasArabicLabel;
  * ⚠️ مجموعةٌ مغلقةٌ في النوعِ لا جدولٌ في قاعدةِ البيانات: عملةٌ جديدةٌ ليست
  * صفّاً يُدخِلُه مشغِّلٌ — إنّها سعرٌ وتسويةٌ وتقريبٌ وتقريرُ تحصيل، وكلُّها
  * كودٌ يُكتَب. ولو كان جدولاً لأمكنَ لمشغِّلٍ أن يبيعَ بعملةٍ لا يعرفُ
- * `config('billing.currency')` كيفَ يُسوّيها.
+ * `BillingSettings::currency()` كيفَ يُسوّيها.
  *
  * ⚠️ والافتراضُ في الهجرةِ الأصليّةِ `USD` — بقيّةُ هيكلِ Laravel — بينما
- * عملةُ المنتَجِ `QAR`. لذلك يقرأُ النموذجُ `config('billing.currency')`
+ * عملةُ المنتَجِ `QAR`. لذلك يقرأُ النموذجُ `BillingSettings::currency()`
  * ولا يكتبُ حرفاً.
  */
 enum Currency: string implements HasArabicLabel

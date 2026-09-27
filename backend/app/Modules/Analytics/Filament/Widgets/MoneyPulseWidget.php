@@ -10,6 +10,7 @@ use App\Modules\Payments\Enums\Currency;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Support\BillingSettings;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -36,7 +37,7 @@ use Illuminate\Support\Facades\DB;
  * الطرحُ يصلُ الفوترةَ بالتسوية، و`ContextIsolationTest` يُسقِطُ البناءَ على ذلك
  * عمداً — هما سياقانِ بلا مفتاحٍ بينَهما، وغيابُ المفتاحِ جزءٌ من التصميم.
  *
- * ⚠️ **وعملةُ المنصّةِ أوّلاً** (`config('billing.currency')`): الترتيبُ الأبجديُّ
+ * ⚠️ **وعملةُ المنصّةِ أوّلاً** (`BillingSettings::currency()`): الترتيبُ الأبجديُّ
  * يضعُ `USD` قبلَ `QAR`، فيقعُ أوّلُ رقمٍ تراه العينُ على العملةِ الأقلِّ شأناً.
  *
  * ⚠️ **والمتأخّراتُ بالحصصِ لا بالمال**: الرصيدُ السالبُ حصصٌ سُلِّمَت ولم تُدفَع،
@@ -139,7 +140,7 @@ class MoneyPulseWidget extends BaseWidget
      */
     private function currencies(array $collected, array $take): array
     {
-        $home = (string) config('billing.currency', 'QAR');
+        $home = app(BillingSettings::class)->currency();
 
         $rest = array_diff(array_unique([...array_keys($collected), ...array_keys($take)]), [$home]);
 
