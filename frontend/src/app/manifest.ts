@@ -21,9 +21,13 @@ import { platformName } from "@/lib/platform";
  * built from a compile-time constant would keep announcing the old name to the
  * launcher and the splash screen long after the site itself had changed.
  *
- * `start_url` is `/dashboard` rather than `/`: somebody who installed the app
- * has an account. `/` is the marketplace landing page, which is a sales pitch to
- * a person who has already bought.
+ * `start_url` is `/start`, which decides on the device (owner decision
+ * 2026-09-27): a signed-in reader goes to `/dashboard` — the marketplace landing
+ * page is a sales pitch to a person who has already bought — and a visitor goes
+ * to `/`. It was `/dashboard` for everybody, which greeted a visitor who
+ * installed from the marketplace with a sign-in wall. The session is a
+ * `localStorage` token, so the server-rendered home page cannot know it without
+ * painting the wrong page first; see `app/start/page.tsx`.
  */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const name = await platformName();
@@ -34,7 +38,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     description: "منصّة تعليمية: دروسك وحصصك واختباراتك في مكان واحد.",
     lang: "ar",
     dir: "rtl",
-    start_url: "/dashboard",
+    start_url: "/start",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
