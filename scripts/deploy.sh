@@ -172,8 +172,7 @@ echo "▸ انتظارُ قاعدةِ البيانات"
 # ⚠️ `up -d` لهما أوّلاً لأنّ هذا صارَ **قبلَ** أيِّ `up`: على قاعدةٍ متوقّفةٍ كانت
 # الحلقةُ تدورُ إلى أن تنقضيَ مهلةُ Actions (ستُّ ساعات). وهو لا يفعلُ شيئاً حينَ
 # تعملانِ بتعريفِهما الحاليّ. والحلقةُ محدودةٌ بدقيقتَين، فالعطلُ يُسمّي نفسَه.
-# و`meilisearch` معهما: إعادةُ بناءِ الفهارسِ أدناه تحتاجُه قائماً بنسختِه الجديدة.
-$COMPOSE up -d mysql redis meilisearch
+$COMPOSE up -d mysql redis
 DB_WAIT=0
 until $COMPOSE exec -T mysql mysqladmin ping --silent 2>/dev/null; do
     DB_WAIT=$((DB_WAIT + 1))
@@ -211,12 +210,22 @@ $COMPOSE run --rm --no-deps -T -u www-data backend php artisan migrate --force
 # ⚠️ **وهي تعملُ في النشرةِ نفسِها التي تشحنُها**: كلُّ ما بعدَ كتلةِ `exec` في أعلى
 # الملفِّ يُقرَأُ من النسخةِ الجديدة. والأمرُ من الصورةِ الجديدةِ (`run --rm`) لأنّه
 # جديدٌ فيها، و`SCOUT_QUEUE=false` كي يُستورَدَ كلُّ شيءٍ داخلَ الأمرِ لا في طابور.
-# الثمنُ ثوانٍ يسألُ فيها الخلفيُّ القديمُ فهرساً فارغاً، والفشلُ يُوقِفُ النشرةَ قبلَ
-# أيِّ تبديل.
-MEILI_IMAGE=$(grep -oE 'getmeili/meilisearch:[^[:space:]]+' docker/docker-compose.prod.yml | head -1)
+#
+# ⚠️ **والثمنُ نافذةٌ قصيرةٌ في هذه النشرةِ وحدَها**: `up -d meilisearch` هنا يُبدِّلُ
+# الحاويةَ إلى المجلّدِ الفارغ والخلفيّةُ القديمةُ ما زالت تخدم — فبحثُ البنكِ والكورساتِ
+# يردُّ ٥٠٠ (`index_not_found`) حتى تُنشأَ الإعداداتُ، ثمّ نتائجَ ناقصةً حتى ينتهيَ
+# الاستيراد: ثوانٍ. ولهذا الرفعُ داخلَ الكتلةِ لا مع mysql وredis أعلاه — النشراتُ
+# العاديّةُ لا تلمسُه هنا. وإن فشلَ الأمرُ أوقفَ `set -e` النشرةَ قبلَ أيِّ تبديل، لكنّ
+# Meilisearch الجديدَ قائمٌ بفهرسٍ ناقص: البحثُ معطّلٌ حتى تُعادَ النشرة (والعلامةُ لم
+# تُكتَبْ، فتُعيدُ المحاولة).
+#
+# والوسمُ من `compose config --images` لا من نصِّ الملف: تعليقٌ يذكرُ الوسمَ القديمَ فوقَ
+# الخدمةِ كانَ سيُقرَأُ أوّلاً ويُسكِتُ إعادةَ البناء.
+MEILI_IMAGE=$($COMPOSE config --images | grep -m1 '^getmeili/meilisearch:')
 MEILI_MARKER=docker/.meilisearch-indexed
 if [ "$(cat "$MEILI_MARKER" 2>/dev/null || true)" != "$MEILI_IMAGE" ]; then
     echo "▸ إعادةُ بناءِ فهارسِ البحثِ لـ$MEILI_IMAGE"
+    $COMPOSE up -d --no-deps meilisearch
     MEILI_WAIT=0
     until $COMPOSE exec -T meilisearch curl -fsS http://127.0.0.1:7700/health >/dev/null 2>&1; do
         MEILI_WAIT=$((MEILI_WAIT + 1))

@@ -108,6 +108,11 @@ class AccrueTeachingUnits extends Action
         | `AttendanceHasNoFinancialEffectTest` fails the build over a breach. A
         | student who bought a LESSON bought the seat and pays for it whether they
         | come or not; a subscriber bought a MONTH, and the month has already paid.
+        |
+        | ⚠️ ONE OTHER READER, BY OWNER DECISION (2026-09-27): `compensateEmptySession()`
+        | asks the same measured join to tell «booked and did not attend» from «an
+        | open slot nobody took». It moves nothing on the STUDENT's side, and it is
+        | reached only when no seat is charged at all.
         */
         $attended = $subscriptionSeats === [] ? [] : $this->attendedStudentIds($session);
 
