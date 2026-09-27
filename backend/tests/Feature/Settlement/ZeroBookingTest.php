@@ -30,6 +30,11 @@ use Tests\Support\FakeBroadcastProvider;
 | The switch exists because a teacher who turned up and delivered the package may
 | still deserve something — and either way the session is flagged for a human to
 | look at, before AND after the money decision (FR-008ح).
+|
+| ⛔ And the switch pays ONLY a session somebody booked and did not attend
+| (owner decision 2026-09-27) — never an open slot nobody took. A booked
+| no-show keeps their seat and is paid in full elsewhere, so the booking that
+| reaches compensation is one given back in time or released.
 */
 
 beforeEach(function (): void {
@@ -57,6 +62,15 @@ beforeEach(function (): void {
     ]);
 });
 
+/** A student booked the hour and gave it back inside the window: no seat, no join. */
+function bookedThenCancelledInTime(): void
+{
+    SessionBooking::factory()->cancelledInWindow()->create([
+        'class_session_id' => test()->session->getKey(),
+        'student_user_id' => User::factory()->create()->getKey(),
+    ]);
+}
+
 /** The teacher turns up and teaches to an empty room, which still counts as delivery. */
 function taughtToNobody(): void
 {
@@ -79,15 +93,37 @@ it('earns nothing for a session nobody booked', function (): void {
     expect(TeachingUnit::query()->count())->toBe(0);
 });
 
-it('pays the configured compensation when an operator turns it on', function (): void {
+it('pays nothing for a slot nobody booked even with compensation on', function (): void {
+    // Owner decision 2026-09-27: compensation is for a booking the student did
+    // not attend, never for an open slot nobody took.
     PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
     PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
 
     taughtToNobody();
 
+    expect(TeachingUnit::query()->count())->toBe(0);
+});
+
+it('pays nothing for a booked absence while compensation is off', function (): void {
+    bookedThenCancelledInTime();
+
+    taughtToNobody();
+
+    expect(TeachingUnit::query()->count())->toBe(0);
+});
+
+it('pays the configured compensation when a booked student did not attend', function (): void {
+    PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
+    PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
+
+    bookedThenCancelledInTime();
+
+    taughtToNobody();
+
     $unit = TeachingUnit::query()->first();
 
-    expect($unit)->not->toBeNull()
+    expect(TeachingUnit::query()->count())->toBe(1)
+        ->and($unit)->not->toBeNull()
         // 40% of one seat's 5000.
         ->and($unit->amount_minor)->toBe(2000)
         ->and($unit->basis)->toBe(SettlementBasis::ZeroAttendanceCompensation)
@@ -100,7 +136,14 @@ it('takes a replayed delivery quietly instead of throwing the whole close away',
     PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
     PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
 
+    // A booking given back in time — without it the «nobody booked» refusal
+    // makes both deliveries write nothing, and this would pass for the wrong
+    // reason.
+    bookedThenCancelledInTime();
+
     taughtToNobody();
+
+    expect(TeachingUnit::query()->count())->toBe(1);
 
     /*
      * ⚠️ THE SECOND ARRIVAL, AND ITS `create()` WAS THE ONE UNGUARDED WRITE ON
