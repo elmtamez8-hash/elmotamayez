@@ -13,6 +13,7 @@ use App\Modules\Identity\Listeners\InviteGuardianOnContactVerified;
 use App\Modules\Identity\Listeners\RecordPanelSignIn;
 use App\Modules\Identity\Listeners\ReverseReferralAward;
 use App\Modules\Identity\Listeners\RevokeTeacherSessions;
+use App\Modules\Identity\Listeners\StampTokenLastUsed;
 use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Policies\AuthSessionPolicy;
 use App\Modules\Identity\Support\EloquentGuardianDirectory;
@@ -31,6 +32,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Sanctum\Events\TokenAuthenticated;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 
@@ -73,6 +75,13 @@ class IdentityServiceProvider extends Module
             fn (PersonalAccessToken $token, bool $isValid): bool => $this->app->make(IdleSessionGuard::class)
                 ->allows($token, $isValid),
         );
+
+        /*
+        | `last_used_at`, stamped at most every five minutes rather than on every
+        | request — Sanctum's own per-request stamp is off in `config/sanctum.php`.
+        | See the listener for who reads the column and why that is enough.
+        */
+        Event::listen(TokenAuthenticated::class, StampTokenLastUsed::class);
 
         /*
         | ⛔ THE RESET LINK POINTS AT THE FRONTEND, AND WITHOUT THIS LINE IT WAS A 500.

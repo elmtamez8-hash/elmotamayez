@@ -22,8 +22,10 @@ use Laravel\Sanctum\PersonalAccessToken;
  * product every week is never signed out, and a token nobody is using dies.
  *
  * Wired as Sanctum's `authenticateAccessTokensUsing` callback, which runs on
- * every bearer-token request BEFORE Sanctum stamps `last_used_at` — so the value
- * read here is the PREVIOUS use, already loaded, and the check costs no query.
+ * every bearer-token request BEFORE `last_used_at` is stamped (by
+ * `StampTokenLastUsed`, at most every five minutes) — so the value read here is
+ * the PREVIOUS use, already loaded, and the check costs no query. Five minutes of
+ * slack against a limit measured in days changes no verdict.
  *
  * ⚠️ THE EVICTION GOES THROUGH {@see TerminateAuthSession}, NOT A BARE DELETE.
  * The row is what `/auth/sessions/{uuid}/end-reason` answers from, and that is
@@ -42,8 +44,11 @@ final class IdleSessionGuard
      * and `DeviceRegistry`'s «was it in use a moment ago» (a 30-minute window),
      * so it must move well inside that — and not on every request, which would
      * be a write per poll of the notification bell for every open tab.
+     *
+     * Public because `StampTokenLastUsed` writes the token's own `last_used_at`
+     * on the same cadence: two «last used» columns, one rhythm.
      */
-    private const TOUCH_EVERY_SECONDS = 300;
+    public const TOUCH_EVERY_SECONDS = 300;
 
     public function __construct(private readonly TerminateAuthSession $terminate) {}
 
