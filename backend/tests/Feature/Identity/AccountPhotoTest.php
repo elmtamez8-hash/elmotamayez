@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\Identity\Support\PlatformRole;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -144,4 +145,16 @@ it('stores JPEG under a .jpg name however the upload was named', function (): vo
 
     expect($path)->toEndWith('.jpg')
         ->and(getimagesize(Storage::disk('public')->path($path))[2])->toBe(IMAGETYPE_JPEG);
+});
+
+it('gives a student with no profile row one, instead of refusing their photo', function (): void {
+    $student = User::factory()->create(['platform_role' => PlatformRole::Student]);
+    expect($student->studentProfile)->toBeNull();
+
+    Sanctum::actingAs($student);
+
+    $this->postJson('/api/v1/me/photo', ['photo' => UploadedFile::fake()->image('me.jpg')])
+        ->assertSuccessful();
+
+    expect($student->refresh()->studentProfile?->avatar_path)->toBeString();
 });
