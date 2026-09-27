@@ -16,6 +16,8 @@ use Laravel\Sanctum\PersonalAccessToken;
 | so a token copied off a shared computer in January still opened the account in
 | December. The owner's decision: a session ends after 30 days WITHOUT USE — idle,
 | not absolute, so somebody who opens the product every week is never signed out.
+| ⚠️ AMENDED 2026-09-27 (owner-approved audit fix): an absolute 30-day lifetime
+| now sits beside it, so that person signs in again once a month.
 |
 | ⚠️ Every request here carries a REAL token. `Sanctum::actingAs()` never runs the
 | guard, so the check under test would be invisible to it and every case would
@@ -44,6 +46,10 @@ function idleCall(string $token): TestResponse
 }
 
 it('keeps a session alive for as long as it is used', function (): void {
+    // The IDLE rule alone: the absolute ceiling (2026-09-27, below) is switched
+    // off here, because this case is about «used» versus «unused».
+    config(['sanctum.expiration' => null]);
+
     ['token' => $token] = idleSignIn();
 
     // 58 days since the token was minted, never 30 in a row without use — an
@@ -72,6 +78,36 @@ it('ends a session left unused past the limit, and says why', function (): void 
     $this->getJson('/api/v1/auth/sessions/'.$uuid.'/end-reason')
         ->assertOk()
         ->assertJsonPath('reason', 'idle');
+});
+
+/*
+| ⚠️ THE ABSOLUTE CEILING, SINCE 2026-09-27 (`sanctum.expiration`, 30 days).
+| Idle expiry never ends a stolen token that is USED — so a token in daily use
+| now dies too, and its session row says `expired` rather than staying «active»
+| over a token that no longer works. The end-reason endpoint is the real check:
+| a bare 401 is what Sanctum gives with or without the row being closed.
+*/
+it('ends a session in daily use once it passes the absolute lifetime, and says why', function (): void {
+    ['token' => $token, 'session_uuid' => $uuid] = idleSignIn();
+
+    foreach (range(1, 29) as $ignored) {
+        $this->travel(1)->days();
+        idleCall($token)->assertOk();
+    }
+
+    $this->travel(1)->days();
+    $this->travel(1)->minutes();
+
+    idleCall($token)->assertUnauthorized();
+
+    $session = AuthSession::query()->where('uuid', $uuid)->firstOrFail();
+
+    expect($session->status)->toBe(AuthSession::STATUS_ENDED)
+        ->and($session->ended_reason)->toBe(SessionEndReason::Expired);
+
+    $this->getJson('/api/v1/auth/sessions/'.$uuid.'/end-reason')
+        ->assertOk()
+        ->assertJsonPath('reason', 'expired');
 });
 
 it('reads the limit from the platform settings', function (): void {

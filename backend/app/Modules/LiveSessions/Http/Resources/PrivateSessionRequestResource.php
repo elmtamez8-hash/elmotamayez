@@ -36,8 +36,10 @@ class PrivateSessionRequestResource extends JsonResource
         $readerIsStudent = (int) $request->user()?->getKey() === (int) $this->resource->student_user_id;
 
         if ($readerIsStudent) {
-            $course = $this->resource->relationLoaded('course') ? $this->resource->course : null;
-            $teacher = $course !== null && $course->relationLoaded('creator') ? $course->creator : null;
+            // The profile's user — the teacher the request is addressed to —
+            // never `course.creator`, who is the academy owner at an academy.
+            $profile = $this->resource->relationLoaded('teacherProfile') ? $this->resource->teacherProfile : null;
+            $teacher = $profile !== null && $profile->relationLoaded('user') ? $profile->user : null;
 
             return $teacher === null ? null : UserClock::zoneFor($teacher);
         }

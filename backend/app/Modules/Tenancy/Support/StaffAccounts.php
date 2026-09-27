@@ -12,12 +12,18 @@ use DomainException;
  * A student's or a parent's account never becomes workspace staff (owner
  * decision 2026-09-26).
  *
- * ⛔ THREE DOORS WRITE A STAFF ROW, AND THIS IS ASKED AT ALL THREE:
- * `InviteMember` (the invitation is refused before it is mailed),
- * `AcceptInvitation` (an existing learner account holding one is refused), and
- * `UpdateWorkspaceMemberRole` (a learner's `student` row is not promoted). One
- * rule in one class, because a rule written three times is three rules that
- * agree until the first one moves.
+ * ⛔ TWO DOORS WRITE A STAFF ROW, AND THIS IS ASKED AT BOTH:
+ * `AcceptInvitation` (a learner account holding a staff invitation is refused)
+ * and `UpdateWorkspaceMemberRole` (a learner's `student` row is not promoted).
+ * One rule in one class, because a rule written twice is two rules that agree
+ * until the first one moves.
+ *
+ * ⚠️ `InviteMember` ASKED IT TOO, UNTIL 2026-09-27, and that was the leak: a 422
+ * for a learner's address and a 201 for anyone else's told every holder of
+ * `members.invite` which emails on the platform belong to students — for any
+ * address they cared to type. The invitation writes no membership, so the
+ * refusal lost nothing by moving to the door that does (owner-approved audit
+ * fix). The invitee now learns it when they press «قبول», not before.
  *
  * The person who both studies and teaches keeps two accounts — one per email —
  * and the refusal says so, rather than leaving them to guess why.

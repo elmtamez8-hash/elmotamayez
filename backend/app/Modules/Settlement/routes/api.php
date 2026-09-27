@@ -46,8 +46,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         // The platform decides. Approval is the only thing anywhere that writes a
         // settlement_rates row, which is what makes "no rate without approval" a
         // property of the code rather than a rule to remember.
-        Route::post('/admin/settlement/rate-requests/{rateRequest}/approve', [RateChangeController::class, 'approve']);
-        Route::post('/admin/settlement/rate-requests/{rateRequest}/reject', [RateChangeController::class, 'reject']);
+        //
+        // `2fa.required` since 2026-09-27: an approval writes the rate a teacher
+        // is paid at, and `ReviewRateRequests` in /admin already refused a lapsed
+        // officer by hand — the API path to the same Action was the door that
+        // skipped it.
+        Route::post('/admin/settlement/rate-requests/{rateRequest}/approve', [RateChangeController::class, 'approve'])->middleware('2fa.required');
+        Route::post('/admin/settlement/rate-requests/{rateRequest}/reject', [RateChangeController::class, 'reject'])->middleware('2fa.required');
 
         // The correction. An explicit administrative act with an author and a
         // reason — never an attendance edit (spec Q7).

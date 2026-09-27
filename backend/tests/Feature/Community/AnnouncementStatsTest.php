@@ -97,7 +97,7 @@ it('shows both counters on the publisher\'s list', function (): void {
         ->where('recipient_user_id', $this->students->first()->getKey())
         ->update(['read_at' => now()]);
 
-    $row = $this->getJson('/api/v1/manage/announcements')->assertOk()->json('0');
+    $row = $this->getJson('/api/v1/manage/announcements')->assertOk()->json('data.0');
 
     expect($row['uuid'])->toBe($announcement->uuid)
         ->and($row['notified_count'])->toBe(3)
@@ -128,12 +128,38 @@ it('keeps the list flat however many announcements it holds', function (): void 
     */
     expect($three)->toBe($one);
 
-    $rows = $this->getJson('/api/v1/manage/announcements')->assertOk()->json();
+    $rows = $this->getJson('/api/v1/manage/announcements')->assertOk()->json('data');
 
     foreach ($rows as $row) {
         expect($row['notified_count'])->not->toBeNull()
             ->and($row['read_count'])->not->toBeNull();
     }
+});
+
+/*
+| ⚠️ PAGED SINCE 2026-09-27, AND THE ENVELOPE IS THE CONTRACT. The list used to
+| load the workspace's whole history. `{data, links, meta}` is what a reader
+| needs to know there is a page two — the shape `response()->json()` silently
+| drops, which is why it is asserted rather than assumed.
+*/
+it('pages the list at fifty and says there is more', function (): void {
+    Sanctum::actingAs($this->teacher);
+
+    Announcement::factory()->count(51)->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'author_user_id' => $this->teacher->getKey(),
+    ]);
+
+    $this->getJson('/api/v1/manage/announcements')
+        ->assertOk()
+        ->assertJsonCount(50, 'data')
+        ->assertJsonPath('meta.last_page', 2)
+        ->assertJsonPath('meta.total', 51)
+        ->assertJsonStructure(['data', 'links', 'meta']);
+
+    $this->getJson('/api/v1/manage/announcements?page=2')
+        ->assertOk()
+        ->assertJsonCount(1, 'data');
 });
 
 it('counts one announcement\'s readers and not another\'s', function (): void {

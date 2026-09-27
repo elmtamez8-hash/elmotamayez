@@ -151,3 +151,62 @@ it('refuses the acceptance when the teacher took that hour elsewhere', function 
     $clash->assertStatus(422);
     expect($clash->json('message'))->toContain('حصة أخرى');
 });
+
+/*
+| ⛔ AN HOUR THE TEACHER IS ALREADY TEACHING, REFUSED AT SUBMISSION (2026-09-27).
+| Declared hours say when the teacher is willing, not that nothing is booked
+| there — so the ask used to wait in the queue for a refusal only the teacher's
+| press could give (the case above). The claim at acceptance still stands; this
+| is the early, read-only half of it. A lesson that has been CANCELLED holds no
+| hour, and an hour next to a lesson (half-open) is free.
+*/
+it('refuses at submission an hour the teacher is already teaching', function (): void {
+    $fx = privateSessionFixture();
+
+    $sessionAt = fn ($startsAt, string $status = 'scheduled') => app(WorkspaceContext::class)
+        ->forWorkspace($fx['workspace'], fn () => ClassSession::factory()->create([
+            'workspace_id' => $fx['workspace']->getKey(),
+            'teacher_profile_id' => $fx['profile']->getKey(),
+            'course_id' => $fx['course']->getKey(),
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->addMinutes(30),
+            'status' => $status,
+        ]));
+
+    // Overlaps the requested 45 minutes from its 15th minute on.
+    $sessionAt($fx['startsAt']->addMinutes(15));
+
+    Sanctum::actingAs($fx['student']);
+
+    $refused = $this->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->toIso8601String(),
+    ]);
+
+    $refused->assertStatus(422);
+    expect($refused->json('message'))->toContain('مشغول')
+        ->and(PrivateSessionRequest::query()->withoutWorkspaceScope()->count())->toBe(0);
+
+    // Back to back is not a clash: an hour ending where the lesson starts is free.
+    $this->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->subMinutes(30)->toIso8601String(),
+    ])->assertCreated();
+});
+
+it('does not count a cancelled lesson as a busy hour', function (): void {
+    $fx = privateSessionFixture();
+
+    app(WorkspaceContext::class)->forWorkspace($fx['workspace'], fn () => ClassSession::factory()->create([
+        'workspace_id' => $fx['workspace']->getKey(),
+        'teacher_profile_id' => $fx['profile']->getKey(),
+        'course_id' => $fx['course']->getKey(),
+        'starts_at' => $fx['startsAt'],
+        'ends_at' => $fx['startsAt']->addHour(),
+        'status' => 'cancelled',
+    ]));
+
+    Sanctum::actingAs($fx['student']);
+
+    $this->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->toIso8601String(),
+    ])->assertCreated();
+});

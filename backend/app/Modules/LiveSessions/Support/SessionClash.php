@@ -74,23 +74,7 @@ final class SessionClash
         // moves the version, and the claim below then refuses.
         $version = DB::table('teacher_profiles')->where('id', $teacherProfileId)->value('schedule_version');
 
-        $clash = ClassSession::query()
-            /*
-            | ⚠️ UNSCOPED, because the question is about a PERSON. A teacher can be
-            | scheduled from more than one workspace (their own, and an academy
-            | that schedules for them — `SchedulableTeachers`), and the scope would
-            | AND the reader's own workspace onto it: the academy's Saturday was
-            | invisible to the teacher putting their own Saturday on top of it.
-            */
-            ->withoutWorkspaceScope()
-            ->where('teacher_profile_id', $teacherProfileId)
-            ->when($ignoreSessionId !== null, fn ($query) => $query->whereKeyNot($ignoreSessionId))
-            ->whereNotIn('status', [ClassSessionStatus::Cancelled, ClassSessionStatus::Suspended])
-            ->where('starts_at', '<', $endsAt)
-            ->where('ends_at', '>', $startsAt)
-            ->exists();
-
-        if ($clash) {
+        if (self::overlaps($teacherProfileId, $startsAt, $endsAt, $ignoreSessionId)) {
             throw new DomainException('لديك حصة أخرى في هذا الوقت.');
         }
 
@@ -108,6 +92,39 @@ final class SessionClash
         if ($claimed !== 1) {
             throw new DomainException('تغيّر جدول المدرّس في هذه اللحظة من جهة أخرى. أعد المحاولة.');
         }
+    }
+
+    /**
+     * The overlap question ALONE — a read, with no claim and no transaction.
+     *
+     * ⚠️ FOR AN EARLY REFUSAL, NEVER FOR A WRITE. `RequestPrivateSession` asks
+     * it so a student is told at submission that the teacher is already
+     * teaching at that hour, instead of waiting a day for a request the teacher
+     * can only refuse. The hour may still be taken between the two moments —
+     * which is why the teacher's acceptance still goes through
+     * {@see assertFree()}, the claim, and this answer is never trusted on its own.
+     */
+    public static function overlaps(
+        int $teacherProfileId,
+        CarbonImmutable $startsAt,
+        CarbonImmutable $endsAt,
+        ?int $ignoreSessionId = null,
+    ): bool {
+        return ClassSession::query()
+            /*
+            | ⚠️ UNSCOPED, because the question is about a PERSON. A teacher can be
+            | scheduled from more than one workspace (their own, and an academy
+            | that schedules for them — `SchedulableTeachers`), and the scope would
+            | AND the reader's own workspace onto it: the academy's Saturday was
+            | invisible to the teacher putting their own Saturday on top of it.
+            */
+            ->withoutWorkspaceScope()
+            ->where('teacher_profile_id', $teacherProfileId)
+            ->when($ignoreSessionId !== null, fn ($query) => $query->whereKeyNot($ignoreSessionId))
+            ->whereNotIn('status', [ClassSessionStatus::Cancelled, ClassSessionStatus::Suspended])
+            ->where('starts_at', '<', $endsAt)
+            ->where('ends_at', '>', $startsAt)
+            ->exists();
     }
 
     public static function assertNotFrozen(CarbonImmutable $startsAt): void

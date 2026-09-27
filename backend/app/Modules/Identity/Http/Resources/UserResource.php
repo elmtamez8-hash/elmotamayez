@@ -172,9 +172,10 @@ class UserResource extends JsonResource
      * platform.
      *
      * ⚠️ THE SKIP IS A RULE NOW, NOT ONLY A SAVING (owner decision 2026-09-26):
-     * a student or parent account may not become staff — `InviteMember`,
-     * `AcceptInvitation` and `UpdateWorkspaceMemberRole` all refuse it through
-     * `Tenancy\Support\StaffAccounts` — so such an account has no workplace to
+     * a student or parent account may not become staff — `AcceptInvitation`
+     * and `UpdateWorkspaceMemberRole` both refuse it through
+     * `Tenancy\Support\StaffAccounts` (the invitation itself no longer asks,
+     * since 2026-09-27: its 422 revealed which emails are students) — so such an account has no workplace to
      * list. What it does NOT cover: rows written before that date, and accounts
      * whose `platform_role` is null, which is why the pivot filter below stays.
      *

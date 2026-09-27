@@ -14,6 +14,7 @@ use App\Modules\LiveSessions\Support\LeadTime;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
+use App\Shared\Support\UserClock;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -420,9 +421,17 @@ class BookSeat extends Action
             return;
         }
 
-        $back = $result->firstReleaseAt === null
+        /*
+        | ⚠️ ON THE STUDENT'S OWN CLOCK, WITH THE CLOCK NAMED (2026-09-27). The
+        | release moment arrives as an ATOM string in UTC and was printed as
+        | such — a Cairo student read «16:00» for a lesson ending at 19:00 on
+        | their wall. `UserClock::format()` is the one spelling every other
+        | student-facing time goes through.
+        */
+        $released = $result->firstReleaseAt === null
             ? null
-            : (date_create_immutable($result->firstReleaseAt) ?: null)?->format('Y-m-d H:i');
+            : (date_create_immutable($result->firstReleaseAt) ?: null);
+        $back = $released === null ? null : UserClock::format($student, $released);
 
         throw new DomainException(
             $back === null

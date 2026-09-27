@@ -80,7 +80,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
-    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    /*
+    | ⛔ It had NO limiter until 2026-09-27: a stolen bearer token could guess
+    | the current password here without end, a bcrypt comparison per try. Its
+    | OWN limiter, keyed by the account, and NOT `throttle:auth` — that one's
+    | second key is `email:` + a field this request does not carry, so it would
+    | be one bucket for every account on the platform (the `panel-handoff`
+    | defect above).
+    */
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword'])
+        ->middleware('throttle:change-password');
     /*
     | صورةُ الحسابِ وبياناتُ الطالبِ الدراسيّة — بابانِ لم يكونا موجودَينِ إطلاقاً.
     |

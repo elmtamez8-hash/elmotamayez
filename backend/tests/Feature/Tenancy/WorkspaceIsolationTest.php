@@ -147,6 +147,34 @@ describe('permission enforcement', function (): void {
         ])->assertForbidden();
     });
 
+    /*
+    | ⛔ The member list carries every member's EMAIL, and `workspace_members`
+    | carries the students too — so asking «are you a member?» alone let a
+    | student page through their classmates' addresses. The door asks
+    | `members.view`, the name the `/members` screen is gated on.
+    */
+    it('refuses the member list to a student member', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
+
+        Sanctum::actingAs($student);
+
+        $this->getJson("/api/v1/workspaces/{$workspace->uuid}/members")
+            ->assertForbidden()
+            ->assertJsonMissing(['email' => $student->email]);
+    });
+
+    it('still shows the member list to an assistant, who holds members.view', function (): void {
+        [$workspace, $owner] = $this->createWorkspaceWithOwner();
+        $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+        Sanctum::actingAs($assistant);
+
+        $this->getJson("/api/v1/workspaces/{$workspace->uuid}/members")
+            ->assertOk()
+            ->assertJsonFragment(['email' => $owner->email]);
+    });
+
     it('allows a super-admin to access any workspace', function (): void {
         [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner();
         $superAdmin = User::factory()->superAdmin()->create();

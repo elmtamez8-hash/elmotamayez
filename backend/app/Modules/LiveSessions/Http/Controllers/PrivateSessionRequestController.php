@@ -43,8 +43,15 @@ class PrivateSessionRequestController extends Controller
         $requests = PrivateSessionRequest::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $this->currentUser($request)->getKey())
-            // The teacher's zone, for «١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت المدرّس».
-            ->with(['course:id,uuid,title,created_by', 'course.creator:id,timezone', 'classSession:id,uuid,status'])
+            // The teacher's zone, for «١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت المدرّس» —
+            // the ADDRESSED teacher's (the profile's user), never the course
+            // author's: at an academy those are two people on two clocks.
+            ->with([
+                'course:id,uuid,title',
+                'teacherProfile' => fn ($query) => $query->select(['id', 'user_id']),
+                'teacherProfile.user:id,timezone',
+                'classSession:id,uuid,status',
+            ])
             ->latest('id')
             ->paginate(20);
 

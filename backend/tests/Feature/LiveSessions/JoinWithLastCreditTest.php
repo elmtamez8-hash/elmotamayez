@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\UserClock;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
@@ -87,4 +88,31 @@ it('still refuses a second booking when every credit is held', function (): void
 
     // The frozen-credit sentence, not some other 409 (a full session is one too).
     expect($response->json('message'))->toContain('محجوز');
+});
+
+/*
+| ⚠️ THE RELEASE HOUR IS ON THE STUDENT'S CLOCK, NAMED (2026-09-27). It was
+| printed in UTC — a Cairo student read an hour two or three off their wall
+| for the lesson that would free their credit.
+*/
+it('tells the student when a held credit comes back on their own clock', function (): void {
+    fundBooking($this->workspace, $this->student, $this->course, 1);
+    $this->student->forceFill(['timezone' => 'Africa/Cairo'])->save();
+
+    $first = ($this->newSession)(5);
+    app(BookSeat::class)->handle($first, $this->student);
+
+    $next = ($this->newSession)(24 * 60);
+
+    Sanctum::actingAs($this->student->refresh());
+    $this->asGuest();
+
+    $message = (string) $this->postJson("/api/v1/class-sessions/{$next->uuid}/book")
+        ->assertStatus(409)
+        ->json('message');
+
+    $endsAt = CarbonImmutable::instance($first->ends_at);
+
+    expect($message)->toContain(UserClock::format($this->student, $endsAt))
+        ->and($message)->not->toContain($endsAt->utc()->format('Y-m-d H:i').'،');
 });

@@ -57,6 +57,30 @@ class WorkspacePolicy extends BasePolicy
             : Response::deny('You do not belong to this workspace.');
     }
 
+    /**
+     * Reading the member list — every member's name, email and role.
+     *
+     * ⛔ UNTIL 2026-09-27 THE LIST ASKED {@see view()} ALONE, which is «are you a
+     * member at all» — and `workspace_members` carries the STUDENT rows too. So a
+     * student enrolled with a teacher could page through every classmate's email
+     * address fifty at a time. The list is a staff screen gated on `members.view`
+     * (the `/members` page and its nav entry already ask that name), so the door
+     * asks the same name.
+     *
+     * Membership first, for the reason {@see manageMembers()} gives: `can()`
+     * answers for the CURRENT team, not for `$workspace`.
+     */
+    public function viewMembers(User $user, Workspace $workspace): Response
+    {
+        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
+            return Response::deny('You do not belong to this workspace.');
+        }
+
+        return $user->can(Permissions::MEMBERS_VIEW)
+            ? Response::allow()
+            : Response::deny('You are not authorized to view workspace members.');
+    }
+
     public function update(User $user, Workspace $workspace): Response
     {
         return $workspace->isOwnedBy($user)

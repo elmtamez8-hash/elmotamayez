@@ -43,12 +43,26 @@ class AnnouncementController extends Controller
     {
         $this->authorize('manage', Announcement::class);
 
-        $announcements = Announcement::query()
+        /*
+        | ⚠️ PAGED SINCE 2026-09-27 — the whole history was loaded, hydrated and
+        | counted on every visit, and a workspace announces for years. Ordered by
+        | id as well, so a page is the same rows twice (two announcements in one
+        | second have equal `created_at`).
+        |
+        | ⚠️ AND RETURNED AS THE COLLECTION ITSELF, never through
+        | `response()->json(...)`, which drops `links` and `meta` in silence
+        | (http-and-security.md). The body is `{data, links, meta}` now; the
+        | stats are attached to the page's rows in place, before it is wrapped.
+        */
+        $page = Announcement::query()
             ->with('author:id,first_name,last_name')
             ->orderByDesc('created_at')
-            ->get();
+            ->orderByDesc('id')
+            ->paginate(50);
 
-        return AnnouncementResource::collection($this->withStats($announcements));
+        $this->withStats($page->getCollection());
+
+        return AnnouncementResource::collection($page);
     }
 
     public function store(SaveAnnouncementRequest $request, CreateAnnouncement $action): JsonResponse
