@@ -7,9 +7,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ExamResource\Pages;
 use App\Modules\Assessments\Enums\ExamStatus;
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Courses\Models\Course;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +21,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 class ExamResource extends Resource
@@ -66,11 +69,19 @@ class ExamResource extends Resource
                             ->label('الحالة')
                             ->options(ExamStatus::options())
                             ->required(),
+                        /*
+                        | ⚠️ كورساتُ **مساحةِ الاختبار**، لا مساحةِ من يقرأُ الشاشة.
+                        | `->relationship('course')` كان يبني القائمةَ تحتَ نطاقِ
+                        | القارئ: مديرُ منصّةٍ له `last_workspace_id` يرى كورساتِ
+                        | مساحتِه هو، فيربطُ ورقةَ مدرّسٍ بكورسِ مدرّسٍ آخر. و`in()`
+                        | يُكرِّرُ الشرطَ على الطلبِ نفسِه — قائمةٌ مُرشَّحةٌ تُشكِّلُ
+                        | الطلبَ الذي رسمَته لا الذي يليه.
+                        */
                         Select::make('course_id')
                             ->label('الكورس')
-                            ->relationship('course', 'title')
-                            ->searchable()
-                            ->preload(),
+                            ->options(fn (?Exam $record): array => self::coursesOf($record))
+                            ->in(fn (?Exam $record): array => array_keys(self::coursesOf($record)))
+                            ->searchable(),
                     ]),
 
                 Section::make('قواعد الأداء')
@@ -105,11 +116,13 @@ class ExamResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('title')->label('العنوان')->searchable()->sortable()->wrap(),
+                // Not `searchable()`: a search on a relation column is a
+                // `whereHas('course')`, which re-applies the `Course` scope and
+                // finds only the reader's own workspace's courses.
                 TextColumn::make('course.title')
                     ->label('الكورس')
                     ->placeholder('—')
-                    ->toggleable()
-                    ->searchable(),
+                    ->toggleable(),
                 TextColumn::make('course.workspace.name')
                     ->label('المدرّس')
                     ->placeholder('—')
@@ -152,19 +165,103 @@ class ExamResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
+            ]);
+        /*
+        | ⛔ NO BULK DELETE. `DeleteBulkAction` asks Filament's `deleteAny` and
+        | nothing per row, so it was the one door onto an exam that no refusal
+        | reached. A paper is deleted one at a time from its edit page, where
+        | `Exam::deletionRefusal()` is shown before anything happens.
+        */
+    }
+
+    /**
+     * ⚠️ THE SUPER ADMIN ONLY — AND NO `Permissions::` CONSTANT CAN SAY SO.
+     *
+     * This list is platform-wide (below). Every exam permission (`exams.view`
+     * and the rest) is a TENANT permission, and a finance or compliance officer
+     * who also owns a workspace holds it there through their `tenant-owner` row
+     * — so gating a platform-wide list on it hands that officer every teacher's
+     * papers. No platform role holds an exam permission by the matrix, which
+     * leaves the super admin as the only reader this screen has.
+     *
+     * `ExamPolicy::viewAny()` stays `allow`: it answers the API's question
+     * («any member lists their own workspace's exams»), and the panel asks a
+     * different one.
+     */
+    public static function canViewAny(): bool
+    {
+        return Auth::user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return self::canViewAny();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return self::canViewAny();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    /**
+     * ⚠️ PLATFORM-WIDE, AND THE BYPASS IS REPEATED IN EVERY EAGER LOAD AND COUNT.
+     *
+     * With the scope left on, a super admin who has a `last_workspace_id` saw
+     * that one workspace's exams and nothing else — no error, just a short list
+     * that reads as a quiet week (024's fifth layer). Dropping it from the root
+     * frees the outer read only: `with('course')` and `withCount('questions')`
+     * are second queries that the `Course` and `Question` scopes apply to all
+     * over again, so another workspace's paper showed a blank course and zero
+     * questions. The record the edit page opens resolves through this query too.
+     *
+     * @return Builder<Model>
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        $unscoped = fn (Relation $relation): Relation => $relation->withoutGlobalScope(WorkspaceScope::class);
+
+        return parent::getEloquentQuery()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->with([
+                'course' => $unscoped,
+                'course.workspace',
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+            ->withCount([
+                'questions' => fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class),
+                'attempts' => fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class),
             ]);
     }
 
-    public static function getEloquentQuery(): Builder
+    /**
+     * The courses of the exam's own workspace, keyed by id.
+     *
+     * @return array<int, string>
+     */
+    private static function coursesOf(?Exam $exam): array
     {
-        return parent::getEloquentQuery()
-            ->with(['course.workspace'])
-            ->withCount(['questions', 'attempts']);
+        if (! $exam instanceof Exam || $exam->workspace_id === null) {
+            return [];
+        }
+
+        /** @var array<int, string> $courses */
+        $courses = Course::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $exam->workspace_id)
+            ->orderBy('title')
+            ->pluck('title', 'id')
+            ->all();
+
+        return $courses;
     }
 
     public static function getRelations(): array

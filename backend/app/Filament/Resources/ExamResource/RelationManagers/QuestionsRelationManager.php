@@ -6,12 +6,14 @@ namespace App\Filament\Resources\ExamResource\RelationManagers;
 
 use App\Modules\Assessments\Enums\Difficulty;
 use App\Modules\Assessments\Enums\QuestionType;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * أسئلةُ الورقةِ بترتيبِها — قراءةً فقط.
@@ -42,6 +44,8 @@ class QuestionsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            // The exam may be another workspace's; see AttemptsRelationManager.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
             ->columns([
                 TextColumn::make('content')
                     ->label('نصّ السؤال')
