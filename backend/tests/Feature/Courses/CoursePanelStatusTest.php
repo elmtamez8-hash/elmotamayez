@@ -33,10 +33,9 @@ beforeEach(function (): void {
     );
 
     /*
-    | An officer with NO workspace of their own. `CourseResource::getEloquentQuery()`
-    | does not drop the workspace scope the way `EnrollmentResource` does, so an
-    | officer stamped into another workspace cannot open a foreign course here
-    | at all — a separate defect, outside what this file measures.
+    | An officer with NO workspace of their own. The officer who HAS one — the
+    | case `CourseResource::getEloquentQuery()` used to fail by keeping the
+    | workspace scope — is measured in `CoursePanelAccessTest`.
     */
     $this->actingAs(User::factory()->create(['is_super_admin' => true]));
 });

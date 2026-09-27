@@ -5,18 +5,16 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CourseResource\Pages;
-use App\Models\User;
 use App\Modules\Courses\Actions\CreateCourse;
-use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
+use App\Modules\Courses\Filament\Pages\ReviewPromoVideos;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\Currency;
 use App\Modules\Payments\Support\BillingSettings;
-use App\Modules\Tenancy\Support\Permissions;
-use App\Shared\Support\WorkspaceContext;
+use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -33,7 +31,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
 class CourseResource extends Resource
@@ -110,21 +110,32 @@ class CourseResource extends Resource
                             ->label('الحالة')
                             ->options(CourseStatus::options())
                             ->required(),
+                        /*
+                        | ⚠️ الظهورُ قرارُ **المدرّس** (قرارُ المالك ٢٠٢٦-٠٩-٢٦)، والسؤالُ
+                        | هو `CoursePolicy::changeVisibility()` كما في الـAPI — لا
+                        | `courses.update`. الحقلُ مُعطَّلٌ لمن لا يُجيبُه بنعم، وحقلٌ
+                        | مُعطَّلٌ لا يُرسَلُ فتبقى القيمةُ المحفوظة. (مديرُ المنصّةِ
+                        | يمرُّ بـ`Gate::before`، وهو اليومَ قارئُ الشاشةِ الوحيد — فالشرطُ
+                        | لمن يُفتَحُ له البابُ غداً، لا له.)
+                        */
                         Select::make('visibility')
                             ->label('الظهور')
                             ->options(CourseVisibility::options())
+                            ->disabled(fn (?Course $record): bool => ! ($record instanceof Course
+                                && (Auth::user()?->can('changeVisibility', $record) ?? false)))
                             ->required(),
                         /*
                         | ⚠️ **هنا لأنّ اللوحةَ تُصحِّح، لا لأنّها تُنشئ.** هذا المَورِدُ
-                        | يحملُ `EditCourse` و`ListCourses` ولا صفحةَ إنشاءَ له، فالحقلُ
-                        | هو ما يجعلُ نوعاً خاطئاً قابلاً للتصحيحِ من المنصّةِ كذلك —
-                        | والهجرةُ تشتقُّ «جماعي» من المجموعاتِ وحدَها وتتركُ الباقي
-                        | عمداً، فبقيَ صفٌّ يحتاجُ من يقولُ له ما هو.
+                        | يحملُ `EditCourse` و`ListCourses` ولا بابَ إنشاءٍ فيه — لا
+                        | صفحةَ ولا زرَّ نافذة (أُزيلَ زرُّ «إنشاء» من `ListCourses`
+                        | ٢٠٢٦-٠٩-٢٧: كانَ `new Course($data)` يختمُ مساحةَ **الموظّف**
+                        | ولا يمرُّ بـ{@see CreateCourse} ولا بقاعدةٍ من قواعدِه). فالحقلُ
+                        | هو ما يجعلُ نوعاً خاطئاً قابلاً للتصحيحِ من المنصّة — والهجرةُ
+                        | تشتقُّ «جماعي» من المجموعاتِ وحدَها وتتركُ الباقي عمداً، فبقيَ
+                        | صفٌّ يحتاجُ من يقولُ له ما هو.
                         |
-                        | ولو أُضيفَت صفحةُ إنشاءٍ يوماً فهي لا تمرُّ بـ`FormRequest`
-                        | أصلاً (`handleRecordCreation()` هو `new Model($data)`)، وهو
-                        | السببُ الذي من أجلِه يرفضُ {@see CreateCourse::handle()}.
-                        | الخياراتُ من `Course::types()`، الإملاءُ الواحد.
+                        | الكورسُ يُنشِئُه مدرّسُه من الموقع. الخياراتُ من
+                        | `Course::types()`، الإملاءُ الواحد.
                         */
                         Select::make('course_type')
                             ->label('نوع الكورس')
@@ -139,22 +150,17 @@ class CourseResource extends Resource
                         | حيّة. والقراءةُ من `$record` تُصلِحُ الأمرَينِ معاً: تملأُ
                         | القائمةَ لأيِّ قارئ، وتمنعُ إسنادَ المقرَّرِ إلى شخصٍ من
                         | مساحةٍ أخرى.
+                        |
+                        | ⚠️ **ومن يُدرِّسُ فيها وحدَهم، بدورِ العضويّة.** `workspace_members`
+                        | يحملُ صفوفَ الطلّابِ أيضاً، فكانت القائمةُ تعرضُ كلَّ طالبٍ
+                        | مسجَّلٍ مؤلِّفاً محتمَلاً للكورس. «المؤلِّفُ» دورُ العضويّةِ
+                        | (مالكٌ أو مدرّس) لا مجرّدُ العضويّة (`docs/gotchas/courses.md`).
+                        | و`in()` يُكرِّرُ الشرطَ على الطلب.
                         */
                         Select::make('created_by')
                             ->label('أنشأه')
-                            ->options(function (?Course $record): array {
-                                $workspace = $record instanceof Course
-                                    ? $record->workspace
-                                    : app(WorkspaceContext::class)->current();
-
-                                if ($workspace === null) {
-                                    return [];
-                                }
-
-                                return $workspace->members()
-                                    ->pluck('users.email', 'users.id')
-                                    ->all();
-                            })
+                            ->options(fn (?Course $record): array => self::authorsOf($record))
+                            ->in(fn (?Course $record): array => array_keys(self::authorsOf($record)))
                             ->searchable(),
                     ]),
 
@@ -280,56 +286,14 @@ class CourseResource extends Resource
                         Course::PROMO_NONE => 'لا يوجد',
                     ]),
             ])
+            /*
+            | ⚠️ لا إجراءَ «مراجعة الفيديو» هنا بعدَ اليوم. كانَ البابَ الوحيدَ
+            | لـ`marketplace.promo.review`، وهذه القائمةُ لمديرِ المنصّةِ وحدَه —
+            | فمسؤولُ الامتثالِ الذي يحملُ الصلاحيّةَ لم يكنْ يصلُ فيديو واحداً.
+            | للمراجعةِ شاشتُها: {@see ReviewPromoVideos}، وبابٌ واحدٌ لفعلٍ واحد.
+            */
             ->actions([
                 EditAction::make(),
-                /*
-                | مراجعةُ الفيديو الترويجيّ (٠١٨ · FR-006).
-                |
-                | ⚠️ الحارسُ مُكرَّرٌ هنا وفي الإجراءِ معاً، وهذا ليس تكراراً:
-                | `Gate::before` يمرّرُ المديرَ الأعلى فوقَ كلِّ سياسة، وقائمةُ
-                | Filament لا تستشيرُ سياسةَ الصفِّ أصلاً — سابقتا
-                | `CreditPackageResource` و`OrderResource` كلتاهما مكتوبتان.
-                |
-                | ويظهرُ الإجراءُ لصفٍّ فيه ما يُراجَع وحدَه: زرٌّ يُجيبُ «لا يوجدُ
-                | فيديو» زرٌّ يَعِدُ ثمّ يمنع.
-                */
-                Action::make('reviewPromoVideo')
-                    ->label('مراجعة الفيديو')
-                    ->icon(Heroicon::OutlinedPlayCircle)
-                    ->visible(fn (Course $record): bool => $record->promo_video_status !== Course::PROMO_NONE
-                        && auth()->user()?->can(Permissions::MARKETPLACE_PROMO_REVIEW) === true)
-                    ->schema([
-                        Select::make('decision')
-                            ->label('القرار')
-                            ->required()
-                            ->options([
-                                Course::PROMO_APPROVED => 'اعتماد',
-                                Course::PROMO_REJECTED => 'رفض',
-                            ]),
-                        TextInput::make('reason')
-                            ->label('سبب الرفض')
-                            ->helperText('مطلوب مع الرفض — ورفضٌ بلا سببٍ يُجيبه المدرّس بلصقِ الرابطِ نفسِه.')
-                            ->maxLength(1000),
-                    ])
-                    ->action(function (Course $record, array $data): void {
-                        $reviewer = auth()->user();
-
-                        /*
-                        | اللوحةُ محميّةٌ بالجلسة، فهذا لا يقع عمليّاً — لكنّ `null`
-                        | يمرُّ صامتاً إلى الإجراء فيَختِمُ `reviewed_by` بلا أحد،
-                        | وسجلُّ المراجعةِ يفقدُ مَن قرّر.
-                        */
-                        if (! $reviewer instanceof User) {
-                            return;
-                        }
-
-                        app(ReviewCoursePromoVideo::class)->handle(
-                            $reviewer,
-                            (string) $record->uuid,
-                            (string) $data['decision'],
-                            $data['reason'] ?? null,
-                        );
-                    }),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -358,11 +322,75 @@ class CourseResource extends Resource
             ]);
     }
 
+    /**
+     * ⚠️ THE SUPER ADMIN ONLY — the same reasoning as {@see ExamResource::canViewAny()}.
+     * Every course permission is a TENANT permission, held by a platform officer
+     * who owns a workspace in that workspace, and this list is platform-wide.
+     */
+    public static function canViewAny(): bool
+    {
+        return Auth::user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return self::canViewAny();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return self::canViewAny();
+    }
+
+    /**
+     * ⚠️ PLATFORM-WIDE, AND THE BYPASS IS REPEATED IN THE COUNT.
+     *
+     * With the scope left on, a super admin who has a `last_workspace_id` saw
+     * that one workspace's courses — and could not open another's edit page,
+     * which resolves its record through this query. `withCount('enrollments')`
+     * is a subquery the `Enrollment` scope applies to all over again, so another
+     * workspace's course read «0 مسجَّلين» with a full class. `workspace`,
+     * `subject` and `creator` are platform-owned and carry no scope.
+     *
+     * @return Builder<Model>
+     */
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->withoutGlobalScope(WorkspaceScope::class)
             ->with(['workspace', 'subject', 'creator'])
-            ->withCount(['enrollments']);
+            ->withCount([
+                'enrollments' => fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class),
+            ]);
+    }
+
+    /**
+     * The people who may be named as a course's author: the owners and teachers
+     * of the COURSE's workspace, by pivot role — never every member, because
+     * `workspace_members` carries student rows too.
+     *
+     * @return array<int, string>
+     */
+    private static function authorsOf(?Course $course): array
+    {
+        $workspace = $course instanceof Course ? $course->workspace : null;
+
+        if ($workspace === null) {
+            return [];
+        }
+
+        /** @var array<int, string> $authors */
+        $authors = $workspace->members()
+            ->wherePivotIn('role', [Roles::TENANT_OWNER, Roles::TEACHER])
+            ->pluck('users.email', 'users.id')
+            ->all();
+
+        return $authors;
     }
 
     public static function getRelations(): array
