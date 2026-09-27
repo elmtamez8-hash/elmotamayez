@@ -68,6 +68,14 @@ export type PlatformIdentity = {
   legalName: string;
   postalAddress: string;
   contactEmail: string;
+  /*
+   * The two freeze limits /terms states (2026-09-27): the longest one period
+   * may run, in days, and how many may start in one month. `null` when the API
+   * could not say — and the page then drops the sentence rather than print a
+   * number the server may no longer enforce.
+   */
+  freezeMaxDays: number | null;
+  freezeMaxPerMonth: number | null;
 };
 
 /** What the product is, when the API cannot say. */
@@ -83,6 +91,12 @@ const IDENTITY_FALLBACK: PlatformIdentity = {
   legalName: "",
   postalAddress: "",
   contactEmail: "",
+  /*
+   * ⚠️ NULL, NEVER THE SHIPPED DEFAULT. A term of service stated from a guess is
+   * a promise the product may break; with no answer the clause is left out.
+   */
+  freezeMaxDays: null,
+  freezeMaxPerMonth: null,
 };
 
 /**
@@ -127,9 +141,15 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
         legal_name?: unknown;
         postal_address?: unknown;
         contact_email?: unknown;
+        freeze_max_days?: unknown;
+        freeze_max_per_month?: unknown;
       };
     };
     const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+    // A positive whole number or nothing — an older API without the field,
+    // or a value nobody could enforce, both read as «unknown».
+    const limit = (value: unknown): number | null =>
+      typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
     const name = body.data?.name;
     const whatsapp = body.data?.support_whatsapp;
 
@@ -147,6 +167,8 @@ export async function platformIdentity(): Promise<PlatformIdentity> {
       legalName: text(body.data?.legal_name),
       postalAddress: text(body.data?.postal_address),
       contactEmail: text(body.data?.contact_email),
+      freezeMaxDays: limit(body.data?.freeze_max_days),
+      freezeMaxPerMonth: limit(body.data?.freeze_max_per_month),
     };
   } catch {
     return IDENTITY_FALLBACK;

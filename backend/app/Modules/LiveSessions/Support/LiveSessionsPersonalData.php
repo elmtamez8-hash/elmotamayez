@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Support;
 
 use App\Modules\LiveSessions\Models\Attendance;
+use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
 use App\Shared\Contracts\PersonalDataOwner;
@@ -15,6 +16,7 @@ use App\Shared\Support\ExportWalk;
 use App\Shared\Support\GuardianPermission;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * LiveSessions's half of the data-rights contract (spec 013).
@@ -35,7 +37,7 @@ class LiveSessionsPersonalData implements PersonalDataOwner
     /** @return list<string> */
     public function describe(): array
     {
-        return ['attendance_record'];
+        return ['attendance_record', 'freeze_period'];
     }
 
     /**
@@ -162,6 +164,58 @@ class LiveSessionsPersonalData implements PersonalDataOwner
             ],
             column: 'session_reschedule_requests.id',
         );
+
+        yield from $this->exportFreezes($userId);
+    }
+
+    /**
+     * A freeze declared on THIS student — never a workspace-wide one, which
+     * names nobody and is the teacher's calendar rather than a fact about a
+     * person.
+     *
+     * ⚠️ TWO WALKS UNDER ONE KEY, because the ledger says something the periods
+     * cannot: lifting a freeze DELETES its `freeze_periods` row, so a lifted
+     * freeze survives only as its `freeze_period_starts` line. The ledger has no
+     * model (it is read by one COUNT and written by one INSERT), so it is walked
+     * by id here rather than given a model that would then owe
+     * `BelongsToWorkspace` and an isolation test for a table no screen reads.
+     *
+     * @return iterable<string, array<int, array<string, mixed>>>
+     */
+    private function exportFreezes(mixed $userId): iterable
+    {
+        yield from ExportWalk::keyed(
+            'freeze_period',
+            FreezePeriod::query()
+                ->withoutWorkspaceScope()
+                ->where('student_user_id', $userId),
+            fn (FreezePeriod $period): array => [
+                'uuid' => $period->uuid,
+                'starts_on' => $period->starts_on->toDateString(),
+                'ends_on' => $period->ends_on->toDateString(),
+                // The teacher's words about why this student's lessons stopped.
+                'reason' => $period->reason,
+            ],
+        );
+
+        $page = [];
+
+        foreach (DB::table('freeze_period_starts')->where('student_user_id', $userId)->lazyById(500) as $start) {
+            $page[] = [
+                'declared_starts_on' => substr((string) $start->starts_on, 0, 10),
+                'declared_at' => ExportWalk::at($start->created_at),
+            ];
+
+            if (count($page) === 500) {
+                yield 'freeze_period' => $page;
+
+                $page = [];
+            }
+        }
+
+        if ($page !== []) {
+            yield 'freeze_period' => $page;
+        }
     }
 
     /**
@@ -218,12 +272,61 @@ class LiveSessionsPersonalData implements PersonalDataOwner
 
         // The row stays — it is the record that a lesson moved, which the group
         // it moved for can still see. What goes is the writing about a person.
-        return $cleared + SessionRescheduleRequest::query()
+        $cleared += SessionRescheduleRequest::query()
             ->withoutWorkspaceScope()
             ->where('student_user_id', $userId)
             ->whereNotNull('student_reason')
             ->limit($limit - $cleared)
             ->update(['student_reason' => null]);
+
+        if ($cleared >= $limit) {
+            return $cleared;
+        }
+
+        return $cleared + $this->deleteFreezes($userId, $limit - $cleared);
+    }
+
+    /**
+     * ⛔ A FREEZE ON ONE STUDENT IS DELETED, NEVER NULLED — ON BOTH TABLES.
+     *
+     * «Anonymise» everywhere else in this file means the row stays and stops
+     * pointing at anyone. On `freeze_periods` and `freeze_period_starts` a null
+     * `student_user_id` does not point at nobody: it is THE WHOLE WORKSPACE. A
+     * nulled period would suspend every student of that teacher for its dates
+     * (`FreezePeriod::scopeCovering()` reads null as «everyone»), and a nulled
+     * ledger line would be counted against the workspace's own monthly ceiling
+     * and refuse the teacher's next real freeze. So the only way these rows stop
+     * naming a person is to go.
+     *
+     * Nothing counts them once the student is gone: the monthly ceiling is read
+     * per scope, and the workspace scope is `whereNull` — which a student's line
+     * never matched and still does not.
+     *
+     * ⚠️ A QUERY-BUILDER DELETE, SO `FreezePeriod::booted()` DOES NOT ANNOUNCE
+     * IT, AND THAT IS DECIDED RATHER THAN MISSED. `FreezePeriodChanged` makes
+     * Payments re-date the subscription the freeze extended; for an account
+     * being erased (or a freeze three years over) that is a recomputation of an
+     * end date nobody will reach — and the lift path (`DeleteFreezePeriod`)
+     * that also gives seats back is not what this is either: the student is
+     * leaving, not resuming.
+     *
+     * @return int rows removed, across both tables, never more than `$limit`
+     */
+    private function deleteFreezes(mixed $userId, int $limit): int
+    {
+        $periods = DB::table('freeze_periods')
+            ->where('student_user_id', $userId)
+            ->limit($limit)
+            ->delete();
+
+        if ($periods >= $limit) {
+            return $periods;
+        }
+
+        return $periods + DB::table('freeze_period_starts')
+            ->where('student_user_id', $userId)
+            ->limit($limit - $periods)
+            ->delete();
     }
 
     /**
@@ -240,6 +343,10 @@ class LiveSessionsPersonalData implements PersonalDataOwner
         int $limit,
         array $exemptUserIds = [],
     ): int {
+        if ($category === 'freeze_period' && $mode === ExpiryBehaviour::Delete) {
+            return $this->expireFreezes($before, $limit, $exemptUserIds);
+        }
+
         if ($category !== 'attendance_record' || $mode !== ExpiryBehaviour::Anonymise) {
             return 0;
         }
@@ -297,5 +404,45 @@ class LiveSessionsPersonalData implements PersonalDataOwner
             ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
             ->limit($limit - $cleared)
             ->update(['student_reason' => null]);
+    }
+
+    /**
+     * `freeze_period` ages out by DELETION, for the reason {@see deleteFreezes()}
+     * gives: on these two tables the pointer cannot be severed without becoming
+     * «the whole workspace».
+     *
+     * ⚠️ AGED BY THE FREEZE'S OWN DATES, NEVER BY `created_at`. A period is
+     * declared ahead of the days it covers, so a created-at age could remove one
+     * still in force; `ends_on` cannot. The ledger's line is aged by the
+     * `starts_on` it counts — a line only ever matters inside its own month.
+     *
+     * ⚠️ AND ONLY A STUDENT'S ROWS. A workspace-wide freeze names nobody, so the
+     * category does not describe it — and restricting to non-null first is also
+     * what makes the legal-hold exemption safe: `NULL NOT IN (…)` is NULL and
+     * would spare nothing, but no null reaches that clause.
+     *
+     * @param  list<int>  $exemptUserIds
+     */
+    private function expireFreezes(CarbonImmutable $before, int $limit, array $exemptUserIds): int
+    {
+        $cutoff = $before->toDateString();
+
+        $periods = DB::table('freeze_periods')
+            ->whereNotNull('student_user_id')
+            ->where('ends_on', '<', $cutoff)
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit)
+            ->delete();
+
+        if ($periods >= $limit) {
+            return $periods;
+        }
+
+        return $periods + DB::table('freeze_period_starts')
+            ->whereNotNull('student_user_id')
+            ->where('starts_on', '<', $cutoff)
+            ->when($exemptUserIds !== [], fn ($query) => $query->whereNotIn('student_user_id', $exemptUserIds))
+            ->limit($limit - $periods)
+            ->delete();
     }
 }
