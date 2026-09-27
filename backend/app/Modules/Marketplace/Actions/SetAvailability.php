@@ -10,6 +10,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\AvailabilityRules;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Actions\Action;
+use App\Shared\Support\TimezoneName;
 use App\Shared\Support\UserClock;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,9 @@ class SetAvailability extends Action
      */
     public function handle(TeacherProfile $teacher, array $slots, string $timezone): void
     {
+        // `Asia/Calcutta` from a browser is stored as `Asia/Kolkata` — see TimezoneName.
+        $timezone = TimezoneName::canonical($timezone);
+
         if (! UserClock::isValid($timezone)) {
             throw new DomainException('المنطقة الزمنية غير معروفة.');
         }

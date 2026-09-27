@@ -240,6 +240,17 @@ it('accepts back-to-back windows that only touch', function (): void {
     expect($application->fresh()?->status)->toBe(TeacherApplication::STATUS_SUBMITTED);
 });
 
+it('stores the new spelling when step 4 arrives with an old browser one', function (): void {
+    // Chrome reports `Asia/Calcutta`; PHP lists `Asia/Kolkata` (owner decision
+    // 2026-09-27: accept the old, store the new — see TimezoneName).
+    $application = completeWizard();
+
+    $this->putJson('/api/v1/teacher/application/step-4', [...teacherStepFour(), 'timezone' => 'Asia/Calcutta'])
+        ->assertOk();
+
+    expect($application->refresh()->step(4)['timezone'])->toBe('Asia/Kolkata');
+});
+
 it('submits, builds an unlisted profile and fires the event', function (): void {
     Event::fake([TeacherApplicationSubmitted::class]);
 

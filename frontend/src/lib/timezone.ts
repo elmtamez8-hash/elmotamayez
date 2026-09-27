@@ -14,12 +14,17 @@
  * question; no screen should draw a time on it.
  */
 
+import { canonicalZone } from "./timezone-names";
+
 /** Used only before the browser has been asked (server render, first paint). */
 export const PLATFORM_TIME_ZONE = "Asia/Qatar";
 
+/** The browser's zone, in the spelling the server stores (`Asia/Calcutta` → `Asia/Kolkata`). */
 export function browserTimeZone(): string | null {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    return zone ? canonicalZone(zone) : null;
   } catch {
     return null;
   }

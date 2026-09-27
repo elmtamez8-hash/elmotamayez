@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { BellIcon, MoonIcon, SettingsIcon, WhatsAppIcon } from "@/components/icons";
 import { errorMessage, fieldErrors } from "@/lib/api";
+import { browserTimeZone } from "@/lib/timezone";
 import {
   notifications,
   type NotificationChannel,
@@ -113,7 +114,7 @@ export default function NotificationSettingsPage() {
         await notifications.updateQuietHours({
           quiet_hours_start: quietStart,
           quiet_hours_end: quietEnd,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: browserTimeZone(),
         });
       }
 

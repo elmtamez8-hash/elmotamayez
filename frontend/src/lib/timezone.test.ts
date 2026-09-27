@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { formatSessionClock, formatSessionTimeWithZone, sessionDayKey } from "./session-format";
 import { localDateTimeToIso } from "./labels";
-import { PLATFORM_TIME_ZONE, resolveViewerTimeZone, zonedWallTimeToInstant } from "./timezone";
+import { PLATFORM_TIME_ZONE, browserTimeZone, resolveViewerTimeZone, zonedWallTimeToInstant } from "./timezone";
 
 /*
 | Whose clock a time is drawn on (owner decision 2026-09-25): the viewer's own.
@@ -79,5 +79,17 @@ describe("zonedWallTimeToInstant", () => {
   it("reads a typed datetime on the viewer's clock, the same one it is shown back on", () => {
     expect(localDateTimeToIso("2026-11-03T17:00", CAIRO)).toBe("2026-11-03T15:00:00.000Z");
     expect(localDateTimeToIso("2026-11-03T17:00", DOHA)).toBe("2026-11-03T14:00:00.000Z");
+  });
+});
+
+describe("browserTimeZone", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("reports an old spelling the way the server stores it, so the sign-in stamp compares like with like", () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({
+      timeZone: "Asia/Calcutta",
+    } as Intl.ResolvedDateTimeFormatOptions);
+
+    expect(browserTimeZone()).toBe("Asia/Kolkata");
   });
 });

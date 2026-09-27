@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Http\Requests;
 
+use App\Shared\Traits\CanonicalisesTimezoneInput;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class UpdateQuietHoursRequest extends FormRequest
 {
+    use CanonicalisesTimezoneInput;
+
     public function authorize(): bool
     {
         return true;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Actions;
 
 use App\Models\User;
+use App\Shared\Support\TimezoneName;
 use App\Shared\Support\UserClock;
 use DomainException;
 
@@ -33,6 +34,9 @@ class RecordAccountTimezone extends Action
 
     public function handle(User $user, string $timezone, string $source = self::MANUAL): User
     {
+        // `Asia/Calcutta` from a browser is stored as `Asia/Kolkata` — see TimezoneName.
+        $timezone = TimezoneName::canonical($timezone);
+
         if (! UserClock::isValid($timezone)) {
             throw new DomainException('المنطقة الزمنية غير معروفة.');
         }

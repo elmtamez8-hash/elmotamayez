@@ -6,6 +6,7 @@ namespace App\Modules\Marketplace\Http\Requests;
 
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\AvailabilityRules;
+use App\Shared\Traits\CanonicalisesTimezoneInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -21,6 +22,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class SetAvailabilityRequest extends FormRequest
 {
+    use CanonicalisesTimezoneInput;
+
     public function authorize(): bool
     {
         return true;

@@ -7,6 +7,7 @@ namespace App\Modules\Marketplace\Data;
 use App\Modules\Marketplace\Support\AvailabilityRules;
 use App\Modules\Settlement\Support\SettlementSettings;
 use App\Shared\Data\DataTransferObject;
+use App\Shared\Support\TimezoneName;
 use App\Shared\Support\UserClock;
 
 /**
@@ -38,8 +39,9 @@ class TeacherStepFourData extends DataTransferObject
             availability: AvailabilityRules::normalise((array) ($data['availability'] ?? [])),
             // A draft saved before the zone existed was converted and stamped by
             // the 2026-09-25 migration; the platform zone is the last resort.
-            timezone: is_string($data['timezone'] ?? null) && UserClock::isValid($data['timezone'])
-                ? $data['timezone']
+            // An old browser spelling (`Asia/Calcutta`) is stored as PHP's own.
+            timezone: is_string($data['timezone'] ?? null) && UserClock::isValid(TimezoneName::canonical($data['timezone']))
+                ? TimezoneName::canonical($data['timezone'])
                 : UserClock::platformZone(),
         );
     }
