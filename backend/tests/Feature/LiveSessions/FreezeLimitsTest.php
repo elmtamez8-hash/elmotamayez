@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Actions\CreateFreezePeriod;
+use App\Modules\LiveSessions\Actions\DeleteFreezePeriod;
 use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Modules\LiveSessions\Models\FreezePeriod;
 use App\Modules\Tenancy\Support\PlatformSettings;
@@ -12,6 +13,7 @@ use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -74,12 +76,29 @@ it('lets two periods start in a month, refuses the third, and counts the next mo
     freezeLimitsCreate($this->month->endOfMonth()->startOfDay(), $this->month->addMonth()->addDays(3));
 
     expect(fn () => freezeLimitsCreate($this->month->addDays(10), $this->month->addDays(11)))
-        ->toThrow(DomainException::class, 'لا تبدأ في الشهر الواحد أكثر من فترتي تجميد، وقد بلغ هذا الشهر الحدّ. اختر بداية في شهر آخر.');
+        ->toThrow(DomainException::class, 'لا تبدأ في الشهر الواحد أكثر من فترتي تجميد — والفترة التي رُفعت تُحسب أيضاً. اختر بداية في شهر آخر.');
 
     expect(FreezePeriod::query()->count())->toBe(2);
 
     freezeLimitsCreate($this->month->addMonth()->addDays(10), $this->month->addMonth()->addDays(11));
     expect(FreezePeriod::query()->count())->toBe(3);
+});
+
+/*
+| Owner decision 2026-09-27: lifting deletes the period row, and a ceiling that
+| counted those rows gave the slot back — freeze, lift, freeze, lift, freeze
+| walked straight past it. A lifted freeze still counts.
+*/
+it('still counts a lifted freeze: freeze, lift, freeze, lift, then the third is refused', function (): void {
+    app(DeleteFreezePeriod::class)->handle(freezeLimitsCreate($this->month->addDays(1), $this->month->addDays(2)));
+    app(DeleteFreezePeriod::class)->handle(freezeLimitsCreate($this->month->addDays(5), $this->month->addDays(6)));
+
+    expect(FreezePeriod::query()->count())->toBe(0);
+
+    expect(fn () => freezeLimitsCreate($this->month->addDays(10), $this->month->addDays(11)))
+        ->toThrow(DomainException::class, 'والفترة التي رُفعت تُحسب أيضاً');
+
+    expect(FreezePeriod::query()->count())->toBe(0);
 });
 
 it('counts each scope on its own: a workspace at its ceiling still lets one student be frozen', function (): void {
@@ -134,6 +153,22 @@ it('answers 422 in Arabic over the API and shows the limits beside the list', fu
         'ends_on' => $this->month->addDays(40)->toDateString(),
     ])->assertStatus(422)
         ->assertJsonPath('message', 'لا يجوز أن تتجاوز فترة التجميد الواحدة ٣٠ يوماً.');
+});
+
+it('backfills the ledger from the periods that already exist, so they count this month', function (): void {
+    Schema::drop('freeze_period_starts');
+
+    FreezePeriod::factory()->count(2)->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'starts_on' => $this->month->addDays(3)->toDateString(),
+        'ends_on' => $this->month->addDays(4)->toDateString(),
+        'created_by' => $this->owner->getKey(),
+    ]);
+
+    (require base_path('app/Modules/LiveSessions/Database/Migrations/2026_09_27_000100_create_freeze_period_starts_table.php'))->up();
+
+    expect(fn () => freezeLimitsCreate($this->month->addDays(10), $this->month->addDays(11)))
+        ->toThrow(DomainException::class, 'فترتي تجميد');
 });
 
 it('leaves an existing longer period untouched', function (): void {

@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
-use App\Modules\LiveSessions\Events\FreezePeriodChanged;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
@@ -21,7 +20,6 @@ use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * A stretch of days where nothing counts (FR-039).
@@ -140,18 +138,21 @@ class CreateFreezePeriod extends Action
      * Owner decision 2026-09-27: at most `freezeMaxPerMonth()` periods may START
      * in one calendar month of the platform zone, per scope — the whole
      * workspace (`student_user_id IS NULL`), or one student in it. The month is
-     * read off `starts_on` itself, which is already a platform day; a lifted
-     * period is a deleted row and so gives its slot back.
+     * read off `starts_on` itself, which is already a platform day.
      *
-     * ⚠️ ONE CONDITIONAL INSERT, NEVER `count()` THEN `create()` — that pair is
-     * the definition of the race, and a double-tapped «تجميد الفترة» is exactly
-     * two concurrent requests. Same shape `RequestPrivateSession` uses for its
-     * ceiling. The price is that the model's `creating`/`created` hooks do not
-     * run, so this writes what they would have: the uuid (`HasUuid`), the
-     * workspace (`BelongsToWorkspace`), the dates through the model's own date
-     * format (the SQLite `00:00:00` story in `FreezePeriod::scopeCovering()`),
-     * and — after the insert — the `FreezePeriodChanged` the model's `created`
-     * hook announces, which spec 011 extends subscriptions from.
+     * ⛔ COUNTED IN `freeze_period_starts`, NEVER IN `freeze_periods`. Lifting a
+     * freeze deletes its period row, so a ceiling counted there gave the slot
+     * back on every lift and freeze → lift → freeze walked past it. A lifted
+     * freeze still counts (owner decision 2026-09-27); the ledger row is written
+     * here, once, and nothing deletes it.
+     *
+     * ⚠️ ONE CONDITIONAL INSERT ON THE LEDGER, NEVER `count()` THEN `create()` —
+     * that pair is the definition of the race, and a double-tapped «تجميد
+     * الفترة» is exactly two concurrent requests. Same shape `RequestPrivateSession`
+     * uses for its ceiling. The period itself is then written through the model,
+     * in the same transaction, so `HasUuid`, `BelongsToWorkspace` and the
+     * `created` hook (`FreezePeriodChanged`, which spec 011 extends
+     * subscriptions from) all run as they always did.
      */
     private function claimMonthlySlot(
         User $actor,
@@ -167,59 +168,50 @@ class CreateFreezePeriod extends Action
         }
 
         $limit = $this->settings->freezeMaxPerMonth();
-        $monthStart = $startsOn->startOfMonth()->toDateString();
-        $nextMonthStart = $startsOn->startOfMonth()->addMonthNoOverflow()->toDateString();
         $studentId = $student?->getKey();
 
-        $model = new FreezePeriod;
-        $uuid = (string) Str::orderedUuid();
-        $now = now()->format('Y-m-d H:i:s');
+        return DB::transaction(function () use ($actor, $startsOn, $endsOn, $reason, $workspaceId, $limit, $studentId): FreezePeriod {
+            // `IS NULL` for the workspace scope, never `= ?` with a null binding:
+            // `student_user_id = NULL` matches no row at all, and the ceiling
+            // would never bite on the scope teachers actually use.
+            $scope = $studentId === null ? 'student_user_id IS NULL' : 'student_user_id = ?';
+            $scopeBindings = $studentId === null ? [] : [$studentId];
 
-        // `IS NULL` for the workspace scope, never `= ?` with a null binding:
-        // `student_user_id = NULL` matches no row at all, and the ceiling would
-        // never bite on the scope teachers actually use.
-        $scope = $studentId === null ? 'student_user_id IS NULL' : 'student_user_id = ?';
-        $scopeBindings = $studentId === null ? [] : [$studentId];
-
-        $written = DB::affectingStatement(
-            'INSERT INTO freeze_periods
-                (uuid, workspace_id, student_user_id, starts_on, ends_on, reason, created_by, created_at, updated_at)
-             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
-               FROM (SELECT 1) AS guard
-              WHERE (SELECT COUNT(*) FROM freeze_periods
-                      WHERE workspace_id = ?
-                        AND '.$scope.'
-                        AND starts_on >= ?
-                        AND starts_on < ?) < ?',
-            [
-                $uuid, $workspaceId, $studentId,
-                $model->fromDateTime($startsOn->toDateString()),
-                $model->fromDateTime($endsOn->toDateString()),
-                $reason, $actor->getKey(), $now, $now,
-                $workspaceId, ...$scopeBindings, $monthStart, $nextMonthStart, $limit,
-            ],
-        );
-
-        if ($written === 0) {
-            throw new DomainException(
-                'لا تبدأ في الشهر الواحد أكثر من '
-                .CountedNoun::of($limit, ['one' => 'فترة تجميد واحدة', 'two' => 'فترتي تجميد', 'few' => 'فترات تجميد', 'many' => 'فترة تجميد', 'other' => 'فترة تجميد'])
-                .($studentId === null ? '' : ' لهذا الطالب')
-                .'، وقد بلغ هذا الشهر الحدّ. اختر بداية في شهر آخر.',
+            $claimed = DB::affectingStatement(
+                'INSERT INTO freeze_period_starts (workspace_id, student_user_id, starts_on, created_at)
+                 SELECT ?, ?, ?, ?
+                   FROM (SELECT 1) AS guard
+                  WHERE (SELECT COUNT(*) FROM freeze_period_starts
+                          WHERE workspace_id = ?
+                            AND '.$scope.'
+                            AND starts_on >= ?
+                            AND starts_on < ?) < ?',
+                [
+                    $workspaceId, $studentId, $startsOn->toDateString(), now()->format('Y-m-d H:i:s'),
+                    $workspaceId, ...$scopeBindings,
+                    $startsOn->startOfMonth()->toDateString(),
+                    $startsOn->startOfMonth()->addMonthNoOverflow()->toDateString(),
+                    $limit,
+                ],
             );
-        }
 
-        $period = FreezePeriod::query()->withoutWorkspaceScope()->where('uuid', $uuid)->first();
+            if ($claimed === 0) {
+                throw new DomainException(
+                    'لا تبدأ في الشهر الواحد أكثر من '
+                    .CountedNoun::of($limit, ['one' => 'فترة تجميد واحدة', 'two' => 'فترتي تجميد', 'few' => 'فترات تجميد', 'many' => 'فترة تجميد', 'other' => 'فترة تجميد'])
+                    .($studentId === null ? '' : ' لهذا الطالب')
+                    .' — والفترة التي رُفعت تُحسب أيضاً. اختر بداية في شهر آخر.',
+                );
+            }
 
-        if ($period === null) {
-            // One row reported written and none read back is a fault, not a
-            // ceiling — returning here would report a freeze nobody holds.
-            throw new DomainException('تعذّر تسجيل فترة التجميد. حاول مرة أخرى.');
-        }
-
-        FreezePeriodChanged::dispatch($workspaceId, $studentId === null ? null : (int) $studentId);
-
-        return $period;
+            return FreezePeriod::query()->create([
+                'student_user_id' => $studentId,
+                'starts_on' => $startsOn->toDateString(),
+                'ends_on' => $endsOn->toDateString(),
+                'reason' => $reason,
+                'created_by' => $actor->getKey(),
+            ]);
+        });
     }
 
     /**
