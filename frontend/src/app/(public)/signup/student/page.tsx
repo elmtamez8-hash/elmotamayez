@@ -7,6 +7,9 @@ import { sanitiseReferralCode } from "@/lib/referral-link";
 export const metadata: Metadata = {
   title: "تسجيل طالب",
   description: "أنشئ حساب طالب واحجز حصصك مع أفضل المدرسين.",
+  // A registration form is a door, not a page to land on from a search result —
+  // and its fields would be all a crawler indexed. `follow` keeps the links.
+  robots: { index: false, follow: true },
 };
 
 type Search = { teacher?: string; trial?: string; next?: string; ref?: string };

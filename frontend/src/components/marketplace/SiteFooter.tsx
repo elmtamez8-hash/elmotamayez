@@ -16,6 +16,7 @@ import {
   YouTubeIcon,
 } from "@/components/icons";
 import { platformIdentity } from "@/lib/platform";
+import { arabicDigits } from "@/lib/numerals";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 const COLUMNS = [
@@ -113,7 +114,7 @@ export async function SiteFooter() {
 
         <div className="mt-12 flex flex-col gap-6 border-t border-line pt-8 lg:flex-row lg:items-center lg:justify-between">
           <p className="order-3 text-sm text-ink-muted lg:order-1">
-            © {new Date().getFullYear()} {name}. جميع الحقوق محفوظة.
+            © {arabicDigits(new Date().getFullYear())} {name}. جميع الحقوق محفوظة.
           </p>
 
           <div className="order-1 flex flex-wrap items-center gap-2 lg:order-2">

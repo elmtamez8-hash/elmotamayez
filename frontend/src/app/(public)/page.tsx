@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { publicApi, type HomePayload } from "@/lib/public-api";
-import { platformName } from "@/lib/platform";
+import { platformIdentity, platformName } from "@/lib/platform";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
@@ -173,7 +175,8 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
 }
 
 export default async function HomePage() {
-  const name = await platformName();
+  const identity = await platformIdentity();
+  const name = identity.name;
 
   let home: HomePayload;
 
@@ -189,6 +192,10 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Who the platform is, for a search engine — built from the same
+          identity row the footer prints (`organizationLd`). */}
+      <JsonLd data={organizationLd(identity)} />
+
       {/* bg-grid paints squared-paper lines behind the hero and fades them out
           before they reach the body copy. Decorative only — it is a ::before with
           no content, so nothing new lands in the accessibility tree. */}

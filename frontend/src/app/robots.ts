@@ -1,5 +1,4 @@
 import type { MetadataRoute } from "next";
-import { generateSitemaps } from "@/app/sitemap";
 import { SITE_URL } from "@/lib/site";
 
 /**
@@ -26,29 +25,25 @@ import { SITE_URL } from "@/lib/site";
  */
 export const dynamic = "force-dynamic";
 
-export default async function robots(): Promise<MetadataRoute.Robots> {
+export default function robots(): MetadataRoute.Robots {
   /*
-   * ⚠️ **الشرائحُ بأسمائِها، لأنّ Next لا يُنتِجُ فهرساً على الإطلاق.** كانَ هذا
-   * السطرُ `${SITE_URL}/sitemap.xml` وفوقَه تعليقٌ يقولُ إنّه «الفهرسُ الذي
-   * يُنتِجُه `generateSitemaps()`» — وهو غيرُ صحيح: التوثيقُ يقولُ إنّ الملفّاتِ
-   * تُخدَمُ على `/sitemap/[id].xml` ولا شيءَ يُخدَمُ على `/sitemap.xml`. قِيسَ
-   * على الإنتاج ٢٠٢٦-٠٩-١٣: `/sitemap.xml` ‏٤٠٤ و`/sitemap/0.xml` ‏٢٠٠ — أي أنّ
-   * `robots.txt` كانَ يدلُّ كلَّ زاحفٍ على عنوانٍ غيرِ موجود، والموقعُ كلُّه بلا
-   * خريطةٍ يقرؤها أحد.
+   * ⚠️ **الفهرسُ لا الشرائح (٢٠٢٦-٠٩-٢٧).** كانَ هذا السطرُ يُعدِّدُ
+   * `/sitemap/{id}.xml` بأسمائِها لأنّ Next لا يُنتِجُ فهرساً، و`/sitemap.xml`
+   * كانَ ٤٠٤ على الإنتاج. صارَ ذلك العنوانُ يُجيبُ بفهرسٍ (`sitemap-index.xml`
+   * خلفَ إعادةِ كتابةٍ في `next.config.ts`) يُشتَقُّ من `generateSitemaps()`
+   * نفسِها — فالقائمةُ لا تُكتَبُ بيدٍ هنا ولا هناك، وعنوانٌ واحدٌ هو ما يجرّبُه
+   * كلُّ زاحفٍ أوّلاً.
    *
-   * ⚠️ والقائمةُ تُشتَقُّ من `generateSitemaps()` نفسِها لا تُكتَبُ بيدٍ هنا:
-   * عددُ الشرائحِ يكبرُ مع المقالات، وقائمةٌ ثابتةٌ تُخفي ذيلَ الموقعِ في صمتٍ —
-   * وهو بالضبطِ العطبُ الذي وُجِدَ التقسيمُ لتفاديه.
+   * ⚠️ **ولا سطرَ `Host:`.** توجيهٌ غيرُ قياسيٍّ كانت Yandex وحدَها تقرؤه وقد
+   * تخلّت عنه؛ Google يتجاهلُه، ومدقّقاتُ robots.txt تُعلِّمُه خطأً. والمضيفُ
+   * القانونيُّ يقولُه `<link rel="canonical">` على كلِّ صفحة.
    */
-  const chunks = await generateSitemaps();
-
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/api/", "/admin", "/dashboard", "/manage/", "/settings", "/login"],
     },
-    sitemap: chunks.map(({ id }) => `${SITE_URL}/sitemap/${id}.xml`),
-    host: SITE_URL,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

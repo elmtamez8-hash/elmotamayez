@@ -120,6 +120,13 @@ const nextConfig: NextConfig = {
         source: "/storage/:path*",
         destination: `${origin}/storage/:path*`,
       },
+      {
+        // The sitemap INDEX. Next serves the chunks at `/sitemap/{id}.xml` and
+        // nothing at `/sitemap.xml` (a 404 on production); the index lives in
+        // `app/sitemap-index.xml/route.ts` — why not at this path is written there.
+        source: "/sitemap.xml",
+        destination: "/sitemap-index.xml",
+      },
     ];
   },
 };

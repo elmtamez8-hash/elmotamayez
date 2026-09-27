@@ -509,10 +509,21 @@ button:not(:disabled):not([aria-disabled="true"]),
 .prose-article h3,
 .prose-policy h1,
 .prose-policy h2,
-.prose-policy h3 {
+.prose-policy h3,
+.prose-policy h4 {
   font-weight: 700;
   line-height: 1.4;
   margin-block-start: 2rem;
+}
+
+/*
+| ⚠️ `h4` BECAUSE /privacy SHIFTS THE POLICY'S HEADINGS DOWN ONE LEVEL
+| (`demoteHeadings()`): the page banner is the one `<h1>`, so the Markdown's `#`
+| arrives as `<h2>` and its `###` as `<h4>` — which Tailwind's preflight would
+| otherwise leave at body size and weight.
+*/
+.prose-policy h4 {
+  font-size: 1rem;
 }
 
 .prose-article h1,

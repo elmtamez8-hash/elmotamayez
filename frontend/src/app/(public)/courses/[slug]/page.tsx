@@ -27,7 +27,8 @@ import {
 import { counted, courseTypeLabel } from "@/lib/labels";
 import { siteUrl } from "@/lib/site";
 import { platformName } from "@/lib/platform";
-import { absoluteHttpUrl } from "@/components/seo/JsonLd";
+import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
+import { courseLd } from "@/lib/structured-data";
 
 type Params = { slug: string };
 
@@ -297,6 +298,14 @@ export default async function CoursePage({
     */
     <CourseOwnershipProvider courseUuid={course.uuid}>
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
+        {/* The same canonical `generateMetadata` names. */}
+        <JsonLd
+          data={courseLd(
+            course,
+            siteUrl(`/courses/${course.slug ?? course.uuid}`),
+            await platformName(),
+          )}
+        />
         {/*
           الغلافُ شريطٌ عريضٌ لا مربّعٌ جانبيّ: صفحةُ الكورسِ تُفتَحُ لقرار،
           وأوّلُ ما يُرى يجبُ أن يكونَ الكورسَ نفسَه.

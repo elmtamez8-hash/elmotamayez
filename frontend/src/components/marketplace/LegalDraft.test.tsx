@@ -78,9 +78,10 @@ describe("LegalDraft", () => {
     expect(screen.queryByText(/البريد الإلكتروني:/)).toBeNull();
   });
 
-  it("prints the support number when one is set", () => {
+  it("prints the support number when one is set, in Arabic digits", () => {
     draft("97455501234");
 
-    expect(screen.getByText("+97455501234")).toBeDefined();
+    // Digit by digit, never grouped — a phone number is text, not a quantity.
+    expect(screen.getByText("+٩٧٤٥٥٥٠١٢٣٤")).toBeDefined();
   });
 });

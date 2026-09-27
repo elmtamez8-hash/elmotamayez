@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { ChevronStartIcon } from "@/components/icons";
 import { PageBanner } from "@/components/ui/PageBanner";
+import { arabicDigits } from "@/lib/numerals";
 
 /**
  * A legal page whose text is written but not yet approved.
@@ -90,7 +91,7 @@ export function LegalDraft({
             )}
             {supportWhatsapp !== "" && (
               <li>
-                واتساب الدعم: <bdi dir="ltr">+{supportWhatsapp}</bdi>
+                واتساب الدعم: <bdi dir="ltr">{arabicDigits(`+${supportWhatsapp}`)}</bdi>
               </li>
             )}
             <li>
