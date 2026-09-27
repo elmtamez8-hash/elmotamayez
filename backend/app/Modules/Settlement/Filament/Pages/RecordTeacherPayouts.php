@@ -143,8 +143,8 @@ class RecordTeacherPayouts extends Page implements HasTable
                             ->helperText('ما يطابقه المدرّس مع كشف حسابه. اتركه فارغاً إن لم يصلك بعد.'),
                         Select::make('method')
                             ->label('طريقة الدفع')
-                            ->options(PayoutMethods::options())
-                            ->default(PayoutMethods::ALL[0]),
+                            // Nullable as before: «unknown yet» stays a real answer.
+                            ->options(PayoutMethods::options()),
                     ])
                     ->action(fn (SettlementPeriod $record, array $data) => $this->pay($record, $data)),
             ]);
