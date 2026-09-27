@@ -6,6 +6,7 @@ namespace App\Modules\Gamification\Filament\Resources\RewardResource\RelationMan
 
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Gamification\Models\Redemption;
+use App\Shared\Scopes\WorkspaceScope;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -54,8 +55,14 @@ class RedemptionsRelationManager extends RelationManager
             | بلا تقييدِ أعمدة: `users` لا تحمل عمودَ `name` — هو مُلحَقٌ فوق
             | `first_name` و`last_name` — فتحميلٌ مقيَّدٌ يُفرِّغ كلَّ اسمٍ في
             | الصفحة بلا خطأٍ واحد.
+            |
+            | ⚠️ وبلا نطاق: المكافأةُ قد تكونُ لمساحةٍ غيرِ مساحةِ القارئ (مديرُ
+            | المنصّةِ وله `last_workspace_id`)، ونطاقُ `Redemption` كانَ يُضيفُ
+            | مساحتَه فوقَ `reward_id = …` فيخرجُ التبويبُ فارغاً.
             */
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['student', 'decider']))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutGlobalScope(WorkspaceScope::class)
+                ->with(['student', 'decider']))
             ->columns([
                 TextColumn::make('student.first_name')->label('الطالب')
                     ->formatStateUsing(fn (Redemption $record): string => $record->student->name ?? '—'),

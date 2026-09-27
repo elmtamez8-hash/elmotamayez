@@ -74,12 +74,16 @@ it('refuses a slug the teacher typed that somebody else already holds', function
     [$first] = cmsAuthor('Academy A');
     cmsArticle($first, ['title' => 'أ', 'slug' => 'مراجعة-الثانوية']);
 
-    [, $second] = cmsAuthor('Academy B');
-    Auth::login($second);
+    [$second] = cmsAuthor('Academy B');
+
+    // The panel's article screen is the super admin's (`CmsArticleResource::canCreate()`),
+    // writing into a workspace they choose — the owner who stood here reached it
+    // only because Livewire skips the panel's own door.
+    Auth::login(User::factory()->create(['is_super_admin' => true]));
     Filament::setCurrentPanel(Filament::getPanel('admin'));
 
     Livewire::test(CreateCmsArticle::class)
-        ->fillForm(['title' => 'ب', 'slug' => 'مراجعة-الثانوية'])
+        ->fillForm(['workspace' => (string) $second->uuid, 'title' => 'ب', 'slug' => 'مراجعة-الثانوية'])
         ->call('create')
         ->assertHasFormErrors(['slug' => 'unique']);
 });

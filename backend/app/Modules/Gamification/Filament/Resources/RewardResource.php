@@ -10,7 +10,7 @@ use App\Modules\Gamification\Enums\RewardType;
 use App\Modules\Gamification\Filament\Resources\RewardResource\Pages;
 use App\Modules\Gamification\Filament\Resources\RewardResource\RelationManagers\RedemptionsRelationManager;
 use App\Modules\Gamification\Models\Reward;
-use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -88,11 +88,20 @@ class RewardResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withCount([
-            'redemptions as pending_redemptions_count' => function (Builder $query): void {
-                $query->where('status', RedemptionStatus::Pending->value);
-            },
-        ]);
+        /*
+        | ⚠️ بلا نطاق، والتجاوزُ مُكرَّرٌ داخلَ العدّ. قارئُ هذه الشاشةِ مديرُ
+        | المنصّة ({@see canViewAny()})، وسياقُه يرجعُ إلى `last_workspace_id` —
+        | فقائمةٌ تحتَ النطاقِ تعرضُ متجرَ مساحتِه وحدَها صامتةً، والعدُّ
+        | استعلامٌ ثانٍ يُطبَّقُ عليه نطاقُ `Redemption` من جديد.
+        */
+        return parent::getEloquentQuery()
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->withCount([
+                'redemptions as pending_redemptions_count' => function (Builder $query): void {
+                    $query->withoutGlobalScope(WorkspaceScope::class)
+                        ->where('status', RedemptionStatus::Pending->value);
+                },
+            ]);
     }
 
     public static function infolist(Schema $schema): Schema
@@ -180,18 +189,27 @@ class RewardResource extends Resource
         ];
     }
 
+    /**
+     * ⚠️ مديرُ المنصّةِ وحدَه — لا `rewards.manage`.
+     *
+     * كانَ البابُ `rewards.manage`، وهي صلاحيّةُ **مساحة**: قيلَ هنا إنّ «القارئَ
+     * عضوٌ فيها فالنطاقُ يحسمُ الملكيّة» — وذلكَ صحيحٌ عن مدرّسٍ في `/manage`
+     * وخاطئٌ عن هذه اللوحة، التي لا يدخلُها مدرّسٌ أصلاً. قارئُها موظّفُ منصّة،
+     * ومن يملكُ منهم مساحةً يحملُ الصلاحيّةَ هناك — فكانَ يرى متجرَ مساحتِه
+     * وحدَها ويظنُّه المنصّة. والقائمةُ صارت بلا نطاق، فبابٌ يقرأُ صلاحيّةَ
+     * مساحةٍ فوقَها يُسلِّمُه متجرَ كلِّ مدرّس. لا دورَ منصّيٌّ يحملُ صلاحيّةَ
+     * مكافآت، فالقارئُ مديرُ المنصّة.
+     */
     public static function canViewAny(): bool
     {
         $user = Auth::user();
 
-        return $user instanceof User && $user->can(Permissions::REWARDS_MANAGE);
+        return $user instanceof User && $user->isSuperAdmin();
     }
 
     /**
-     * الصلاحيةُ وحدَها كافيةٌ هنا.
-     *
-     * المكافأةُ مملوكةٌ لمساحةِ عمل والقارئُ عضوٌ فيها، فالنطاقُ العامُّ يحسم
-     * الملكيّةَ قبل أن تُستدعى هذه الدالّة: صفُّ مدرّسٍ آخر لا يُحَلُّ أصلاً.
+     * البابُ نفسُه — والصفُّ يُحَلُّ من الاستعلامِ بلا نطاق (أعلاه)، فمكافأةُ أيِّ
+     * مساحةٍ تُفتَحُ لقارئِ هذه الشاشة.
      */
     public static function canView(Model $record): bool
     {
