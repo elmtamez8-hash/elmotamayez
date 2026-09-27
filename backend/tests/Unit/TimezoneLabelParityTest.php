@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Shared\Support\TimezoneLabel;
+use App\Shared\Support\UserClock;
+use Carbon\CarbonImmutable;
 
 /*
 | ⛔ **اسمٌ واحدٌ للمنطقةِ الزمنيّة، بصيغةِ «البلد — المدينة»** (قرارُ المالك
@@ -27,6 +30,9 @@ it('names every zone exactly as the frontend picker does', function (): void {
         $frontend[$match[1]] = $match[2];
     }
 
+    // ⚠️ `toBe` compares ORDER too, on purpose: the two maps are kept in the same
+    // order so a diff between them reads line for line. Re-sorting one side
+    // fails here — re-sort both.
     expect($frontend)->not->toBeEmpty()
         ->and($frontend)->toHaveKey('Asia/Qatar')
         ->and(TimezoneLabel::LABELS)->toBe($frontend);
@@ -35,5 +41,14 @@ it('names every zone exactly as the frontend picker does', function (): void {
 it('keeps the zone name when nobody has translated it', function (): void {
     expect(TimezoneLabel::for('Asia/Qatar'))->toBe('قطر — الدوحة')
         ->and(TimezoneLabel::for('Africa/Cairo'))->toBe('مصر — القاهرة')
+        // Not a country: «(توقيت غرينتش (UTC))» in a sentence, never «توقيت التوقيت».
+        ->and(TimezoneLabel::for('UTC'))->toBe('غرينتش (UTC)')
         ->and(TimezoneLabel::for('Pacific/Fiji'))->toBe('Pacific/Fiji');
+});
+
+it('reads a UTC clock as Greenwich in a sentence, with no doubled word', function (): void {
+    $utc = (new User)->forceFill(['timezone' => 'UTC']);
+
+    expect(UserClock::format($utc, CarbonImmutable::parse('2026-11-18 15:00', 'UTC')))
+        ->toBe('2026-11-18 15:00 (توقيت غرينتش (UTC))');
 });

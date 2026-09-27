@@ -82,7 +82,8 @@ final class TimezoneLabel
         'America/Los_Angeles' => 'الولايات المتحدة — لوس أنجلوس',
         'America/Toronto' => 'كندا — تورونتو',
         'America/Sao_Paulo' => 'البرازيل — ساو باولو',
-        'UTC' => 'التوقيت العالمي (UTC)',
+        // «توقيت غرينتش (UTC)» in a sentence — see the frontend copy.
+        'UTC' => 'غرينتش (UTC)',
     ];
 
     public static function for(string $zone): string

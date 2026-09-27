@@ -58,6 +58,8 @@ describe("one session, two viewers", () => {
   it("names the clock where two countries read one time", () => {
     expect(formatSessionTimeWithZone(winter, CAIRO)).toContain("(توقيت مصر — القاهرة)");
     expect(formatSessionTimeWithZone(winter, DOHA)).toContain("(توقيت قطر — الدوحة)");
+    // Not a country — and «توقيت التوقيت العالمي» said the word twice.
+    expect(formatSessionTimeWithZone(winter, "UTC")).toContain("(توقيت غرينتش (UTC))");
   });
 
   it("puts a late lesson on the right DAY for each viewer", () => {
