@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Resources;
 
 use App\Modules\Payments\Models\PlanChangeRequest;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\PlanShape;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -45,7 +46,7 @@ class PlanChangeRequestResource extends JsonResource
             'requested_coverage_label' => $this->resource->requested_coverage_type->label(),
             'current_price_minor' => $this->resource->current_price_minor,
             'requested_price_minor' => $this->resource->requested_price_minor,
-            'currency' => (string) ($this->resource->plan->currency ?? 'QAR'),
+            'currency' => (string) ($this->resource->plan->currency ?? app(BillingSettings::class)->currency()),
             'reason' => $this->resource->reason,
             'status' => $this->resource->status->value,
             'status_label' => $this->resource->status->label(),

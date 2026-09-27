@@ -10,6 +10,7 @@ use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Settlement\Actions\DecideRateChange;
 use App\Modules\Settlement\Enums\RateRequestStatus;
 use App\Modules\Settlement\Models\RateChangeRequest;
+use App\Modules\Settlement\Support\SettlementSettings;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\OutstandingCreditsDirectory;
 use BackedEnum;
@@ -216,7 +217,7 @@ class ReviewRateRequests extends Page implements HasTable
     {
         return $minor === null
             ? '—'
-            : number_format($minor / 100, 2).' '.($currency ?? 'QAR');
+            : number_format($minor / 100, 2).' '.($currency ?? app(SettlementSettings::class)->currency());
     }
 
     /**

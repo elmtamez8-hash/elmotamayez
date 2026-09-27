@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Store\Data;
 
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Store\Enums\StoreItemKind;
 use App\Shared\Data\DataTransferObject;
 
@@ -39,7 +40,9 @@ final class StoreItemData extends DataTransferObject
             kind: StoreItemKind::from((string) $data['kind']),
             title: (string) $data['title'],
             priceMinor: (int) $data['price_minor'],
-            currency: (string) ($data['currency'] ?? 'QAR'),
+            // The platform currency, read where every reader reads it — never a
+            // literal here (owner decision 2026-09-27: one source).
+            currency: (string) ($data['currency'] ?? app(BillingSettings::class)->currency()),
             description: isset($data['description']) ? (string) $data['description'] : null,
             excerpt: isset($data['excerpt']) ? (string) $data['excerpt'] : null,
             mediaAssetUuid: isset($data['media_asset_uuid']) ? (string) $data['media_asset_uuid'] : null,

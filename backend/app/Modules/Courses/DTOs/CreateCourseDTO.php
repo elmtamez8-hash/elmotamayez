@@ -15,7 +15,12 @@ class CreateCourseDTO extends DataTransferObject
         public readonly ?string $slug = null,
         /** Minor units, always an integer. A float price is the defect 007 removed. */
         public readonly int $priceMinor = 0,
-        public readonly string $currency = 'QAR',
+        /**
+         * Null means «not chosen»: `CreateCourse` then writes the platform
+         * currency from `BillingSettings` — never a literal here (owner decision
+         * 2026-09-27: one source).
+         */
+        public readonly ?string $currency = null,
         public readonly string $status = 'draft',
         // عامٌّ افتراضاً — قرارُ المالك 2026-09-26؛ المدرّسُ يجعلُه خاصّاً إن شاء.
         public readonly string $visibility = 'public',
@@ -47,7 +52,7 @@ class CreateCourseDTO extends DataTransferObject
             description: $data['description'] ?? null,
             slug: $data['slug'] ?? null,
             priceMinor: (int) ($data['price_minor'] ?? 0),
-            currency: $data['currency'] ?? 'QAR',
+            currency: isset($data['currency']) && is_string($data['currency']) ? $data['currency'] : null,
             status: $data['status'] ?? 'draft',
             visibility: is_string($data['visibility'] ?? null) ? $data['visibility'] : 'public',
             isSequential: $data['is_sequential'] ?? true,
