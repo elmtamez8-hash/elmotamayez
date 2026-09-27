@@ -358,7 +358,7 @@ class TeacherProfileResource extends Resource
                     return;
                 }
 
-                app(ReinstateTeacher::class)->handle($record);
+                app(ReinstateTeacher::class)->handle($record, $reviewer);
             });
     }
 
@@ -372,7 +372,12 @@ class TeacherProfileResource extends Resource
             ->modalDescription('يختفي المدرّسُ من السوقِ فوراً. الطلابُ المسجَّلونَ لا يفقدونَ ما دفعوا ثمنَه.')
             ->visible(fn (TeacherProfile $record): bool => $record->approval_status === TeacherProfile::STATUS_APPROVED
                 && (Auth::user()?->can(Permissions::MARKETPLACE_TEACHERS_SUSPEND) ?? false))
-            ->action(fn (TeacherProfile $record) => app(SuspendTeacher::class)->handle($record));
+            ->action(function (TeacherProfile $record): void {
+                /** @var User $officer */
+                $officer = Auth::user();
+
+                app(SuspendTeacher::class)->handle($record, $officer);
+            });
     }
 
     public static function table(Table $table): Table

@@ -9,8 +9,10 @@ use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\MarketplaceCache;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,6 +22,12 @@ class ApproveTeacherApplication extends Action
 {
     public function handle(TeacherApplication $application, User $reviewer): TeacherProfile
     {
+        // Asked here as well as on both panel buttons: the Action is the one
+        // entry point the teacher-application and teacher-profile screens share.
+        if (! $reviewer->can(Permissions::MARKETPLACE_TEACHERS_APPROVE)) {
+            throw new AuthorizationException('اعتمادُ المدرّسِ قرارُ الفريقِ الأكاديميّ للمنصّة.');
+        }
+
         /*
          | ⚠️ «المعتمَدُ وحدَه» لا `isPending()` — والفرقُ قدرةٌ قائمة. زرُّ الاعتمادِ
          | في {@see TeacherProfileResource} يختارُ أيَّ طلبٍ حالتُه ليستْ معتمَدة

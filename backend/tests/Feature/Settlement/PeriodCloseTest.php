@@ -40,6 +40,9 @@ beforeEach(function (): void {
     Queue::fake();
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
+    // The ACTOR of a settlement decision is a platform officer: the Actions ask
+    // the platform permission themselves now, and the owner holds none.
+    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
@@ -121,8 +124,8 @@ it('pays once however many times it is asked', function (): void {
     $period = closableePeriod(2);
     app(CloseSettlementPeriod::class)->handle($period, $this->owner);
 
-    $first = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->owner, 'TRF-1');
-    $second = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->owner, 'TRF-2');
+    $first = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->officer, 'TRF-1');
+    $second = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->officer, 'TRF-2');
 
     // The unique index on settlement_period_id is the real guard — the Action's
     // own check protects the API path and nothing else, and the settlement cycle
@@ -218,7 +221,7 @@ it('carries a negative net forward and pays nothing', function (): void {
         // unsigned, so a negative one could not even be written.
         ->and($period->fresh()->carried_out_minor)->toBe(-3000);
 
-    expect(fn () => app(RecordTeacherPayout::class)->handle($period->fresh(), $this->owner, 'TRF-X'))
+    expect(fn () => app(RecordTeacherPayout::class)->handle($period->fresh(), $this->officer, 'TRF-X'))
         ->toThrow(DomainException::class);
 
     expect(TeacherPayout::query()->count())->toBe(0);
@@ -245,7 +248,7 @@ it('opens the next period carrying the previous shortfall in', function (): void
 it('refuses to pay a period that is still open', function (): void {
     $period = closableePeriod(2);
 
-    expect(fn () => app(RecordTeacherPayout::class)->handle($period, $this->owner, 'TRF-1'))
+    expect(fn () => app(RecordTeacherPayout::class)->handle($period, $this->officer, 'TRF-1'))
         ->toThrow(DomainException::class);
 });
 

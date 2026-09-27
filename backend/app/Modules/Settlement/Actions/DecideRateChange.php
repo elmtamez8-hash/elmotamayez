@@ -14,8 +14,10 @@ use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Models\SettlementRate;
 use App\Modules\Settlement\Support\Money;
 use App\Shared\Actions\Action;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,6 +40,7 @@ class DecideRateChange extends Action
 
     public function approve(RateChangeRequest $request, User $by): SettlementRate
     {
+        self::authorizeDecider($by);
         $this->refuseIfDecided($request);
 
         return DB::transaction(function () use ($request, $by): SettlementRate {
@@ -79,6 +82,7 @@ class DecideRateChange extends Action
 
     public function reject(RateChangeRequest $request, User $by, string $reason): RateChangeRequest
     {
+        self::authorizeDecider($by);
         $this->refuseIfDecided($request);
 
         if (trim($reason) === '') {
@@ -151,6 +155,20 @@ class DecideRateChange extends Action
             subject: $teacher,
             workspaceId: (int) $request->workspace_id,
         ));
+    }
+
+    /**
+     * ⚠️ THE PERMISSION IS ASKED HERE AS WELL AS AT BOTH DOORS. The API asks
+     * `RateChangeRequestPolicy::decide()` and the panel page asks `canAccess()`,
+     * but an Action is the one entry point every door shares — and a decision
+     * that writes a teacher's pay rate is the last place a forgotten door should
+     * be able to reach unasked.
+     */
+    private static function authorizeDecider(User $by): void
+    {
+        if (! $by->can(Permissions::SETTLEMENT_RATE_APPROVE)) {
+            throw new AuthorizationException('اعتمادُ سعرِ المدرّسِ قرارُ المنصّة.');
+        }
     }
 
     private function refuseIfDecided(RateChangeRequest $request): void

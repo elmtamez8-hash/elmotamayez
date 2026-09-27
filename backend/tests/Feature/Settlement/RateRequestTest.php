@@ -29,6 +29,9 @@ use Illuminate\Support\Facades\Event;
 
 beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
+    // The ACTOR of a settlement decision is a platform officer: the Actions ask
+    // the platform permission themselves now, and the owner holds none.
+    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
@@ -64,7 +67,7 @@ it('creates the new rate only on approval, and announces it', function (): void 
 
     $request = app(RequestRateChange::class)->handle($this->teacher, ClassSessionType::Individual, 9000, $this->owner);
 
-    app(DecideRateChange::class)->approve($request, $this->owner);
+    app(DecideRateChange::class)->approve($request, $this->officer);
 
     expect(rateNow())->toBe(9000)
         ->and(SettlementRate::query()->count())->toBe(2);
@@ -78,7 +81,7 @@ it('creates the new rate only on approval, and announces it', function (): void 
 it('leaves the old rate standing when the request is rejected', function (): void {
     $request = app(RequestRateChange::class)->handle($this->teacher, ClassSessionType::Individual, 9000, $this->owner);
 
-    app(DecideRateChange::class)->reject($request, $this->owner, 'السعر أعلى من متوسط المادة.');
+    app(DecideRateChange::class)->reject($request, $this->officer, 'السعر أعلى من متوسط المادة.');
 
     expect(rateNow())->toBe(5000)
         ->and($request->fresh()->status)->toBe(RateRequestStatus::Rejected)
@@ -90,7 +93,7 @@ it('leaves the old rate standing when the request is rejected', function (): voi
 it('records both amounts and both people on the decision', function (): void {
     $request = app(RequestRateChange::class)->handle($this->teacher, ClassSessionType::Individual, 9000, $this->owner);
 
-    app(DecideRateChange::class)->approve($request, $this->owner);
+    app(DecideRateChange::class)->approve($request, $this->officer);
 
     $decided = $request->fresh();
 
@@ -99,7 +102,7 @@ it('records both amounts and both people on the decision', function (): void {
     expect($decided->current_amount_minor)->toBe(5000)
         ->and($decided->requested_amount_minor)->toBe(9000)
         ->and($decided->requested_by)->toBe($this->owner->getKey())
-        ->and($decided->decided_by)->toBe($this->owner->getKey())
+        ->and($decided->decided_by)->toBe($this->officer->getKey())
         ->and($decided->decided_at)->not->toBeNull();
 });
 
@@ -117,7 +120,7 @@ it('refuses more requests than the window allows', function (): void {
     PlatformSettings::set('settlement.rate_request_window_days', 30);
 
     $first = app(RequestRateChange::class)->handle($this->teacher, ClassSessionType::Individual, 9000, $this->owner);
-    app(DecideRateChange::class)->approve($first, $this->owner);
+    app(DecideRateChange::class)->approve($first, $this->officer);
 
     // FR-013ب — a price that can be changed at will is not a price. The refusal
     // names when the next request becomes possible, because "no" with no date is
@@ -134,7 +137,7 @@ it('does not reprice work already done when a new rate is approved', function ()
     )?->amount_minor;
 
     $request = app(RequestRateChange::class)->handle($this->teacher, ClassSessionType::Individual, 9000, $this->owner);
-    app(DecideRateChange::class)->approve($request, $this->owner);
+    app(DecideRateChange::class)->approve($request, $this->officer);
 
     $after = app(RateResolver::class)->resolve(
         (int) $this->teacher->getKey(),

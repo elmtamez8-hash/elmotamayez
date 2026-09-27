@@ -21,7 +21,8 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 beforeEach(function (): void {
     $this->workspace = marketplaceWorkspace('Academy');
     $this->teacher = marketplaceTeacher($this->workspace);
-    $this->reviewer = User::factory()->create();
+    // The Actions ask the platform permission themselves now.
+    $this->reviewer = User::factory()->create(['is_super_admin' => true]);
 
     $this->application = TeacherApplication::factory()->complete()->create([
         'user_id' => $this->teacher->user_id,

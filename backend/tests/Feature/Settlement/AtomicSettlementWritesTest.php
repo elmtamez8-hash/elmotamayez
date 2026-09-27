@@ -35,6 +35,9 @@ beforeEach(function (): void {
     Queue::fake();
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
+    // The ACTOR of a settlement decision is a platform officer: the Actions ask
+    // the platform permission themselves now, and the owner holds none.
+    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
@@ -117,7 +120,7 @@ it('pays a period whose ledger write failed once, instead of calling it paid for
 
     $this->app->instance(WriteLedgerEntry::class, atomicLedgerFailingOn(1));
 
-    expect(fn () => app(RecordTeacherPayout::class)->handle($period->fresh(), $this->owner, 'TRF-1'))
+    expect(fn () => app(RecordTeacherPayout::class)->handle($period->fresh(), $this->officer, 'TRF-1'))
         ->toThrow(RuntimeException::class, 'ledger unavailable');
 
     // Nothing of the failed attempt survives — the payout row above all, which
@@ -128,7 +131,7 @@ it('pays a period whose ledger write failed once, instead of calling it paid for
 
     $this->app->forgetInstance(WriteLedgerEntry::class);
 
-    $payout = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->owner, 'TRF-1');
+    $payout = app(RecordTeacherPayout::class)->handle($period->fresh(), $this->officer, 'TRF-1');
 
     expect($payout)->not->toBeNull()
         ->and(TeacherPayout::query()->count())->toBe(1)

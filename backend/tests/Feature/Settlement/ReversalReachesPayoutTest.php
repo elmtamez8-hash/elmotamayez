@@ -32,6 +32,9 @@ beforeEach(function (): void {
     Queue::fake();
 
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
+    // The ACTOR of a settlement decision is a platform officer: the Actions ask
+    // the platform permission themselves now, and the owner holds none.
+    $this->officer = \App\Models\User::factory()->create(['is_super_admin' => true]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
     $this->teacher = TeacherProfile::factory()->create(['user_id' => $this->owner->getKey()]);
@@ -76,7 +79,7 @@ it('nets a unit reversed inside the window it is closed in', function (): void {
     $period = reversalWindow(30);
     $original = reversalOriginal(CarbonImmutable::parse($period->starts_on->toDateString())->addDays(2));
 
-    $reversal = app(ReverseTeachingUnit::class)->handle($original, 'وحدة نشأت خطأً', $this->owner);
+    $reversal = app(ReverseTeachingUnit::class)->handle($original, 'وحدة نشأت خطأً', $this->officer);
 
     app(CloseSettlementPeriod::class)->handle($period, $this->owner);
 
@@ -105,7 +108,7 @@ it('takes a reversal of an hour already paid off the NEXT close', function (): v
     // The dispute resolves a week later. Its `delivered_at` is the original's —
     // inside the FIRST window — so a date filter on it would drop it from every
     // window that is still open, which is exactly the case that matters.
-    $reversal = app(ReverseTeachingUnit::class)->handle($original->fresh(), 'نزاع حُسم لصالح الطالب', $this->owner);
+    $reversal = app(ReverseTeachingUnit::class)->handle($original->fresh(), 'نزاع حُسم لصالح الطالب', $this->officer);
 
     $second = reversalWindow(30);
 
@@ -129,7 +132,7 @@ it('keeps a correction with an original that has not been paid yet', function ()
         TeachingUnitStatus::PendingPackage,
     );
 
-    $reversal = app(ReverseTeachingUnit::class)->handle($original, 'استرداد قبل وصول التسجيل', $this->owner);
+    $reversal = app(ReverseTeachingUnit::class)->handle($original, 'استرداد قبل وصول التسجيل', $this->officer);
 
     app(CloseSettlementPeriod::class)->handle($period, $this->owner);
 

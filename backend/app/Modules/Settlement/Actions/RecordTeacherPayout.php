@@ -11,8 +11,10 @@ use App\Modules\Settlement\Events\TeacherPayoutIssued;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Models\TeacherPayout;
 use App\Shared\Actions\Action;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -47,6 +49,13 @@ class RecordTeacherPayout extends Action
         ?string $reference = null,
         ?string $method = null,
     ): ?TeacherPayout {
+        // Money leaving is asked here as well as at both doors (the API's
+        // `SettlementPeriodPolicy::pay()`, the panel's `canAccess()` + row
+        // `authorize()`): the Action is the one entry point they share.
+        if (! $by->can(Permissions::SETTLEMENT_PAYOUT_EXECUTE)) {
+            throw new AuthorizationException('صرفُ مستحقّاتِ المدرّسِ قرارُ المنصّة.');
+        }
+
         // Already paid: a no-op, not an error. FR-028 asks the cycle to be
         // harmless on re-run, and "this period was paid last night" is the
         // expected outcome of running it again — not a failure an operator has
