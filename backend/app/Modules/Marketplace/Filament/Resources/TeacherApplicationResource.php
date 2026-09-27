@@ -74,17 +74,17 @@ class TeacherApplicationResource extends Resource implements AwaitsDecision
     }
 
     /**
-     * ⚠️ `changes_requested` محسوبٌ كما كانَ العدّادُ يحسبُه منذ بُني — مع أنّه
-     * ينتظرُ المدرّسَ لا المراجِع.
+     * ما ينتظرُنا نحن: `submitted` وحدَها (قرارُ المالكِ ٢٠٢٦-٠٩-٢٨).
+     *
+     * ⚠️ لا `changes_requested`، وكانَ العدّادُ يعدُّه منذ بُني: طلبٌ طُلِبَ من
+     * صاحبِه تعديلُه ينتظرُ المدرّسَ لا المراجِع، وعدُّه يُبقي الرقمَ مرفوعاً على
+     * ما لا عملَ فيه لقارئِه. القائمةُ نفسُها تعرضُه كما كانت.
      */
     public static function pendingCount(): int
     {
         return TeacherApplication::query()
             ->withoutWorkspaceScope()
-            ->whereIn('status', [
-                TeacherApplication::STATUS_SUBMITTED,
-                TeacherApplication::STATUS_CHANGES_REQUESTED,
-            ])
+            ->where('status', TeacherApplication::STATUS_SUBMITTED)
             ->count();
     }
 

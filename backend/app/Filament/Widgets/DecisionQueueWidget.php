@@ -7,7 +7,6 @@ namespace App\Filament\Widgets;
 use App\Filament\Contracts\AwaitsDecision;
 use App\Filament\Resources\OrderResource;
 use App\Modules\Courses\Filament\Pages\ReviewPromoVideos;
-use App\Modules\Gamification\Filament\Resources\RedemptionResource;
 use App\Modules\Marketplace\Filament\Resources\TeacherApplicationResource;
 use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Payments\Filament\Pages\GrantCreditSubscription;
@@ -120,7 +119,6 @@ class DecisionQueueWidget extends BaseWidget
             ['class' => ReviewRateRequests::class, 'label' => ReviewRateRequests::getNavigationLabel(), 'url' => fn (): string => ReviewRateRequests::getUrl()],
             ['class' => ReviewPlanChanges::class, 'label' => ReviewPlanChanges::getNavigationLabel(), 'url' => fn (): string => ReviewPlanChanges::getUrl()],
             ['class' => ReviewPromoVideos::class, 'label' => ReviewPromoVideos::getNavigationLabel(), 'url' => fn (): string => ReviewPromoVideos::getUrl()],
-            ['class' => RedemptionResource::class, 'label' => RedemptionResource::getNavigationLabel(), 'url' => fn (): string => RedemptionResource::getUrl('index')],
         ];
     }
 }

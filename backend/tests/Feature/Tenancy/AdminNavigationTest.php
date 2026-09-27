@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource;
+use App\Filament\Resources\OrderResource\Pages\ListOrders;
 use App\Filament\Widgets\DecisionQueueWidget;
 use App\Models\User;
 use App\Modules\Analytics\Filament\Widgets\EnrollmentStatsWidget;
@@ -31,6 +32,7 @@ use Filament\Facades\Filament;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Collection;
 use Livewire\Livewire;
 use Symfony\Component\Finder\Finder;
 
@@ -79,6 +81,11 @@ beforeEach(function (): void {
 
         RateChangeRequest::factory()->create(['workspace_id' => $this->away->getKey()]);
         TeacherApplication::factory()->submitted()->create(['workspace_id' => $this->away->getKey()]);
+        // ينتظرُ المدرّسَ لا المراجِع، فلا يُعَدّ.
+        TeacherApplication::factory()->submitted()->create([
+            'workspace_id' => $this->away->getKey(),
+            'status' => TeacherApplication::STATUS_CHANGES_REQUESTED,
+        ]);
         Redemption::factory()->create(['workspace_id' => $this->away->getKey()]);
         TeacherOffboarding::query()->create([
             'workspace_id' => $this->away->getKey(),
@@ -194,7 +201,7 @@ it('names every group through the constants, never as a string that can drift', 
 
 it('keeps the decision queues in «ينتظر قرارك» and nowhere else', function (): void {
     $queues = [OrderResource::class, GrantCreditSubscription::class, TeacherApplicationResource::class,
-        ReviewRateRequests::class, ReviewPlanChanges::class, ReviewPromoVideos::class, RedemptionResource::class];
+        ReviewRateRequests::class, ReviewPlanChanges::class, ReviewPromoVideos::class];
 
     $inGroup = array_values(array_filter(
         panelScreens(),
@@ -217,8 +224,10 @@ it('counts every workspace\'s queue for a super admin who has one', function ():
         ->and(ReviewRateRequests::getNavigationBadge())->toBe('1')
         ->and(ReviewPlanChanges::getNavigationBadge())->toBeNull()
         ->and(ReviewPromoVideos::getNavigationBadge())->toBe('1')
-        ->and(RedemptionResource::getNavigationBadge())->toBe('1')
-        ->and(TeacherOffboardingResource::getNavigationBadge())->toBe('1');
+        ->and(TeacherOffboardingResource::getNavigationBadge())->toBe('1')
+        // يقرؤها المديرُ ولا يبتُّ فيها: في «التلعيب» وبلا عدّاد.
+        ->and(RedemptionResource::getNavigationGroup())->toBe(NavigationGroups::GAMIFICATION)
+        ->and(RedemptionResource::getNavigationBadge())->toBeNull();
 });
 
 it('gives the finance officer who owns a workspace the money queues, platform-wide, and nothing else', function (): void {
@@ -230,20 +239,50 @@ it('gives the finance officer who owns a workspace the money queues, platform-wi
         ->and(ReviewRateRequests::getNavigationBadge())->toBeNull()
         ->and(TeacherApplicationResource::getNavigationBadge())->toBeNull()
         ->and(ReviewPromoVideos::getNavigationBadge())->toBeNull()
-        ->and(RedemptionResource::getNavigationBadge())->toBeNull()
         ->and(TeacherOffboardingResource::getNavigationBadge())->toBeNull();
 });
 
-it('shows the compliance officer no payment count, although their own workspace lets them open the list', function (): void {
+it('shows the compliance officer neither the payments screen nor its count, although their workspace grants orders.view.all', function (): void {
     navigationAs(makePlatformStaff(Roles::COMPLIANCE_OFFICER, $this->homeOwner), $this->home);
 
-    // الخلفيّة: `ORDERS_VIEW_ALL` صلاحيّةُ مساحةٍ يحملُها هناك، والجدولُ له محصورٌ في مساحتِه.
+    // ⚠️ `ORDERS_VIEW_ALL` صلاحيّةُ مساحةٍ يحملُها هناك، ولم تعُدْ بابَ هذه الشاشة.
     expect(auth()->user()?->can(Permissions::ORDERS_VIEW_ALL))->toBeTrue()
+        ->and(OrderResource::canViewAny())->toBeFalse()
         ->and(OrderResource::getNavigationBadge())->toBeNull()
         ->and(OrderResource::getNavigationBadgeTooltip())->toBeNull()
         ->and(ReviewPromoVideos::getNavigationBadge())->toBe('1')
         ->and(TeacherOffboardingResource::getNavigationBadge())->toBe('1')
         ->and(GrantCreditSubscription::getNavigationBadge())->toBeNull();
+
+    $labels = collect(Filament::getNavigation())
+        ->flatMap(fn (NavigationGroup $group): array => $group->getItems() instanceof Collection
+            ? $group->getItems()->all()
+            : (array) $group->getItems())
+        ->map(fn (NavigationItem $item): string => (string) $item->getLabel())
+        ->all();
+
+    expect($labels)->not->toContain('اعتماد المدفوعات')
+        ->and($labels)->toContain('فيديوهات تنتظر المراجعة');
+
+    $order = Order::query()->withoutWorkspaceScope()->where('workspace_id', $this->home->getKey())->firstOrFail();
+
+    $this->get(OrderResource::getUrl('index'))->assertForbidden();
+    $this->get(OrderResource::getUrl('edit', ['record' => $order]))->assertForbidden();
+});
+
+it('gives the finance officer who owns a workspace every workspace\'s orders, and the page opens', function (): void {
+    navigationAs(makePlatformStaff(Roles::FINANCE_ADMIN, $this->homeOwner), $this->home);
+
+    $away = Order::query()->withoutWorkspaceScope()->where('workspace_id', $this->away->getKey())->get();
+    $home = Order::query()->withoutWorkspaceScope()->where('workspace_id', $this->home->getKey())->get();
+
+    expect(OrderResource::canViewAny())->toBeTrue()
+        ->and(OrderResource::getEloquentQuery()->count())->toBe(5);
+
+    $this->get(OrderResource::getUrl('index'))->assertOk();
+    $this->get(OrderResource::getUrl('edit', ['record' => $away->first()]))->assertOk();
+
+    Livewire::test(ListOrders::class)->assertCanSeeTableRecords($away->merge($home));
 });
 
 // ─── لوحة «ينتظر قرارك» ─────────────────────────────────────────────────────────
@@ -261,7 +300,6 @@ it('shows the super admin a card per queue, with the badge\'s own numbers, first
             'اعتماد أسعار المدرّسين' => '1',
             'طلبات تعديل الباقات' => '0',
             'فيديوهات تنتظر المراجعة' => '1',
-            'طلبات استبدال المكافآت' => '1',
             'مبالغ يجب ردّها' => '1',
         ]);
 });
