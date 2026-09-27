@@ -524,32 +524,6 @@ export function formatMinorMoney(minor: number, currency: string): string {
 }
 
 /**
- * A form field ↔ the minor-unit integer the API takes.
- *
- * ⚠️ THE CONVERSION LIVES HERE, NOT IN THE FORM. A teacher types riyals — 49.99
- * — and the API takes 4999, so every price form does this twice, once each way.
- * Written inline, the fifth form is where someone sends 49.99 to a column that
- * reads it as 49 fils: a hundredfold undercharge that no type checker sees,
- * because both numbers are numbers.
- *
- * Math.round, never a truncation: 49.99 * 100 is 4998.999999999999 in IEEE-754,
- * and `Math.trunc` would price the course a fils short — forever, silently.
- */
-export function toMinorMoney(input: string): number {
-  const MINOR_UNITS = 100;
-  const value = parseFloat(input);
-
-  return Number.isFinite(value) ? Math.round(value * MINOR_UNITS) : 0;
-}
-
-/** The inverse, for filling a form from what the API sent. */
-export function fromMinorMoney(minor: number): string {
-  const MINOR_UNITS = 100;
-
-  return (minor / MINOR_UNITS).toFixed(2);
-}
-
-/**
  * The five forms an Arabic counted noun takes, so a sentence can agree.
  *
  * ⚠️ «٢ مدرّس متاح» IS THE DEFECT, AND IT WAS SPELLED TWENTY-FIVE TIMES. Arabic

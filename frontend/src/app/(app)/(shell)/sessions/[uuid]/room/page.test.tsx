@@ -1,6 +1,8 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ApiError } from "@/lib/api";
 
 import SessionPage from "../page";
 import SessionRoomPage from "./page";
@@ -65,6 +67,7 @@ function session(overrides: Record<string, unknown> = {}) {
 }
 
 const joinCalls = () => post.mock.calls.filter(([path]) => path === "/class-sessions/s-1/join").length;
+const showCalls = () => get.mock.calls.filter(([path]) => path === "/class-sessions/s-1").length;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -88,7 +91,12 @@ async function renderRoom() {
 }
 
 describe("the room before the teacher opens it", () => {
-  it("says the room is not open yet, and knocks again on its own", async () => {
+  it("says the room is not open yet, and watches the SESSION rather than re-posting the join", async () => {
+    /*
+    | ⛔ 2026-09-26: one device sent 228 joins in two hours, every one a 403,
+    | because «not yet» was read from the refusal and the refusal was re-posted
+    | every twenty seconds. The poll is a GET on the session now.
+    */
     get.mockImplementation((path: string) =>
       path === "/class-sessions/s-1" ? Promise.resolve(session()) : Promise.reject(new Error("403")),
     );
@@ -99,21 +107,33 @@ describe("the room before the teacher opens it", () => {
     expect(screen.getByText("لم يفتح المدرّس الغرفة بعد")).toBeTruthy();
     expect(screen.queryByText("تعذّر الدخول")).toBeNull();
     expect(joinCalls()).toBe(1);
+    const readsBefore = showCalls();
 
     await act(() => vi.advanceTimersByTimeAsync(20_000));
 
-    expect(joinCalls()).toBe(2);
+    expect(joinCalls()).toBe(1);
+    expect(showCalls()).toBe(readsBefore + 1);
+
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(joinCalls()).toBe(1);
   });
 
-  it("stops knocking once it is let in", async () => {
+  it("knocks once when the host opens the room, and stops once it is let in", async () => {
+    let opened = false;
     get.mockImplementation((path: string) =>
-      path === "/class-sessions/s-1" ? Promise.resolve(session()) : Promise.reject(new Error("403")),
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_opened: opened }))
+        : Promise.reject(new Error("403")),
     );
     post.mockImplementationOnce(() => Promise.reject(new Error("403"))).mockImplementation(() =>
       Promise.resolve({ role: "participant", token: "t", room_url: "wss://x", expires_at: "" }),
     );
 
     await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(20_000));
+    expect(joinCalls()).toBe(1);
+
+    opened = true;
     await act(() => vi.advanceTimersByTimeAsync(20_000));
     expect(joinCalls()).toBe(2);
 
@@ -136,6 +156,110 @@ describe("the room before the teacher opens it", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(60_000));
     expect(joinCalls()).toBe(1);
+  });
+});
+
+describe("a refused or failing join", () => {
+  /*
+  | ⛔ A 4xx IS AN ANSWER. Real `ApiError`s here, not `Error("403")`: the page
+  | decides retry-or-stop on the status, and a plain Error would pass through the
+  | «unknown, so final» arm and prove nothing about the 403 arm.
+  */
+  const refusal = () =>
+    new ApiError("لا يمكنك دخول هذه الحصة الآن.", 403, {
+      message: "لا يمكنك دخول هذه الحصة الآن.",
+      code: "session_not_joinable",
+    });
+
+  it("sends exactly ONE join on a 403, shows the server's reason, and offers a manual retry", async () => {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_opened: true, status: "live" }))
+        : Promise.reject(new Error("unexpected read")),
+    );
+    post.mockImplementation(() => Promise.reject(refusal()));
+
+    await renderRoom();
+
+    expect(joinCalls()).toBe(1);
+    expect(screen.getByText("تعذّر الدخول")).toBeTruthy();
+    expect(screen.getByText(/لا يمكنك دخول هذه الحصة الآن\. تأكّد من حجز مقعدك/)).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(joinCalls()).toBe(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "حاول مرة أخرى" }));
+    });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(joinCalls()).toBe(2);
+
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(joinCalls()).toBe(2);
+  });
+
+  it.each([401, 404, 409, 410, 422])("does not retry a %i on its own", async (status) => {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_opened: true, status: "live" }))
+        : Promise.reject(new Error("unexpected read")),
+    );
+    post.mockImplementation(() => Promise.reject(new ApiError("مرفوض", status, null)));
+
+    await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+
+    expect(joinCalls()).toBe(1);
+  });
+
+  it("retries a 503 with backoff, gives up after five tries, and leaves the button", async () => {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_opened: true, status: "live" }))
+        : Promise.reject(new Error("unexpected read")),
+    );
+    post.mockImplementation(() =>
+      Promise.reject(new ApiError("down", 503, { code: "broadcast_unavailable" })),
+    );
+
+    await renderRoom();
+
+    expect(joinCalls()).toBe(1);
+    expect(screen.getByText(/نعيد المحاولة تلقائياً/)).toBeTruthy();
+
+    // 2s + 4s + 8s + 16s between the five tries.
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    expect(joinCalls()).toBe(5);
+
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(joinCalls()).toBe(5);
+    expect(screen.getByText("تعذّر الدخول")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "حاول مرة أخرى" })).toBeTruthy();
+    // Never the developer string.
+    expect(screen.queryByText("down")).toBeNull();
+  });
+
+  it("gets in on a later try after a network drop", async () => {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_opened: true, status: "live" }))
+        : Promise.reject(new Error("unexpected read")),
+    );
+    post
+      .mockImplementationOnce(() => Promise.reject(new TypeError("Failed to fetch")))
+      .mockImplementation(() =>
+        Promise.resolve({ role: "participant", token: "t", room_url: "wss://x", expires_at: "", presence_interval_seconds: 30 }),
+      );
+
+    await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+
+    expect(joinCalls()).toBe(2);
+    expect(screen.queryByText("تعذّر الدخول")).toBeNull();
+
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(joinCalls()).toBe(2);
   });
 });
 

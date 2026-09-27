@@ -24,6 +24,7 @@ import {
 } from "@/components/marketplace/AvailableNow";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { TrialCta } from "@/components/marketplace/TrialCta";
+import { StickyCtaBar } from "@/components/ui/StickyCtaBar";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdown";
 import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalendar";
@@ -597,7 +598,9 @@ export default async function TeacherProfilePage({
       {/* Below lg the side panel is stacked at the top and scrolls away, so the
           booking CTA gets a fixed bar of its own. FR-054 does not exempt mobile,
           and mobile is where a lost CTA costs the most. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+      {/* `StickyCtaBar` publishes its height so the floating WhatsApp button
+          stands above it; the bottom padding clears the phone's home indicator. */}
+      <StickyCtaBar className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
         <div className="flex items-center gap-3">
           <p className="shrink-0 text-sm text-ink-muted">
             <span className="block text-lg font-bold text-ink">
@@ -611,7 +614,7 @@ export default async function TeacherProfilePage({
               Grep for the route, never for the button's label. */}
           <TrialCta teacherUuid={teacher.uuid} variant="bar" />
         </div>
-      </div>
+      </StickyCtaBar>
     </div>
   );
 }
