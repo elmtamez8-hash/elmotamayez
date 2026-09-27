@@ -134,6 +134,36 @@ final class MinorUnits
         return $m[1] === '-' ? -$minor : $minor;
     }
 
+    /**
+     * For READING, not for a form: 100000 ⇒ «1,000.00», with the currency label
+     * after it when one is given («1,000.00 ر.ق»). null ⇒ null.
+     *
+     * ⚠️ Two spellings on purpose. {@see toMajor()} (and every model attribute)
+     * gives «1000.00» — what a numeric input accepts back; this one carries the
+     * thousands separator a person reads. Built from integers, never `/ 100`.
+     *
+     * The label is passed in already resolved (`Currency::short()`, or a code):
+     * this class sits in Shared, and Settlement may not import Payments' enum.
+     */
+    public static function display(?int $minor, ?string $label = null): ?string
+    {
+        if ($minor === null) {
+            return null;
+        }
+
+        $scale = self::scale();
+        $absolute = abs($minor);
+
+        $number = sprintf(
+            '%s%s.%0'.self::DECIMALS.'d',
+            $minor < 0 ? '-' : '',
+            number_format(intdiv($absolute, $scale)),
+            $absolute % $scale,
+        );
+
+        return $label === null || $label === '' ? $number : $number.' '.$label;
+    }
+
     /** 4999 ⇐ «49.99». ‏null ⇐ null. */
     public static function toMajor(?int $minor): ?string
     {

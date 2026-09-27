@@ -74,3 +74,13 @@ it('shows a stored ratio as a percentage and stores it back as the ratio', funct
         ->and(PercentInput::toRatio(57))->toBe(0.57)
         ->and(PercentInput::toRatio(5))->toBe(0.05);
 });
+
+it('formats a minor amount for reading with the thousands separator', function (): void {
+    // `toMajor()` is the form's spelling («1000.00»); `display()` is the reader's.
+    expect(MinorUnits::display(100_000, 'ر.ق'))->toBe('1,000.00 ر.ق')
+        ->and(MinorUnits::display(123_456_789))->toBe('1,234,567.89')
+        ->and(MinorUnits::display(5, 'QAR'))->toBe('0.05 QAR')
+        ->and(MinorUnits::display(-150_000))->toBe('-1,500.00')
+        ->and(MinorUnits::display(null, 'ر.ق'))->toBeNull()
+        ->and(MinorUnits::toMajor(100_000))->toBe('1000.00');
+});

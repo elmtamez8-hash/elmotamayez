@@ -16,6 +16,7 @@ use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -240,7 +241,7 @@ class CouponResource extends Resource
                 TextColumn::make('value')->label('القيمة')->formatStateUsing(
                     fn (mixed $state, Coupon $record): string => $record->value_kind === CouponValueKind::Percent
                         ? (int) $state.'٪'
-                        : $record->amount.' '.MoneyInput::currencyLabel(app(BillingSettings::class)->currency()),
+                        : (string) MinorUnits::display($record->value, MoneyInput::currencyLabel(app(BillingSettings::class)->currency())),
                 ),
                 TextColumn::make('scope_type')->label('النطاق')->badge()
                     ->placeholder('كل شيء')

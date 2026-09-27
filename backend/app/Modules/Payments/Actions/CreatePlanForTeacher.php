@@ -16,6 +16,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -161,6 +162,6 @@ class CreatePlanForTeacher extends Action
             return 'لم يُحدَّد بعد';
         }
 
-        return number_format($minor / 100, 2).' '.(Currency::tryFrom($currency)?->short() ?? $currency);
+        return (string) MinorUnits::display($minor, Currency::tryFrom($currency)?->short() ?? $currency);
     }
 }
