@@ -108,11 +108,15 @@ it('does not offer to reopen a lapsed subscription enrolment', function (): void
 it('refuses active and completed for a lapsed subscription at the save handler itself', function (string $to): void {
     $enrollment = subscriptionPanelEnrollment('expired');
 
+    // The refusal lives in `ChangeEnrollmentStatus` now; the page's save handler
+    // is the door that turns it into an error on the field.
     $page = Livewire::test(EditEnrollment::class, ['record' => $enrollment->getRouteKey()])->instance();
-    $guard = new ReflectionMethod($page, 'mutateFormDataBeforeSave');
+    $save = new ReflectionMethod($page, 'handleRecordUpdate');
 
-    expect(fn () => $guard->invoke($page, ['status' => $to]))
+    expect(fn () => $save->invoke($page, $enrollment, ['status' => $to]))
         ->toThrow(ValidationException::class, 'بتجديده');
+
+    expect(Enrollment::query()->withoutWorkspaceScope()->whereKey($enrollment->getKey())->value('status'))->toBe('expired');
 })->with(['active', 'completed']);
 
 it('still reopens an expired purchase by hand', function (): void {

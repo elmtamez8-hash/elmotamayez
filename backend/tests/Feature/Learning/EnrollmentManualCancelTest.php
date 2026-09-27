@@ -91,19 +91,24 @@ it('refuses a forged save that sets cancelled and leaves the row unchanged', fun
 
 /*
 | ⚠️ The forged save above is refused by the Select's own `in` rule first, so
-| deleting the page guard leaves it green (measured). This case drives the guard
-| directly — it is what stands if the option list is ever widened again.
+| deleting the guard leaves it green (measured). This case drives the save
+| handler directly — whose refusal now lives in `ChangeEnrollmentStatus` — and
+| it is what stands if the option list is ever widened again.
 */
 it('refuses a transition into cancelled at the save handler itself', function (): void {
     $enrollment = ($this->makeEnrollment)('active');
 
     $page = editEnrollmentPage($enrollment)->instance();
-    $guard = new ReflectionMethod($page, 'mutateFormDataBeforeSave');
+    $save = new ReflectionMethod($page, 'handleRecordUpdate');
 
-    expect(fn () => $guard->invoke($page, ['status' => 'cancelled']))
+    expect(fn () => $save->invoke($page, $enrollment, ['status' => 'cancelled']))
         ->toThrow(ValidationException::class, 'عكس الدفعة');
 
-    expect($guard->invoke($page, ['status' => 'expired']))->toBe(['status' => 'expired']);
+    expect(statusOnDisk($enrollment))->toBe('active');
+
+    $save->invoke($page, $enrollment, ['status' => 'expired']);
+
+    expect(statusOnDisk($enrollment))->toBe('expired');
 });
 
 it('keeps an already-cancelled enrolment displayed and locked', function (): void {
