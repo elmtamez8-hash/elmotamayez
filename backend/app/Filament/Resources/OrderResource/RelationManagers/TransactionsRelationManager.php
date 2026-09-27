@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\OrderResource\RelationManagers;
 
+use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Support\PaymentProviderLabel;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -52,7 +54,8 @@ class TransactionsRelationManager extends RelationManager
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('provider')->label('المزوّد')->badge(),
+                TextColumn::make('provider')->label('المزوّد')->badge()
+                    ->formatStateUsing(fn (mixed $state): string => PaymentProviderLabel::for($state)),
                 TextColumn::make('amount_minor')
                     ->label('المبلغ')
                     ->money(fn (PaymentTransaction $record): string => (string) $record->currency, divideBy: 100),
@@ -89,7 +92,11 @@ class TransactionsRelationManager extends RelationManager
                         PaymentStatus::Failed, PaymentStatus::Mismatch, PaymentStatus::Reversed => 'danger',
                         default => 'gray',
                     }),
-                TextColumn::make('method')->label('الوسيلة')->placeholder('—')->toggleable(),
+                // ⚠️ مصبوبٌ إلى `PaymentMethod`، ولا يطبِّقُ `HasLabel` — فبلا مُنسِّقٍ
+                // يُطبَعُ `bank_transfer` خاماً. و`mixed` للسببِ نفسِه الذي فوقَ `status`.
+                TextColumn::make('method')->label('الوسيلة')->placeholder('—')->badge()->toggleable()
+                    ->formatStateUsing(fn (mixed $state): string => ($state instanceof PaymentMethod ? $state : PaymentMethod::tryFrom(is_string($state) ? $state : ''))?->label()
+                        ?? (is_scalar($state) ? (string) $state : '—')),
                 TextColumn::make('reference')->label('المرجع')->placeholder('—')->copyable()->toggleable(),
                 TextColumn::make('failure_reason')->label('سبب الفشل')->placeholder('—')->wrap()->toggleable(),
                 TextColumn::make('settled_at')->label('التسوية')->dateTime('Y-m-d H:i')->placeholder('—'),

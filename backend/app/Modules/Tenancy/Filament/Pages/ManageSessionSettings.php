@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Pages;
 
+use App\Filament\Support\PercentInput;
 use App\Models\User;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Tenancy\Support\PlatformSettings;
@@ -200,28 +201,28 @@ class ManageSessionSettings extends Page
                             TextInput::make('grace_minutes')
                                 ->label('مهلة التأخير (دقائق)')
                                 ->helperText('الدخولُ خلالها يُسجَّل «حاضر» لا «متأخّر».')
-                                ->numeric()->minValue(0)->maxValue(120)->required(),
-                            TextInput::make('absence_threshold_ratio')
+                                ->integer()->minValue(0)->maxValue(120)->required(),
+                            PercentInput::make('absence_threshold_ratio', minPercent: 1)
                                 ->label('نسبة إعلان الغياب')
-                                ->helperText('مقعدٌ بلا نبضةٍ حتى هذه النسبة من طول الحصّة يُعلَن غائباً — في حينه لا في آخرها. ‏0.5 تعني النصف.')
-                                ->numeric()->minValue(0.01)->maxValue(1)->step(0.05)->required(),
-                            TextInput::make('required_stay_ratio')
+                                ->helperText('مقعدٌ بلا نبضةٍ حتى هذه النسبة من طول الحصّة يُعلَن غائباً — في حينه لا في آخرها. ‏50 تعني النصف.')
+                                ->step(5)->required(),
+                            PercentInput::make('required_stay_ratio', minPercent: 1)
                                 ->label('نسبة البقاء المطلوبة من الطالب')
                                 ->helperText('أقلُّ منها يُسجَّل «متأخّر» بدل «حاضر».')
-                                ->numeric()->minValue(0.01)->maxValue(1)->step(0.05)->required(),
+                                ->step(5)->required(),
                             /*
                             | ⚠️ هذه وحدَها تُقرِّرُ **أجرَ المدرّس**: بقاؤه دونَها
                             | يعني أنّ الحصّةَ لم تُسلَّم، فلا `SessionDelivered` ولا
                             | وحدةَ تدريسٍ ولا قيدَ دفتر.
                             */
-                            TextInput::make('teacher_required_stay_ratio')
+                            PercentInput::make('teacher_required_stay_ratio', minPercent: 1)
                                 ->label('نسبة البقاء المطلوبة من المدرّس')
                                 ->helperText('دونها لا تُحتسَب الحصّة مُسلَّمة — ولا يُستحَقّ أجرُها.')
-                                ->numeric()->minValue(0.01)->maxValue(1)->step(0.05)->required(),
+                                ->step(5)->required(),
                             TextInput::make('attendance_edit_window_hours')
                                 ->label('مهلة تعديل الحضور يدويّاً (ساعات)')
                                 ->helperText('بعدها يحتاج التعديلُ صلاحيّةً إداريّةً أعلى من صلاحيّة المدرّس نفسه.')
-                                ->numeric()->minValue(0)->maxValue(720)->required(),
+                                ->integer()->minValue(0)->maxValue(720)->required(),
                         ]),
 
                     Section::make('الغرفة والدخول')
@@ -237,7 +238,7 @@ class ManageSessionSettings extends Page
                             TextInput::make('join_window_minutes')
                                 ->label('نافذة الدخول قبل البدء وبعد الانتهاء (دقائق)')
                                 ->helperText('تسري على الحصص التي تُفتَح بعد الحفظ؛ الغرفةُ المفتوحة الآن تُغلَق بالقيمة القديمة.')
-                                ->numeric()->minValue(0)->maxValue(240)->required(),
+                                ->integer()->minValue(0)->maxValue(240)->required(),
                             /*
                             | ⚠️ التذكرةُ هي البابُ كلُّه، و**المزوّدُ لا يملكُ
                             | إبطالَها**: تذكرةٌ ما تزالُ داخلَ عمرِها تُعيدُ بناءَ
@@ -250,7 +251,7 @@ class ManageSessionSettings extends Page
                             TextInput::make('ticket_ttl_minutes')
                                 ->label('عمر تذكرة الدخول (دقائق)')
                                 ->helperText('المزوّد لا يستطيع إبطالَ تذكرةٍ صدرت — فالعمرُ القصير هو الحارس. الافتراض في مكتبته أربعُ ساعات.')
-                                ->numeric()->minValue(1)->maxValue(360)->required(),
+                                ->integer()->minValue(1)->maxValue(360)->required(),
                             /*
                             | ⚠️ **يسافرُ على تذكرةِ الدخولِ نفسِها**
                             | (`JoinTicketResource`)، فالمتصفّحُ يلتقطُ القيمةَ
@@ -261,11 +262,11 @@ class ManageSessionSettings extends Page
                             TextInput::make('presence_interval_seconds')
                                 ->label('فاصل نبضة الحضور (ثواني)')
                                 ->helperText('يصل المتصفّحَ مع تذكرة الدخول. النبضةُ الواحدة تُضيف ضعفَ هذا الرقم على الأكثر — وهو ما يمنع احتسابَ انقطاعٍ طويل حضوراً.')
-                                ->numeric()->minValue(5)->maxValue(300)->required(),
+                                ->integer()->minValue(5)->maxValue(300)->required(),
                             TextInput::make('max_participants')
                                 ->label('أقصى عدد داخل الغرفة')
                                 ->helperText('يُمرَّر إلى المزوّد عند إنشاء الغرفة، ويشمل المدرّسَ ومُسجِّلَ الحصّة.')
-                                ->numeric()->minValue(2)->maxValue(500)->required(),
+                                ->integer()->minValue(2)->maxValue(500)->required(),
                         ]),
 
                     Section::make('الحجز والطلبات الخاصّة')
@@ -280,11 +281,11 @@ class ManageSessionSettings extends Page
                             TextInput::make('cancellation_window_minutes')
                                 ->label('نافذة الإلغاء قبل البدء (دقائق)')
                                 ->helperText('قبلها يُطلَق المقعد؛ بعدها يُحاسَب عليه ويُجمَّد عددُ المقاعد الذي تُبنى عليه التسوية.')
-                                ->numeric()->minValue(0)->maxValue(20160)->required(),
+                                ->integer()->minValue(0)->maxValue(20160)->required(),
                             TextInput::make('private_request_ttl_hours')
                                 ->label('مهلة انتظار الطلب الخاصّ (ساعات)')
                                 ->helperText('بعدها ينتهي الطلبُ من نفسه بدل أن يبقى معلّقاً بلا جواب.')
-                                ->numeric()->minValue(1)->maxValue(720)->required(),
+                                ->integer()->minValue(1)->maxValue(720)->required(),
                             /*
                             | ⚠️ السقفُ هو ما يجعلُ الطلبَ قابلاً للرفض: لا يحجزُ
                             | مقعداً ولا يُحرِّكُ رصيداً — وهو نفسُه ما يجعلُه
@@ -293,11 +294,11 @@ class ManageSessionSettings extends Page
                             TextInput::make('private_request_max_pending')
                                 ->label('أقصى طلبات معلّقة لطالب واحد عند مدرّس واحد')
                                 ->helperText('الطلبُ لا يحجز مقعداً ولا يُحرّك رصيداً — وهذا ما يجعله رخيصاً بما يكفي لإغراق جدولٍ كامل.')
-                                ->numeric()->minValue(1)->maxValue(50)->required(),
+                                ->integer()->minValue(1)->maxValue(50)->required(),
                             TextInput::make('min_lead_minutes')
                                 ->label('أقلّ مهلة قبل موعد الحصة المطلوبة (دقائق)')
                                 ->helperText('لا يُطلَب موعدٌ خاصّ ولا يُقترَح تأجيلٌ إلى وقتٍ أقربَ من هذا، ولا تعرضه صفحة الكورس.')
-                                ->numeric()->minValue(0)->maxValue(10080)->required(),
+                                ->integer()->minValue(0)->maxValue(10080)->required(),
                         ]),
 
                     Section::make('فترات التجميد')
@@ -307,11 +308,11 @@ class ManageSessionSettings extends Page
                             TextInput::make('freeze_max_days')
                                 ->label('أقصى مدة لفترة تجميد واحدة (أيام)')
                                 ->helperText('تُعدّ الأيامُ شاملةً يومَ البداية ويومَ النهاية.')
-                                ->numeric()->minValue(1)->maxValue(365)->required(),
+                                ->integer()->minValue(1)->maxValue(365)->required(),
                             TextInput::make('freeze_max_per_month')
                                 ->label('أقصى عدد فترات تبدأ في الشهر نفسه')
                                 ->helperText('لكلِّ نطاقٍ على حدة: تجميدُ كلِّ الطلاب، أو تجميدُ طالبٍ بعينه.')
-                                ->numeric()->minValue(1)->maxValue(31)->required(),
+                                ->integer()->minValue(1)->maxValue(31)->required(),
                         ]),
 
                     Section::make('التقارير والتسجيل')
@@ -321,7 +322,7 @@ class ManageSessionSettings extends Page
                             TextInput::make('report_delay_minutes')
                                 ->label('تأخير تقرير الحصّة (دقائق)')
                                 ->helperText('يُحسَب من إغلاق الغرفة، ويُمهِل المدرّسَ لتصحيح علامةِ حضورٍ قبل أن يقرأها وليُّ الأمر.')
-                                ->numeric()->minValue(0)->maxValue(1440)->required(),
+                                ->integer()->minValue(0)->maxValue(1440)->required(),
                             /*
                             | ⚠️ **إشارةٌ للمنصّةِ لا للمدرّس، وهذا سببُ وجودِها.**
                             | أربعونَ إشعاراً لأربعينَ مدرّساً لا تُري أحدَهم أنّ
@@ -332,10 +333,10 @@ class ManageSessionSettings extends Page
                             TextInput::make('recording_failure_alert_threshold')
                                 ->label('عدد التسجيلات الفاشلة قبل تنبيه المنصّة')
                                 ->helperText('تنبيهٌ واحدٌ للمنصّة بدل أربعين إشعاراً متفرّقاً يقرأ كلٌّ منها سوءَ حظٍّ فرديّ.')
-                                ->numeric()->minValue(1)->maxValue(100)->required(),
+                                ->integer()->minValue(1)->maxValue(100)->required(),
                             TextInput::make('recording_failure_alert_window_hours')
                                 ->label('نافذة عدّ الفشل (ساعات)')
-                                ->numeric()->minValue(1)->maxValue(168)->required(),
+                                ->integer()->minValue(1)->maxValue(168)->required(),
                         ]),
 
                     Actions::make([

@@ -101,20 +101,20 @@ class GamificationActionResource extends Resource
                 ->schema([
                     TextInput::make('xp')
                         ->label('الخبرة')
-                        ->numeric()
+                        ->integer()
                         ->required()
                         ->helperText('يجوز أن تكون سالبة: العقوبة صفٌّ هنا لا فرعٌ في الكود.'),
 
                     TextInput::make('coins')
                         ->label('العملات')
-                        ->numeric()
+                        ->integer()
                         ->required()
                         ->minValue(0)
                         ->helperText('العملاتُ مقسّمةٌ بالمدرّس، ففعلٌ يقع خارج أي مساحةِ عمل (‏جلسة تركيز) يجب أن يكون صفراً.'),
 
                     TextInput::make('daily_cap')
                         ->label('السقف اليومي')
-                        ->numeric()
+                        ->integer()->maxValue(65535)
                         ->minValue(1)
                         ->columnSpanFull()
                         ->helperText('اتركه فارغاً فلا سقف. السقفُ يوقف المنحَ فوقه ولا يُفشل الفعلَ نفسَه.'),

@@ -10,11 +10,13 @@ use App\Modules\Settlement\Actions\RecordTeacherPayout;
 use App\Modules\Settlement\Enums\SettlementPeriodStatus;
 use App\Modules\Settlement\Models\SettlementPeriod;
 use App\Modules\Settlement\Support\Money;
+use App\Modules\Settlement\Support\PayoutMethods;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -139,10 +141,10 @@ class RecordTeacherPayouts extends Page implements HasTable
                             ->label('مرجع التحويل')
                             ->maxLength(191)
                             ->helperText('ما يطابقه المدرّس مع كشف حسابه. اتركه فارغاً إن لم يصلك بعد.'),
-                        TextInput::make('method')
+                        Select::make('method')
                             ->label('طريقة الدفع')
-                            ->maxLength(32)
-                            ->placeholder('تحويل بنكي'),
+                            // Nullable as before: «unknown yet» stays a real answer.
+                            ->options(PayoutMethods::options()),
                     ])
                     ->action(fn (SettlementPeriod $record, array $data) => $this->pay($record, $data)),
             ]);

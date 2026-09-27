@@ -93,7 +93,7 @@ class CreditPackageResource extends Resource
 
                     TextInput::make('credits')
                         ->label('عدد الحصص')
-                        ->numeric()
+                        ->integer()->maxValue(65535)
                         ->required()
                         ->minValue(1)
                         ->helperText('رصيد واحد = حصة واحدة عند مدرّس واحد.'),
@@ -114,7 +114,7 @@ class CreditPackageResource extends Resource
                 ->schema([
                     TextInput::make('validity_days')
                         ->label('صلاحية الأرصدة بالأيام')
-                        ->numeric()
+                        ->integer()->maxValue(65535)
                         ->minValue(1)
                         ->helperText('اتركه فارغاً فلا تنتهي الصلاحية. وضعُ رقمٍ هنا يشغّل انتهاء الصلاحية فعليّاً: '
                             .'المكنسة الليلية ستسحب أرصدةً من طلاب اشتروها قبل أن تُعلَن هذه السياسة.'),
@@ -125,7 +125,7 @@ class CreditPackageResource extends Resource
                 ->schema([
                     TextInput::make('sort_order')
                         ->label('الترتيب')
-                        ->numeric()
+                        ->integer()->minValue(0)->maxValue(65535)
                         ->default(0)
                         ->required()
                         ->helperText('ترتيبُ الحزمة في قائمة الشراء، من الأصغر إلى الأكبر.'),

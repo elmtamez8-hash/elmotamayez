@@ -14,6 +14,7 @@ use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
+use App\Shared\Support\Countries;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
@@ -165,14 +166,16 @@ class CreateAccount extends Page
                                 ->rule(Rule::unique('users', 'email')),
                             TextInput::make('phone')
                                 ->label('الهاتف')
+                                ->tel()
                                 ->required()
                                 ->helperText('بالصيغة الدوليّة، مثل ‎+97455512345')
                                 ->rule('regex:/^\+[1-9]\d{6,14}$/'),
-                            TextInput::make('country')
+                            // الاسمُ بالعربيّة، والرمزُ من حرفَين هو ما يصلُ إلى الفعل.
+                            Select::make('country')
                                 ->label('الدولة')
-                                ->required()
-                                ->length(2)
-                                ->helperText('رمز الدولة بحرفين، مثل QA'),
+                                ->options(fn (): array => Countries::all())
+                                ->searchable()
+                                ->required(),
                             TextInput::make('password')
                                 ->label('كلمة مرور مؤقّتة')
                                 ->password()
@@ -226,6 +229,7 @@ class CreateAccount extends Page
                                 ->helperText('دونَ الثامنةَ عشرةَ ⇐ الحساب موقوف حتّى موافقة وليّ الأمر (FR-009).'),
                             TextInput::make('guardian_contact')
                                 ->label('هاتف وليّ الأمر')
+                                ->tel()
                                 ->rule('regex:/^\+[1-9]\d{6,14}$/')
                                 ->required(fn (Get $get): bool => self::isMinor($get('date_of_birth')))
                                 ->visible(fn (Get $get): bool => self::isMinor($get('date_of_birth')))

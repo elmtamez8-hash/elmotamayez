@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Resources;
 
+use App\Modules\Assessments\Actions\CreateStudyRoom;
+use App\Modules\Assessments\Actions\StartAdaptiveSession;
 use App\Modules\Tenancy\Filament\Resources\FeatureFlagResource\Pages;
 use App\Modules\Tenancy\Models\FeatureFlag;
 use App\Modules\Tenancy\Models\Workspace;
@@ -11,7 +13,6 @@ use App\Modules\Tenancy\Support\Flags;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
@@ -75,10 +76,15 @@ class FeatureFlagResource extends Resource
                 ->description('صفٌّ للمنصّة كلّها، وصفٌّ لكلِّ مساحةِ عملٍ تُستثنى منه. المساحةُ تغلبُ الافتراضَ العامّ، والمفتاحُ الذي لا صفَّ له مطفأ.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('key')
-                        ->label('المُعرِّف')
+                    /*
+                    | ⛔ قائمةٌ من المفاتيحِ التي يسألُ عنها الكودُ فعلاً، لا نصٌّ حرّ:
+                    | مفتاحٌ بخطأِ حرفٍ واحدٍ صفٌّ لا يقرؤه أحد، والميزةُ مطفأةٌ
+                    | و«تم الحفظ» على الشاشة. انظرْ {@see self::knownKeys()}.
+                    */
+                    Select::make('key')
+                        ->label('الميزة')
+                        ->options(fn (?FeatureFlag $record): array => self::keyOptions($record?->key))
                         ->required()
-                        ->maxLength(64)
                         ->disabledOn('edit')
                         ->helperText('يُكتب مرّةً ولا يُعدَّل: الكودُ يسألُ عنه نصّاً، وتغييرُه يُطفئ الميزةَ بلا خطأٍ في أيِّ مكان.'),
 
@@ -106,12 +112,48 @@ class FeatureFlagResource extends Resource
         ]);
     }
 
+    /**
+     * Every key the code asks `Flags::enabled()` about, with what it switches.
+     *
+     * ⚠️ READ FROM THE CONSTANTS THE ASKING ACTIONS DECLARE, never retyped: a key
+     * spelled here and there separately is exactly the silent mismatch this
+     * picker exists to prevent. A new flag is one line here beside its `FLAG`.
+     *
+     * @return array<string, string>
+     */
+    public static function knownKeys(): array
+    {
+        return [
+            CreateStudyRoom::FLAG => 'غرف المذاكرة',
+            StartAdaptiveSession::FLAG => 'التدريب التكيّفي',
+        ];
+    }
+
+    /**
+     * The picker's options — plus the stored key when the code no longer knows it,
+     * so an old row still reads its own name on the edit screen.
+     *
+     * @return array<string, string>
+     */
+    private static function keyOptions(?string $current): array
+    {
+        $options = self::knownKeys();
+
+        if ($current !== null && $current !== '' && ! isset($options[$current])) {
+            $options[$current] = $current.' (لا يسأل عنه الكود)';
+        }
+
+        return $options;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
             ->defaultSort('key')
             ->columns([
-                TextColumn::make('key')->label('المُعرِّف')->searchable()->sortable(),
+                TextColumn::make('key')->label('الميزة')->searchable()->sortable()
+                    ->formatStateUsing(fn (mixed $state): string => is_string($state) ? (self::knownKeys()[$state] ?? $state) : '—')
+                    ->description(fn (FeatureFlag $record): string => $record->key),
                 TextColumn::make('workspace_id')
                     ->label('النطاق')
                     ->formatStateUsing(fn (int $state): string => $state === Flags::PLATFORM

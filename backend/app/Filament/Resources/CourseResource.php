@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\CourseResource\Pages;
+use App\Filament\Support\MoneyInput;
 use App\Models\User;
 use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Actions\ReviewCoursePromoVideo;
@@ -26,6 +27,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -161,13 +163,14 @@ class CourseResource extends Resource
                 Section::make('التسعير')
                     ->columns(2)
                     ->schema([
-                        // Minor units since 007: the field takes 4999, not 49.99. A
-                        // `numeric` input here would accept a decimal and store a
-                        // hundredth of what the operator typed.
-                        TextInput::make('price_minor')
+                        // ⛔ قرارُ المالك (٢٠٢٦-٠٩-٢٧): يُكتَبُ 49.99 لا 4999، ويُخزَّنُ
+                        // بالوحدةِ الصغرى كما كان — `MoneyInput` يحوِّلُ نصّيّاً بلا فاصلةٍ
+                        // عائمة. كانَ `integer()` بلا حدٍّ أدنى ولا `required`: السالبُ
+                        // يُحفَظ، والفراغُ يرتطمُ بـ`NOT NULL` صفحةَ خطأ.
+                        MoneyInput::make('price_minor', fn (Get $get): mixed => $get('currency'))
                             ->label('السعر')
-                            ->integer()
-                            ->helperText('بالوحدات الصغرى — ٤٩٫٩٩ ر.ق تُكتب 4999')
+                            ->required()
+                            ->helperText('بالعملةِ المختارة — ٤٩٫٩٩ تُكتَبُ 49.99')
                             ->default(0),
                         /*
                         | ⚠️ الافتراضُ كانَ `'USD'` — بقيّةٌ من هيكلِ لارافيل لا من
@@ -178,6 +181,7 @@ class CourseResource extends Resource
                         Select::make('currency')
                             ->label('العملة')
                             ->options(Currency::options())
+                            ->live()
                             ->required()
                             ->default(fn (): string => app(BillingSettings::class)->currency()),
                         /*

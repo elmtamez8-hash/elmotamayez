@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\Support\IconOptions;
 use App\Modules\Gamification\Enums\BadgeRuleType;
 use App\Modules\Gamification\Filament\Resources\BadgeResource\Pages;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
+use App\Modules\Gamification\Support\BadgeIcon;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -80,7 +82,12 @@ class BadgeResource extends Resource
                         ->helperText('تغييرُه بعد المنح يجعل الشاراتِ الممنوحةَ تشير إلى مفتاحٍ لا وجودَ له، فيظهر المفتاحُ الخام بدل الاسم.'),
 
                     TextInput::make('name')->label('الاسم')->required()->maxLength(255),
-                    TextInput::make('icon')->label('الأيقونة')->maxLength(64),
+                    // قائمةٌ مغلقةٌ بمعاينة، لا نصٌّ حرّ — انظرْ {@see BadgeIcon}.
+                    Select::make('icon')
+                        ->label('الأيقونة')
+                        ->options(fn (?Badge $record): array => IconOptions::html(BadgeIcon::LABELS, $record?->icon))
+                        ->allowHtml()
+                        ->native(false),
 
                     Toggle::make('is_active')->label('مفعَّلة')->default(true),
                 ]),
@@ -97,7 +104,7 @@ class BadgeResource extends Resource
 
                     TextInput::make('rule_value')
                         ->label('العتبة')
-                        ->numeric()
+                        ->integer()
                         ->required()
                         ->minValue(1),
 

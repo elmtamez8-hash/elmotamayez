@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Filament\Support\IconOptions;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
+use App\Modules\Marketplace\Support\SubjectIcon;
 use App\Shared\Scopes\WorkspaceScope;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -73,13 +76,23 @@ abstract class TaxonomyResource extends Resource
                 ->description('لا يمسّ أيٌّ من هذه الحقولِ كورساً ولا طالباً يشير إلى هذا الصفّ؛ كلُّها عرضٌ فقط.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('icon')
+                    /*
+                    | ⛔ قائمةٌ مغلقةٌ لا نصٌّ حرّ: السوقُ يرسمُ هذه الأسماءَ الخمسةَ
+                    | وحدَها ({@see SubjectIcon})، وأيُّ اسمٍ آخرَ يسقطُ إلى الرمزِ
+                    | الاحتياطيِّ بصمت.
+                    */
+                    Select::make('icon')
                         ->label('الأيقونة')
-                        ->maxLength(255),
+                        ->options(fn (?Model $record): array => IconOptions::html(SubjectIcon::LABELS, $record?->getAttribute('icon')))
+                        ->allowHtml()
+                        ->native(false)
+                        ->placeholder('بلا أيقونة — الرمز الافتراضي'),
 
                     TextInput::make('sort_order')
                         ->label('الترتيب')
-                        ->numeric()
+                        ->integer()
+                        ->minValue(0)
+                        ->maxValue(65535)
                         ->default(0)
                         ->required()
                         ->helperText('ترتيبُ العرض في السوق العامّ، من الأصغر إلى الأكبر.'),
