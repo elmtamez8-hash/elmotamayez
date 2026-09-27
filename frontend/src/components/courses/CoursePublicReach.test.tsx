@@ -26,6 +26,41 @@ describe("CoursePublicReach", () => {
     expect(screen.queryByText(/ملفّك التدريسي/)).toBeNull();
   });
 
+  it("sends the teacher to the visibility field they can change", () => {
+    render(
+      <CoursePublicReach
+        course={{
+          status: "published",
+          slug: "physics-3",
+          can_change_visibility: true,
+          public_listing: { listed: false, blockers: ["private"] },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/اختر «عام» في «ظهور الكورس»/)).toBeTruthy();
+    expect(screen.queryByText(/اطلب من مدرّس الكورس/)).toBeNull();
+  });
+
+  it("tells an assistant who can make it public, never to use a field they do not have", () => {
+    for (const canChange of [false, undefined]) {
+      const { unmount } = render(
+        <CoursePublicReach
+          course={{
+            status: "published",
+            slug: "physics-3",
+            can_change_visibility: canChange,
+            public_listing: { listed: false, blockers: ["private"] },
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/اطلب من مدرّس الكورس جعله عامًّا/)).toBeTruthy();
+      expect(screen.queryByText(/اختر «عام»/)).toBeNull();
+      unmount();
+    }
+  });
+
   it("links the public page when the course is reachable", () => {
     render(
       <CoursePublicReach
