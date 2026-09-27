@@ -25,7 +25,10 @@ use Illuminate\Support\Facades\Schema;
  * ⚠️ `class_recording` IS SEEDED REQUIRED, AND THAT ROW IS THE WHOLE OF DECISION
  * Q4. There is no separate recording-consent entity: appearing in a class
  * recording — voice and image — is a REQUIRED category inside the one consent, so
- * a guardian who will not accept it does not enrol. Making it optional would
+ * it cannot be withdrawn: `PrivacyConsentController::update()` adds every
+ * required category back to whatever set the client sends. Nothing in any
+ * enrolment path reads this category — refusing it does not block enrolment,
+ * because the code offers no way to refuse it at all. Making it optional would
  * produce a class the teacher may not record because one seat withdrew.
  *
  * ⚠️ AND `retain_days` IS NULL WHEREVER THE ROW MUST OUTLIVE THE STUDENT. A
@@ -589,8 +592,9 @@ class DataCategorySeeder extends Seeder
                 'audience' => 'من حجز الحصة · المدرّس · مزوّد الفيديو',
                 // ⚠️ REQUIRED, AND THIS ROW IS ALL OF Q4. There is no second
                 // consent entity for recordings: it is a required category inside
-                // the one consent, so refusing it means not enrolling — rather
-                // than a class the teacher may not record because one seat said no.
+                // the one consent, so it cannot be withdrawn (the consent endpoint
+                // adds it back) — rather than a class the teacher may not record
+                // because one seat said no. No enrolment path reads it.
                 'is_required' => true,
                 'owning_module' => 'media',
                 'table_name' => 'media_assets',
