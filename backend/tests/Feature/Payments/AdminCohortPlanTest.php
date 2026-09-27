@@ -70,7 +70,8 @@ it('writes a group-scoped plan into the teacher\'s workspace, not the officer\'s
             'session_type' => ClassSessionType::Group->value,
             'coverage_type' => PlanCoverage::Cohort->value,
             'coverage_uuid' => (string) $this->cohort->uuid,
-            'price_minor' => 60_000,
+            // بالوحدةِ الكبرى منذ ٢٠٢٦-٠٩-٢٧: الحقلُ يحفظُ 60000.
+            'price_minor' => '600',
             'is_active' => true,
         ])
         ->call('create')
@@ -180,7 +181,8 @@ it('refuses a group that belongs to somebody else', function (): void {
             'session_type' => ClassSessionType::Group->value,
             'coverage_type' => PlanCoverage::Cohort->value,
             'coverage_uuid' => (string) $stranger->uuid,
-            'price_minor' => 60_000,
+            // بالوحدةِ الكبرى منذ ٢٠٢٦-٠٩-٢٧: الحقلُ يحفظُ 60000.
+            'price_minor' => '600',
             'is_active' => true,
         ])
         ->call('create');

@@ -116,10 +116,11 @@ it('writes the platform margin where the pricing engine reads it', function (): 
 
     Livewire::test(ManagePlatformSettings::class)
         ->fillForm([
-            'operating_fee_individual' => 500,
-            'operating_fee_group' => 200,
+            // بالوحدةِ الكبرى على الشاشة (قرارُ المالك ٢٠٢٦-٠٩-٢٧) — تُخزَّنُ 500 و200 و100.
+            'operating_fee_individual' => '5.00',
+            'operating_fee_group' => '2',
             'gateway_fee_bps' => 250,
-            'gateway_fixed_fee_minor' => 100,
+            'gateway_fixed_fee_minor' => '1.00',
             'stop_selling_after_days' => 45,
             'max_unredeemed_credits' => 30,
         ])

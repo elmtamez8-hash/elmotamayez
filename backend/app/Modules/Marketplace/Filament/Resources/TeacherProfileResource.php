@@ -223,7 +223,7 @@ class TeacherProfileResource extends Resource
 
                     TextInput::make('years_experience')
                         ->label('سنوات الخبرة')
-                        ->numeric()
+                        ->integer()
                         ->minValue(0)
                         ->maxValue(70),
 

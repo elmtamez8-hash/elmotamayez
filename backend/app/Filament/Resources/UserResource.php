@@ -9,8 +9,10 @@ use App\Models\User;
 use App\Modules\Identity\Filament\Pages\CreateAccount;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\UserStatus;
+use App\Shared\Support\Countries;
 use BackedEnum;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -126,11 +128,13 @@ class UserResource extends Resource
                     // يعيشُ في `contact_verifications`، وهذا العمودُ ليس هو.
                     TextInput::make('phone')->label('الهاتف')->tel()->maxLength(255),
 
-                    TextInput::make('country')
+                    // الاسمُ بالعربيّة والرمزُ هو ما يُخزَّن، كما في نموذجِ التسجيل.
+                    // رمزٌ قديمٌ خارجَ القائمةِ يبقى خياراً فلا يُفرِغُه التعديل.
+                    Select::make('country')
                         ->label('الدولة')
-                        ->maxLength(2)
-                        ->rule('regex:/^[A-Z]{2}$/')
-                        ->helperText('رمزٌ من حرفَين بحروفٍ كبيرة — QA، EG.'),
+                        ->options(fn (?User $record): array => Countries::options($record?->country))
+                        ->searchable()
+                        ->rule('regex:/^[A-Z]{2}$/'),
                 ]),
         ]);
     }

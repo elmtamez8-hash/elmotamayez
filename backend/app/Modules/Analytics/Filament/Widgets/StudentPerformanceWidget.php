@@ -12,6 +12,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Shared\Support\Countries;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -61,7 +62,8 @@ class StudentPerformanceWidget extends BaseWidget
             ->paginationPageOptions([10, 25, 50])
             ->columns([
                 TextColumn::make('name')->label('الطالب')->searchable(['first_name', 'last_name']),
-                TextColumn::make('country')->label('البلد')->placeholder('غير محدَّد')->toggleable(),
+                TextColumn::make('country')->label('البلد')->placeholder('غير محدَّد')->toggleable()
+                    ->formatStateUsing(fn (mixed $state): ?string => Countries::name($state)),
                 TextColumn::make('exam_average')
                     ->label('متوسّط الاختبارات المصحَّحة')
                     ->badge()

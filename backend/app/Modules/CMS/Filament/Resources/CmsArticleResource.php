@@ -11,6 +11,7 @@ use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -214,9 +215,12 @@ class CmsArticleResource extends Resource
                         ->maxSize(4096)
                         ->columnSpanFull(),
 
-                    Textarea::make('body')
+                    MarkdownEditor::make('body')
                         ->label('النصّ')
-                        ->rows(14)
+                        // No uploads from the editor: an attached image would be a
+                        // second, unreviewed door onto the public disk beside the
+                        // cover field's closed list of types.
+                        ->disableToolbarButtons(['attachFiles'])
                         ->columnSpanFull()
                         // Markdown, rendered per response and never stored as HTML:
                         // raw tags are STRIPPED rather than escaped, so the

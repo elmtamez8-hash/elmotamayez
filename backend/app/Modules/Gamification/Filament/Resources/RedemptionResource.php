@@ -10,6 +10,7 @@ use App\Modules\Gamification\Filament\Resources\RedemptionResource\Pages;
 use App\Modules\Gamification\Models\Redemption;
 use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -98,6 +99,7 @@ class RedemptionResource extends Resource
                         RedemptionStatus::Rejected => 'danger',
                     }),
                 TextColumn::make('claimed_month_key')->label('الشهر المحتسَب')
+                    ->formatStateUsing(fn (mixed $state): string => self::monthName($state))
                     ->tooltip('الشهرُ الذي استُهلك عدّادُه، لا شهرُ البتّ: بدونه يضيع المخزونُ عند رفضٍ بعد انقلاب الشهر.'),
                 TextColumn::make('decider.first_name')->label('البتّ فيه')->placeholder('—')
                     ->formatStateUsing(fn (Redemption $record): ?string => $record->decider?->name),
@@ -127,6 +129,22 @@ class RedemptionResource extends Resource
         return [
             'index' => Pages\ListRedemptions::route('/'),
         ];
+    }
+
+    /**
+     * «2026-09» ⇐ «سبتمبر 2026».
+     *
+     * Parsed from the FIRST of the month, never from `Y-m` alone: Carbon fills
+     * the missing day with today's, so on the 31st «2026-09» overflows into
+     * October.
+     */
+    public static function monthName(mixed $key): string
+    {
+        if (! is_string($key) || preg_match('/^\d{4}-\d{2}$/', $key) !== 1) {
+            return is_scalar($key) ? (string) $key : '—';
+        }
+
+        return CarbonImmutable::parse($key.'-01')->settings(['locale' => 'ar'])->translatedFormat('F Y');
     }
 
     public static function canViewAny(): bool

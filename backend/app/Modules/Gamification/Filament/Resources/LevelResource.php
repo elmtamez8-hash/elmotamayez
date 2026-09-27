@@ -67,7 +67,7 @@ class LevelResource extends Resource
                 ->schema([
                     TextInput::make('level')
                         ->label('الرقم')
-                        ->numeric()
+                        ->integer()->maxValue(65535)
                         ->required()
                         ->minValue(1)
                         ->unique(ignoreRecord: true),
@@ -79,7 +79,7 @@ class LevelResource extends Resource
 
                     TextInput::make('xp_threshold')
                         ->label('عتبة الخبرة')
-                        ->numeric()
+                        ->integer()
                         ->required()
                         ->minValue(0)
                         ->columnSpanFull()

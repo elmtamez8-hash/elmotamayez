@@ -8,7 +8,9 @@ use App\Models\BaseModel;
 use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\CouponValueKind;
 use App\Modules\Payments\Support\DiscountResolver;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -93,6 +95,19 @@ class Coupon extends BaseModel
     public static function normaliseCode(string $code): string
     {
         return mb_strtoupper(trim($code));
+    }
+
+    /**
+     * The teacher a scoped code is narrowed to — for display only.
+     *
+     * A SCOPE, not an owner (see the class docblock): no global scope rides on
+     * this read, because `Workspace` carries none and a coupon belongs to none.
+     *
+     * @return BelongsTo<Workspace, $this>
+     */
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
     }
 
     /** @return HasMany<CouponRedemption, $this> */

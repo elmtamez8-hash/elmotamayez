@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Pages;
 
+use App\Filament\Support\MoneyInput;
+use App\Filament\Support\PercentInput;
 use App\Models\User;
 use App\Modules\Compliance\Actions\SaveDataCategory;
 use App\Modules\Compliance\Models\DataCategory;
@@ -44,6 +46,9 @@ class ManagePlatformSettings extends Page
     protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
 
     protected static ?int $navigationSort = 10;
+
+    /** بالقسمةِ نفسِها التي يطبعُ بها `MediaLimits::humanBytes()` رسالةَ الرفض. */
+    private const BYTES_PER_MEGABYTE = 1_048_576;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -207,10 +212,10 @@ class ManagePlatformSettings extends Page
                             TextInput::make('student_device_limit')
                                 ->label('عدد الأجهزة النشطة لحساب الطالب')
                                 ->helperText('الدخول من جهاز إضافي يُنهي جلسات أقدم جهاز تلقائياً.')
-                                ->numeric()->minValue(1)->maxValue(10)->required(),
+                                ->integer()->minValue(1)->maxValue(10)->required(),
                             TextInput::make('two_factor_grace_days')
                                 ->label('مهلة إلزام التحقق الثنائي (بالأيام)')
-                                ->numeric()->minValue(0)->maxValue(365)->required(),
+                                ->integer()->minValue(0)->maxValue(365)->required(),
                             /*
                             | ⛔ **الأرقامُ الثلاثةُ في قسمٍ واحدٍ مع حدِّ الأجهزة،
                             | لا في قسمٍ ثالث.** تُقرَأُ معاً وتُحرَّرُ معاً،
@@ -221,43 +226,55 @@ class ManagePlatformSettings extends Page
                             TextInput::make('session_idle_days')
                                 ->label('إنهاء الجلسة بعد انقطاع (بالأيام)')
                                 ->helperText('جلسةٌ لم تُستخدم هذه المدّة تنتهي، ويُطلب تسجيل الدخول من جديد. صفر يعني «بلا حدّ».')
-                                ->numeric()->minValue(0)->maxValue(3650)->required(),
+                                ->integer()->minValue(0)->maxValue(3650)->required(),
                             TextInput::make('auth_session_retain_days')
                                 ->label('مدّة الاحتفاظ بسجلّ الجلسات والأجهزة (بالأيام)')
                                 ->helperText('بعدها يبقى الصفّ ويذهب «من أين»: يُمسَح العنوان وتُمسَح البصمة. لا يقلّ عن ٨ أيّام.')
-                                ->numeric()->minValue(8)->maxValue(65535)->required(),
+                                ->integer()->minValue(8)->maxValue(65535)->required(),
                             TextInput::make('auth_session_cap_per_user')
                                 ->label('أقصى عدد جلسات منتهية مُجهَّلة لكلّ حساب')
                                 ->helperText('صفر يعني «بلا سقف» فلا يُحذَف شيء. والنشطة والحديثة خارج هذا العدّ.')
-                                ->numeric()->minValue(0)->maxValue(100000)->required(),
+                                ->integer()->minValue(0)->maxValue(100000)->required(),
                             TextInput::make('auth_session_cap_min_age_days')
                                 ->label('أقصر عمر يبلغه السقف (بالأيام)')
                                 ->helperText('السقف لا يحذف صفّاً أحدث من هذا. أطول من مدّة الاحتفاظ، وإلّا لم يبقَ للحساب سجلّ يُقرَأ.')
-                                ->numeric()->minValue(1)->maxValue(65535)->required(),
+                                ->integer()->minValue(1)->maxValue(65535)->required(),
                         ]),
                     Section::make('الفيديو')
                         ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
                         ->schema([
+                            /*
+                            | ⚠️ بالميغابايت على الشاشة وبالبايت في الصفّ. المقسومُ
+                            | ‏1,048,576 لا مليون: هو ما يطبعُ به `MediaLimits::humanBytes()`
+                            | رسالةَ الرفضِ للمدرّس، فالرقمانِ يتطابقانِ حرفاً.
+                            */
                             TextInput::make('max_size_bytes')
-                                ->label('الحد الأقصى لحجم الملف (بايت)')
-                                ->numeric()->minValue(1)->required(),
+                                ->label('الحد الأقصى لحجم الملف')
+                                ->suffix('ميغابايت')
+                                ->numeric()->minValue(1)->step(1)->rule('decimal:0,2')->required()
+                                ->formatStateUsing(fn (mixed $state): mixed => is_numeric($state)
+                                    ? round((float) $state / self::BYTES_PER_MEGABYTE, 2)
+                                    : $state)
+                                ->dehydrateStateUsing(fn (mixed $state): ?int => is_numeric($state)
+                                    ? (int) round((float) $state * self::BYTES_PER_MEGABYTE)
+                                    : null),
                             TextInput::make('max_duration_seconds')
                                 ->label('الحد الأقصى لمدة الفيديو (ثانية)')
-                                ->numeric()->minValue(1)->required(),
+                                ->integer()->minValue(1)->required(),
                             TextInput::make('grant_ttl_seconds')
                                 ->label('عمر منحة التشغيل (ثانية)')
                                 ->helperText('تُجدَّد تلقائياً أثناء المشاهدة؛ القيمة القصيرة تعني توقّفاً أسرع عند انتهاء الجلسة.')
-                                ->numeric()->minValue(30)->required(),
+                                ->integer()->minValue(30)->required(),
                             TextInput::make('max_renewals')
                                 ->label('أقصى عدد تجديدات لجلسة مشاهدة واحدة')
-                                ->numeric()->minValue(1)->required(),
-                            TextInput::make('watched_share')
-                                ->label('نسبة المشاهدة التي تُعدّ «شاهد التسجيل» (من ٠٫٠٥ إلى ١)')
+                                ->integer()->minValue(1)->required(),
+                            PercentInput::make('watched_share', minPercent: 5)
+                                ->label('نسبة المشاهدة التي تُعدّ «شاهد التسجيل» (من ٥ إلى ١٠٠)')
                                 ->helperText('تُقاس بساعة الخادم منذ فتح الفيديو، لا بموضع المشغّل. تظهر للمدرّس في كشف الحضور ولا تغيّر الحالة.')
-                                ->numeric()->minValue(0.05)->maxValue(1)->step(0.05)->required(),
+                                ->step(5)->required(),
                             TextInput::make('watched_fallback_seconds')
                                 ->label('مدة «شاهد التسجيل» حين لا تُعرف مدة الفيديو (ثانية)')
-                                ->numeric()->minValue(1)->required(),
+                                ->integer()->minValue(1)->required(),
                         ]),
                     /*
                     | ⛔ **هذه الأرقامُ هي «حصّةُ المنصّة»، ولم تكنْ لها شاشةٌ قطّ.**
@@ -282,19 +299,23 @@ class ManagePlatformSettings extends Page
                         ->description('حصّةُ المنصّة من كلّ حصّة. تسري على ما يُباع بعد الحفظ — ولا تمسّ شراءً تمّ سلفاً.')
                         ->columns(2)
                         ->schema([
-                            TextInput::make('operating_fee_individual')
-                                ->label('رسوم التشغيل — حصّة فرديّة (بالوحدات الصغرى)')
-                                ->helperText('‏٥٫٠٠ ر.ق تُكتب 500')
-                                ->numeric()->minValue(0)->maxValue(100000000)->required(),
+                            /*
+                            | ⛔ بالوحدةِ الكبرى (قرارُ المالك ٢٠٢٦-٠٩-٢٧): ‏٥٫٠٠ تُكتَبُ 5،
+                            | و`MoneyInput` يحفظُ 500. الحفظُ أدناه يستلمُ الصغرى كما كان.
+                            */
+                            MoneyInput::make('operating_fee_individual', fn (): string => app(BillingSettings::class)->currency())
+                                ->label('رسوم التشغيل — حصّة فرديّة')
+                                ->helperText('‏٥٫٠٠ تُكتَبُ 5')
+                                ->required(),
                             /*
                             | ⚠️ رسمٌ للمجموعةِ على حدة: استضافةُ حصّةِ مجموعةٍ
                             | تكلِّفُ مرّةً لا مرّةً لكلِّ طالب، ورسمٌ واحدٌ
                             | يُضاعِفُ الهامشَ بصمتٍ على كلِّ حصّةٍ جماعيّة.
                             */
-                            TextInput::make('operating_fee_group')
-                                ->label('رسوم التشغيل — حصّة مجموعة (بالوحدات الصغرى)')
+                            MoneyInput::make('operating_fee_group', fn (): string => app(BillingSettings::class)->currency())
+                                ->label('رسوم التشغيل — حصّة مجموعة')
                                 ->helperText('استضافةُ المجموعة تكلّف مرّةً لا مرّةً لكلّ طالب')
-                                ->numeric()->minValue(0)->maxValue(100000000)->required(),
+                                ->required(),
                             /*
                             | ⚠️ السقفُ ‏٩٩٩٩ لا ‏١٠٠٠٠: بوّابةٌ تأخذُ الدفعةَ كاملةً
                             | تجعلُ معادلةَ الرفعِ غيرَ قابلةٍ للحلّ، و
@@ -304,17 +325,17 @@ class ManagePlatformSettings extends Page
                             TextInput::make('gateway_fee_bps')
                                 ->label('نسبة بوابة الدفع (نقاط أساس)')
                                 ->helperText('‏٢٫٥٪ تُكتب 250 — والحدّ الأقصى 9999')
-                                ->numeric()->minValue(0)->maxValue(9999)->required(),
-                            TextInput::make('gateway_fixed_fee_minor')
-                                ->label('الرسم الثابت للبوّابة (بالوحدات الصغرى)')
-                                ->numeric()->minValue(0)->maxValue(100000000)->required(),
+                                ->integer()->minValue(0)->maxValue(9999)->required(),
+                            MoneyInput::make('gateway_fixed_fee_minor', fn (): string => app(BillingSettings::class)->currency())
+                                ->label('الرسم الثابت للبوّابة')
+                                ->required(),
                             TextInput::make('stop_selling_after_days')
                                 ->label('إيقاف البيع بعد (يوماً)')
                                 ->helperText('حارسُ الأمانة: رصيدٌ لم يُستهلَك بعد هذه المدّة يوقف بيع المزيد')
-                                ->numeric()->minValue(1)->maxValue(3650)->required(),
+                                ->integer()->minValue(1)->maxValue(3650)->required(),
                             TextInput::make('max_unredeemed_credits')
                                 ->label('أقصى رصيد غير مستهلَك (حصص)')
-                                ->numeric()->minValue(1)->maxValue(1000)->required(),
+                                ->integer()->minValue(1)->maxValue(1000)->required(),
                         ]),
                     Actions::make([
                         Action::make('save')->label('حفظ')->submit('save'),
