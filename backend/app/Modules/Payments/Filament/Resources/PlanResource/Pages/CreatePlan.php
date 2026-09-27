@@ -14,6 +14,7 @@ use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Contracts\CohortDirectory;
+use App\Shared\Support\MinorUnits;
 use DomainException;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -188,7 +189,7 @@ class CreatePlan extends CreateRecord
                     .'مَن يُنشئُ بالنيابةِ هو نفسُه مَن يُسعِّر، فباقةٌ تنتظرُ تسعيرَه هي طابورٌ إلى نفسِه.')
                 ->columns(2)
                 ->schema([
-                    MoneyInput::make('price_minor', fn (): string => app(BillingSettings::class)->currency())
+                    MoneyInput::make('price', fn (): string => app(BillingSettings::class)->currency())
                         ->label('السعر')
                         ->required(),
 
@@ -216,8 +217,6 @@ class CreatePlan extends CreateRecord
             throw new Halt;
         }
 
-        $raw = $data['price_minor'] ?? null;
-
         try {
             return app(CreatePlanForTeacher::class)->handle(
                 $officer,
@@ -238,7 +237,9 @@ class CreatePlan extends CreateRecord
                     'coverage_uuid' => $data['coverage_uuid'] ?? null,
                     'is_active' => $data['is_active'] ?? true,
                 ],
-                $raw === null || $raw === '' ? null : (int) $raw,
+                // Major units in the form, MINOR units to the Action — converted
+                // by the same helper the model's `price` attribute uses.
+                MinorUnits::fromMajorOrFail($data['price'] ?? null),
             );
         } catch (DomainException $e) {
             // جملةُ الفعلِ نفسُها: كلٌّ منها تقولُ أيُّ شرطٍ سقطَ وما البديل،

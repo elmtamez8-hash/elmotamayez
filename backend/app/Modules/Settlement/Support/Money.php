@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Support;
 
+use App\Shared\Support\MinorUnits;
+
 /**
  * Minor units in, readable text out — for message bodies only.
  *
@@ -14,20 +16,9 @@ namespace App\Modules\Settlement\Support;
  */
 final class Money
 {
-    /** Every supported currency has two decimals today; the constant says so out loud. */
-    private const MINOR_UNITS = 100;
-
+    /** The decimals live in {@see MinorUnits} (Shared, so no Payments import). */
     public static function format(int $minor, string $currency): string
     {
-        $sign = $minor < 0 ? '-' : '';
-        $absolute = abs($minor);
-
-        return sprintf(
-            '%s%s.%02d %s',
-            $sign,
-            number_format(intdiv($absolute, self::MINOR_UNITS)),
-            $absolute % self::MINOR_UNITS,
-            $currency,
-        );
+        return (string) MinorUnits::display($minor, $currency);
     }
 }

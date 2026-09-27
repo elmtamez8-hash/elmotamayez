@@ -23,6 +23,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -190,7 +191,7 @@ class OrderResource extends Resource implements AwaitsDecision
                             ->relationship('course', 'title', modifyQueryUsing: fn (Builder $query): Builder => $query->withoutGlobalScope(WorkspaceScope::class))
                             ->disabled(),
                         // للعرضِ وحدَه (معطَّلٌ فلا يُحفَظ)، وبالوحدةِ الكبرى كبقيّةِ اللوحة.
-                        MoneyInput::make('amount_minor', fn (?Order $record): ?string => $record?->currency)
+                        MoneyInput::make('amount', fn (?Order $record): ?string => $record?->currency)
                             ->label('المبلغ')
                             ->disabled(),
                         TextInput::make('currency')
@@ -585,11 +586,13 @@ class OrderResource extends Resource implements AwaitsDecision
             // ⛔ The money line (2026-09-27): an hours plan refunds only its
             // unused sessions, so the amount is no longer «the whole payment».
             ->modalDescription(fn (Order $record): string => sprintf(
-                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المبلغُ المستحقُّ ردُّه: %s %s (باقةُ الحصصِ تَرُدُّ الحصصَ غيرَ المستخدَمةِ فقط، مقرَّبةً إلى الأدنى). المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
+                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المبلغُ المستحقُّ ردُّه: %s (باقةُ الحصصِ تَرُدُّ الحصصَ غيرَ المستخدَمةِ فقط، مقرَّبةً إلى الأدنى). المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
                 app(ReverseCreditOrder::class)->refundableFor($record),
                 app(ReverseCreditOrder::class)->seatsReleasedFor($record),
-                number_format(app(ReverseCreditOrder::class)->moneyRefundFor($record) / 100, 2),
-                (string) $record->currency,
+                MinorUnits::display(
+                    app(ReverseCreditOrder::class)->moneyRefundFor($record),
+                    MoneyInput::currencyLabel($record->currency),
+                ),
             ))
             ->schema([
                 Textarea::make('reason')
@@ -702,10 +705,11 @@ class OrderResource extends Resource implements AwaitsDecision
                     ->formatStateUsing(fn (mixed $state): string => (
                         $state instanceof OrderKind ? $state : OrderKind::tryFrom(is_scalar($state) ? (string) $state : '')
                     )?->label() ?? (is_scalar($state) ? (string) $state : '—')),
-                TextColumn::make('amount_minor')
+                // The model's major-unit attribute; the sort stays on the stored column.
+                TextColumn::make('amount')
                     ->label('المبلغ')
-                    ->money(fn (Order $record): string => $record->currency, divideBy: 100)
-                    ->sortable(),
+                    ->money(fn (Order $record): string => $record->currency)
+                    ->sortable(['amount_minor']),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => OrderStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {

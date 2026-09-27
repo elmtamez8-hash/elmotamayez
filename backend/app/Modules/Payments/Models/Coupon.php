@@ -9,7 +9,9 @@ use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\CouponValueKind;
 use App\Modules\Payments\Support\DiscountResolver;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\HasUuid;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -38,7 +40,8 @@ use Illuminate\Support\Carbon;
  * @property CouponScope|null $scope_type
  * @property string|null $scope_uuid
  * @property CouponValueKind $value_kind
- * @property int $value
+ * @property int $value a whole percent, or MINOR units for a fixed amount — see `value_kind`
+ * @property string|null $amount major units («49.99») over `value` for a FIXED coupon; null for a percent one
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
  * @property int|null $max_redemptions
@@ -56,6 +59,13 @@ class Coupon extends BaseModel
         'scope_uuid',
         'value_kind',
         'value',
+        /*
+        | The virtual major-unit spelling of `value` for a fixed coupon — see
+        | `amount()`. Fillable because the panel's create and edit pages are
+        | Filament's defaults (`new Coupon($data)` / `update($data)`), and a key
+        | missing here is DISCARDED IN SILENCE: the coupon would save with no value.
+        */
+        'amount',
         'starts_at',
         'ends_at',
         'max_redemptions',
@@ -76,6 +86,27 @@ class Coupon extends BaseModel
             'redemptions_count' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * A fixed coupon's amount in major units — what the admin types and reads.
+     *
+     * ⛔ `value` is ONE column with TWO meanings (a whole percent, or a minor
+     * amount), so this reads null for a percent coupon rather than dressing «50»
+     * up as «0.50». Writing it writes `value` in minor units and nothing else:
+     * the kind is its own field, and the form sends both.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function amount(): Attribute
+    {
+        return Attribute::make(
+            get: fn (mixed $value, array $attributes): ?string => ($attributes['value_kind'] ?? null) === CouponValueKind::FixedMinor->value
+                && is_numeric($attributes['value'] ?? null)
+                    ? MinorUnits::toMajor((int) $attributes['value'])
+                    : null,
+            set: fn (mixed $value): array => ['value' => MinorUnits::fromMajorOrFail($value)],
+        );
     }
 
     /**

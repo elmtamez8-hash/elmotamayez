@@ -171,10 +171,11 @@ class CourseResource extends Resource
                     ->columns(2)
                     ->schema([
                         // ⛔ قرارُ المالك (٢٠٢٦-٠٩-٢٧): يُكتَبُ 49.99 لا 4999، ويُخزَّنُ
-                        // بالوحدةِ الصغرى كما كان — `MoneyInput` يحوِّلُ نصّيّاً بلا فاصلةٍ
-                        // عائمة. كانَ `integer()` بلا حدٍّ أدنى ولا `required`: السالبُ
+                        // بالوحدةِ الصغرى كما كان — والنموذجُ هو الذي يحوِّل: الحقلُ
+                        // مربوطٌ بـ`Course::price` الافتراضيّة فوقَ `price_minor`.
+                        // كانَ `integer()` بلا حدٍّ أدنى ولا `required`: السالبُ
                         // يُحفَظ، والفراغُ يرتطمُ بـ`NOT NULL` صفحةَ خطأ.
-                        MoneyInput::make('price_minor', fn (Get $get): mixed => $get('currency'))
+                        MoneyInput::make('price', fn (Get $get): mixed => $get('currency'))
                             ->label('السعر')
                             ->required()
                             ->helperText('بالعملةِ المختارة — ٤٩٫٩٩ تُكتَبُ 49.99')
@@ -239,10 +240,11 @@ class CourseResource extends Resource
                     ->label('مجاني')
                     ->boolean()
                     ->sortable(),
-                TextColumn::make('price_minor')
+                // The model's major-unit attribute; the sort stays on the stored column.
+                TextColumn::make('price')
                     ->label('السعر')
-                    ->money(fn (Course $record): string => $record->currency, divideBy: 100)
-                    ->sortable(),
+                    ->money(fn (Course $record): string => $record->currency)
+                    ->sortable(['price_minor']),
                 /*
                 | العدُّ من `withCount` لا من إغلاقٍ داخلَ العمود: المورِدُ يُنفَّذُ مرّةً
                 | لكلِّ صفّ، فاستعلامٌ داخلَه هو N+1 بالبناء لا بالصدفة.

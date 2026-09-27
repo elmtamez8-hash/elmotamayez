@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Analytics\Support;
 
 use App\Modules\Payments\Enums\Currency;
+use App\Shared\Support\MinorUnits;
 
 /**
  * صياغةُ مبلغٍ بوحداتٍ صغرى — في مكانٍ واحد.
@@ -20,7 +21,7 @@ final class Money
     {
         $symbol = Currency::tryFrom($currency)?->short() ?? $currency;
 
-        return number_format($minor / 100, 2).' '.$symbol;
+        return (string) MinorUnits::display($minor, $symbol);
     }
 
     /**

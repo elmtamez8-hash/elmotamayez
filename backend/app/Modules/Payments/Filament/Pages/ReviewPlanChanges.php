@@ -13,6 +13,7 @@ use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -246,7 +247,7 @@ class ReviewPlanChanges extends Page implements AwaitsDecision, HasTable
             // ⚠️ «تنتظر التسعير» and not «٠٫٠٠»: a request that names no number is
             // a teacher leaving the price to the platform, which is the ordinary
             // arrangement — and a zero there reads as «free».
-            $priceMinor === null ? 'تنتظر التسعير' : number_format($priceMinor / 100, 2),
+            $priceMinor === null ? 'تنتظر التسعير' : MinorUnits::display($priceMinor),
         ]);
 
         return $parts === [] ? '—' : implode(' · ', $parts);

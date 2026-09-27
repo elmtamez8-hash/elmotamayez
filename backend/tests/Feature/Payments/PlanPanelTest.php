@@ -116,7 +116,7 @@ it('actually writes the price, which mass assignment would silently not', functi
 
     $page = new EditPlan;
     $method = new ReflectionMethod($page, 'handleRecordUpdate');
-    $method->invoke($page, $this->plan, ['price_minor' => '30000']);
+    $method->invoke($page, $this->plan, ['price' => '300']); // major units, as the form sends them
 
     expect((int) $this->plan->refresh()->price_minor)->toBe(30_000)
         ->and($this->plan->isSellable())->toBeTrue();
@@ -132,7 +132,7 @@ it('takes a plan off sale when the price is cleared to nothing', function (): vo
 
     // An empty string is what a cleared numeric input actually submits — `null`
     // is what a test writes by hand, and the two take different branches.
-    $method->invoke($page, $priced, ['price_minor' => '']);
+    $method->invoke($page, $priced, ['price' => '']);
 
     expect($priced->refresh()->price_minor)->toBeNull()
         ->and($priced->isSellable())->toBeFalse();
@@ -161,7 +161,7 @@ it('lets a finance officer who owns a workspace price another teacher\'s plan', 
     expect(PlanResource::canEdit($this->plan))->toBeTrue();
 
     Livewire::test(EditPlan::class, ['record' => $this->plan->getRouteKey()])
-        ->fillForm(['price_minor' => '450'])
+        ->fillForm(['price' => '450'])
         ->call('save')
         ->assertHasNoFormErrors();
 

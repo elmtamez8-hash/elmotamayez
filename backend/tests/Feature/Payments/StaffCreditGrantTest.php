@@ -15,8 +15,10 @@ use App\Modules\Payments\Models\CreditLot;
 use App\Modules\Payments\Models\CreditPackage;
 use App\Modules\Payments\Models\CreditPurchase;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\CostPlusPricing;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -412,7 +414,12 @@ it('prices the grant on the screen before anything is saved', function (): void 
             'package' => $this->package->getKey(),
         ])
         ->assertDontSee('اختر الطالب')
-        ->assertSee('QAR');
+        // The price as a reader sees it — thousands separator and all. The
+        // number, not the Arabic currency label: Livewire's payload escapes
+        // non-ASCII, so an Arabic needle proves nothing here.
+        ->assertSee((string) MinorUnits::display(
+            app(CostPlusPricing::class)->price($this->package, (int) $this->courseA->getKey(), now())?->totalMinor,
+        ));
 });
 
 it('names the retirement when a package is pulled from under an open form', function (): void {

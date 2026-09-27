@@ -7,9 +7,11 @@ namespace App\Modules\Payments\Models;
 use App\Models\BaseModel;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -27,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $currency
  * @property ?CarbonInterface $created_at
  * @property ?CarbonInterface $settled_at
+ * @property string|null $amount major units over `amount_minor` — {@see MinorUnits::attribute()}
+ * @property-read string|null $refunded_amount major units over `refunded_minor`, read-only
  */
 class PaymentTransaction extends BaseModel
 {
@@ -67,6 +71,29 @@ class PaymentTransaction extends BaseModel
             'settled_at' => 'datetime',
             'payload' => 'array',
         ];
+    }
+
+    /**
+     * The amount in major units («49.99»), for the admin panel to show.
+     * `amount_minor` stays the stored truth — {@see MinorUnits::attribute()}.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function amount(): Attribute
+    {
+        return MinorUnits::attribute('amount_minor', writable: false);
+    }
+
+    /**
+     * What went back, in major units. READ-ONLY: `refunded_minor` is written by
+     * `ReversePayment`'s conditional UPDATE alone, and a setter here would be a
+     * second door to it.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function refundedAmount(): Attribute
+    {
+        return MinorUnits::attribute('refunded_minor', writable: false);
     }
 
     /** @return BelongsTo<Order, $this> */
