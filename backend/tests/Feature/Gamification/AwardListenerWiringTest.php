@@ -8,6 +8,7 @@ use App\Modules\Gamification\Models\AwardEntry;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Events\AttendanceConfirmed;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use Illuminate\Support\Facades\Queue;
 
@@ -80,6 +81,14 @@ it('awards the attendees and never the host', function (): void {
     $session = ClassSession::factory()->create([
         'workspace_id' => $this->workspace->getKey(),
         'teacher_profile_id' => $profile->getKey(),
+    ]);
+
+    // A seat behind the student's row — without one the row is staff, not a
+    // student (`Attendance::scopeExcludingHost()`).
+    SessionBooking::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $this->student->getKey(),
     ]);
 
     attendanceRow($this->workspace, $session, $this->student, AttendanceStatus::Present);

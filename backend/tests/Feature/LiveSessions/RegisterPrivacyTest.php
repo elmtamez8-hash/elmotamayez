@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Actions\CancelClassSession;
 use App\Modules\LiveSessions\Actions\CreateFreezePeriod;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
@@ -200,6 +201,14 @@ it('keeps the host out of the roll while keeping the row that proves delivery', 
     ]);
 
     $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
+
+    // The student holds a seat — a register row with no booking behind it is
+    // staff in the room, never a line in the roll.
+    SessionBooking::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'class_session_id' => $session->getKey(),
+        'student_user_id' => $student->getKey(),
+    ]);
 
     foreach ([$owner, $student] as $participant) {
         Attendance::factory()->create([

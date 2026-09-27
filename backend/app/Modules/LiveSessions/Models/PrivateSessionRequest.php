@@ -98,10 +98,17 @@ class PrivateSessionRequest extends BaseModel
         return $this->belongsTo(User::class, 'decided_by');
     }
 
-    /** @return BelongsTo<ClassSession, $this> */
+    /**
+     * Unscoped for the reason `course()` is: the student's list reads this with
+     * whatever workspace their account happens to be stamped with, and a scoped
+     * relation there loads null — no «صفحة الحصة» and no «الحصة ملغاة», with no
+     * error. The request row is already the reader's, so its session is its key.
+     *
+     * @return BelongsTo<ClassSession, $this>
+     */
     public function classSession(): BelongsTo
     {
-        return $this->belongsTo(ClassSession::class, 'class_session_id');
+        return $this->belongsTo(ClassSession::class, 'class_session_id')->withoutGlobalScope(WorkspaceScope::class);
     }
 
     public function isPending(): bool

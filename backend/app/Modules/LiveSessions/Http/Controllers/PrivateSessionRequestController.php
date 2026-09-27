@@ -44,7 +44,7 @@ class PrivateSessionRequestController extends Controller
             ->withoutWorkspaceScope()
             ->where('student_user_id', $this->currentUser($request)->getKey())
             // The teacher's zone, for «١٧:٠٠ بتوقيتك · ١٨:٠٠ بتوقيت المدرّس».
-            ->with(['course:id,uuid,title,created_by', 'course.creator:id,timezone', 'classSession:id,uuid'])
+            ->with(['course:id,uuid,title,created_by', 'course.creator:id,timezone', 'classSession:id,uuid,status'])
             ->latest('id')
             ->paginate(20);
 
@@ -163,7 +163,7 @@ class PrivateSessionRequestController extends Controller
         }
 
         return response()->json(
-            PrivateSessionRequestResource::make($found->load(['course:id,uuid,title', 'classSession:id,uuid'])),
+            PrivateSessionRequestResource::make($found->load(['course:id,uuid,title', 'classSession:id,uuid,status'])),
         );
     }
 

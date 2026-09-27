@@ -175,6 +175,15 @@ it('cancels a granted private session when its student cancels in time, and free
     expect($session->status)->toBe(ClassSessionStatus::Cancelled)
         ->and((int) $session->seats_taken)->toBe(0);
 
+    // «حصصي الخاصة» must say so (2026-09-26): the request stays «accepted» —
+    // that is what happened to the REQUEST — so the lesson's own status travels
+    // beside it, or the card reads «مقبول» over a called-off hour.
+    $this->getJson('/api/v1/private-session-requests')
+        ->assertOk()
+        ->assertJsonPath('data.0.status', PrivateSessionRequest::ACCEPTED)
+        ->assertJsonPath('data.0.class_session_uuid', $session->uuid)
+        ->assertJsonPath('data.0.class_session_status', ClassSessionStatus::Cancelled->value);
+
     // Nobody books a called-off hour back through «احجز».
     $this->postJson("/api/v1/class-sessions/{$session->uuid}/book")
         ->assertStatus(409)

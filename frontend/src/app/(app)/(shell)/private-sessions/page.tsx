@@ -118,16 +118,31 @@ export default function MyPrivateSessionsPage() {
         />
       )}
 
-      {requests?.map((request) => (
+      {requests?.map((request) => {
+        /*
+         * ⚠️ «accepted» IS A FACT ABOUT THE REQUEST, AND IT OUTLIVES THE LESSON
+         * (2026-09-26). An hour called off after the teacher said yes — the
+         * student cancelling in time, or the teacher cancelling it — left this
+         * card reading «مقبول» with a «صفحة الحصة» button, so the lesson's own
+         * status decides what the card says once there is one.
+         */
+        const lessonCancelled =
+          request.status === "accepted" && request.class_session_status === "cancelled";
+
+        return (
         <Card key={request.uuid}>
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-ink">
                 {request.course?.title ?? "حصة خاصة"}
               </h3>
-              <Badge tone={privateSessionStatusTone(request.status)}>
-                {privateSessionStatusLabel(request.status)}
-              </Badge>
+              {lessonCancelled ? (
+                <Badge tone="neutral">الحصة ملغاة</Badge>
+              ) : (
+                <Badge tone={privateSessionStatusTone(request.status)}>
+                  {privateSessionStatusLabel(request.status)}
+                </Badge>
+              )}
             </div>
 
             <p className="text-sm text-ink">
@@ -148,7 +163,13 @@ export default function MyPrivateSessionsPage() {
               </div>
             )}
 
-            {request.status === "accepted" && request.class_session_uuid && (
+            {lessonCancelled && (
+              <p className="text-xs text-ink-muted">
+                قبل المدرّس الطلب، ثم أُلغيت الحصة. يمكنك طلب موعد آخر من صفحة الكورس.
+              </p>
+            )}
+
+            {request.status === "accepted" && !lessonCancelled && request.class_session_uuid && (
               <div>
                 <Button href={`/sessions/${request.class_session_uuid}`} variant="secondary" size="sm">
                   صفحة الحصة
@@ -165,7 +186,8 @@ export default function MyPrivateSessionsPage() {
             )}
           </div>
         </Card>
-      ))}
+        );
+      })}
 
       <Modal
         open={withdrawing !== null}

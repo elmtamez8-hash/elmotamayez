@@ -194,6 +194,7 @@ _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room U
 - A weekly availability window is WALL-CLOCK TIME + THE TEACHER'S IANA ZONE, never UTC — a UTC weekly window cannot express Egypt's DST.
 - A zone the person CHOSE (`timezone_source = manual`) outranks every browser report, and «show both clocks» is decided by the OFFSET at that instant, never the zone name.
 - A private hour whose only student cancels IN TIME is called off through `CancelClassSession`; a generated open slot reopens instead, and a LATE cancellation leaves the session standing because its seat is still charged.
+- Staff in the room are never students of it: `excludingHost()` keeps SEAT HOLDERS only (an assistant with `sessions.host` has a heartbeat row and no booking), and the row itself stays for the roster and for delivery.
 
 ### Media, recordings and playback → [`docs/gotchas/media.md`](docs/gotchas/media.md)
 _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video player._
