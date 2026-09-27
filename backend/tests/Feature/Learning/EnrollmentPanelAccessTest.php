@@ -9,6 +9,7 @@ use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Payments\Actions\ChangeEnrollmentStatus;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Events\CourseAccessEnded;
 use App\Shared\Support\WorkspaceContext;
@@ -58,7 +59,7 @@ it('stays shut to platform staff who hold enrollments.view.all in their own work
     $officer = makePlatformStaff($role, $this->homeOwner);
     enrollmentPanelAs($officer, $this->home);
 
-    expect($officer->can('enrollments.view.all'))->toBeTrue()
+    expect($officer->can(Permissions::ENROLLMENTS_VIEW_ALL))->toBeTrue()
         ->and(EnrollmentResource::canViewAny())->toBeFalse()
         ->and(EnrollmentResource::canEdit($this->enrollment))->toBeFalse();
 })->with([

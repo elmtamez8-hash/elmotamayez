@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -93,7 +94,7 @@ it('opens for the super admin only — never for platform staff who own a worksp
     $officer = makePlatformStaff($role, $this->homeOwner);
     examPanelAs($officer, $this->home);
 
-    expect($officer->can('exams.view'))->toBeTrue()
+    expect($officer->can(Permissions::EXAMS_VIEW))->toBeTrue()
         ->and(ExamResource::canViewAny())->toBeFalse()
         ->and(ExamResource::canEdit($this->exam))->toBeFalse()
         ->and(ExamResource::canDelete($this->exam))->toBeFalse();

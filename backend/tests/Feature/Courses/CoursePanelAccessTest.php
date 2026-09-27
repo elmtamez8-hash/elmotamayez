@@ -12,6 +12,7 @@ use App\Modules\Courses\Filament\Pages\ReviewPromoVideos;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -67,7 +68,7 @@ it('stays shut to platform staff who hold courses.view in their own workspace', 
     $officer = makePlatformStaff($role, $this->homeOwner);
     coursePanelAs($officer, $this->home);
 
-    expect($officer->can('courses.view'))->toBeTrue()
+    expect($officer->can(Permissions::COURSES_VIEW))->toBeTrue()
         ->and(CourseResource::canViewAny())->toBeFalse()
         ->and(CourseResource::canEdit($this->course))->toBeFalse()
         ->and(CourseResource::canDelete($this->course))->toBeFalse()
@@ -108,7 +109,10 @@ it('gives the compliance officer who owns a workspace the promo queue — every 
     $officer = makePlatformStaff(Roles::COMPLIANCE_OFFICER, $this->homeOwner);
     coursePanelAs($officer, $this->home);
 
-    expect(ReviewPromoVideos::canAccess())->toBeTrue()
+    // `Livewire::test()` never touches panel discovery — a page nobody discovers
+    // has no route and no menu entry, and every other line here would still pass.
+    expect(Filament::getPanel('admin')->getPages())->toContain(ReviewPromoVideos::class)
+        ->and(ReviewPromoVideos::canAccess())->toBeTrue()
         ->and(ReviewPromoVideos::getNavigationBadge())->toBe('1');
 
     Livewire::test(ReviewPromoVideos::class)
