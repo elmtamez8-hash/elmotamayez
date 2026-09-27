@@ -69,7 +69,16 @@ jobs:
         run: |
           # Keepalives: a long silent build step once dropped this session and
           # marked a deploy failed while the server kept going.
-          ssh -o BatchMode=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
+          # The connect step has timed out twice before reaching sshd at all
+          # (2026-09-26/27), so wait for a reachable host first. Only this probe
+          # retries: re-running the deploy command itself after a mid-run drop
+          # would start deploy.sh a second time.
+          for i in 1 2 3 4 5; do
+            ssh -o BatchMode=yes -o ConnectTimeout=20 -i ~/.ssh/id_ed25519 "$USER@$HOST" true && break
+            [ "$i" = 5 ] && { echo "server unreachable after 5 attempts"; exit 1; }
+            echo "ssh attempt $i failed, retrying in 20s"; sleep 20
+          done
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
             -i ~/.ssh/id_ed25519 "$USER@$HOST" \
             "cd '$APP_PATH' && DEPLOY_SHA='$DEPLOY_SHA' bash ./scripts/deploy.sh"
 
