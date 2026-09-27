@@ -61,7 +61,8 @@ return [
     | a token copied off a shared computer opened the account for as long as the
     | account existed. IDLE, not absolute — somebody who opens the product every
     | week is never signed out — and measured from the token's own `last_used_at`,
-    | which Sanctum already writes on every request.
+    | which `Identity\Listeners\StampTokenLastUsed` writes at most every five
+    | minutes (Sanctum's own per-request stamp is off in `config/sanctum.php`).
     |
     | ⚠️ Zero or less reads as "no limit", as `cap_per_user` does above: an
     | operator who empties the field means to switch the rule off.
