@@ -40,9 +40,9 @@ beforeEach(() => {
 afterEach(() => setStoredViewerTimeZone(null));
 
 describe("timezoneOptions", () => {
-  it("puts Qatar and Egypt first, then the Arabic-named zones, then the rest under their IANA names", () => {
+  it("puts Qatar and Egypt first, then the Arabic-named zones, then any unnamed zone under its IANA name", () => {
     const options = timezoneOptions([
-      "America/Argentina/Salta",
+      "Mars/Olympus",
       "Africa/Cairo",
       "Europe/London",
       "Asia/Riyadh",
@@ -57,12 +57,19 @@ describe("timezoneOptions", () => {
       "Asia/Amman",
       "Asia/Riyadh",
       "Europe/London",
-      "America/Argentina/Salta",
+      "Mars/Olympus",
     ]);
     expect(options[0].label).toBe("قطر — الدوحة");
     expect(options[1].label).toBe("مصر — القاهرة");
     expect(options[4].label).toBe("المملكة المتحدة — لندن");
-    expect(options[5].label).toBe("America/Argentina/Salta");
+    expect(options[5].label).toBe("Mars/Olympus");
+  });
+
+  it("names every zone of the runtime in Arabic, leaving no English tail", () => {
+    const options = timezoneOptions(Intl.supportedValuesOf("timeZone"));
+
+    expect(options.filter((o) => /[A-Za-z]/.test(o.label.replace("(UTC)", "")))).toEqual([]);
+    expect(options.find((o) => o.value === "America/Argentina/Salta")?.label).toBe("الأرجنتين — سالتا");
   });
 
   it("names every Arab-world zone the runtime knows in Arabic", () => {

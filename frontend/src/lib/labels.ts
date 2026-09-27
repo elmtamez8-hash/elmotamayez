@@ -329,13 +329,14 @@ export function certificateReasonLabel(reason: string): string {
  * Arabic for an IANA timezone name — «قطر — الدوحة», the SAME name the
  * «المنطقة الزمنية» picker shows (owner decision 2026-09-27: one naming, the
  * «البلد — المدينة» form, everywhere). `Asia/Qatar` was printed raw on the
- * teacher's session page. The fallback is the name itself: a zone nobody has
- * translated yet is still correct, and a blank would hide it.
+ * teacher's session page. Every zone has a name since 2026-09-27; the fallback
+ * is the name itself, for a zone a future runtime adds — still correct, and a
+ * blank would hide it.
  *
  * ⚠️ The label is a PLACE, not a phrase: a sentence that means «on that clock»
  * writes «بتوقيت» / «توقيت» itself («بتوقيت قطر — الدوحة»). The map lives in
- * `timezone-names.ts`, and the server's copy (`TimezoneLabel.php`) is held to
- * it by `TimezoneLabelParityTest`.
+ * `timezone-names.json` (read through `timezone-names.ts`), and the server's copy
+ * beside `TimezoneLabel.php` is held to it by `TimezoneLabelParityTest`.
  */
 export function timezoneLabel(timezone: string): string {
   return timezonePlace(timezone) ?? timezone;

@@ -18,10 +18,13 @@ import { setStoredViewerTimeZone, useViewerTimeZone } from "@/lib/viewer-time-zo
 const FIRST = ["Asia/Qatar", "Africa/Cairo"];
 
 /**
- * Qatar and Egypt first; then every zone with an Arabic name, in Arabic
- * alphabetical order; then the rest under their IANA names, in the runtime's
- * order. A reader in Amman finds «الأردن — عمّان» among a few dozen Arabic
- * lines instead of scanning four hundred English ones.
+ * Qatar and Egypt first; then every other zone under its Arabic name, in Arabic
+ * alphabetical order — so a reader scans by country and finds «الأردن — عمّان»
+ * among its neighbours instead of four hundred English ones.
+ *
+ * Since 2026-09-27 every zone the runtime lists has an Arabic name, so the tail
+ * of IANA names is empty; it stays for a zone some future runtime adds, which
+ * would otherwise vanish from the list.
  */
 export function timezoneOptions(all: readonly string[] = supportedZones()): Array<{ value: string; label: string }> {
   const rest = all.filter((zone) => !FIRST.includes(zone));
