@@ -86,6 +86,7 @@ use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\BelongsToWorkspace;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 describe('workspace isolation', function (): void {
@@ -173,6 +174,52 @@ describe('permission enforcement', function (): void {
         $this->getJson("/api/v1/workspaces/{$workspace->uuid}/members")
             ->assertOk()
             ->assertJsonFragment(['email' => $owner->email]);
+    });
+
+    /*
+    | ⛔ THE PERMISSION MUST ANSWER FOR THE ROUTE'S WORKSPACE (2026-09-27). `can()`
+    | reads spatie's team id — the CURRENT workspace — so an owner of A who was a
+    | mere student in B passed membership on B and the permission on A, and could
+    | read B's emails, invite into B, remove B's members and change their roles.
+    */
+    it('refuses member management in a workspace the permission was not granted in', function (): void {
+        [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner();
+        [$workspaceB] = $this->createWorkspaceWithOwner();
+        $this->addWorkspaceMember($workspaceB, Roles::STUDENT, $ownerA);
+        $classmate = $this->addWorkspaceMember($workspaceB, Roles::STUDENT);
+
+        // A is current — where the owner really does hold every members.* name.
+        $this->setCurrentWorkspace($workspaceA, $ownerA);
+        Sanctum::actingAs($ownerA);
+
+        $this->getJson("/api/v1/workspaces/{$workspaceB->uuid}/members")
+            ->assertForbidden()
+            ->assertJsonMissing(['email' => $classmate->email]);
+
+        $this->postJson("/api/v1/workspaces/{$workspaceB->uuid}/invitations", [
+            'email' => 'intruder@example.com',
+            'role' => Roles::ASSISTANT_TEACHER,
+        ])->assertForbidden();
+
+        $this->patchJson("/api/v1/workspaces/{$workspaceB->uuid}/members/{$classmate->uuid}", [
+            'role' => Roles::ASSISTANT_TEACHER,
+        ])->assertForbidden();
+
+        $this->deleteJson("/api/v1/workspaces/{$workspaceB->uuid}/members/{$classmate->uuid}")
+            ->assertForbidden();
+
+        expect(DB::table('workspace_members')
+            ->where('workspace_id', $workspaceB->getKey())
+            ->where('user_id', $classmate->getKey())
+            ->value('role'))->toBe(Roles::STUDENT)
+            ->and(DB::table('invitations')->where('email', 'intruder@example.com')->exists())->toBeFalse();
+
+        // The same owner, on their own workspace, is untouched.
+        $this->getJson("/api/v1/workspaces/{$workspaceA->uuid}/members")->assertOk();
+        $this->postJson("/api/v1/workspaces/{$workspaceA->uuid}/invitations", [
+            'email' => 'colleague@example.com',
+            'role' => Roles::ASSISTANT_TEACHER,
+        ])->assertCreated();
     });
 
     it('allows a super-admin to access any workspace', function (): void {

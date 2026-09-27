@@ -9,6 +9,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use Illuminate\Auth\Access\Response;
+use Spatie\Permission\PermissionRegistrar;
 
 class WorkspacePolicy extends BasePolicy
 {
@@ -67,13 +68,12 @@ class WorkspacePolicy extends BasePolicy
      * (the `/members` page and its nav entry already ask that name), so the door
      * asks the same name.
      *
-     * Membership first, for the reason {@see manageMembers()} gives: `can()`
-     * answers for the CURRENT team, not for `$workspace`.
+     * Membership and the answered team first — {@see outsideAnsweredWorkspace()}.
      */
     public function viewMembers(User $user, Workspace $workspace): Response
     {
-        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
-            return Response::deny('You do not belong to this workspace.');
+        if (($refusal = $this->outsideAnsweredWorkspace($user, $workspace)) !== null) {
+            return $refusal;
         }
 
         return $user->can(Permissions::MEMBERS_VIEW)
@@ -97,8 +97,8 @@ class WorkspacePolicy extends BasePolicy
 
     public function manageMembers(User $user, Workspace $workspace): Response
     {
-        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
-            return Response::deny('You do not belong to this workspace.');
+        if (($refusal = $this->outsideAnsweredWorkspace($user, $workspace)) !== null) {
+            return $refusal;
         }
 
         return $user->can(Permissions::MEMBERS_INVITE)
@@ -117,13 +117,12 @@ class WorkspacePolicy extends BasePolicy
      * offers «إزالة» on `members.remove`; the door has to ask the same name or
      * the button and the refusal disagree.
      *
-     * Membership first, for the reason {@see manageMembers()} gives: `can()`
-     * answers for the CURRENT team, not for `$workspace`.
+     * Membership and the answered team first — {@see outsideAnsweredWorkspace()}.
      */
     public function removeMember(User $user, Workspace $workspace): Response
     {
-        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
-            return Response::deny('You do not belong to this workspace.');
+        if (($refusal = $this->outsideAnsweredWorkspace($user, $workspace)) !== null) {
+            return $refusal;
         }
 
         return $user->can(Permissions::MEMBERS_REMOVE)
@@ -171,8 +170,8 @@ class WorkspacePolicy extends BasePolicy
      */
     public function updateMembers(User $user, Workspace $workspace): Response
     {
-        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
-            return Response::deny('You do not belong to this workspace.');
+        if (($refusal = $this->outsideAnsweredWorkspace($user, $workspace)) !== null) {
+            return $refusal;
         }
 
         return $user->can(Permissions::MEMBERS_UPDATE)
@@ -180,10 +179,44 @@ class WorkspacePolicy extends BasePolicy
             : Response::deny('You are not authorized to change a member\'s role.');
     }
 
-    public function manageBillingSettings(User $user, Workspace $workspace): Response
+    /**
+     * Membership in `$workspace`, AND `$workspace` being the team `can()` answers for.
+     *
+     * ⛔ UNTIL 2026-09-27 EVERY PERMISSION METHOD HERE ASKED THE FIRST HALF ONLY.
+     * `$user->can(...)` is evaluated against spatie's team id — the CURRENT
+     * workspace, set by `EnsureCurrentWorkspace` from the session or
+     * `last_workspace_id` — never against the route's `{workspace}`. So an owner
+     * holding `members.invite` in their own workspace A, who was also a mere
+     * student in B, could — with A current — read B's member emails, invite
+     * into B, remove B's members and change their roles: membership passed on
+     * B, the permission passed on A. A permission that answered about another
+     * team is a denial, not a pass (tenancy.md, «a resolved context that does not
+     * match is still a DENIAL»).
+     *
+     * The comparison is against the registrar's team id because that is the
+     * number `can()` actually reads. Every screen calls these for the current
+     * workspace, and switching (`SwitchWorkspace`) moves both. Super-admin is
+     * waved past by {@see BasePolicy::before()} and never reaches this.
+     */
+    private function outsideAnsweredWorkspace(User $user, Workspace $workspace): ?Response
     {
         if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
             return Response::deny('You do not belong to this workspace.');
+        }
+
+        $team = app(PermissionRegistrar::class)->getPermissionsTeamId();
+
+        if ($team === null || (int) $team !== (int) $workspace->getKey()) {
+            return Response::deny('Switch to this workspace first.');
+        }
+
+        return null;
+    }
+
+    public function manageBillingSettings(User $user, Workspace $workspace): Response
+    {
+        if (($refusal = $this->outsideAnsweredWorkspace($user, $workspace)) !== null) {
+            return $refusal;
         }
 
         return $user->can(Permissions::BILLING_SETTINGS_MANAGE)
