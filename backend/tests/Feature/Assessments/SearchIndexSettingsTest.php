@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Courses\Models\Course;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 | Meilisearch refuses a filter on an attribute its index was not told about,
@@ -35,4 +36,37 @@ it('lets Scout read each searchable model index name from outside the model', fu
     foreach ([Question::class, Course::class] as $model) {
         expect((new ReflectionMethod($model, 'searchableAs'))->isPublic())->toBeTrue();
     }
+});
+
+it('lists every searchable model in the index settings the deploy rebuilds from', function (): void {
+    /*
+    | `search:rebuild-indexes` (run by `scripts/deploy.sh` when the Meilisearch
+    | version moves to an empty data directory) imports exactly the models keyed
+    | in `scout.meilisearch.index-settings`. A model that uses `Searchable` and
+    | is missing there would come back from an upgrade with an empty index and
+    | nothing saying why.
+    */
+    $searchable = [];
+
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path('Modules'))) as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        $source = (string) file_get_contents($file->getPathname());
+
+        if (preg_match('/^use Laravel\\\\Scout\\\\Searchable;/m', $source) === 1
+            && preg_match('/^\s+use [^;]*\bSearchable\b[^;]*;/m', $source) === 1
+            && preg_match('/^namespace ([^;]+);/m', $source, $ns) === 1) {
+            $searchable[] = $ns[1].'\\'.$file->getBasename('.php');
+        }
+    }
+
+    // The scan must find something, or it passes over a tree it cannot read.
+    expect($searchable)->not->toBeEmpty()
+        ->and(array_values(array_diff($searchable, array_keys((array) config('scout.meilisearch.index-settings')))))->toBe([]);
+});
+
+it('registers the command the deploy calls to rebuild the indexes', function (): void {
+    expect(array_key_exists('search:rebuild-indexes', Artisan::all()))->toBeTrue();
 });

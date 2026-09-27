@@ -73,6 +73,40 @@ DEPLOY_TAG=$(git rev-parse --short=12 HEAD)
 docker tag elmotamayez-backend:latest "elmotamayez-backend:$DEPLOY_TAG"
 docker tag elmotamayez-frontend:latest "elmotamayez-frontend:$DEPLOY_TAG"
 
+# ⛔ **Reverb يأخذُ الصورةَ الجديدةَ حينَ يتغيّرُ ما يقرؤه — وحينَها فقط.**
+#
+# كانَ على `:latest`، فأعادَ `up -d` إنشاءَه في كلِّ نشرة: ثوانٍ من ٥٠٢ على السوكِت
+# وكلُّ اتّصالٍ مفتوحٍ ينقطع، ولو لم يتغيّرْ فيه حرف. صارَ له وسمُه (`:reverb`، انظر
+# `docker-compose.prod.yml`)، ونَسِمُه هنا من البناءِ الجديدِ حينَ:
+#   · لا علامةَ ولا وسمَ بعد (أوّلُ نشرةٍ بهذه النسخة، أو بعدَ `rollback.sh`)، أو
+#   · commit العلامةِ غائبٌ عن المستودع، أو
+#   · تغيّرَ بينَه وبينَ HEAD ملفٌّ من المساراتِ أدناه.
+# وإلّا يبقى الوسمُ على صورتِه، فيرى `up -d` تعريفاً لم يتغيّرْ ولا يلمسُه.
+#
+# ⚠️ **لماذا هذه المساراتُ وحدَها**: Reverb يُمرِّرُ إطاراتِ Pusher ولا يُنفِّذُ شيئاً من
+# شيفرةِ التطبيق — تفويضُ القنواتِ (`routes/channels.php`) يجري في FPM، وإرسالُ
+# الأحداثِ في Horizon. فما يقرؤه هو حزمُه (`composer.lock`)، وإعدادُه، وبيئةُ PHP
+# (الـDockerfile)، والإقلاع؛ و`channels.php` معها احتياطاً لأنّ المالكَ سمّاه. و`.env`
+# خارجَ القائمةِ لأنّ compose يُعيدُ إنشاءَه حينَ تتغيّرُ البيئةُ أصلاً. ولا
+# `backend/config` كلُّه: يتغيّرُ في ثلثَي النشرات (قِيسَ على آخرِ مئة)، فيعودُ العيبُ.
+#
+# ⚠️ والعلامةُ على الخادمِ بجانبِ `.env` (غيرُ متتبَّعة، فـ`git reset --hard` لا يمسُّها)،
+# تحملُ الـcommit الذي بُنِيَت منه صورةُ `:reverb`.
+REVERB_SHA_FILE=docker/.reverb-image.sha
+REVERB_PATHS="backend/composer.lock backend/config/reverb.php backend/config/broadcasting.php backend/routes/channels.php backend/bootstrap docker/backend.Dockerfile"
+REVERB_BUILT_FROM=$(cat "$REVERB_SHA_FILE" 2>/dev/null || true)
+# shellcheck disable=SC2086 # قائمةُ المساراتِ تُفصَلُ عمداً
+if [ -z "$REVERB_BUILT_FROM" ] \
+    || ! docker image inspect elmotamayez-backend:reverb >/dev/null 2>&1 \
+    || ! git cat-file -e "${REVERB_BUILT_FROM}^{commit}" 2>/dev/null \
+    || ! git diff --quiet "$REVERB_BUILT_FROM" HEAD -- $REVERB_PATHS; then
+    echo "▸ Reverb يأخذُ الصورةَ الجديدة (تغيّرَ ما يقرؤه، أو لا علامة)"
+    docker tag elmotamayez-backend:latest elmotamayez-backend:reverb
+    git rev-parse HEAD > "$REVERB_SHA_FILE"
+else
+    echo "▸ Reverb باقٍ على صورتِه (لم يتغيّرْ ما يقرؤه منذُ ${REVERB_BUILT_FROM:0:12})"
+fi
+
 # ⛔ **أثرُ بوّابةِ السعرِ يُقاسُ قبلَ التبديل، لا بعدَه (٠٣٦ · FR-010).**
 #
 # بوّابةُ ٠٣٦ تُخرِجُ من العرضِ كلَّ مجموعةٍ لا يصلُها سعرٌ حيّ. ومجموعةٌ **فيها
@@ -138,7 +172,8 @@ echo "▸ انتظارُ قاعدةِ البيانات"
 # ⚠️ `up -d` لهما أوّلاً لأنّ هذا صارَ **قبلَ** أيِّ `up`: على قاعدةٍ متوقّفةٍ كانت
 # الحلقةُ تدورُ إلى أن تنقضيَ مهلةُ Actions (ستُّ ساعات). وهو لا يفعلُ شيئاً حينَ
 # تعملانِ بتعريفِهما الحاليّ. والحلقةُ محدودةٌ بدقيقتَين، فالعطلُ يُسمّي نفسَه.
-$COMPOSE up -d mysql redis
+# و`meilisearch` معهما: إعادةُ بناءِ الفهارسِ أدناه تحتاجُه قائماً بنسختِه الجديدة.
+$COMPOSE up -d mysql redis meilisearch
 DB_WAIT=0
 until $COMPOSE exec -T mysql mysqladmin ping --silent 2>/dev/null; do
     DB_WAIT=$((DB_WAIT + 1))
@@ -164,6 +199,35 @@ done
 # يسألُ تأكيداً في الإنتاجِ ولا أحدَ هنا ليُجيب. و**لا `migrate:fresh` أبداً**.
 echo "▸ الهجراتُ من الصورةِ الجديدةِ قبلَ التبديل"
 $COMPOSE run --rm --no-deps -T -u www-data backend php artisan migrate --force
+
+# ⛔ **فهارسُ البحثِ تُبنى مرّةً لكلِّ نسخةٍ من Meilisearch — قبلَ التبديل.**
+#
+# ترقيةُ Meilisearch (v1.6.2 ← v1.54.0) تأتي بمجلّدِ بياناتٍ جديدٍ فارغ: صيغةُ القرصِ
+# تغيّرت، والفهرسُ مشتقٌّ كلُّه من MySQL. فبلا هذه الخطوةِ يجدُ بحثُ البنكِ والكورساتِ
+# لا شيء. العلامةُ (`docker/.meilisearch-indexed`، غيرُ متتبَّعة) تحملُ وسمَ الصورةِ
+# الذي بُنِيَت له الفهارس، فالخطوةُ تجري في النشرةِ التي تُغيِّرُ الوسمِ وحدَها، وتُكتَبُ
+# العلامةُ **بعدَ** النجاحِ فقط — فاستيرادٌ فشلَ يُعادُ في النشرةِ التالية.
+#
+# ⚠️ **وهي تعملُ في النشرةِ نفسِها التي تشحنُها**: كلُّ ما بعدَ كتلةِ `exec` في أعلى
+# الملفِّ يُقرَأُ من النسخةِ الجديدة. والأمرُ من الصورةِ الجديدةِ (`run --rm`) لأنّه
+# جديدٌ فيها، و`SCOUT_QUEUE=false` كي يُستورَدَ كلُّ شيءٍ داخلَ الأمرِ لا في طابور.
+# الثمنُ ثوانٍ يسألُ فيها الخلفيُّ القديمُ فهرساً فارغاً، والفشلُ يُوقِفُ النشرةَ قبلَ
+# أيِّ تبديل.
+MEILI_IMAGE=$(grep -oE 'getmeili/meilisearch:[^[:space:]]+' docker/docker-compose.prod.yml | head -1)
+MEILI_MARKER=docker/.meilisearch-indexed
+if [ "$(cat "$MEILI_MARKER" 2>/dev/null || true)" != "$MEILI_IMAGE" ]; then
+    echo "▸ إعادةُ بناءِ فهارسِ البحثِ لـ$MEILI_IMAGE"
+    MEILI_WAIT=0
+    until $COMPOSE exec -T meilisearch curl -fsS http://127.0.0.1:7700/health >/dev/null 2>&1; do
+        MEILI_WAIT=$((MEILI_WAIT + 1))
+        [ "$MEILI_WAIT" -lt 60 ] || { echo "✗ Meilisearch لم يُجِبْ خلالَ دقيقتَين — لم يُبدَّلْ شيء." >&2; exit 1; }
+        sleep 2
+    done
+    $COMPOSE run --rm --no-deps -T -u www-data -e SCOUT_QUEUE=false backend php artisan search:rebuild-indexes
+    echo "$MEILI_IMAGE" > "$MEILI_MARKER"
+else
+    echo "▸ فهارسُ البحثِ مبنيّةٌ لـ$MEILI_IMAGE"
+fi
 
 # ⚠️ ملكيّةُ مجلّدِ المرفوعاتِ **قبلَ** رفعِ الخدمات، لا بعدَه فقط. `horizon`
 # و`scheduler` و`reverb` صاروا يعملونَ بـwww-data (انظر `docker-compose.prod.yml`)،
@@ -379,9 +443,12 @@ echo "▸ استبدالُ الواجهةِ بلا انقطاع"
 roll_service frontend
 
 # والعمّالُ الثلاثةُ بـ`up -d` العاديّ: الصورةُ تغيّرت فيُعادُ إنشاؤُهم، وليسَ أمامَهم
-# زائرٌ يرى الفجوة. ⚠️ عدا `reverb`: إعادةُ إنشائِه تقطعُ كلَّ سوكِتٍ مفتوح، وpusher-js
-# يُعيدُ الاتّصالَ وحدَه خلالَ ثوانٍ (والرسائلُ محفوظةٌ في القاعدة، FR-048) — ثمنٌ
-# مقبولٌ ومكتوب. والحصصُ الحيّةُ نفسُها تمرُّ بـLiveKit لا بهذا الخادم فلا تنقطع.
+# زائرٌ يرى الفجوة. ⚠️ عدا `reverb`: إعادةُ إنشائِه تقطعُ كلَّ سوكِتٍ مفتوح، لذلك
+# صارَ على وسمِه `:reverb` الذي لا يتحرّكُ إلّا حينَ يتغيّرُ ما يقرؤه (أعلى الملفّ) —
+# فهنا لا يُمَسُّ في أغلبِ النشرات. وحينَ يُعادُ إنشاؤُه يُعيدُ pusher-js الاتّصالَ
+# وحدَه خلالَ ثوانٍ (والرسائلُ محفوظةٌ في القاعدة، FR-048)، ومُحلِّلُ nginx
+# (`resolver … valid=10s` مع `set $reverb_upstream`) يجدُ الحاويةَ الجديدةَ بلا لمسِه.
+# والحصصُ الحيّةُ نفسُها تمرُّ بـLiveKit لا بهذا الخادم فلا تنقطع.
 echo "▸ رفعُ العمّال"
 $COMPOSE up -d --no-deps horizon scheduler reverb
 
@@ -416,7 +483,7 @@ echo "▸ إعادةُ تشغيلِ العامل"
 # بها، فيظلُّ يفشلُ بخطأٍ أزالَه الـcommit — ساعتان ضاعتا مرّةً على أثرِ استدعاءٍ
 # لم يعدْ موجوداً في أيِّ ملفّ.
 $COMPOSE exec -T -u www-data backend php artisan queue:restart
-# ⚠️ `reverb` خرجَ من هذا السطر: `up -d` أعلاه أعادَ إنشاءَه إن تغيّرت صورتُه أو
+# ⚠️ `reverb` خرجَ من هذا السطر: `up -d` أعلاه أعادَ إنشاءَه إن تغيّرَ وسمُه `:reverb` أو
 # إعدادُه، وإن لم يتغيّرا فلا شيءَ جديدَ يُحمَّل. وإعادةُ تشغيلِه هنا كانت تقطعُ كلَّ
 # سوكِتٍ مفتوحٍ **مرّةً ثانية** في النشرةِ نفسِها.
 $COMPOSE restart horizon scheduler
@@ -425,10 +492,13 @@ echo "▸ تنظيفُ الصورِ القديمة"
 # `prune -f` يحذفُ ما لا وسمَ له فقط، فـ`:previous` و`:<sha>` تبقى. ويُبقى من وسومِ
 # الـsha آخرُ ثلاثةٍ لكلِّ صورة (القائمةُ مرتّبةٌ الأحدثَ أوّلاً)؛ الأقدمُ يُفَكُّ وسمُه، وصورةٌ
 # ما زالت حاويةٌ تستعملُها يرفضُ دوكر حذفَها فلا يُمَسُّ شيءٌ حيّ.
+# ⛔ **و`reverb` مستثنى، وليسَ للزينة**: `docker rmi` على وسمٍ تحملُ صورتُه وسماً آخرَ
+# يفكُّ الوسمَ ولو كانت حاويةٌ تعملُ عليها، فيبحثُ `up -d` التالي عن
+# `elmotamayez-backend:reverb` ولا يجدُه محلّيّاً، فيحاولُ سحبَه من الشبكةِ وتسقطُ النشرة.
 for repo in elmotamayez-backend elmotamayez-frontend; do
     # `|| true` على الأنبوبِ كلِّه: `grep` بلا سطرٍ يخرجُ بـ١، و`pipefail` يُسقِطُ النشرةَ به.
     docker image ls "$repo" --format '{{.Tag}}' \
-        | grep -vxE 'latest|previous|<none>' | tail -n +4 \
+        | grep -vxE 'latest|previous|reverb|<none>' | tail -n +4 \
         | while read -r tag; do docker rmi "$repo:$tag" >/dev/null 2>&1 || true; done \
         || true
 done

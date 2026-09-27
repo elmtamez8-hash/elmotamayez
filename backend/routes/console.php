@@ -61,6 +61,34 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+/*
+| إعادةُ بناءِ فهارسِ البحثِ كلِّها — يُناديها `scripts/deploy.sh` مرّةً حينَ تتغيّرُ
+| نسخةُ Meilisearch (مجلّدُ بياناتٍ جديدٌ فارغ)، وتُشغَّلُ باليدِ بعدَ أيِّ فقدٍ للفهرس.
+|
+| ⚠️ **الإعداداتُ قبلَ الوثائق.** Meilisearch يرفضُ مرشِّحاً على خاصيّةٍ لم تُعلَن
+| (`SearchIndexSettingsTest`)، فاستيرادٌ يسبقُ الإعداداتِ يتركُ ثوانيَ يردُّ فيها كلُّ
+| بحثٍ في البنكِ والكورساتِ بـ٥٠٠. وتحديثُ إعداداتِ فهرسٍ غيرِ موجودٍ يُنشئُه.
+|
+| ⚠️ **والقائمةُ هي مفاتيحُ `scout.meilisearch.index-settings` لا قائمةٌ ثانية.**
+| نموذجٌ قابلٌ للبحثِ غائبٌ عنها يُسقِطُ `SearchIndexSettingsTest`، فلا يُنسى هنا.
+|
+| يُشغَّلُ بـ`SCOUT_QUEUE=false` كي يكونَ الاستيرادُ داخلَ الأمرِ نفسِه لا مهامَّ في
+| الطابور: النشرةُ تكتبُ علامةَ «تمّ» بعدَه، وعلامةٌ فوقَ مهامَّ لم تُصرَفْ كذبة.
+*/
+Artisan::command('search:rebuild-indexes', function (): int {
+    if ($this->call('scout:sync-index-settings') !== 0) {
+        return 1;
+    }
+
+    foreach (array_keys((array) config('scout.meilisearch.index-settings', [])) as $model) {
+        if ($this->call('scout:import', ['model' => $model]) !== 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+})->purpose('Recreate every search index: settings first, then every searchable model');
+
 // Playback grants outlive their usefulness by a week so a support question about
 // last Tuesday can still be answered. Staggered off the retention sweep at 03:30
 // — which is what now holds the slot the notification prune used to — because two
