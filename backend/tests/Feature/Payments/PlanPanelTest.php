@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Payments\Actions\SetPlanPrice;
 use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Payments\Filament\Resources\PlanResource\Pages\EditPlan;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
+use Livewire\Livewire;
 
 /*
 | The pricing queue's own screen — the surface without which US4 is unreachable.
@@ -132,4 +136,45 @@ it('takes a plan off sale when the price is cleared to nothing', function (): vo
 
     expect($priced->refresh()->price_minor)->toBeNull()
         ->and($priced->isSellable())->toBeFalse();
+});
+
+/*
+| ⛔ THE FINANCE OFFICER — NOT THE SUPER ADMIN — AND ONE WHO OWNS A WORKSPACE.
+|
+| Every case above signs in as the super admin, who passes every policy through
+| `Gate::before`. With no `canEdit()` on the Resource, Filament asked
+| `PlanPolicy::update()` — the TEACHER's door (`belongsToCurrentWorkspace()` then
+| `plans.manage`) — so the one person the pricing queue exists for opened it and
+| could price nothing, and an officer who owns a workspace could price only their
+| OWN plans. Two workspaces and an officer who belongs to the other one, or the
+| case proves nothing.
+*/
+it('lets a finance officer who owns a workspace price another teacher\'s plan', function (): void {
+    [$home, $officer] = $this->createWorkspaceWithOwner(['name' => 'مساحة الموظّف']);
+    makePlatformStaff(Roles::FINANCE_ADMIN, $officer);
+
+    $this->actingAs($officer);
+    app()->forgetInstance(WorkspaceContext::class);
+    $this->setCurrentWorkspace($home, $officer);
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+    expect(PlanResource::canEdit($this->plan))->toBeTrue();
+
+    Livewire::test(EditPlan::class, ['record' => $this->plan->getRouteKey()])
+        ->fillForm(['price_minor' => 45_000])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect((int) $this->plan->refresh()->price_minor)->toBe(45_000);
+});
+
+it('keeps the pricing screen and the Action shut to the teacher who owns the plan', function (): void {
+    $this->actingAs($this->owner);
+    app(WorkspaceContext::class)->set($this->workspace);
+
+    expect(PlanResource::canEdit($this->plan))->toBeFalse()
+        ->and(fn () => app(SetPlanPrice::class)->handle($this->owner, $this->plan, 1))
+        ->toThrow(AuthorizationException::class);
+
+    expect($this->plan->refresh()->price_minor)->toBeNull();
 });

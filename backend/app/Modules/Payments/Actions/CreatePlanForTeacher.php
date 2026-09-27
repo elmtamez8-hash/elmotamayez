@@ -88,7 +88,7 @@ class CreatePlanForTeacher extends Action
             // بيانات المدرّس وحدها — والسعر معاملٌ مستقلّ، انظر وصف الصنف.
             $plan = $this->savePlan->handle($officer, $workspaceId, $data);
 
-            return $this->setPlanPrice->handle($plan, $priceMinor);
+            return $this->setPlanPrice->handle($officer, $plan, $priceMinor);
         });
 
         $this->logActivity('plan.created_for_teacher', $plan, [

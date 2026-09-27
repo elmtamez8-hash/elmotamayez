@@ -283,6 +283,25 @@ class PlanResource extends Resource
     }
 
     /**
+     * ⚠️ THE SAME PERMISSION AS THE LIST, AND WITHOUT IT THE FINANCE OFFICER
+     * COULD SEE THE QUEUE AND PRICE NOTHING.
+     *
+     * With no `canEdit()` here Filament asked `PlanPolicy::update()` — a TEACHER's
+     * door: `belongsToCurrentWorkspace()` and then `plans.manage`. The finance
+     * officer holds `plans.price` and neither of those, so every edit link on
+     * this screen answered 403 to the one person the screen exists for; only the
+     * super admin, waved past every policy by `Gate::before`, could ever price a
+     * plan. And a finance officer who OWNS a workspace passed it for their own
+     * plans alone — pricing their own product, the thing 011 · Q4 forbids.
+     * `SetPlanPrice` asks the permission again, because a hidden button is not a
+     * guard.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->can(Permissions::PLANS_PRICE) === true;
+    }
+
+    /**
      * Retire with `is_active`, never delete — `subscriptions.plan_id` points here
      * and a student's own subscription must keep naming what they bought.
      *

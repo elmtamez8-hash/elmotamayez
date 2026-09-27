@@ -128,7 +128,7 @@ class DecidePlanChange extends Action
 
         $request->refresh();
 
-        $hidden = $approve ? $this->applyTo($request, $acknowledgeHiddenCohorts) : [];
+        $hidden = $approve ? $this->applyTo($request, $officer, $acknowledgeHiddenCohorts) : [];
 
         $this->tellTeacher($request, $approve, $hidden);
 
@@ -146,7 +146,7 @@ class DecidePlanChange extends Action
      * @return list<string> the names of the groups this approval took out of
      *                      the offer — empty when it took none
      */
-    private function applyTo(PlanChangeRequest $request, bool $acknowledgeHiddenCohorts): array
+    private function applyTo(PlanChangeRequest $request, User $officer, bool $acknowledgeHiddenCohorts): array
     {
         $old = Plan::query()->withoutWorkspaceScope()->whereKey($request->plan_id)->first();
 
@@ -157,7 +157,7 @@ class DecidePlanChange extends Action
             return [];
         }
 
-        return DB::transaction(function () use ($request, $old, $acknowledgeHiddenCohorts): array {
+        return DB::transaction(function () use ($request, $officer, $old, $acknowledgeHiddenCohorts): array {
             $workspaceId = (int) $old->workspace_id;
 
             /*
@@ -208,7 +208,7 @@ class DecidePlanChange extends Action
             | seen, which is the hole this whole flow exists to close.
             */
             if ($request->requested_price_minor !== null) {
-                app(SetPlanPrice::class)->handle($plan, (int) $request->requested_price_minor);
+                app(SetPlanPrice::class)->handle($officer, $plan, (int) $request->requested_price_minor);
             }
 
             $old->forceFill(['is_active' => false])->save();

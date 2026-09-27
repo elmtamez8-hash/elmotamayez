@@ -68,7 +68,7 @@ beforeEach(function (): void {
         ]),
     );
 
-    app(SetPlanPrice::class)->handle($this->plan, 10_000);
+    app(SetPlanPrice::class)->handle($this->officer, $this->plan, 10_000);
 });
 
 /** @param  array<string, mixed>  $overrides */
@@ -393,7 +393,7 @@ function narrowingRequest(): PlanChangeRequest
     seatedCohort('مجموعة الكيمياء', $chemistry);
 
     $wide = groupPriceFor(test()->course);
-    app(SetPlanPrice::class)->handle($wide, 20_000);
+    app(SetPlanPrice::class)->handle(test()->officer, $wide, 20_000);
 
     test()->wide = $wide;
 
