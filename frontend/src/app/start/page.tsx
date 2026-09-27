@@ -5,7 +5,9 @@ import { StartRedirect } from "./StartRedirect";
 /**
  * Where the INSTALLED app opens (`start_url` in `app/manifest.ts`).
  *
- * ⛔ Signed in → `/dashboard`; a visitor → `/` (owner decision 2026-09-27). The
+ * ⛔ Signed in → wherever signing in sends that person (`homePathFor()`: the
+ * marketplace for a student or guardian, `/dashboard` for a teacher or staff);
+ * a visitor → `/` (owner decision 2026-09-27). The
  * manifest used to open `/dashboard` for everybody, so a visitor who installed
  * the app from the marketplace landed on a sign-in wall instead of the page they
  * installed it from.

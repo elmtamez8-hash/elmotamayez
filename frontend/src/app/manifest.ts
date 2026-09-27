@@ -22,9 +22,8 @@ import { platformName } from "@/lib/platform";
  * launcher and the splash screen long after the site itself had changed.
  *
  * `start_url` is `/start`, which decides on the device (owner decision
- * 2026-09-27): a signed-in reader goes to `/dashboard` — the marketplace landing
- * page is a sales pitch to a person who has already bought — and a visitor goes
- * to `/`. It was `/dashboard` for everybody, which greeted a visitor who
+ * 2026-09-27): a signed-in reader goes exactly where signing in sends them
+ * (`homePathFor()`, the login page's own rule), and a visitor goes to `/`. It was `/dashboard` for everybody, which greeted a visitor who
  * installed from the marketplace with a sign-in wall. The session is a
  * `localStorage` token, so the server-rendered home page cannot know it without
  * painting the wrong page first; see `app/start/page.tsx`.
