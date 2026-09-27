@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use BackedEnum;
@@ -49,11 +50,11 @@ class ManageSiblingDiscount extends Page
 
     protected static ?string $slug = 'sibling-discount';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHeart;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::MONEY;
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 50;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

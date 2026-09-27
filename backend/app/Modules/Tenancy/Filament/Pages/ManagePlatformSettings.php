@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\PercentInput;
 use App\Models\User;
@@ -43,7 +44,7 @@ class ManagePlatformSettings extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::SETTINGS_AND_ACCESS;
 
     protected static ?int $navigationSort = 10;
 

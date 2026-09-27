@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Compliance\Enums\OffboardingStatus;
 use App\Modules\Compliance\Filament\Resources\TeacherOffboardingResource\Pages;
 use App\Modules\Compliance\Models\TeacherOffboarding;
@@ -44,7 +45,7 @@ class TeacherOffboardingResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowLeftOnRectangle;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الامتثال';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::COMPLIANCE;
 
     protected static ?int $navigationSort = 30;
 
@@ -67,6 +68,35 @@ class TeacherOffboardingResource extends Resource
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(Permissions::COMPLIANCE_OFFBOARDING_EXECUTE) ?? false;
+    }
+
+    /**
+     * طلباتُ خروجٍ لم يبدأْ فيها أحد، في كلِّ المساحات — التجاوزُ نفسُه الذي
+     * يُعلِنُه {@see self::getEloquentQuery()}، وإلّا قرأَ الموظّفُ الذي يملكُ
+     * مساحةً «صفر» عن طابورٍ ممتلئ.
+     */
+    public static function requestedCount(): int
+    {
+        return TeacherOffboarding::query()
+            ->withoutWorkspaceScope()
+            ->where('status', OffboardingStatus::Requested->value)
+            ->count();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::canViewAny()) {
+            return null;
+        }
+
+        $requested = static::requestedCount();
+
+        return $requested === 0 ? null : (string) $requested;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
     }
 
     public static function canCreate(): bool

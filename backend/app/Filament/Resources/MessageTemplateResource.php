@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\MessageTemplateResource\Pages;
 use App\Modules\Notifications\Enums\TemplateApprovalStatus;
 use App\Modules\Notifications\Models\MessageTemplate;
@@ -38,9 +39,9 @@ class MessageTemplateResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChatBubbleLeftRight;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الإشعارات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::NOTIFICATIONS;
 
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $modelLabel = 'قالب رسالة';
 
@@ -49,6 +50,39 @@ class MessageTemplateResource extends Resource
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(Permissions::NOTIFICATIONS_TEMPLATES_MANAGE) ?? false;
+    }
+
+    /**
+     * قوالبُ تنتظرُ اعتمادَ المزوّد — ولا تُرسَلُ حتّى يُعتمَد
+     * ({@see MessageTemplate::isSendable()}): رقمٌ رماديٌّ لأنّ القرارَ عندَ
+     * المزوّدِ لا عندَ القارئ.
+     */
+    public static function awaitingApprovalCount(): int
+    {
+        return MessageTemplate::query()
+            ->where('provider_approval_status', MessageTemplate::APPROVAL_PENDING)
+            ->count();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::canViewAny()) {
+            return null;
+        }
+
+        $pending = static::awaitingApprovalCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'gray';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'قوالب تنتظر اعتماد المزوّد';
     }
 
     public static function form(Schema $schema): Schema

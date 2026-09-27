@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Pages;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Payments\Actions\DecidePlanChange;
 use App\Modules\Payments\Enums\PlanChangeStatus;
@@ -47,7 +49,7 @@ use UnitEnum;
  * A filtered menu shapes one request and not the next — a slug is typed as
  * easily as it is clicked.
  */
-class ReviewPlanChanges extends Page implements HasTable
+class ReviewPlanChanges extends Page implements AwaitsDecision, HasTable
 {
     use InteractsWithTable;
 
@@ -57,9 +59,9 @@ class ReviewPlanChanges extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPencilSquare;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 50;
 
     public static function canAccess(): bool
     {
@@ -84,13 +86,28 @@ class ReviewPlanChanges extends Page implements HasTable
      */
     public static function getNavigationBadge(): ?string
     {
-        if (! static::canAccess()) {
+        if (! static::decisionQueueVisible()) {
             return null;
         }
 
-        $pending = PlanChangeRequest::query()->withoutWorkspaceScope()->pending()->count();
+        $pending = static::pendingCount();
 
         return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function pendingCount(): int
+    {
+        return PlanChangeRequest::query()->withoutWorkspaceScope()->pending()->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canAccess();
     }
 
     public function table(Table $table): Table

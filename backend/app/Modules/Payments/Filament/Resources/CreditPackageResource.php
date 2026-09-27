@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Filament\Resources\CreditPackageResource\Pages;
 use App\Modules\Payments\Models\CreditPackage;
@@ -53,9 +54,9 @@ class CreditPackageResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::MONEY;
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 30;
 
     protected static ?string $recordTitleAttribute = 'name';
 

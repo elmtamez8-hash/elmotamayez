@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Gamification\Filament\Resources\GamificationActionResource\Pages;
 use App\Modules\Gamification\Models\Badge;
 use App\Modules\Gamification\Models\GamificationAction;
@@ -49,7 +50,7 @@ class GamificationActionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBolt;
 
-    protected static string|UnitEnum|null $navigationGroup = 'التلعيب';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::GAMIFICATION;
 
     protected static ?int $navigationSort = 20;
 
@@ -57,7 +58,7 @@ class GamificationActionResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'الأفعال';
+        return 'أفعال النقاط';
     }
 
     public static function getModelLabel(): string

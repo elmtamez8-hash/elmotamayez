@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Marketplace\Filament\Resources\GradeLevelResource\Pages;
 use App\Modules\Marketplace\Filament\Resources\TaxonomyResource\RelationManagers\TeacherProfilesRelationManager;
 use App\Modules\Marketplace\Models\GradeLevel;
@@ -28,7 +29,7 @@ class GradeLevelResource extends TaxonomyResource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = 'السوق والتصنيف';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHERS_AND_MARKET;
 
     protected static ?int $navigationSort = 30;
 

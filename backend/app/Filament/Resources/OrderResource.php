@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Support\MoneyInput;
 use App\Models\User;
@@ -43,19 +45,89 @@ use Illuminate\Support\HtmlString;
 use RuntimeException;
 use UnitEnum;
 
-class OrderResource extends Resource
+class OrderResource extends Resource implements AwaitsDecision
 {
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
     protected static ?int $navigationSort = 10;
 
+    /*
+    | «اعتماد المدفوعات» على القائمة، و«الطلبات» فوقَ الجدول: البندُ في مجموعةِ
+    | «ينتظر قرارك» يُسمّي القرارَ الذي يُنتظَر، والجدولُ يعرضُ كلَّ الطلباتِ
+    | بحالاتِها كلِّها — فعنوانٌ يقولُ «تنتظر الاعتماد» فوقَ صفوفٍ معتمَدةٍ يكذب.
+    */
     public static function getNavigationLabel(): string
     {
-        return 'الطلبات';
+        return 'اعتماد المدفوعات';
+    }
+
+    /**
+     * ما ينتظرُ الاعتمادَ أو الرفض — `awaitingDecisionStatuses()` نفسُها التي
+     * يسألُها `ApproveOrder` و`RejectOrder`، لا قائمةٌ ثانيةٌ تُكتَبُ هنا.
+     */
+    public static function pendingCount(): int
+    {
+        return Order::query()->withoutWorkspaceScope()->awaitingDecision()->count();
+    }
+
+    /** مبالغُ دُفِعَت ويجبُ ردُّها — طابورٌ ثانٍ على الشاشةِ نفسِها. */
+    public static function refundDueCount(): int
+    {
+        return Order::query()->withoutWorkspaceScope()
+            ->where('status', OrderStatus::RefundDue->value)
+            ->count();
+    }
+
+    /**
+     * ⚠️ **صلاحيّةُ القرارِ لا صلاحيّةُ القراءة.** بابُ هذه الشاشةِ
+     * `OrderPolicy::viewAny()` = `ORDERS_VIEW_ALL`، وهي صلاحيّةُ مساحةٍ يحملُها
+     * موظّفُ المنصّةِ الذي يملكُ مساحةً هناك — ولذلك القارئِ يبقى الجدولُ محصوراً
+     * في مساحتِه ({@see self::getEloquentQuery()})، فعدّادٌ منصّيٌّ فوقَه يَعِدُ بما
+     * لا يعرضُه. العدّادُ لمن يملكُ أن يُقرِّر: وله وحدَه الجدولُ منصّيٌّ فعلاً.
+     */
+    public static function decisionQueueVisible(): bool
+    {
+        $user = Auth::user();
+
+        return $user instanceof User
+            && static::canViewAny()
+            && ($user->can(Permissions::PAYMENTS_APPROVE) || $user->can(Permissions::BILLING_PURCHASE_APPROVE));
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    /**
+     * ⚠️ المستحَقُّ ردُّه يُقالُ هنا لا في رقمٍ ثانٍ: بندُ القائمةِ يحملُ عدّاداً
+     * واحداً، وجمعُ الطابورَينِ فيه يخلطُ «اعتمِدْ» بـ«رُدَّ المال». وله بطاقتُه
+     * الحمراءُ على لوحةِ «ينتظر قرارك».
+     */
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $refunds = static::refundDueCount();
+
+        return $refunds === 0 ? null : 'مبالغ يجب ردّها: '.$refunds;
     }
 
     public static function getModelLabel(): string

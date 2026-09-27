@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Filament\Pages;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
@@ -58,7 +60,7 @@ use UnitEnum;
  * عبرَ عقدٍ مشترَك، وهو ما وُضِعَ له `SettlementClearance` في الاتّجاهِ المقابل:
  * سياقانِ وقراءتانِ، بلا مفتاحٍ بينَهما.
  */
-class ReviewRateRequests extends Page implements HasTable
+class ReviewRateRequests extends Page implements AwaitsDecision, HasTable
 {
     use InteractsWithTable;
 
@@ -68,9 +70,9 @@ class ReviewRateRequests extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 26;
+    protected static ?int $navigationSort = 40;
 
     /**
      * ⚠️ الحارسُ مكرَّرٌ هنا ولا يُورَثُ من القائمة.
@@ -92,6 +94,36 @@ class ReviewRateRequests extends Page implements HasTable
     public function getTitle(): string
     {
         return 'اعتماد أسعار المدرّسين';
+    }
+
+    /** طلباتُ الأسعارِ المعلَّقة، بلا نطاقِ ورشة — الشرطُ نفسُه الذي يقرؤه الجدولُ أدناه. */
+    public static function pendingCount(): int
+    {
+        return RateChangeRequest::query()
+            ->withoutWorkspaceScope()
+            ->where('status', RateRequestStatus::Pending->value)
+            ->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
     }
 
     public function table(Table $table): Table

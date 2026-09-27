@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Compliance\Enums\DataRequestStatus;
 use App\Modules\Compliance\Enums\DataRequestType;
 use App\Modules\Compliance\Filament\Resources\DataRequestResource\Pages;
@@ -42,9 +43,9 @@ class DataRequestResource extends Resource
 {
     protected static ?string $model = DataRequest::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFingerPrint;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الامتثال';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::COMPLIANCE;
 
     protected static ?int $navigationSort = 10;
 
@@ -72,6 +73,42 @@ class DataRequestResource extends Resource
     public static function canViewAny(): bool
     {
         return auth()->user()?->can(Permissions::COMPLIANCE_REQUESTS_EXECUTE) ?? false;
+    }
+
+    /**
+     * ما زالَ يجري عليه الأجلُ النظاميّ: `pending` و`processing`، على الفهرسِ
+     * `(status, due_at)`.
+     *
+     * ⚠️ لا `on_hold` مع أنّ `isOpen()` يعدُّه مفتوحاً: التعليقُ القانونيُّ يوقفُ
+     * الطلبَ بقرارٍ اتُّخِذَ فعلاً، فلا ينتظرُ أحداً — وعدُّه يُبقي العدّادَ مرفوعاً
+     * على ما لا عملَ فيه.
+     */
+    public static function openCount(): int
+    {
+        return DataRequest::query()
+            ->whereIn('status', [DataRequestStatus::Pending->value, DataRequestStatus::Processing->value])
+            ->count();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::canViewAny()) {
+            return null;
+        }
+
+        $open = static::openCount();
+
+        return $open === 0 ? null : (string) $open;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
+    }
+
+    public static function getNavigationBadgeTooltip(): ?string
+    {
+        return 'طلبات جارية لها أجل نظامي';
     }
 
     public static function canCreate(): bool

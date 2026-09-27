@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Gamification\Filament\Resources;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Gamification\Enums\RedemptionStatus;
 use App\Modules\Gamification\Filament\Resources\RedemptionResource\Pages;
@@ -36,19 +38,55 @@ use UnitEnum;
  * الصفِّ أبداً، و`viewAny` الافتراضيّةُ تسمح — فمَورِدٌ بلا رفضٍ صريحٍ هو مَورِدٌ
  * بلا حارس.
  */
-class RedemptionResource extends Resource
+class RedemptionResource extends Resource implements AwaitsDecision
 {
     protected static ?string $model = Redemption::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTicket;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static string|UnitEnum|null $navigationGroup = 'التلعيب';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 50;
+    protected static ?int $navigationSort = 70;
 
     public static function getNavigationLabel(): string
     {
-        return 'طلبات الاستبدال';
+        return 'طلبات استبدال المكافآت';
+    }
+
+    /**
+     * الطلباتُ المعلَّقةُ في كلِّ المساحات — على `(workspace_id, status, …)`، فعدٌّ
+     * منصّيٌّ يمسحُ الفهرسَ لا الجدول.
+     *
+     * ⚠️ البتُّ فيها من شاشةِ المدرّسِ لا من هنا (انظر ترويسةَ الصنف): العدّادُ
+     * يقولُ لمديرِ المنصّةِ إنّ طلاباً ينتظرون، لا إنّ زرّاً ينتظرُه.
+     */
+    public static function pendingCount(): int
+    {
+        return Redemption::query()
+            ->withoutWorkspaceScope()
+            ->where('status', RedemptionStatus::Pending->value)
+            ->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
     }
 
     public static function getModelLabel(): string

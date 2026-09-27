@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Compliance\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Compliance\Actions\ReleaseLegalHold;
 use App\Modules\Compliance\Filament\Resources\LegalHoldResource\Pages;
@@ -47,7 +48,7 @@ class LegalHoldResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLockClosed;
 
-    protected static string|UnitEnum|null $navigationGroup = 'الامتثال';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::COMPLIANCE;
 
     protected static ?int $navigationSort = 40;
 

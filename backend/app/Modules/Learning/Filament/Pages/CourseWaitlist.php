@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Learning\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
@@ -68,9 +69,9 @@ class CourseWaitlist extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المحتوى والتعلّم';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::CONTENT;
 
-    protected static ?int $navigationSort = 32;
+    protected static ?int $navigationSort = 50;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Pages;
 
+use App\Filament\Contracts\AwaitsDecision;
+use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
@@ -85,7 +87,7 @@ use UnitEnum;
  *
  * @property-read Schema $form
  */
-class GrantCreditSubscription extends Page implements HasTable
+class GrantCreditSubscription extends Page implements AwaitsDecision, HasTable
 {
     /**
      * How long an approved subscription order stays on the queue so a failed
@@ -103,11 +105,11 @@ class GrantCreditSubscription extends Page implements HasTable
 
     protected static ?string $slug = 'grant-credit-subscription';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGift;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::DECISIONS;
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 20;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -145,6 +147,43 @@ class GrantCreditSubscription extends Page implements HasTable
     public static function getNavigationLabel(): string
     {
         return 'طلبات الاشتراك · منح رصيد';
+    }
+
+    /**
+     * طلباتُ الاشتراكِ التي تنتظرُ القرار — نصفُ الطابورِ من الجدولِ أدناه.
+     *
+     * ⚠️ `awaitingDecision()` وحدَها، لا نافذةُ الأربعةَ عشرَ يوماً التي تُبقي
+     * المعتمَدَ ظاهراً (FR-027): تلك صفوفٌ تُراقَبُ لا تُقرَّر، وعدُّها يجعلُ
+     * العدّادَ لا يصلُ صفراً أبداً.
+     */
+    public static function pendingCount(): int
+    {
+        return Order::query()
+            ->withoutWorkspaceScope()
+            ->where('kind', OrderKind::Subscription)
+            ->awaitingDecision()
+            ->count();
+    }
+
+    public static function decisionQueueVisible(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        if (! static::decisionQueueVisible()) {
+            return null;
+        }
+
+        $pending = static::pendingCount();
+
+        return $pending === 0 ? null : (string) $pending;
+    }
+
+    public static function getNavigationBadgeColor(): string
+    {
+        return 'warning';
     }
 
     public function getTitle(): string

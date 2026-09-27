@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Settlement\Support\SettlementAuditSubjects;
 use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
@@ -47,9 +48,9 @@ class SettlementAuditLog extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHER_EARNINGS;
 
-    protected static ?int $navigationSort = 29;
+    protected static ?int $navigationSort = 30;
 
     /** Arabic for what was decided. Unmapped falls through as its slug, never as a blank. */
     public const EVENT_LABELS = [

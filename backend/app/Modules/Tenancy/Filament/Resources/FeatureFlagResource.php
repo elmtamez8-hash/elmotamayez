@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tenancy\Filament\Resources;
 
+use App\Filament\NavigationGroups;
 use App\Modules\Assessments\Actions\CreateStudyRoom;
 use App\Modules\Assessments\Actions\StartAdaptiveSession;
 use App\Modules\Tenancy\Filament\Resources\FeatureFlagResource\Pages;
@@ -50,9 +51,9 @@ class FeatureFlagResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المنصّة';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::SETTINGS_AND_ACCESS;
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 30;
 
     public static function getNavigationLabel(): string
     {

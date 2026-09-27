@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Settlement\Filament\Pages;
 
+use App\Filament\NavigationGroups;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Settlement\Actions\ReverseTeachingUnit;
@@ -64,9 +65,9 @@ class ReverseTeachingUnits extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowUturnLeft;
 
-    protected static string|UnitEnum|null $navigationGroup = 'المال والاشتراكات';
+    protected static string|UnitEnum|null $navigationGroup = NavigationGroups::TEACHER_EARNINGS;
 
-    protected static ?int $navigationSort = 28;
+    protected static ?int $navigationSort = 20;
 
     /**
      * `settlement.period.manage` — what `TeachingUnitPolicy::reverse()` asks.
