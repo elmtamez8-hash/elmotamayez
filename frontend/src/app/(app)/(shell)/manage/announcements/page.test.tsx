@@ -24,7 +24,7 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/lib/announcements", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/announcements")>()),
   announcements: {
-    list: () => list(),
+    list: (page?: number) => list(page),
     create: vi.fn(),
     publish: vi.fn(),
     update: (...args: unknown[]) => update(...args),
@@ -84,5 +84,55 @@ describe("announcements page", () => {
       "an-1",
       expect.objectContaining({ body: "الحصة مؤجلة", is_urgent: true }),
     );
+  });
+});
+
+/*
+  ⛔ The list is paginated (50 a page) and the screen read `.data` alone, so the
+  51st announcement onwards never appeared anywhere.
+*/
+describe("announcements page — more than one page", () => {
+  const row = (uuid: string, body: string) => ({
+    uuid,
+    body,
+    scope: "all",
+    is_urgent: false,
+    is_published: true,
+    is_hidden: false,
+    published_at: null,
+    created_at: null,
+    notified_count: 0,
+    read_count: 0,
+  });
+
+  it("offers «عرض المزيد» and appends the next page, without repeating a row", async () => {
+    list.mockImplementation(async (page?: number) =>
+      page === 2
+        ? { data: [row("an-2", "ثانٍ"), row("an-3", "ثالث")], meta: { current_page: 2, last_page: 2 } }
+        : { data: [row("an-1", "أوّل"), row("an-2", "ثانٍ")], meta: { current_page: 1, last_page: 2 } },
+    );
+
+    await act(async () => {
+      render(<AnnouncementsPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "عرض المزيد" }));
+    });
+
+    expect(list).toHaveBeenLastCalledWith(2);
+    expect(screen.getByText("ثالث")).toBeTruthy();
+    expect(screen.getAllByText("ثانٍ")).toHaveLength(1);
+    // The last page was read: nothing more to offer.
+    expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
+  });
+
+  it("offers nothing on the unpaginated shape an older API still sends", async () => {
+    await act(async () => {
+      render(<AnnouncementsPage />);
+    });
+
+    expect(await screen.findByText("الحصة مؤجلة")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
   });
 });
