@@ -84,9 +84,9 @@ it('accepts a minor-unit price through the course DTO', function (): void {
     $dto = CreateCourseDTO::fromArray(['title' => 'الرياضيات', 'price_minor' => 4999]);
 
     expect($dto->priceMinor)->toBe(4999)
-        // The currency default moved with the money: a Qatari product defaulting
-        // to USD was a silent fault, not a placeholder.
-        ->and($dto->currency)->toBe('QAR');
+        // No currency chosen stays null here: `CreateCourse` fills it from
+        // `BillingSettings::currency()` (owner decision 2026-09-27, one source).
+        ->and($dto->currency)->toBeNull();
 });
 
 it('prices a product in minor units too', function (): void {
