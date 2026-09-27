@@ -9,6 +9,7 @@ use App\Modules\Payments\Enums\CreditTransactionType;
 use App\Modules\Payments\Events\CreditExpired;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\CreditLot;
+use App\Modules\Payments\Models\CreditTransaction;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Shared\Traits\RunsAlone;
 use Illuminate\Bus\Queueable;
@@ -59,9 +60,43 @@ class ExpireCreditLotsJob implements ShouldQueue
             });
     }
 
+    /**
+     * The first write-off of a lot keeps the key it always had; any later one
+     * (the part that was held for a seat, freed since) is numbered.
+     */
+    public const SOURCE_TYPE = 'credit_lot';
+
     private function expire(CreditLot $lot, CreditLedger $ledger): void
     {
         $remainder = $lot->credits_remaining;
+
+        $balance = CreditBalance::query()->withoutWorkspaceScope()->find($lot->credit_balance_id);
+
+        if ($balance === null) {
+            return;
+        }
+
+        /*
+        | ⛔ NEVER THE PART THAT IS HOLDING A SEAT (audit 2026-09-27). A credit
+        | frozen for next Tuesday's booking is still in `remaining_credits`, and
+        | it may well be sitting in this lot. Writing the whole lot off took it:
+        | the seat stayed booked, Tuesday's charge then drew on a balance that no
+        | longer had the credit, and the student ended the lesson NEGATIVE — in
+        | arrears, withheld, for a lesson they had paid for before the date.
+        |
+        | So only what is FREE may expire: `remaining − held` on the balance,
+        | never more than this lot holds. The rest stays in the lot, which the
+        | drawer takes first (soonest expiry first — an expired lot is the
+        | soonest of all), so the held seat is charged out of exactly the credit
+        | that would otherwise have lapsed. If the seat is released instead, the
+        | credit is free again and the next night's run writes it off.
+        */
+        $free = max(0, (int) $balance->remaining_credits - (int) $balance->held_credits);
+        $expiring = min($remainder, $free);
+
+        if ($expiring <= 0) {
+            return;
+        }
 
         // The claim, in the shape a seat is claimed: one conditional UPDATE that
         // both checks and takes. `count() then update()` is the race itself — a
@@ -72,24 +107,25 @@ class ExpireCreditLotsJob implements ShouldQueue
             ->withoutWorkspaceScope()
             ->whereKey($lot->getKey())
             ->where('credits_remaining', $remainder)
-            ->update(['credits_remaining' => 0]);
+            ->update(['credits_remaining' => $remainder - $expiring]);
 
         if ($claimed === 0) {
-            return;
-        }
-
-        $balance = CreditBalance::query()->withoutWorkspaceScope()->find($lot->credit_balance_id);
-
-        if ($balance === null) {
             return;
         }
 
         $entry = $ledger->post(new CreditMovement(
             balance: $balance,
             type: CreditTransactionType::Expire,
-            credits: -$remainder,
-            sourceType: 'credit_lot',
-            // The idempotency key: one write-off per lot, whatever replays.
+            credits: -$expiring,
+            /*
+            | The idempotency key: one write-off per lot PER PASS. A lot now can
+            | lapse in parts (the held part stays until its seat is settled), and
+            | a second part under the first part's key would be read as «already
+            | recorded» — the lot emptied with no entry behind it, and the nightly
+            | `lot_remainder` invariant reporting it for ever. The claim above is
+            | what makes the pass number stable: only its winner gets here.
+            */
+            sourceType: $this->sourceTypeFor($lot),
             sourceId: (int) $lot->getKey(),
             reason: 'انتهت صلاحية دفعة أرصدة.',
             // The lot above was emptied by the claim. Letting the drawer run
@@ -104,5 +140,25 @@ class ExpireCreditLotsJob implements ShouldQueue
             // still roll back.
             DB::afterCommit(fn () => CreditExpired::dispatch($entry));
         }
+    }
+
+    /**
+     * `credit_lot` for a lot's first write-off (every entry written before
+     * 2026-09-27 carries it), `credit_lot_2`, `credit_lot_3`… for the parts
+     * after it — well inside the 32 characters `source_type` allows.
+     */
+    private function sourceTypeFor(CreditLot $lot): string
+    {
+        $earlier = CreditTransaction::query()
+            ->withoutWorkspaceScope()
+            ->where('credit_balance_id', $lot->credit_balance_id)
+            ->where('type', CreditTransactionType::Expire->value)
+            ->where('source_id', $lot->getKey())
+            // A plain prefix: an escaped `\_` means different things to the two
+            // engines, and no other Expire entry is keyed on a lot id.
+            ->where('source_type', 'like', self::SOURCE_TYPE.'%')
+            ->count();
+
+        return $earlier === 0 ? self::SOURCE_TYPE : self::SOURCE_TYPE.'_'.($earlier + 1);
     }
 }

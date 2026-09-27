@@ -158,3 +158,91 @@ it('refuses to cancel the same subscription twice', function (): void {
 | are about what cancelling DOES — the access, the reversal, the referral points,
 | the older course's dues, and the refusal of a second cancellation.
 */
+
+/*
+| OWNER DECISION 2026-09-27 — cancelling refunds the UNUSED part only.
+|
+| Length = ends_on − starts_on + 1 (a 30-day plan is 30 days). Unused = from the
+| cancellation date (which counts as unused: access stops at that moment) through
+| the last day, never more than the length. Refund = paid × unused ÷ length,
+| floored to the minor unit. The capture still flips to `reversed`; the amount
+| that actually goes back is `refunded_minor`.
+*/
+function refundedOn(Subscription $subscription): ?int
+{
+    return PaymentTransaction::query()
+        ->withoutWorkspaceScope()
+        ->where('order_id', $subscription->order_id)
+        ->sole()
+        ->refunded_minor;
+}
+
+it('refunds everything when cancelled on the first day', function (): void {
+    $subscription = buyAndApprove();
+
+    app(CancelSubscription::class)->handle($subscription, 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(30_000);
+});
+
+it('refunds the unused days only, from the cancellation date through the last day', function (): void {
+    $subscription = buyAndApprove();
+
+    // Day 11 of 30: days 1–10 used, 11–30 (twenty days) unused.
+    $this->travel(10)->days();
+
+    expect(app(CancelSubscription::class)->refundPreview($subscription->refresh()))
+        ->toBe(['refund_minor' => 20_000, 'unused_days' => 20, 'total_days' => 30, 'paid_minor' => 30_000]);
+
+    app(CancelSubscription::class)->handle($subscription, 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(20_000);
+});
+
+it('refunds one day on the last day', function (): void {
+    $subscription = buyAndApprove();
+
+    $this->travel(29)->days();
+
+    app(CancelSubscription::class)->handle($subscription->refresh(), 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(1_000);
+});
+
+it('floors the refund to the minor unit', function (): void {
+    $this->plan->forceFill(['price_minor' => 10_000])->save();
+    $subscription = buyAndApprove();
+
+    // 7 unused of 30: 10 000 × 7 ÷ 30 = 2 333.33… → 2 333.
+    $this->travel(23)->days();
+
+    app(CancelSubscription::class)->handle($subscription->refresh(), 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(2_333);
+});
+
+it('counts the days a freeze added as the window, never beyond what was paid for', function (): void {
+    $subscription = buyAndApprove();
+
+    // A ten-day freeze pushed the last day out: 30 paid days in a 40-day window.
+    $subscription->forceFill(['effective_ends_on' => $subscription->ends_on->copy()->addDays(10)])->save();
+
+    // Cancelled on day 26 of the window: 15 days of access left.
+    $this->travel(25)->days();
+    app(CancelSubscription::class)->handle($subscription->refresh(), 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(15_000);
+});
+
+it('refunds a renewal cancelled before its first day in full', function (): void {
+    $subscription = buyAndApprove();
+    $subscription->forceFill([
+        'starts_on' => $subscription->starts_on->copy()->addDays(5),
+        'ends_on' => $subscription->ends_on->copy()->addDays(5),
+        'effective_ends_on' => $subscription->effective_ends_on->copy()->addDays(5),
+    ])->save();
+
+    app(CancelSubscription::class)->handle($subscription->refresh(), 'استرداد');
+
+    expect(refundedOn($subscription))->toBe(30_000);
+});

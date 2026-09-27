@@ -26,6 +26,7 @@ use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
 use App\Modules\Payments\Support\CreditLedger;
 use App\Modules\Payments\Support\SubscriptionAccess;
+use App\Modules\Payments\Support\SubscriptionRefund;
 use App\Shared\Actions\Action;
 use App\Shared\Events\CourseAccessWithdrawn;
 use App\Shared\Traits\LogsActivity;
@@ -132,6 +133,55 @@ class ReverseCreditOrder extends Action
         return $lot === null ? 0 : $this->fundedHolds($lot, max(0, (int) $lot->credits_remaining))->count();
     }
 
+    /**
+     * How much money reversing this order NOW would send back, in minor units —
+     * the third number the officer is shown. The same rule `handle()` records.
+     */
+    public function moneyRefundFor(Order $order): int
+    {
+        $captured = PaymentTransaction::query()
+            ->withoutWorkspaceScope()
+            ->where('order_id', $order->getKey())
+            ->where('status', PaymentStatus::Captured->value)
+            ->first();
+
+        if ($captured === null) {
+            return 0;
+        }
+
+        $amount = (int) $captured->amount_minor;
+
+        return $this->moneyBackFor($order, $amount, $this->refundableFor($order)) ?? $amount;
+    }
+
+    /**
+     * ⛔ AN HOURS PLAN GIVES BACK ONLY ITS UNUSED SESSIONS (owner decision
+     * 2026-09-27): paid × unused ÷ bought, floored to the minor unit
+     * ({@see SubscriptionRefund::forSessions()}). The sessions already taught
+     * were paid to the teacher at delivery and stay consumed — the credits say
+     * so already; this makes the money say the same.
+     *
+     * Null for a credit PACKAGE: the owner's decision is about plans, and a
+     * package reversal (a bank refund, a dispute) still sends the whole capture
+     * back as it always did.
+     */
+    private function moneyBackFor(Order $order, int $amountMinor, int $unusedSessions): ?int
+    {
+        if ($order->kind !== OrderKind::Subscription) {
+            return null;
+        }
+
+        $sessionCount = SubscriptionIntent::fromOrder($order)?->sessionCount;
+
+        // No lot means the hours were never poured in (the activation found no
+        // course to credit): nothing was used, and the whole payment goes back.
+        if ($sessionCount === null || $sessionCount <= 0 || $this->lotFor($order) === null) {
+            return null;
+        }
+
+        return SubscriptionRefund::forSessions($amountMinor, $unusedSessions, $sessionCount);
+    }
+
     public function handle(Order $order, User $by, string $reason): Order
     {
         $reason = trim($reason);
@@ -179,12 +229,15 @@ class ReverseCreditOrder extends Action
                 ->whereNull('reversed_at')
                 ->update(['reversed_at' => now()]);
 
-            $this->reverse->handle($captured, $reason);
+            $refundMinor = $this->moneyBackFor($order, (int) $captured->amount_minor, $clawedBack);
+
+            $this->reverse->handle($captured, $reason, $refundMinor);
 
             $this->logActivity('order.reversed', $order, [
                 'reason' => $reason,
                 'reversed_by' => $by->getKey(),
                 'transaction_id' => $captured->getKey(),
+                'refund_minor' => $refundMinor ?? (int) $captured->amount_minor,
                 'credits_clawed_back' => $clawedBack,
                 'seats_released' => $seatsReleased,
                 'enrollments_closed' => $accessClosed,

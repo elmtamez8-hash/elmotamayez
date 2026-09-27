@@ -14,6 +14,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Contracts\SessionSeatCharges;
 use App\Shared\Contracts\SessionUnitReversal;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A teacher marking a student by hand.
@@ -105,41 +106,69 @@ class OverrideAttendance extends Action
             throw new DomainException('لا يمكن ردُّ حصّةِ سجلٍّ لا يخصُّ حساباً قائماً.');
         }
 
-        $reversed = $reversing
-            && $this->charges->reverse(
-                $student,
-                (int) $attendance->class_session_id,
-                $reason,
-            );
-
         /*
-        | ⛔ AND THE TEACHER'S SIDE OF THE SAME HOUR, or the platform pays for
-        | the excuse out of its own pocket (T031). Two contracts rather than one
-        | because they are two contexts with no key between them — the credit
-        | lives in billing, the unit in settlement, and `ContextIsolationTest`
-        | fails the build over anything that joins them.
+        | ⛔ ONE TRANSACTION: THE CREDIT, THE TEACHER'S UNIT AND THE REGISTER
+        | (audit 2026-09-27). They were three independent writes. When the second
+        | or third failed, the student's credit was already back — and the retry
+        | then read «already reversed» from the ledger as «nothing to reverse»,
+        | skipped the teacher's side and kept the verdict: refunded AND paid, for
+        | good. Now a failure anywhere rolls the credit back with it, and
+        | `reverse()` answers true for a reversal that already exists, so even a
+        | retry across a committed half reaches the teacher's unit.
         */
-        if ($reversed) {
-            $this->units->reverseSeat(
-                (int) $attendance->class_session_id,
-                (int) $attendance->student_user_id,
-                $reason,
-            );
-        }
+        DB::transaction(function () use ($attendance, $status, $actor, $reason, $reversing, $student): void {
+            $reversed = $reversing
+                && $this->charges->reverse(
+                    $student,
+                    (int) $attendance->class_session_id,
+                    $reason,
+                );
 
-        $attendance->forceFill([
-            'status' => $status,
-            'source' => AttendanceSource::Manual,
-            // auto_status deliberately left as it was.
-            'overridden_by' => $actor->getKey(),
-            'overridden_at' => now(),
-            'override_reason' => $reason,
-            // Cleared with the reversal, so the content gate and the register
-            // give one answer: the seat is no longer charged, so its content is
-            // locked again until the student consents to pay for it.
-            'credit_verdict_at' => $reversed ? null : $attendance->credit_verdict_at,
-        ])->save();
+            /*
+            | ⛔ THE CHARGE MAY NOT HAVE RUN YET. `CloseClassSession` stamps the
+            | verdict and the charge and the pay follow on a QUEUE, both reading
+            | `credit_verdict_at`. An excuse accepted in between found no charge
+            | to reverse, left the verdict stamped, and the charge that landed a
+            | minute later billed the excused seat anyway. Clearing the verdict
+            | here is what makes that later charge (and the later pay) see an
+            | exempt seat — and a unit already accrued is reversed below.
+            */
+            $chargePending = $reversing && ! $reversed && DB::table('class_sessions')
+                ->where('id', $attendance->class_session_id)
+                ->whereNull('charged_at')
+                ->exists();
 
+            /*
+            | ⛔ AND THE TEACHER'S SIDE OF THE SAME HOUR, or the platform pays for
+            | the excuse out of its own pocket (T031). Two contracts rather than one
+            | because they are two contexts with no key between them — the credit
+            | lives in billing, the unit in settlement, and `ContextIsolationTest`
+            | fails the build over anything that joins them. Idempotent by the
+            | unit's own key, so a retry is harmless.
+            */
+            if ($reversed || $chargePending) {
+                $this->units->reverseSeat(
+                    (int) $attendance->class_session_id,
+                    (int) $attendance->student_user_id,
+                    $reason,
+                );
+            }
+
+            $attendance->forceFill([
+                'status' => $status,
+                'source' => AttendanceSource::Manual,
+                // auto_status deliberately left as it was.
+                'overridden_by' => $actor->getKey(),
+                'overridden_at' => now(),
+                'override_reason' => $reason,
+                // Cleared with the reversal, so the content gate and the register
+                // give one answer: the seat is no longer charged, so its content is
+                // locked again until the student consents to pay for it.
+                'credit_verdict_at' => $reversed || $chargePending ? null : $attendance->credit_verdict_at,
+            ])->save();
+        });
+
+        // After the commit: every listener hears about a correction that holds.
         AttendanceOverridden::dispatch($attendance);
 
         return $attendance;

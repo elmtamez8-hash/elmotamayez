@@ -57,6 +57,14 @@ class TransactionsRelationManager extends RelationManager
                     ->label('المبلغ')
                     ->money(fn (PaymentTransaction $record): string => (string) $record->currency, divideBy: 100),
                 /*
+                | ⛔ المبلغُ المردودُ عمودٌ مستقلّ (٢٠٢٦-٠٩-٢٧): إلغاءُ الاشتراكِ يَرُدُّ
+                | غيرَ المستخدَمِ وحدَه، فـ«معكوسة» لم تعُدْ تعني «رُدَّ المبلغُ كلُّه».
+                */
+                TextColumn::make('refunded_minor')
+                    ->label('المبلغ المردود')
+                    ->placeholder('—')
+                    ->money(fn (PaymentTransaction $record): string => (string) $record->currency, divideBy: 100),
+                /*
                 | ⛔ كان الإغلاقانِ يشترطانِ `string` — و`PaymentTransaction::$status`
                 | **مصبوبٌ إلى `PaymentStatus`**، فيصلُ الحالةُ كائنَ enum لا نصّاً.
                 | فيرمي PHP `TypeError`، وتسقطُ معه **الصفحةُ كلُّها**: «حدث خطأ

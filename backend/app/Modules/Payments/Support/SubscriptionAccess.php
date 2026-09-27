@@ -52,11 +52,13 @@ class SubscriptionAccess
      * finds none — the shape `CancelClassSession` already wrote down for its
      * seat holders.
      *
-     * ⚠️ AND NOTHING IS ANNOUNCED WHEN NOTHING CLOSED. A student who bought a
-     * course outright keeps that enrolment (the `source` predicate leaves it
-     * alone), and a subscription that covered only such courses ends without
-     * taking anything away — an event there would ask a listener to release
-     * seats the subscription never paid for.
+     * ⛔ AND IT IS ANNOUNCED EVEN WHEN NOTHING CLOSED — this said the opposite
+     * until 2026-09-27, and that was the defect. A student who bought a course
+     * outright keeps that enrolment (the `source` predicate leaves it alone), but
+     * the seats the subscription CLAIMED for them there are the subscription's,
+     * and unannounced they stayed booked and were charged a credit each. The
+     * event now carries the subscription's window, and the listener releases only
+     * seats nothing else pays for (see `coverageOf()` and the listener).
      */
     public static function close(Subscription $subscription): int
     {
@@ -70,28 +72,74 @@ class SubscriptionAccess
             ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
             ->get(['id', 'course_id']);
 
-        if ($rows->isEmpty()) {
-            return 0;
-        }
-
-        $closed = Enrollment::query()
+        $closed = $rows->isEmpty() ? 0 : Enrollment::query()
             ->withoutWorkspaceScope()
             ->whereIn('id', $rows->pluck('id'))
             ->whereIn('status', [EnrollmentStatus::Active->value, EnrollmentStatus::Completed->value])
             ->update(['status' => EnrollmentStatus::Expired->value]);
 
-        if ($closed > 0) {
+        [$coveredCourseIds, $sessionType, $coveredBefore] = self::coverageOf($subscription);
+
+        /*
+        | ⛔ ANNOUNCED WHENEVER THE SUBSCRIPTION COVERED SOMETHING, NOT ONLY WHEN
+        | AN ENROLMENT CLOSED (audit 2026-09-27). The rule used to be «nothing is
+        | announced when nothing closed», so a student who had ALSO bought the
+        | course outright — whose enrolment the `source` predicate rightly leaves
+        | open — heard nothing, and the seats the subscription had been claiming
+        | for them stayed booked with no credit behind them, each one charged −1
+        | at delivery. The seats are not the enrolment's question. The window on
+        | the event lets the listener release exactly the seats THIS subscription
+        | was paying for (no hold, and no other live subscription covering them),
+        | and nothing a credit or another subscription pays for.
+        |
+        | The nightly expiry fires it too; its window ends before any future
+        | seat, so it releases nothing there beyond what the closed courses do.
+        */
+        if ($closed > 0 || $coveredCourseIds !== []) {
             SubscriptionEnded::dispatch(
                 (int) $subscription->workspace_id,
                 (int) $subscription->student_user_id,
-                array_values(array_unique(array_map(
+                $closed > 0 ? array_values(array_unique(array_map(
                     static fn (mixed $id): int => (int) $id,
                     $rows->pluck('course_id')->all(),
-                ))),
+                ))) : [],
+                $coveredCourseIds,
+                $sessionType,
+                $coveredBefore,
             );
         }
 
         return $closed;
+    }
+
+    /**
+     * The seats a subscription was paying for, as scalars: the courses it
+     * reached, the room size of its seats, and the first instant after its last
+     * day (`effective_ends_on` is inclusive, so the bound is the start of the
+     * platform day after it).
+     *
+     * @return array{0: list<int>, 1: string|null, 2: string|null}
+     */
+    private static function coverageOf(Subscription $subscription): array
+    {
+        $plan = Plan::query()->withoutWorkspaceScope()->find($subscription->plan_id);
+
+        if ($plan === null) {
+            return [[], null, null];
+        }
+
+        $courseIds = array_values(array_map(
+            'intval',
+            app(CoveredCourses::class)->coveredCourses($plan)->modelKeys(),
+        ));
+
+        return [
+            $courseIds,
+            $plan->session_type->value,
+            app(SubscriptionDays::class)
+                ->startOfDayAfter(CarbonImmutable::parse($subscription->effective_ends_on))
+                ->toIso8601String(),
+        ];
     }
 
     /**

@@ -30,15 +30,30 @@ class FreezeBillableSeatsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * @param  int|null  $armedForStart  the `starts_at` (unix) this job was armed
-     *                                   for; a session moved since makes it stale.
-     *                                   Null = not tied to a start (direct calls,
-     *                                   and jobs queued before 2026-09-23).
+     * The `starts_at` (unix) this job was armed for; a session moved since makes
+     * it stale. Null = not tied to a start (direct calls, and jobs queued before
+     * 2026-09-23).
+     *
+     * ⛔ A PLAIN PROPERTY WITH A DEFAULT, NEVER `readonly` AND NEVER PROMOTED.
+     * Jobs queued BEFORE 9b861e53 sit delayed in Redis with a payload that has
+     * no key for this property. `SerializesModels::__unserialize()` sets only
+     * the keys the payload carries, so a readonly promoted property (which may
+     * not declare a default) stayed UNINITIALISED and the first read threw
+     * «must not be accessed before initialization» — measured in production on
+     * 2026-09-25, with six more of those payloads due from 2026-10-02. A
+     * declared default is what an object built without its constructor starts
+     * from, so an old payload lands on null: exactly the job it was when it was
+     * queued. (`__serialize()` also skips a property equal to its default, so a
+     * null here writes the same payload the old class did.)
      */
+    private ?int $armedForStart = null;
+
     public function __construct(
         private readonly int $classSessionId,
-        private readonly ?int $armedForStart = null,
-    ) {}
+        ?int $armedForStart = null,
+    ) {
+        $this->armedForStart = $armedForStart;
+    }
 
     public function handle(WorkspaceContext $context): void
     {

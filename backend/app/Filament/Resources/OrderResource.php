@@ -476,10 +476,14 @@ class OrderResource extends Resource
             ->authorize('reverse')
             ->requiresConfirmation()
             ->modalHeading('عكس الدفع')
+            // ⛔ The money line (2026-09-27): an hours plan refunds only its
+            // unused sessions, so the amount is no longer «the whole payment».
             ->modalDescription(fn (Order $record): string => sprintf(
-                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
+                'تُسجَّلُ الدفعةُ معكوسةً ويُلغى الطلب، ويُسحَبُ من رصيدِ الطالبِ ما لم يُستهلَكْ من أرصدةِ هذا الشراء: %d، وتُلغى الحجوزُ القادمةُ المموَّلةُ منه: %d. المبلغُ المستحقُّ ردُّه: %s %s (باقةُ الحصصِ تَرُدُّ الحصصَ غيرَ المستخدَمةِ فقط، مقرَّبةً إلى الأدنى). المُستهلَكُ يبقى مُستهلَكاً، وباقةُ الحصصِ يُغلَقُ كورسُها ما لم يغطِّه اشتراكٌ سارٍ. لا تراجُعَ عن هذا من الشاشة.',
                 app(ReverseCreditOrder::class)->refundableFor($record),
                 app(ReverseCreditOrder::class)->seatsReleasedFor($record),
+                number_format(app(ReverseCreditOrder::class)->moneyRefundFor($record) / 100, 2),
+                (string) $record->currency,
             ))
             ->schema([
                 Textarea::make('reason')

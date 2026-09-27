@@ -14,6 +14,8 @@ use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Settlement\Enums\TeachingUnitStatus;
 use App\Modules\Settlement\Models\TeachingUnit;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\SessionSeatCharges;
+use App\Shared\Contracts\SessionUnitReversal;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeBroadcastProvider;
 
@@ -137,6 +139,65 @@ it('never creates a charge from a mark, whatever the mark says', function (): vo
         ->where('class_session_id', $this->session->getKey())
         ->where('student_user_id', $this->excused->getKey())
         ->sum('amount_minor'))->toBe(0);
+});
+
+/*
+| Audit 2026-09-27 — the credit, the teacher's unit and the register were three
+| separate writes. A failure after the first left the student refunded, and the
+| retry read the ledger's «already recorded» as «nothing to reverse»: it skipped
+| the teacher's side for good.
+*/
+it('rolls the credit back with it when the teacher’s side fails, and a retry finishes both', function (): void {
+    $row = markRowOf($this, $this->attender);
+    $real = app(SessionUnitReversal::class);
+
+    $this->app->instance(SessionUnitReversal::class, new class implements SessionUnitReversal
+    {
+        public function reverseSeat(int $classSessionId, int $studentUserId, string $reason): bool
+        {
+            throw new RuntimeException('settlement is down');
+        }
+    });
+
+    expect(fn () => app(OverrideAttendance::class)->handle(
+        $row,
+        AttendanceStatus::Excused,
+        $this->owner,
+        'عذر',
+        hasElevatedPermission: true,
+    ))->toThrow(RuntimeException::class);
+
+    // Nothing half-done: the credit is still spent and the verdict still stands.
+    expect((int) billingBalance($this->workspace, $this->attender, $this->course)->remaining_credits)->toBe(2)
+        ->and($row->refresh()->credit_verdict_at)->not->toBeNull();
+
+    $this->app->instance(SessionUnitReversal::class, $real);
+
+    app(OverrideAttendance::class)->handle($row, AttendanceStatus::Excused, $this->owner, 'عذر', hasElevatedPermission: true);
+
+    expect((int) billingBalance($this->workspace, $this->attender, $this->course)->remaining_credits)->toBe(3)
+        ->and($row->refresh()->credit_verdict_at)->toBeNull()
+        ->and((int) TeachingUnit::query()->withoutWorkspaceScope()
+            ->where('class_session_id', $this->session->getKey())
+            ->where('student_user_id', $this->attender->getKey())
+            ->sum('amount_minor'))->toBe(0);
+});
+
+it('reaches the teacher’s side when the credit went back in an earlier, committed attempt', function (): void {
+    $row = markRowOf($this, $this->attender);
+
+    // The half an older, non-transactional run committed before it failed.
+    expect(app(SessionSeatCharges::class)->reverse($this->attender, (int) $this->session->getKey(), 'عذر'))->toBeTrue();
+
+    app(OverrideAttendance::class)->handle($row, AttendanceStatus::Excused, $this->owner, 'عذر', hasElevatedPermission: true);
+
+    // Given back ONCE, and the unit reversed this time.
+    expect((int) billingBalance($this->workspace, $this->attender, $this->course)->remaining_credits)->toBe(3)
+        ->and($row->refresh()->credit_verdict_at)->toBeNull()
+        ->and((int) TeachingUnit::query()->withoutWorkspaceScope()
+            ->where('class_session_id', $this->session->getKey())
+            ->where('student_user_id', $this->attender->getKey())
+            ->sum('amount_minor'))->toBe(0);
 });
 
 it('corrects the register without moving money when the marker has no elevated permission', function (): void {

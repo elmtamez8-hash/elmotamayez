@@ -169,6 +169,9 @@ it('reverses a credit package from the panel and claws back only its unconsumed 
     expect(moneyAuditOrder((int) $order->getKey())->status)->toBe('cancelled')
         ->and(PaymentTransaction::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->sole()->status)
         ->toBe(PaymentStatus::Reversed)
+        // A PACKAGE is not a plan: its reversal still sends the whole capture back.
+        ->and(PaymentTransaction::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->sole()->refunded_minor)
+        ->toBe((int) PaymentTransaction::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->sole()->amount_minor)
         // 10 bought − 2 spent − 8 taken back: the spent two stay spent.
         ->and(moneyAuditBalance((int) $balance->getKey())->remaining_credits)->toBe(0)
         ->and((int) CreditLot::query()->withoutWorkspaceScope()->where('credit_balance_id', $balance->getKey())->sum('credits_remaining'))->toBe(0)
@@ -200,10 +203,22 @@ it('reverses an hours plan, which writes no subscription row, the same way', fun
 
     moneyAuditConsume($balance, 3, 2);
 
+    $paid = (int) PaymentTransaction::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->sole()->amount_minor;
+
+    // The officer is shown the same number the reversal records.
+    expect(app(ReverseCreditOrder::class)->moneyRefundFor(moneyAuditOrder((int) $order->getKey())))
+        ->toBe(intdiv($paid * 9, 12));
+
     app(ReverseCreditOrder::class)->handle(moneyAuditOrder((int) $order->getKey()), $this->officer, 'استرداد');
 
     expect(moneyAuditOrder((int) $order->getKey())->status)->toBe('cancelled')
-        ->and(moneyAuditBalance((int) $balance->getKey())->remaining_credits)->toBe(0);
+        ->and(moneyAuditBalance((int) $balance->getKey())->remaining_credits)->toBe(0)
+        /*
+        | Owner decision 2026-09-27: the UNUSED sessions only — nine of twelve,
+        | floored to the minor unit. The three taught stay the teacher's.
+        */
+        ->and(PaymentTransaction::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->sole()->refunded_minor)
+        ->toBe(intdiv($paid * 9, 12));
 });
 
 /*

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\LiveSessions\Enums\SessionCanceller;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\LiveSessions\Support\SessionSettings;
@@ -102,10 +103,52 @@ class CancelBooking extends Action
         });
 
         if ($inWindow) {
-            $this->cancelEmptyPrivateSession($session, (int) $booking->student_user_id);
+            $this->cancelEmptyPrivateSession($session, (int) $booking->student_user_id, SessionCanceller::Student);
         }
 
         return $booking->refresh();
+    }
+
+    /**
+     * Staff take a seat back — the teacher (or anyone holding `sessions.manage`)
+     * pressing «إلغاء» on a student's booking (audit 2026-09-27).
+     *
+     * ⛔ `handle()` IS THE STUDENT'S DOOR AND ASSUMED IT WAS THE STUDENT PRESSING.
+     * `SessionBookingPolicy::delete()` admits staff too, and through `handle()` a
+     * teacher who removed a student after the deadline wrote `cancelled_late` +
+     * `is_billable` — the STUDENT charged a credit for the teacher's decision —
+     * and a private hour given back that way told the teacher «the student
+     * cancelled». So staff go through the system's own arm: `Released`, never
+     * billable, the frozen credit returned, whatever the clock says. Nobody
+     * chose this moment but the teacher, and it is not the student's to pay for.
+     *
+     * A private 1:1 left empty is then called off as the TEACHER's cancellation
+     * (it was their decision, so it does count on their record) with no «the
+     * student cancelled» notice — the same hour-freeing the student's door does,
+     * so the hour is not left scheduled with nobody in it.
+     */
+    public function releaseByStaff(SessionBooking $booking, ?string $reason = null): SessionBooking
+    {
+        if ($booking->status !== BookingStatus::Booked) {
+            throw new DomainException('هذا الحجز ملغى بالفعل.');
+        }
+
+        $session = $booking->classSession;
+
+        if ($session === null) {
+            throw new DomainException('الحصة المرتبطة بهذا الحجز غير موجودة.');
+        }
+
+        $released = $this->release($booking, $reason ?? 'ألغى المدرّس هذا الحجز.');
+
+        if ($released->status !== BookingStatus::Released) {
+            // Somebody else moved it first — the student's own cancellation, a sweep.
+            throw new DomainException('هذا الحجز ملغى بالفعل.');
+        }
+
+        $this->cancelEmptyPrivateSession($session, (int) $booking->student_user_id, SessionCanceller::Teacher);
+
+        return $released;
     }
 
     /**
@@ -140,7 +183,7 @@ class CancelBooking extends Action
      * teacher moved meanwhile is left alone rather than failing the student's
      * cancellation, which has already happened.
      */
-    private function cancelEmptyPrivateSession(ClassSession $session, int $studentUserId): void
+    private function cancelEmptyPrivateSession(ClassSession $session, int $studentUserId, SessionCanceller $by): void
     {
         $fresh = ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey())->first();
 
@@ -153,14 +196,26 @@ class CancelBooking extends Action
         }
 
         try {
-            $this->sessions->handle($fresh, 'ألغى الطالب حجزه في هذه الحصة الخاصة.');
+            // ⛔ WHO decided is recorded: a student's give-back is `Student` and
+            // must not count against the teacher's public trust score, which it
+            // did until 2026-09-27; a teacher's own release is `Teacher`.
+            $this->sessions->handle(
+                $fresh,
+                $by === SessionCanceller::Student
+                    ? 'ألغى الطالب حجزه في هذه الحصة الخاصة.'
+                    : 'ألغى المدرّس الحجز الوحيد في هذه الحصة الخاصة.',
+                $by,
+            );
         } catch (DomainException) {
             // Moved by somebody else between the read and the claim — the
             // student's cancellation stands either way.
             return;
         }
 
-        $this->tellTeacherTheHourIsFree($fresh, $studentUserId);
+        // The teacher is told only when it was not their own decision.
+        if ($by === SessionCanceller::Student) {
+            $this->tellTeacherTheHourIsFree($fresh, $studentUserId);
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Jobs;
 
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
+use App\Modules\LiveSessions\Enums\SessionCanceller;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -55,7 +56,7 @@ class SyncTeacherCountersJob implements ShouldQueue
         $context->forWorkspace((int) $profile->workspace_id, function () use ($profile): void {
             $sessions = ClassSession::query()
                 ->where('teacher_profile_id', $profile->getKey())
-                ->get(['id', 'status', 'delivered_at', 'starts_at']);
+                ->get(['id', 'status', 'delivered_at', 'starts_at', 'cancelled_by']);
 
             // Cancelled and suspended sessions are excluded from both sides of
             // the ratio (FR-026): a holiday is not a failure to teach.
@@ -79,8 +80,16 @@ class SyncTeacherCountersJob implements ShouldQueue
                 | siblings. Reported by the owner, 2026-08-31.
                 */
                 'students_taught_count' => $this->studentsTaught($profile, array_values($delivered->pluck('id')->all())),
+                /*
+                | ⛔ ONLY WHAT THE TEACHER CALLED OFF. A student who gives a private
+                | hour back in time cancels the session through the same Action
+                | (`SessionCanceller::Student`), and `TrustScoreCalculator` reads
+                | this number as the teacher failing to teach. Null is the teacher:
+                | every row before the column existed came from the teacher's door.
+                */
                 'cancelled_sessions_count' => $sessions
-                    ->filter(fn (ClassSession $session): bool => $session->status === ClassSessionStatus::Cancelled)
+                    ->filter(fn (ClassSession $session): bool => $session->status === ClassSessionStatus::Cancelled
+                        && ($session->cancelled_by ?? SessionCanceller::Teacher)->countsAgainstTeacher())
                     ->count(),
                 'attendance_rate' => $countable->isEmpty()
                     // Not zero. No sessions yet is an absence of data, and a

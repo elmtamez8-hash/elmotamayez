@@ -43,8 +43,19 @@ class BookingController extends Controller
 
         $this->authorize('delete', $booking);
 
+        $reason = $request->input('reason');
+        $reason = is_string($reason) && trim($reason) !== '' ? $reason : null;
+
         try {
-            $booking = $action->handle($booking, $request->input('reason'));
+            /*
+            | ⛔ THE STUDENT'S OWN SEAT GOES THROUGH `handle()`, AND NOBODY ELSE'S.
+            | The policy admits staff with `sessions.manage` too, and `handle()`
+            | charges a late cancellation to the STUDENT — so a teacher removing
+            | somebody after the deadline billed them for it. Staff release.
+            */
+            $booking = (int) $booking->student_user_id === (int) $this->currentUser($request)->getKey()
+                ? $action->handle($booking, $reason)
+                : $action->releaseByStaff($booking, $reason);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 409);
         }

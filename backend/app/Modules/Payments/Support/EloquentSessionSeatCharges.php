@@ -83,7 +83,17 @@ class EloquentSessionSeatCharges implements SessionSeatCharges
             expiresAt: $this->expiryOfLotsDrawnBy($charge),
         ));
 
-        return $entry !== null;
+        /*
+        | ⛔ NULL IS «ALREADY REVERSED», AND THAT IS SUCCESS (audit 2026-09-27).
+        | The ledger answers null for a duplicate key, and this used to return
+        | `$entry !== null` — so a RETRY after a partial failure (the credit given
+        | back, then the teacher's unit or the register save failing) answered
+        | false, and the caller skipped the teacher's side and kept the verdict:
+        | the student refunded and the teacher still paid, for good. The key is
+        | this reversal's own (balance, adjustment, session_charge_reversal,
+        | session), so a duplicate can only mean THIS credit already went back.
+        */
+        return true;
     }
 
     /**
