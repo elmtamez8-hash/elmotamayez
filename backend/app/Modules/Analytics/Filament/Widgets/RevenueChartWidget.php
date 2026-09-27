@@ -6,6 +6,7 @@ namespace App\Modules\Analytics\Filament\Widgets;
 
 use App\Modules\Analytics\Filament\Widgets\Concerns\PlatformWideWidget;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Shared\Support\MinorUnits;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -80,7 +81,9 @@ class RevenueChartWidget extends ChartWidget
             // ⚠️ `getAttribute()` لا `->day`: أعمدةُ `selectRaw` ليست سِماتٍ
             // مُعلَنةً على النموذج.
             $currency = (string) $row->getAttribute('currency');
-            $byCurrency[$currency][(string) $row->getAttribute('day')] = (float) $row->getAttribute('total') / 100;
+            // A chart point is a NUMBER for the axis, so no thousands separator
+            // here — but the scale is `MinorUnits`', never a `/ 100` of its own.
+            $byCurrency[$currency][(string) $row->getAttribute('day')] = (float) MinorUnits::toMajor((int) $row->getAttribute('total'));
         }
 
         $labels = [];

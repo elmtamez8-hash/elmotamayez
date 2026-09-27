@@ -8,6 +8,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Jobs\FreezeBillableSeatsJob;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
@@ -93,8 +94,10 @@ it('clears a seat count frozen while the session was suspended', function (): vo
 it('does not reopen a session that has already started', function (): void {
     // Declared YESTERDAY, when its start was today: a freeze may not be dated
     // into the past (audit 2026-09-27), so the clock goes back to declare it.
+    // The PLATFORM's day, as CreateFreezePeriod judges it: a UTC day went red
+    // whenever CI ran after the platform's midnight (21:00 UTC in Qatar).
     $this->travel(-1)->days();
-    $period = declareLiftableFreeze(CarbonImmutable::now()->startOfDay(), $this->liftStart);
+    $period = declareLiftableFreeze(CarbonImmutable::now(app(SessionSettings::class)->timezone())->startOfDay(), $this->liftStart);
     $this->travelBack();
 
     // Suspended by the freeze, and the hour has since passed.

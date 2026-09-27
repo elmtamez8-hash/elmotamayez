@@ -12,12 +12,14 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use App\Shared\Traits\IsPubliclyListed;
 use App\Shared\Traits\IsPublishable;
 use Database\Factories\Modules\Courses\CourseFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,6 +35,7 @@ use Laravel\Scout\Searchable;
  * @property string $course_type
  * @property string|null $cover_path
  * @property int $price_minor
+ * @property string|null $price major units over `price_minor` — {@see MinorUnits::attribute()}
  * @property bool $is_free_enrollment
  * @property int|null $price_before_discount_minor
  * @property int|null $private_session_minutes
@@ -236,6 +239,17 @@ class Course extends BaseModel
             'last_delivered_at' => 'datetime',
             'promo_video_reviewed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The price in major units («49.99»), for the admin panel to bind.
+     * `price_minor` stays the stored truth — {@see MinorUnits::attribute()}.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function price(): Attribute
+    {
+        return MinorUnits::attribute('price_minor');
     }
 
     public const PROMO_NONE = 'none';

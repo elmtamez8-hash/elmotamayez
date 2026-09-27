@@ -10,6 +10,8 @@ use App\Modules\Payments\Enums\BillingMode;
 use App\Modules\Payments\Enums\ZeroBalanceBehavior;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Shared\Support\MinorUnits;
+use InvalidArgumentException;
 
 /**
  * The one place the billing decision is made (FR-013).
@@ -251,6 +253,53 @@ class BillingSettings
     public function gatewayFixedFeeMinor(): int
     {
         return max(0, (int) PlatformSettings::get('billing.gateway_fixed_fee_minor', 0));
+    }
+
+    /*
+    | The platform fees in MAJOR units — the panel's spelling (owner decision
+    | 2026-09-27: typed and shown in riyals, stored in halalas).
+    |
+    | ⚠️ These are key/value rows, not a model column, so there is no model
+    | attribute to bind; this class owns the keys and so owns the conversion,
+    | through the same `MinorUnits` helper every model attribute is built on. The
+    | `*Minor()` readers above stay what pricing reads, and the admin API
+    | (`BillingPricingController`) keeps writing minor units.
+    */
+
+    /** «5.50» for 550. */
+    public function operatingFee(ClassSessionType $type): string
+    {
+        return (string) MinorUnits::toMajor($this->operatingFeeMinor($type));
+    }
+
+    /** «0.75» for 75. */
+    public function gatewayFixedFee(): string
+    {
+        return (string) MinorUnits::toMajor($this->gatewayFixedFeeMinor());
+    }
+
+    /** Store an operating fee typed in major units («5.50» ⇒ 550). */
+    public function setOperatingFee(ClassSessionType $type, mixed $major, ?int $userId): void
+    {
+        $key = $type === ClassSessionType::Group ? 'group' : 'individual';
+
+        PlatformSettings::set('billing.operating_fee_minor.'.$key, self::requiredMinor($major), $userId);
+    }
+
+    /** Store the gateway's fixed fee typed in major units («0.75» ⇒ 75). */
+    public function setGatewayFixedFee(mixed $major, ?int $userId): void
+    {
+        PlatformSettings::set('billing.gateway_fixed_fee_minor', self::requiredMinor($major), $userId);
+    }
+
+    /**
+     * A fee is never «nothing»: blank is refused rather than stored as a null
+     * that `(int)` would later read as a zero fee.
+     */
+    private static function requiredMinor(mixed $major): int
+    {
+        return MinorUnits::fromMajorOrFail($major)
+            ?? throw new InvalidArgumentException('A platform fee needs an amount.');
     }
 
     public function currency(): string

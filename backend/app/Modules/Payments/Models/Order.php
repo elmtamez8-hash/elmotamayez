@@ -10,9 +10,11 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -29,6 +31,7 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
  * @property-read User $user user_id is NOT NULL
  * @property ?int $granted_by null means the buyer bought it themselves (024)
  * @property-read ?User $grantor
+ * @property string|null $amount major units over `amount_minor` — {@see MinorUnits::attribute()}
  */
 class Order extends BaseModel implements HasMedia
 {
@@ -69,6 +72,17 @@ class Order extends BaseModel implements HasMedia
             'approved_at' => 'datetime',
             'metadata' => 'array',
         ];
+    }
+
+    /**
+     * The amount in major units («49.99»), for the admin panel to show.
+     * `amount_minor` stays the stored truth — {@see MinorUnits::attribute()}.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function amount(): Attribute
+    {
+        return MinorUnits::attribute('amount_minor', writable: false);
     }
 
     /**

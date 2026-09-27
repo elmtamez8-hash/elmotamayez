@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Filament\Pages;
 
 use App\Filament\Resources\OrderResource;
+use App\Filament\Support\MoneyInput;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
@@ -19,6 +20,7 @@ use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\CountedNoun;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use DomainException;
@@ -231,7 +233,7 @@ class GrantCreditSubscription extends Page implements HasTable
                     // indistinguishable from data that failed to load (FR-017).
                     ->state(fn (Order $record): ?string => SubscriptionIntent::fromOrder($record)?->targetLabel()),
                 TextColumn::make('amount_minor')->label('المبلغ')
-                    ->formatStateUsing(fn (mixed $state, Order $record): string => number_format(((int) $state) / 100, 2).' '.$record->currency),
+                    ->formatStateUsing(fn (mixed $state, Order $record): string => (string) MinorUnits::display($record->amount_minor, MoneyInput::currencyLabel($record->currency))),
                 TextColumn::make('receipt')->label('الإيصال')
                     ->state(fn (Order $record): HtmlString|string => self::receiptLink($record)),
                 TextColumn::make('created_at')->label('التاريخ')->dateTime('Y-m-d H:i')->sortable(),
@@ -689,7 +691,7 @@ class GrantCreditSubscription extends Page implements HasTable
 
         foreach ($offers as $offer) {
             if ((int) $offer['package']->getKey() === (int) $packageId) {
-                return number_format($offer['price']->totalMinor / 100, 2).' '.$offer['price']->currency;
+                return (string) MinorUnits::display($offer['price']->totalMinor, MoneyInput::currencyLabel($offer['price']->currency));
             }
         }
 

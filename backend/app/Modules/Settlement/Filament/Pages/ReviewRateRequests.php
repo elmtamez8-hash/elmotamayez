@@ -14,6 +14,7 @@ use App\Modules\Settlement\Models\RateChangeRequest;
 use App\Modules\Settlement\Support\SettlementSettings;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\OutstandingCreditsDirectory;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -228,7 +229,7 @@ class ReviewRateRequests extends Page implements HasTable
     {
         return $minor === null
             ? '—'
-            : number_format($minor / 100, 2).' '.($currency ?? app(SettlementSettings::class)->currency());
+            : (string) MinorUnits::display($minor, $currency ?? app(SettlementSettings::class)->currency());
     }
 
     /**

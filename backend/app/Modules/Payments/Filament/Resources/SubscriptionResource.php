@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\Support\MoneyInput;
 use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Filament\Resources\SubscriptionResource\Pages;
 use App\Modules\Payments\Models\Subscription;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use DomainException;
 use Filament\Actions\Action;
@@ -126,9 +128,9 @@ class SubscriptionResource extends Resource
                     ->description(fn (Subscription $record): ?string => $record->cancelled_at === null
                         ? null
                         : 'أُلغي '.$record->cancelled_at->diffForHumans()),
-                TextColumn::make('price_minor')->label('المدفوع')
+                TextColumn::make('price')->label('المدفوع')
                     ->placeholder('—')
-                    ->money(fn (Subscription $record): string => (string) $record->currency, divideBy: 100),
+                    ->money(fn (Subscription $record): string => (string) $record->currency),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -221,13 +223,11 @@ class SubscriptionResource extends Resource
 
         return sprintf(
             'يتوقّف الوصول فوراً ويُردُّ الجزءُ غيرُ المستخدَم فقط: %d من %d يوماً (يومُ الإلغاء يُحسَب غيرَ مستخدَم) '
-            .'= %s %s من %s %s المدفوعة، مقرَّباً إلى الأدنى. الحصصُ التي قُدِّمت يبقى أجرُها للمدرّس.',
+            .'= %s من %s المدفوعة، مقرَّباً إلى الأدنى. الحصصُ التي قُدِّمت يبقى أجرُها للمدرّس.',
             $refund['unused_days'],
             $refund['total_days'],
-            number_format($refund['refund_minor'] / 100, 2),
-            $currency,
-            number_format($refund['paid_minor'] / 100, 2),
-            $currency,
+            MinorUnits::display($refund['refund_minor'], MoneyInput::currencyLabel($currency)),
+            MinorUnits::display($refund['paid_minor'], MoneyInput::currencyLabel($currency)),
         );
     }
 

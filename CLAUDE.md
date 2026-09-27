@@ -253,6 +253,7 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - A GATEWAY-CAPTURED ORDER NEVER READS `approved`, so «has this order been taken back?» is `cancelled`/`rejected`, never «not approved».
 - Cancelling a plan refunds its UNUSED part only (days, or sessions for an hours plan), floored to the minor unit, and the amount is `payment_transactions.refunded_minor` — «reversed» no longer means «all of it went back»; the teacher keeps delivered sessions' pay.
 - A subscription that ends early releases the no-hold seats inside its window that no live subscription covers — even when the student keeps an outright enrolment in the course — and `liveOn($moment)` judges the status at that moment.
+- Money is typed and shown in MAJOR units through the model's virtual attribute (`Plan::price` over `price_minor`, built by `MinorUnits::attribute()`); the `*_minor` column stays the stored truth, a form never converts, and the attribute is neither appended nor (on a plan or a course) fillable.
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._

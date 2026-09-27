@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Payments\Actions\SetPlanPrice;
 use App\Modules\Payments\Filament\Resources\PlanResource;
 use App\Modules\Payments\Models\Plan;
+use App\Shared\Support\MinorUnits;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -25,7 +26,7 @@ use Illuminate\Support\Facades\Auth;
  *
  * ⛔ AND A FIELD ADDED HERE WOULD BE IGNORED IN SILENCE, WHICH IS WHY THE
  * QUESTION HAD TO BE ANSWERED RATHER THAN LEFT. This page declares no `form()`
- * of its own, and `handleRecordUpdate()` below passes `price_minor` ALONE to the
+ * of its own, and `handleRecordUpdate()` below passes the price ALONE to the
  * Action: any other key in `$data` is dropped on the floor, the toast says «تم
  * الحفظ», and the column never moves. An officer who switched a plan to «حصص»
  * here would be told it worked.
@@ -43,7 +44,8 @@ class EditPlan extends EditRecord
      * SILENTLY DO NOTHING AT ALL.
      *
      * Filament's default `handleRecordUpdate()` is `$record->update($data)` —
-     * mass assignment — and `price_minor` is deliberately NOT `$fillable`,
+     * mass assignment — and `price_minor` is deliberately NOT `$fillable` (nor
+     * is `price`, the model's major-unit attribute over it that the form binds),
      * because it is the platform's half of a row two actors write and a
      * mass-assignable price is one extra key in a request body away from a
      * teacher setting it. Mass assignment DISCARDS a non-fillable key in
@@ -60,8 +62,6 @@ class EditPlan extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Plan $record */
-        $raw = $data['price_minor'] ?? null;
-
         $officer = Auth::user();
 
         if (! $officer instanceof User) {
@@ -71,7 +71,9 @@ class EditPlan extends EditRecord
         return app(SetPlanPrice::class)->handle(
             $officer,
             $record,
-            $raw === null || $raw === '' ? null : (int) $raw,
+            // The form binds the model's major-unit `price`; the Action takes
+            // MINOR units, converted by the helper that attribute is built on.
+            MinorUnits::fromMajorOrFail($data['price'] ?? null),
         );
     }
 

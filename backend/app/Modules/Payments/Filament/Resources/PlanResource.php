@@ -178,7 +178,7 @@ class PlanResource extends Resource
                     | from a writer without the permission, measured in
                     | `PlanFormTest`.
                     */
-                    MoneyInput::make('price_minor', fn (?Plan $record): string => $record->currency ?? app(BillingSettings::class)->currency())
+                    MoneyInput::make('price', fn (?Plan $record): string => $record->currency ?? app(BillingSettings::class)->currency())
                         ->label('السعر')
                         ->helperText('تغييرُ السعرِ لا يمسُّ اشتراكاً جارياً: كلُّ اشتراكٍ يحملُ لقطةَ سعرِه '
                             .'من لحظةِ الشراء (FR-030).'),
@@ -207,11 +207,13 @@ class PlanResource extends Resource
                     ->formatStateUsing(fn (ClassSessionType $state): string => $state->label()),
                 TextColumn::make('coverage_type')->label('التغطية')
                     ->formatStateUsing(fn (PlanCoverage $state): string => $state->label()),
-                TextColumn::make('price_minor')->label('السعر')->sortable()
+                // The model's major-unit attribute; the sort stays on the stored column.
+                TextColumn::make('price')->label('السعر')
+                    ->sortable(['price_minor'])
                     ->placeholder('تنتظر التسعير')
-                    ->money(fn (Plan $record): string => $record->currency, divideBy: 100)
+                    ->money(fn (Plan $record): string => $record->currency)
                     ->badge()
-                    ->color(fn (?int $state): string => $state === null ? 'warning' : 'gray'),
+                    ->color(fn (?string $state): string => $state === null ? 'warning' : 'gray'),
                 /*
                 | ⚠️ THE TEACHER'S THREE ANSWERS, NOT THE COLUMN'S TWO (2026-09-26).
                 | «مفعَّلة: نعم» sat here beside a plan whose teacher read «غير

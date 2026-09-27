@@ -6,6 +6,7 @@ namespace App\Modules\Settlement\Filament\Pages;
 
 use App\Modules\Settlement\Support\SettlementAuditSubjects;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
@@ -204,7 +205,7 @@ class SettlementAuditLog extends Page implements HasTable
             }
 
             $parts[] = $label.': '.(str_ends_with($key, '_minor') && is_numeric($value)
-                ? number_format(((int) $value) / 100, 2)
+                ? MinorUnits::display((int) $value)
                 : (is_scalar($value) ? (string) $value : json_encode($value, JSON_UNESCAPED_UNICODE)));
         }
 

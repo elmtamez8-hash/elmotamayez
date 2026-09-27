@@ -10,6 +10,7 @@ use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Support\SubscriptionDays;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,7 @@ use Carbon\CarbonInterface;
 use Database\Factories\Modules\Payments\SubscriptionFactory;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $student_user_id
  * @property int $order_id
  * @property int $price_minor
+ * @property string|null $price major units over `price_minor` — {@see MinorUnits::attribute()}
  * @property CarbonInterface $starts_on
  * @property CarbonInterface $ends_on
  * @property CarbonInterface $effective_ends_on
@@ -66,6 +69,17 @@ class Subscription extends BaseModel
     | twice). Mass-assignable, either becomes a second way to claim a lock from
     | outside the statement that owns it.
     */
+
+    /**
+     * The price in major units («49.99»), for the admin panel to bind.
+     * `price_minor` stays the stored truth — {@see MinorUnits::attribute()}.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function price(): Attribute
+    {
+        return MinorUnits::attribute('price_minor', writable: false);
+    }
 
     /** @return array<string, mixed> */
     protected function casts(): array
