@@ -14,6 +14,7 @@ use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
 use App\Shared\Contracts\UnlockDirectory;
 use App\Shared\Support\CountedNoun;
+use App\Shared\Support\UserClock;
 
 /**
  * What "an eligible student" means, spelled out.
@@ -243,7 +244,11 @@ class BookingEligibility
             return null;
         }
 
-        $back = (date_create_immutable($held['first_release_at']) ?: null)?->format('Y-m-d H:i');
+        // On the student's own clock, the clock named (2026-09-27) — the same
+        // spelling `BookSeat::freezeCredit()` uses for this sentence. It was the
+        // UTC string, three hours off the wall of a student in Cairo.
+        $released = date_create_immutable($held['first_release_at']) ?: null;
+        $back = $released === null ? '' : UserClock::format($student, $released);
 
         $heldCount = CountedNoun::of((int) $held['held'], ['one' => 'حصة واحدة', 'two' => 'حصتان', 'few' => 'حصص', 'many' => 'حصة', 'other' => 'حصة']);
 

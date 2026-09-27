@@ -53,7 +53,9 @@ class WorkspaceController extends Controller
 
     public function members(Request $request, Workspace $workspace): JsonResponse
     {
-        $this->authorize('view', $workspace);
+        // `members.view`, not mere membership: a student is a member too, and
+        // this list carries every member's email (see WorkspacePolicy::viewMembers).
+        $this->authorize('viewMembers', $workspace);
 
         /*
         | ⚠️ PAGED, BECAUSE `workspace_members` CARRIES THE STUDENTS TOO. A

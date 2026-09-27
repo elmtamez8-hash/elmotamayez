@@ -8,6 +8,8 @@ use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Models\MediaCaption;
+use App\Modules\Media\Models\PlaybackGrant;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -180,6 +182,22 @@ it('tells a redirect player how often to come back for a fresh signature', funct
         ->toBe(intdiv((int) config('media.grant_ttl_seconds') * 2, 3))
         // And it must land inside the token's life, or it is not a renewal at all.
         ->toBeLessThan((int) config('media.grant_ttl_seconds'));
+});
+
+/*
+| ⛔ AN OPERATOR'S TTL, NOT THE CONFIG FALLBACK. The grant is minted and renewed
+| on `PlatformSettings`; until 2026-09-27 the cadence was computed from
+| `config()`, so a TTL changed in /admin produced a reload on the old number —
+| after the token had died, when the TTL was shortened.
+*/
+it('derives the reload cadence from the TTL the operator set, as the grant does', function (): void {
+    PlatformSettings::set('media.grant_ttl_seconds', 900);
+
+    $payload = issueGrant($this->lesson);
+
+    expect($payload['reload_after_seconds'])->toBe(600)
+        ->and(PlaybackGrant::query()->where('uuid', $payload['grant'])->firstOrFail()->expires_at->timestamp)
+        ->toBeGreaterThan(now()->addSeconds(850)->timestamp);
 });
 
 /*

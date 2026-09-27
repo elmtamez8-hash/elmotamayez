@@ -229,6 +229,13 @@ class AuthController extends Controller
      */
     public function verifyEmail(Request $request): RedirectResponse
     {
+        // The route's only guard — see `routes/api.php`. An expired or tampered
+        // signature is answered like a wrong hash: the sign-in page with
+        // `verified=0`, never a bare 403, and before the id is even read.
+        if (! $request->hasValidSignature()) {
+            return redirect()->away(config('cms.site_url').'/login?verified=0');
+        }
+
         $user = User::query()->find((int) $request->route('id'));
         $valid = $user !== null
             && hash_equals((string) $request->route('hash'), sha1((string) $user->getEmailForVerification()));

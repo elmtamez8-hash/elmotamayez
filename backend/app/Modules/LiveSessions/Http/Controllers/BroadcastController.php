@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Actions\IssueJoinTicket;
 use App\Modules\LiveSessions\Actions\PerformHostAction;
 use App\Modules\LiveSessions\Actions\ReadSessionRoster;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
+use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
@@ -114,10 +115,22 @@ class BroadcastController extends Controller
 
         $attendance = $action->handle($session, $user);
 
+        /*
+        | The session's status AS IT STANDS NOW — the teacher may have ended it
+        | since the binding loaded the row — read as ONE column. It was
+        | `$session->refresh()`: the whole row re-hydrated, plus every relation
+        | the door had loaded, on the most frequent request in the product
+        | (2026-09-27). Unscoped like the binding: the reader is a student.
+        */
+        $status = ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($session->getKey())
+            ->value('status');
+
         return response()->json([
             'stay_seconds' => $attendance->stay_seconds,
             'status' => $attendance->status->value,
-            'session_status' => $session->refresh()->status->value,
+            'session_status' => $status instanceof ClassSessionStatus ? $status->value : (string) $status,
         ]);
     }
 

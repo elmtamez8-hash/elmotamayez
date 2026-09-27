@@ -47,7 +47,34 @@ it('refuses a link whose signature was tampered with', function (): void {
     // makes the id safe to trust without a login.
     $forged = str_replace('/verify/'.$user->getKey().'/', '/verify/'.$victim->getKey().'/', verificationLink($user));
 
-    $this->get($forged)->assertForbidden();
+    $this->get($forged)->assertRedirect(config('cms.site_url').'/login?verified=0');
 
-    expect($victim->refresh()->hasVerifiedEmail())->toBeFalse();
+    expect($victim->refresh()->hasVerifiedEmail())->toBeFalse()
+        ->and($user->refresh()->hasVerifiedEmail())->toBeFalse();
+});
+
+/*
+| ⛔ AN EXPIRED LINK WAS A RAW 403 PAGE (until 2026-09-27) — the `signed`
+| middleware refused it before the controller ran, so a person opening
+| yesterday's mail never reached the sign-in page that offers a new link. Still
+| refused, still writes nothing; it only lands somewhere a person can act.
+*/
+it('sends an expired link to the sign-in page as unconfirmed, and confirms nothing', function (): void {
+    $user = User::factory()->unverified()->create();
+    $link = verificationLink($user);
+
+    $this->travel(2)->hours();
+
+    $this->get($link)->assertRedirect(config('cms.site_url').'/login?verified=0');
+
+    expect($user->refresh()->hasVerifiedEmail())->toBeFalse();
+});
+
+it('refuses a link with no signature at all', function (): void {
+    $user = User::factory()->unverified()->create();
+    $unsigned = strtok(verificationLink($user), '?');
+
+    $this->get($unsigned)->assertRedirect(config('cms.site_url').'/login?verified=0');
+
+    expect($user->refresh()->hasVerifiedEmail())->toBeFalse();
 });

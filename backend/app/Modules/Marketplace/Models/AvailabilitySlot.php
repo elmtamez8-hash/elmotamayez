@@ -118,20 +118,43 @@ class AvailabilitySlot extends BaseModel
      * ⚠️ AND ON ONE LOCAL DATE. A window is a one-day shape, so a span that crosses
      * midnight on the teacher's clock is inside none; without that guard a lesson
      * at 23:30 would match a Tuesday-morning window on its clock times alone.
+     *
+     * ⛔ EXCEPT A LESSON THAT ENDS EXACTLY AT MIDNIGHT (2026-09-27). Its end reads
+     * 00:00 on the NEXT local date, so the one-date rule refused 23:00–00:00
+     * inside a window «until midnight» — the last hour a teacher who teaches
+     * late declared. A time input cannot say 24:00, so such a window is stored
+     * `23:59` (or `23:59:59` by the wall-clock migration); a window ending there
+     * is read as running to the end of its day, and only such a window admits
+     * the 00:00 end. The midnight is the one on the teacher's clock — the
+     * `setTimezone()` above — so it is DST-correct on either side of a change.
      */
     public function containsSpan(DateTimeInterface $start, DateTimeInterface $end): bool
     {
         $zone = $this->zone();
         $localStart = CarbonImmutable::instance($start)->setTimezone($zone);
         $localEnd = CarbonImmutable::instance($end)->setTimezone($zone);
+        $endClock = $localEnd->format('H:i:s');
 
         if ($localStart->toDateString() !== $localEnd->toDateString()) {
-            return false;
+            $endsAtItsMidnight = $endClock === '00:00:00'
+                && $localEnd->subSecond()->toDateString() === $localStart->toDateString();
+
+            if (! $endsAtItsMidnight || ! $this->runsToMidnight()) {
+                return false;
+            }
+
+            $endClock = '24:00:00';
         }
 
         return (int) $localStart->format('w') === $this->day_of_week
             && $localStart->format('H:i:s') >= $this->start_time
-            && $localEnd->format('H:i:s') <= $this->end_time;
+            && ($endClock === '24:00:00' || $endClock <= $this->end_time);
+    }
+
+    /** A window whose end is the last minute of its day — «until midnight». */
+    private function runsToMidnight(): bool
+    {
+        return $this->end_time >= '23:59:00';
     }
 
     /**

@@ -178,7 +178,14 @@ describe('both clocks', function (): void {
 
     it('sends each side the other\'s zone on the private-request lists', function (): void {
         $fx = privateSessionFixture();
-        $fx['owner']->forceFill(['timezone' => 'Africa/Cairo'])->save();
+        /*
+        | ⚠️ THE TEACHER IS THE PROFILE'S USER, NOT THE COURSE'S AUTHOR. The
+        | fixture's course is written by the owner and taught through a profile
+        | with its own user — an academy's shape — so the two are given two
+        | different clocks, and only the profile's may reach the student.
+        */
+        $fx['profile']->user()->firstOrFail()->forceFill(['timezone' => 'Africa/Cairo'])->save();
+        $fx['owner']->forceFill(['timezone' => 'Europe/London'])->save();
         $fx['student']->forceFill(['timezone' => 'Asia/Qatar'])->save();
 
         Sanctum::actingAs($fx['student']);

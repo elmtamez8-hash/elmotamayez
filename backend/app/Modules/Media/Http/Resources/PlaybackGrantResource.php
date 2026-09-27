@@ -8,6 +8,7 @@ use App\Modules\Media\Data\PlaybackContext;
 use App\Modules\Media\Models\PlaybackGrant;
 use App\Modules\Media\Support\MediaProviderResolver;
 use App\Modules\Media\Support\WatermarkPayload;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -106,8 +107,15 @@ class PlaybackGrantResource extends JsonResource
              * to retry under. `isRedirect` rather than the format, because the
              * question is who serves the bytes, not how they are segmented.
              */
+            /*
+             | ⚠️ THE SAME SOURCE `MintPlaybackGrant` AND `RenewPlaybackGrant`
+             | READ — `PlatformSettings`, never `config()`. Until 2026-09-27 this
+             | line read the config fallback, so an operator who lengthened the
+             | TTL in /admin got a player reloading on the OLD cadence, and one
+             | who SHORTENED it got a reload scheduled after the token had died.
+             */
             'reload_after_seconds' => $manifest->isRedirect
-                ? max(30, intdiv((int) config('media.grant_ttl_seconds') * 2, 3))
+                ? max(30, intdiv((int) PlatformSettings::get('media.grant_ttl_seconds', 300) * 2, 3))
                 : null,
             'duration_seconds' => $this->asset->duration_seconds,
             'renditions' => $manifest->renditions,

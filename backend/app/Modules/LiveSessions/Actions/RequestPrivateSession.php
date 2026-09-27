@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Modules\LiveSessions\Support\LeadTime;
+use App\Modules\LiveSessions\Support\SessionClash;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Shared\Actions\Action;
@@ -84,6 +85,19 @@ class RequestPrivateSession extends Action
         // declared — and reads as accepted until they open their calendar.
         if (! $this->withinDeclaredAvailability($teacherProfileId, $startsAt, $minutes)) {
             throw new DomainException('هذا الوقت خارج مواعيد المدرّس المعلَنة.');
+        }
+
+        /*
+        | ⚠️ AN HOUR THE TEACHER IS ALREADY TEACHING, refused at submission
+        | (2026-09-27). Declared hours say when the teacher is willing, not that
+        | nothing is booked there — so the request used to sit a day in the queue
+        | and could only be refused at the teacher's press, where the claim in
+        | `SessionClash::assertFree()` stops it. A read only: the hour can still
+        | be taken before the teacher answers, and the claim at acceptance is what
+        | decides. The sentence names no lesson — the student may not see whose.
+        */
+        if (SessionClash::overlaps($teacherProfileId, $startsAt, $startsAt->addMinutes($minutes))) {
+            throw new DomainException('المدرّس مشغول بحصة أخرى في هذا الوقت. اختر موعداً آخر.');
         }
 
         $this->assertEligible($course, $student, $startsAt);

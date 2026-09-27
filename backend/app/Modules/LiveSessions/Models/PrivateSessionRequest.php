@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -84,6 +85,28 @@ class PrivateSessionRequest extends BaseModel
         // card then said «حصة خاصة» instead of the course name. The request row
         // itself is already the reader's (policy), so the course is its key.
         return $this->belongsTo(Course::class)->withoutGlobalScope(WorkspaceScope::class)->withTrashed();
+    }
+
+    /**
+     * The teacher the request is ADDRESSED to — the profile it was written
+     * against, never the course's author.
+     *
+     * ⚠️ THE TWO DIFFER at an academy: the course is authored by the owner and
+     * taught by a teacher with their own profile (and their own clock). Reading
+     * the teacher's zone off `course.creator` printed the OWNER's hour to the
+     * student as «بتوقيت المدرّس» (fixed 2026-09-27, as
+     * `SessionRescheduleRequestResource` already reads it).
+     *
+     * Unscoped for the reason `course()` is, and with trashed rows: a departed
+     * teacher's requests still render their hour.
+     *
+     * @return BelongsTo<TeacherProfile, $this>
+     */
+    public function teacherProfile(): BelongsTo
+    {
+        return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id')
+            ->withoutGlobalScope(WorkspaceScope::class)
+            ->withTrashed();
     }
 
     /** @return BelongsTo<User, $this> */
