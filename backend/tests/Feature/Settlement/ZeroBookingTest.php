@@ -7,6 +7,7 @@ use App\Modules\LiveSessions\Actions\CloseClassSession;
 use App\Modules\LiveSessions\Actions\OpenBroadcastRoom;
 use App\Modules\LiveSessions\Actions\RecordPresencePing;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
@@ -129,6 +130,28 @@ it('pays the configured compensation when a booked student did not attend', func
         ->and($unit->basis)->toBe(SettlementBasis::ZeroAttendanceCompensation)
         // Flagged even though it was paid: the payment decision does not answer
         // the question of why the room was empty (FR-008ح).
+        ->and($unit->needs_review)->toBeTrue();
+});
+
+it('pays the configured compensation when the only booking was released', function (): void {
+    // Owner decision 2026-09-27: a seat the system took back (eligibility lapsed)
+    // counts exactly like one given back in time.
+    PlatformSettings::set('settlement.zero_attendance_compensation_enabled', true);
+    PlatformSettings::set('settlement.zero_attendance_compensation_percent', 40);
+
+    SessionBooking::factory()->create([
+        'class_session_id' => $this->session->getKey(),
+        'student_user_id' => User::factory()->create()->getKey(),
+        'status' => BookingStatus::Released,
+        'is_billable' => false,
+    ]);
+
+    taughtToNobody();
+
+    $unit = TeachingUnit::query()->sole();
+
+    expect($unit->amount_minor)->toBe(2000)
+        ->and($unit->basis)->toBe(SettlementBasis::ZeroAttendanceCompensation)
         ->and($unit->needs_review)->toBeTrue();
 });
 
