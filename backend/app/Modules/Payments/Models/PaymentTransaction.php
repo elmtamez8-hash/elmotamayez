@@ -81,7 +81,7 @@ class PaymentTransaction extends BaseModel
      */
     protected function amount(): Attribute
     {
-        return MinorUnits::attribute('amount_minor');
+        return MinorUnits::attribute('amount_minor', writable: false);
     }
 
     /**

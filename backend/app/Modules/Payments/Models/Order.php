@@ -82,7 +82,7 @@ class Order extends BaseModel implements HasMedia
      */
     protected function amount(): Attribute
     {
-        return MinorUnits::attribute('amount_minor');
+        return MinorUnits::attribute('amount_minor', writable: false);
     }
 
     /**

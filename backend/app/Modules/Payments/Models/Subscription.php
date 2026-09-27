@@ -78,7 +78,7 @@ class Subscription extends BaseModel
      */
     protected function price(): Attribute
     {
-        return MinorUnits::attribute('price_minor');
+        return MinorUnits::attribute('price_minor', writable: false);
     }
 
     /** @return array<string, mixed> */
