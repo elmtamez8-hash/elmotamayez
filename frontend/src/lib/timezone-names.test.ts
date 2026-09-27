@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import ZONE_ALIASES from "./timezone-aliases.json";
 import ZONE_PLACES from "./timezone-names.json";
-import { timezonePlace } from "./timezone-names";
+import { canonicalZone, timezonePlace } from "./timezone-names";
 
 /*
 | «ترجم أسماء باقي المحافظات والدول» (owner, 2026-09-27): every zone the picker
@@ -48,5 +49,26 @@ describe("timezone names", () => {
 
       expect(label, zone).toMatch(/^[^A-Za-z]+ — [^A-Za-z]+$/);
     }
+  });
+
+  it("folds every old spelling the runtime reports into the one the server stores, named alike", () => {
+    expect(canonicalZone("Asia/Calcutta")).toBe("Asia/Kolkata");
+    expect(canonicalZone("Europe/Kiev")).toBe("Europe/Kyiv");
+    expect(canonicalZone("Asia/Qatar")).toBe("Asia/Qatar");
+
+    for (const [alias, zone] of Object.entries(ZONE_ALIASES)) {
+      expect(() => new Intl.DateTimeFormat("en", { timeZone: zone }), zone).not.toThrow();
+      expect(timezonePlace(zone), zone).toBe(timezonePlace(alias));
+      // One step, never a chain.
+      expect(canonicalZone(zone), zone).toBe(zone);
+    }
+  });
+
+  it("leaves no two zones with one name once the runtime's list is folded", () => {
+    const zones = [...new Set(runtimeZones.map(canonicalZone))];
+    const labels = zones.map((zone) => timezonePlace(zone));
+
+    expect(zones.filter((zone) => zone in ZONE_ALIASES)).toEqual([]);
+    expect(labels.filter((label, i) => labels.indexOf(label) !== i)).toEqual([]);
   });
 });

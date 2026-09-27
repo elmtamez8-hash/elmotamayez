@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Requests;
 
 use App\Modules\Marketplace\Support\AvailabilityRules;
+use App\Shared\Traits\CanonicalisesTimezoneInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 class TeacherStepFourRequest extends FormRequest
 {
+    use CanonicalisesTimezoneInput;
+
     public function authorize(): bool
     {
         return true;

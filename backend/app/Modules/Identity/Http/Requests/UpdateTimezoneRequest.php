@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\Identity\Http\Requests;
 
+use App\Shared\Traits\CanonicalisesTimezoneInput;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateTimezoneRequest extends FormRequest
 {
+    use CanonicalisesTimezoneInput;
+
     public function authorize(): bool
     {
         return $this->user() !== null;

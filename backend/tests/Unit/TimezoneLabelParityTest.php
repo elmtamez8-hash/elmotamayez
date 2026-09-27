@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\User;
 use App\Shared\Support\TimezoneLabel;
+use App\Shared\Support\TimezoneName;
 use App\Shared\Support\UserClock;
 use Carbon\CarbonImmutable;
 
@@ -67,4 +68,37 @@ it('reads a UTC clock as Greenwich in a sentence, with no doubled word', functio
 
     expect(UserClock::format($utc, CarbonImmutable::parse('2026-11-18 15:00', 'UTC')))
         ->toBe('2026-11-18 15:00 (توقيت غرينتش (UTC))');
+});
+
+/*
+| ⛔ الأسماءُ القديمةُ التي يقولُها المتصفّح (`Asia/Calcutta`) تُخزَّنُ بأسمائها
+| الجديدة (`Asia/Kolkata`) — قرارُ المالك ٢٠٢٦-٠٩-٢٧. الخريطةُ ملفٌّ بنسختين مثلُ
+| الأسماء، وكلُّ سطرٍ فيها يُطابِقُ ما تقولُه ICU.
+*/
+it('folds old spellings exactly as the frontend does', function (): void {
+    $frontend = json_decode(
+        (string) file_get_contents(base_path('../frontend/src/lib/timezone-aliases.json')),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+
+    expect($frontend)->toBeArray()->not->toBeEmpty()
+        ->and(TimezoneName::aliases())->toBe($frontend);
+});
+
+it('folds each old spelling to a zone PHP lists, as ICU says, and names both alike', function (): void {
+    $listed = timezone_identifiers_list();
+
+    foreach (TimezoneName::aliases() as $alias => $zone) {
+        expect(in_array($alias, $listed, true))->toBeFalse()
+            ->and(in_array($zone, $listed, true))->toBeTrue()
+            ->and(TimezoneLabel::for($alias))->toBe(TimezoneLabel::for($zone));
+
+        if (method_exists(IntlTimeZone::class, 'getIanaID')) {
+            expect(IntlTimeZone::getIanaID($alias))->toBe($zone);
+        }
+    }
+
+    expect(TimezoneName::canonical('Asia/Calcutta'))->toBe('Asia/Kolkata')
+        ->and(TimezoneName::canonical('Asia/Qatar'))->toBe('Asia/Qatar');
 });

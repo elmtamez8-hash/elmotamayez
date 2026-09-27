@@ -1,3 +1,4 @@
+import ZONE_ALIASES_JSON from "./timezone-aliases.json";
 import ZONE_PLACES_JSON from "./timezone-names.json";
 
 /**
@@ -41,4 +42,26 @@ const ZONE_PLACES: Readonly<Record<string, string>> = ZONE_PLACES_JSON;
  */
 export function timezonePlace(zone: string): string | null {
   return ZONE_PLACES[zone] ?? null;
+}
+
+const ZONE_ALIASES: Readonly<Record<string, string>> = ZONE_ALIASES_JSON;
+
+/**
+ * The one spelling of a zone the server stores — `Asia/Kolkata` for the
+ * `Asia/Calcutta` Chrome and Node still report (19 such names, measured
+ * 2026-09-27).
+ *
+ * ⛔ THE SERVER REFUSED THE OLD SPELLING, so a reader in India who picked
+ * «الهند — كولكاتا» got «المنطقة الزمنية غير معروفة». Owner decision
+ * 2026-09-27: the server accepts it and stores the new one, and the client folds
+ * it first — the picker lists each zone ONCE, and the sign-in stamp compares the
+ * browser's zone with the stored one in the same spelling (`Asia/Calcutta` !==
+ * `Asia/Kolkata` would re-send the stamp on every page load).
+ *
+ * The map is `timezone-aliases.json`, an identical copy of the server's
+ * (`backend/app/Shared/Support/timezone-aliases.json`, derived from ICU's
+ * `getIanaID()`); `TimezoneLabelParityTest` holds the two together.
+ */
+export function canonicalZone(zone: string): string {
+  return ZONE_ALIASES[zone] ?? zone;
 }

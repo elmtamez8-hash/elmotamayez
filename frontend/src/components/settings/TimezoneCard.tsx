@@ -11,7 +11,7 @@ import { ClockIcon } from "@/components/icons";
 import { auth } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
-import { timezonePlace } from "@/lib/timezone-names";
+import { canonicalZone, timezonePlace } from "@/lib/timezone-names";
 import { setStoredViewerTimeZone, useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The two countries the product serves, first; then every zone the runtime knows. */
@@ -25,9 +25,13 @@ const FIRST = ["Asia/Qatar", "Africa/Cairo"];
  * Since 2026-09-27 every zone the runtime lists has an Arabic name, so the tail
  * of IANA names is empty; it stays for a zone some future runtime adds, which
  * would otherwise vanish from the list.
+ *
+ * ⚠️ EACH ZONE ONCE, IN THE SPELLING THE SERVER STORES: the runtime says
+ * `Asia/Calcutta`, the server stores `Asia/Kolkata`, and a select whose value
+ * is the old spelling never matches the saved one.
  */
 export function timezoneOptions(all: readonly string[] = supportedZones()): Array<{ value: string; label: string }> {
-  const rest = all.filter((zone) => !FIRST.includes(zone));
+  const rest = [...new Set(all.map(canonicalZone))].filter((zone) => !FIRST.includes(zone));
   const named: Array<{ value: string; label: string }> = [];
   const unnamed: Array<{ value: string; label: string }> = [];
 
@@ -75,7 +79,7 @@ function supportedZones(): string[] {
 export function TimezoneCard() {
   const { user, refreshUser } = useAuth();
   const current = useViewerTimeZone();
-  const [zone, setZone] = useState(user?.timezone ?? current);
+  const [zone, setZone] = useState(canonicalZone(user?.timezone ?? current));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);

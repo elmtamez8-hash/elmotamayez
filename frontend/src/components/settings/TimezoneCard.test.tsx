@@ -72,6 +72,17 @@ describe("timezoneOptions", () => {
     expect(options.find((o) => o.value === "America/Argentina/Salta")?.label).toBe("الأرجنتين — سالتا");
   });
 
+  it("lists each zone once, in the spelling the server stores", () => {
+    const options = timezoneOptions([...Intl.supportedValuesOf("timeZone"), "Asia/Kolkata", "Asia/Calcutta"]);
+    const values = options.map((o) => o.value);
+    const labels = options.map((o) => o.label);
+
+    expect(values.filter((v, i) => values.indexOf(v) !== i)).toEqual([]);
+    expect(labels.filter((l, i) => labels.indexOf(l) !== i)).toEqual([]);
+    expect(values).not.toContain("Asia/Calcutta");
+    expect(options.filter((o) => o.label === "الهند — كولكاتا")).toEqual([{ value: "Asia/Kolkata", label: "الهند — كولكاتا" }]);
+  });
+
   it("names every Arab-world zone the runtime knows in Arabic", () => {
     const arab = [
       "Asia/Qatar", "Africa/Cairo", "Asia/Riyadh", "Asia/Dubai", "Asia/Kuwait", "Asia/Bahrain",
