@@ -2,6 +2,21 @@ import type { Metadata } from "next";
 import { LegalDraft } from "@/components/marketplace/LegalDraft";
 import { DocumentIcon } from "@/components/icons";
 import { freezeLimitsHint } from "@/lib/class-sessions";
+import {
+  attendanceBar,
+  attendanceCorrectionSentence,
+  cancellationWindow,
+  chatLimitSentence,
+  creditCeilingSentence,
+  deferredLadderSentence,
+  dormancyPeriod,
+  offboardingSentence,
+  receiptReviewSentence,
+  renewalSentence,
+  reviewSentence,
+  stopSellingSentence,
+  twoFactorSentence,
+} from "@/lib/legal-terms";
 import { platformIdentity } from "@/lib/platform";
 
 export const metadata: Metadata = {
@@ -17,10 +32,13 @@ export const metadata: Metadata = {
  * ⚠️ EVERY SENTENCE BELOW IS A RULE SOMETHING IN `backend/` ENFORCES, and the
  * file references live in the pull request that wrote them, not on the page. A
  * clause added here with nothing behind it is a promise the product breaks —
- * write the code first, or leave the clause out. The numbers are the shipped
- * defaults of settings an operator can change from the panel, which is why the
- * page says «حالياً» beside them — except the two freeze limits, which are read
- * live from `GET /api/v1/platform` (see below).
+ * write the code first, or leave the clause out.
+ *
+ * ⚠️ AND NO OPERATIONAL NUMBER IS WRITTEN IN THIS FILE (2026-09-27, the
+ * pre-launch audit). Every one is a `platform_settings` row an operator edits
+ * from the panel, read live from `GET /api/v1/platform` and worded by
+ * `lib/legal-terms.ts` — the freeze limits first (#259), then all the rest. A
+ * number the API did not send drops its sentence rather than print a guess.
  *
  * ⚠️ AND WHAT IS NOT ENFORCED IS DELIBERATELY ABSENT: the exam timer is stored
  * and shown but never checked on the server, and refusing the recording
@@ -28,6 +46,7 @@ export const metadata: Metadata = {
  */
 export default async function TermsPage() {
   const identity = await platformIdentity();
+  const { terms } = identity;
   /*
    * ⚠️ THE FREEZE LIMITS ARE READ, NOT WRITTEN HERE. They were «٣٠ يوماً» and
    * «فترتَي تجميد» in this file while both are `platform_settings` rows, so the
@@ -40,6 +59,23 @@ export default async function TermsPage() {
     identity.freezeMaxDays !== null && identity.freezeMaxPerMonth !== null
       ? { max_days: identity.freezeMaxDays, max_per_month: identity.freezeMaxPerMonth }
       : null;
+
+  const twoFactor = twoFactorSentence(terms.twoFactorGraceDays);
+  const receiptReview = receiptReviewSentence(terms.receiptReviewSlaHours);
+  const creditCeiling = creditCeilingSentence(terms.maxUnredeemedCredits);
+  const stopSelling = stopSellingSentence(terms.stopSellingAfterDays);
+  const dormancy = dormancyPeriod(terms.dormantNoticeMonths);
+  const freeWindow = cancellationWindow(terms.cancellationWindowMinutes);
+  const bar = attendanceBar(terms.attendanceRequiredStayPercent);
+  const correction = attendanceCorrectionSentence(terms.attendanceEditWindowHours);
+  const ladder = deferredLadderSentence({
+    initial: terms.deferredInitialCredits,
+    increaseAfterOnTime: terms.deferredIncreaseAfterOnTime,
+    increaseBy: terms.deferredIncreaseByCredits,
+    max: terms.deferredMaxCredits,
+    resetAfterLateDays: terms.deferredResetAfterLateDays,
+  });
+  const review = reviewSentence(terms.reviewMinSessions, terms.reviewPeriodDays);
 
   return (
     <LegalDraft
@@ -79,10 +115,7 @@ export default async function TermsPage() {
           حساب الطالب يعمل حالياً على جهاز واحد: الدخول من جهاز جديد يُنهي الدخول على الجهاز
           السابق.
         </li>
-        <li>
-          التحقّق بخطوتين إلزاميّ للمدرّسين وفريق العمل بعد مهلة ١٤ يوماً، وبدونه تُقفل عنهم
-          العمليات الحسّاسة كالموافقة على المدفوعات والتسعير.
-        </li>
+        {twoFactor && <li>{twoFactor}</li>}
       </ul>
 
       <h2>الدفع</h2>
@@ -91,10 +124,7 @@ export default async function TermsPage() {
           الدفع حالياً بالتحويل البنكي أو المحفظة الإلكترونية فقط، إلى الحساب المعلَن في صفحة الدفع. لا
           يوجد دفع إلكتروني مباشر بعد.
         </li>
-        <li>
-          بعد التحويل ترفع صورة الإيصال (JPG أو PNG أو PDF، حتى ١٠ ميجابايت)، ويراجعها فريق المالية.
-          نسعى إلى المراجعة خلال ٢٤ ساعة، وهذا هدفٌ لا موعدٌ ملزِم.
-        </li>
+        {receiptReview && <li>{receiptReview}</li>}
         <li>عند الموافقة يُفتح لك ما اشتريته تلقائياً: الكورس أو الحصص أو الاشتراك.</li>
         <li>عند الرفض نذكر لك السبب، ويمكنك رفع إيصال جديد على الطلب نفسه.</li>
         <li>لا تنتهي صلاحية الطلب المعلَّق من تلقاء نفسه.</li>
@@ -104,25 +134,26 @@ export default async function TermsPage() {
       <h2>رصيد الحصص</h2>
       <ul>
         <li>الحصة في رصيدك تساوي حصةً واحدة عند مدرّسٍ واحد في كورسٍ واحد. رصيد كل كورس منفصل ولا يُجمع مع غيره.</li>
-        <li>لا يمكن أن يزيد ما لم تستهلكه في الكورس الواحد على ٢٤ حصة، بما فيها الطلبات التي لم تُراجَع بعد.</li>
-        <li>يتوقّف بيع الحصص في كورسٍ لم تُقدَّم فيه أي حصة منذ ٦٠ يوماً، أو في كورسٍ غير منشور.</li>
+        {creditCeiling && <li>{creditCeiling}</li>}
+        {stopSelling && <li>{stopSelling}</li>}
         <li>
-          لا تنتهي صلاحية رصيدك إلا إذا نصّت الباقة التي اشتريتها على مدّة. وإن بقي رصيدك دون حركة
-          ١٢ شهراً نرسل لك تنبيهاً، ولا يسقط منه شيء.
+          لا تنتهي صلاحية رصيدك إلا إذا نصّت الباقة التي اشتريتها على مدّة.
+          {dormancy && ` وإن بقي رصيدك دون حركة مدّة ${dormancy} نرسل لك تنبيهاً، ولا يسقط منه شيء.`}
         </li>
       </ul>
 
       <h2>الحجز والإلغاء والحضور</h2>
       <ul>
         <li>حين تحجز حصة تُحجز قيمتها من رصيدك، ولا تُخصم إلا بعد أن يقدّم المدرّس الحصة فعلاً.</li>
-        <li>الإلغاء قبل موعد الحصة بـ٢٤ ساعة على الأقل مجانيّ.</li>
+        {freeWindow && <li>{`الإلغاء قبل موعد الحصة بما لا يقلّ عن ${freeWindow} مجانيّ.`}</li>}
         <li>
-          من ألغى بعد ذلك، أو غاب، أو حضر أقل من نصف مدّة الحصة، تُخصم منه الحصة — إلا إذا قبل المدرّس
+          {freeWindow ? "من ألغى بعد ذلك" : "من ألغى متأخراً"}، أو غاب
+          {bar && `، أو حضر أقل من ${bar}`}، تُخصم منه الحصة — إلا إذا قبل المدرّس
           عذره قبل انتهاء الحصة، أو أخرجه المدرّس منها، أو كان قد طلب تغيير الموعد قبل مهلة الإلغاء ولم
           يُجَب طلبه في وقتها، أو قُدِّم موعد الحصة بعد أن فاتت مهلة إلغائها.
         </li>
         <li>إذا ألغى المدرّس الحصة، أو لم يحضر، أو لم يقدّمها، لا يُخصم منك شيء وتعود الحصة إلى رصيدك.</li>
-        <li>يمكن تصحيح الحضور خلال ٤٨ ساعة من الحصة. وتحويل غيابك إلى «معذور» بعد الخصم يعيد الحصة إلى رصيدك.</li>
+        {correction && <li>{correction}</li>}
       </ul>
 
       <h2>فتح محتوى حصة</h2>
@@ -138,10 +169,7 @@ export default async function TermsPage() {
           الأصل أن تشتري الحصص قبل حجزها. ويُسمح بالحجز على الحساب فقط إذا أتاح المدرّس ذلك لطلابه،
           ووقّعتَ «شروط الدفع المؤجَّل» في نسختها الحالية.
         </li>
-        <li>
-          يبدأ الحدّ المسموح بحصةٍ واحدة، ويزيد حصةً بعد كل ثلاث دفعات في موعدها حتى أربع حصص. وإن بقي
-          رصيدك بالسالب أكثر من ١٤ يوماً يعود الحدّ إلى صفر وتصير الحصص بالدفع المسبق.
-        </li>
+        {ladder && <li>{ladder}</li>}
         <li>
           إذا تجاوزت الحدّ في كورس، يتوقّف في ذلك الكورس وحده حجزُ حصصٍ جديدة، وبعضُ الدروس المسجّلة
           عالية القيمة، ومواد المتجر المرتبطة به. ولا يُمسّ ما حجزته من قبل، ولا الدروس العادية.
@@ -152,15 +180,23 @@ export default async function TermsPage() {
       <h2>الاشتراكات</h2>
       <ul>
         <li>الاشتراك إمّا مدّة بالأيام يُحتسب يومها الأخير ضمنها، وإمّا عدد حصص يُضاف إلى رصيد الكورس.</li>
-        <li>لا يتجدّد الاشتراك تلقائياً. نرسل لك تنبيهاً قبل انتهائه بـ٣ أيام، وعند انتهائه يُغلق ما كان يفتحه.</li>
+        <li>{renewalSentence(terms.renewalNoticeDays)}</li>
         <li>إن اشتريت تجديداً قبل انتهاء اشتراكك الحالي، يبدأ التجديد في اليوم التالي لانتهائه.</li>
         <li>
           إذا جمّد المدرّس الحصص في فترة ما، يُمدَّد اشتراكك بعدد أيام التجميد.
           {freezeLimits && ` ${freezeLimitsHint(freezeLimits)}`}
         </li>
+        {/*
+          ⚠️ THE OWNER'S RULE OF 2026-09-27: a cancellation refunds only what
+          was not used — pro-rata by unused days for a duration plan, by unused
+          sessions for a session-count plan. It replaced «ردّ المبلغ كاملاً بلا
+          تقسيط على الأيام».
+        */}
         <li>
-          إلغاء الاشتراك تتولّاه المنصّة، ويعني ردَّ المبلغ كاملاً وإغلاق الوصول معاً، بلا تقسيط على
-          الأيام. وإن كنت قد اشتريت تجديداً، يبدأ التجديد من يوم الإلغاء.
+          إلغاء الاشتراك تتولّاه المنصّة، ويُغلق الوصول ويُردّ لك الجزء غير المستعمل منه فقط: في
+          اشتراك المدّة بنسبة الأيام المتبقّية منه، وفي اشتراك عدد الحصص بعدد الحصص التي لم تُقدَّم لك
+          بعد. أما الحصص التي قُدِّمت لك فلا يُردّ ثمنها. وإن كنت قد اشتريت تجديداً، يبدأ التجديد من
+          يوم الإلغاء.
         </li>
       </ul>
 
@@ -195,15 +231,12 @@ export default async function TermsPage() {
           للمدرّس في كورساته أن يُخفي الرسائل، وأن يمنع أحداً من الكتابة مؤقتاً أو دائماً، وأن يحظر
           كلمات بعينها. وكل إجراءٍ من هذا يُسجَّل ولا يُحذف سجلّه.
         </li>
-        <li>يمكنك الإبلاغ عن أي رسالة أو تقييم. والمحادثة محدودة حالياً بـ٣٠ رسالة في الدقيقة.</li>
-        <li>يمكنك تقييم مدرّسك بعد أن تحضر عنده ٤ حصص، مرةً كل ٣٠ يوماً. وللمنصّة أن تُخفي التقييم المخالف.</li>
+        <li>{chatLimitSentence(terms.chatMaxMessagesPerMinute)}</li>
+        {review && <li>{review}</li>}
       </ul>
 
       <h2>إذا غادر المدرّس المنصّة</h2>
-      <p>
-        يُمهَل المدرّس ٣٠ يوماً بعد طلب المغادرة، ولا تكتمل مغادرته قبل تسوية مستحقاته. وبعدها تبقى
-        الكورسات التي اشتريتها منه متاحةً لك، وتصير محادثاته للقراءة فقط.
-      </p>
+      <p>{offboardingSentence(terms.offboardingNoticeDays)}</p>
 
       <h2>تغيير هذه الشروط</h2>
       <p>
