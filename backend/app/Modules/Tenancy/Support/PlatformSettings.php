@@ -148,6 +148,10 @@ final class PlatformSettings
         // The earliest a lesson may be asked for, in minutes from now — a
         // private request and a proposed reschedule alike.
         'sessions.min_lead_minutes' => 'sessions.min_lead_minutes',
+        // The two freeze limits: the longest one period may run, and how many
+        // may start in one month for one scope (`CreateFreezePeriod`).
+        'sessions.freeze_max_days' => 'sessions.freeze_max_days',
+        'sessions.freeze_max_per_month' => 'sessions.freeze_max_per_month',
         /*
         | ⚠️ ADDED LATE — the fourth instance of this in the map, after the two
         | store keys and the two billing ones. All four are read through

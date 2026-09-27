@@ -351,6 +351,18 @@ enum NotificationType: string
     case PrivateSessionExpired = 'private_session_expired';
 
     /*
+    | A student gave back a private hour in time, and the session was called off
+    | (`CancelBooking::cancelEmptyPrivateSession()`, owner decision 2026-09-27).
+    | Addressed to the TEACHER: the hour is theirs again, and nothing else told
+    | them — `SessionCancelled` goes out with an empty seat list from that door.
+    |
+    | ⚠️ NO GUARDIAN, and so no paid WhatsApp copy (`defaultChannels()` is derived
+    | from `targetsGuardians()`): the recipient is a teacher reading their own
+    | calendar, which is exactly the argument its three siblings above make.
+    */
+    case PrivateSessionCancelledByStudent = 'private_session_cancelled_by_student';
+
+    /*
     | Spec 049 — «أجّل حصّةَ هذا الأسبوع». Three, and the middle one is the only
     | one in the family that reaches a guardian.
     |
@@ -611,6 +623,7 @@ enum NotificationType: string
             self::PrivateSessionAccepted => 'قبول حصة خاصة',
             self::PrivateSessionRejected => 'رفض حصة خاصة',
             self::PrivateSessionExpired => 'انتهاء مهلة طلب حصة خاصة',
+            self::PrivateSessionCancelledByStudent => 'إلغاء طالب لحصة خاصة',
             self::SessionRescheduleRequested => 'طلب تأجيل حصة',
             self::SessionRescheduled => 'تغيير موعد حصة',
             self::SessionRescheduleRejected => 'رفض تأجيل حصة',

@@ -12,6 +12,7 @@ use App\Modules\LiveSessions\Http\Requests\StoreFreezePeriodRequest;
 use App\Modules\LiveSessions\Http\Resources\ClassSessionResource;
 use App\Modules\LiveSessions\Http\Resources\FreezePeriodResource;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,12 @@ use Illuminate\Http\Request;
 
 class FreezePeriodController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    /**
+     * The periods, and the two limits a new one must keep — read from the same
+     * {@see SessionSettings} `CreateFreezePeriod` enforces, so the screen shows
+     * the numbers the server answers 422 over.
+     */
+    public function index(Request $request, SessionSettings $settings): JsonResponse
     {
         $this->authorize('viewAny', FreezePeriod::class);
 
@@ -28,7 +34,13 @@ class FreezePeriodController extends Controller
             ->orderByDesc('starts_on')
             ->get();
 
-        return response()->json(['data' => FreezePeriodResource::collection($periods)]);
+        return response()->json([
+            'data' => FreezePeriodResource::collection($periods),
+            'limits' => [
+                'max_days' => $settings->freezeMaxDays(),
+                'max_per_month' => $settings->freezeMaxPerMonth(),
+            ],
+        ]);
     }
 
     /**

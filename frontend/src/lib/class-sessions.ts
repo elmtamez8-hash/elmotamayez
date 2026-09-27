@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { counted, NOUNS } from "./labels";
 
 /**
  * Taught sessions: the calendar, the seats, the student's timetable.
@@ -321,8 +322,38 @@ export interface FreezeResult {
   notified: number;
 }
 
+/**
+ * The two limits a new freeze must keep — sent by the server beside the list,
+ * read from the same settings the Action answers 422 over.
+ */
+export interface FreezeLimits {
+  /** The longest one period may run, in days, both ends included. */
+  max_days: number;
+  /** How many periods may START in one calendar month, per scope. */
+  max_per_month: number;
+}
+
+/**
+ * «لا تزيد الفترة الواحدة على ٣٠ يوماً، ولا تبدأ في الشهر الواحد أكثر من فترتين.»
+ *
+ * Built with `counted()` because both numbers are an operator's to change, and
+ * a template literal reads wrongly the day one of them becomes 1, 2 or 11.
+ */
+export function freezeLimitsHint(limits: FreezeLimits): string {
+  const days = counted(limits.max_days, { ...NOUNS.days, two: "يومين" });
+  const periods = counted(limits.max_per_month, {
+    one: "فترة واحدة",
+    two: "فترتين",
+    few: "فترات",
+    many: "فترة",
+    other: "فترة",
+  });
+
+  return `لا تزيد الفترة الواحدة على ${days}، ولا تبدأ في الشهر الواحد أكثر من ${periods}.`;
+}
+
 export const freezePeriods = {
-  list: () => api.get<{ data: FreezePeriod[] }>("/freeze-periods"),
+  list: () => api.get<{ data: FreezePeriod[]; limits?: FreezeLimits }>("/freeze-periods"),
 
   create: (body: {
     starts_on: string;

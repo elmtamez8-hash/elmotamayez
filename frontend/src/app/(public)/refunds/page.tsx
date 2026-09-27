@@ -29,7 +29,7 @@ export default async function RefundsPage() {
       image="/marketplace/banner-refunds.webp"
       title="سياسة الاسترجاع"
       summary="متى يحقّ لك استرداد قيمة حصة أو كورس، وكيف تُقدَّم الطلبات."
-      updatedAt="٢٦ سبتمبر ٢٠٢٦"
+      updatedAt="٢٧ سبتمبر ٢٠٢٦"
       platformName={identity.name}
       supportWhatsapp={identity.supportWhatsapp}
       legalName={identity.legalName}
@@ -68,7 +68,7 @@ export default async function RefundsPage() {
       <ul>
         <li>يُردّ من الشحنة ما لم تستهلكه منها فقط. الحصص التي حضرتها أو خُصمت منك تبقى مخصومة.</li>
         <li>تُلغى الحجوزات القادمة التي كانت ممولةً من تلك الحصص.</li>
-        <li>الرصيد الذي لا يتحرّك لا يسقط؛ نرسل لك تنبيهاً بعد ١٢ شهراً، ويمكنك طلب استرداده من الدعم.</li>
+        <li>الرصيد الذي لا يتحرّك لا يسقط؛ نرسل لك تنبيهاً بعد ١٢ شهراً، وإن أردت استرداده فتواصل مع الدعم.</li>
       </ul>
 
       <h2>الاشتراكات</h2>

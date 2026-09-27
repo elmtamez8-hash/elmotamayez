@@ -68,6 +68,11 @@ class FreezePeriod extends BaseModel
      *
      * The listener lives in Payments and is queued; this side names nothing about
      * subscriptions, exactly as `SessionDelivered` names nothing about money.
+     *
+     * ⚠️ AND THE DELETE IS WHY THE MONTHLY CEILING IS NOT COUNTED HERE. A lifted
+     * period must vanish for every reader of this table, yet still count as one
+     * of the month's freezes — so `CreateFreezePeriod` claims its slot in
+     * `freeze_period_starts`, a ledger nothing deletes.
      */
     protected static function booted(): void
     {

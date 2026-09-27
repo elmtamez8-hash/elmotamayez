@@ -11,9 +11,11 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\LiveSessions\Events\SessionCancelled;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\FreezePeriod;
+use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionCreditHolds;
+use App\Shared\Support\CountedNoun;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -60,6 +62,7 @@ class CreateFreezePeriod extends Action
         private readonly WorkspaceContext $context,
         private readonly SessionCreditHolds $holds,
         private readonly CancelBooking $bookings,
+        private readonly SessionSettings $settings,
     ) {}
 
     /**
@@ -91,17 +94,124 @@ class CreateFreezePeriod extends Action
             throw new DomainException('هذا الطالب ليس من طلابك.');
         }
 
-        $period = FreezePeriod::query()->create([
-            'student_user_id' => $student?->getKey(),
-            'starts_on' => $startsOn->toDateString(),
-            'ends_on' => $endsOn->toDateString(),
-            'reason' => $reason,
-            'created_by' => $actor->getKey(),
-        ]);
+        /*
+        | Owner decision 2026-09-27: one period runs at most `freezeMaxDays()`
+        | days, counted INCLUSIVELY — the same reading `covering()` gives the two
+        | columns (`ends_on` is the last frozen day), so a period that starts and
+        | ends on one date is one day. Arithmetic on the two dates, no clock: both
+        | were picked off the platform calendar and are already platform days.
+        |
+        | In the Action and not only in the FormRequest, because this is the one
+        | door the API, the seeders and any future panel share (Constitution II).
+        */
+        $maxDays = $this->settings->freezeMaxDays();
+        $days = (int) $startsOn->startOfDay()->diffInDays($endsOn->startOfDay()) + 1;
+
+        if ($days > $maxDays) {
+            throw new DomainException('لا يجوز أن تتجاوز فترة التجميد الواحدة '.CountedNoun::of($maxDays, self::DAYS_OBJECT).'.');
+        }
+
+        $period = $this->claimMonthlySlot($actor, $startsOn, $endsOn, $student, $reason);
 
         [$suspended, $released, $notified] = $this->suspendSessionsIn($period);
 
         return ['period' => $period, 'suspended' => $suspended, 'released' => $released, 'notified' => $notified];
+    }
+
+    /**
+     * «يوم» as the object of «تتجاوز» — «تتجاوز يومين» · «تتجاوز ٣٠ يوماً».
+     *
+     * @var array{one: string, two: string, few: string, many: string, other: string}
+     */
+    private const DAYS_OBJECT = [
+        'one' => 'يوماً واحداً',
+        'two' => 'يومين',
+        'few' => 'أيام',
+        'many' => 'يوماً',
+        'other' => 'يوم',
+    ];
+
+    /**
+     * Writes the period — unless its month already holds the ceiling for this
+     * scope.
+     *
+     * Owner decision 2026-09-27: at most `freezeMaxPerMonth()` periods may START
+     * in one calendar month of the platform zone, per scope — the whole
+     * workspace (`student_user_id IS NULL`), or one student in it. The month is
+     * read off `starts_on` itself, which is already a platform day.
+     *
+     * ⛔ COUNTED IN `freeze_period_starts`, NEVER IN `freeze_periods`. Lifting a
+     * freeze deletes its period row, so a ceiling counted there gave the slot
+     * back on every lift and freeze → lift → freeze walked past it. A lifted
+     * freeze still counts (owner decision 2026-09-27); the ledger row is written
+     * here, once, and nothing deletes it.
+     *
+     * ⚠️ ONE CONDITIONAL INSERT ON THE LEDGER, NEVER `count()` THEN `create()` —
+     * that pair is the definition of the race, and a double-tapped «تجميد
+     * الفترة» is exactly two concurrent requests. Same shape `RequestPrivateSession`
+     * uses for its ceiling. The period itself is then written through the model,
+     * in the same transaction, so `HasUuid`, `BelongsToWorkspace` and the
+     * `created` hook (`FreezePeriodChanged`, which spec 011 extends
+     * subscriptions from) all run as they always did.
+     */
+    private function claimMonthlySlot(
+        User $actor,
+        CarbonImmutable $startsOn,
+        CarbonImmutable $endsOn,
+        ?User $student,
+        ?string $reason,
+    ): FreezePeriod {
+        $workspaceId = $this->context->id();
+
+        if ($workspaceId === null) {
+            throw new DomainException('اختر مساحة العمل أولاً.');
+        }
+
+        $limit = $this->settings->freezeMaxPerMonth();
+        $studentId = $student?->getKey();
+
+        return DB::transaction(function () use ($actor, $startsOn, $endsOn, $reason, $workspaceId, $limit, $studentId): FreezePeriod {
+            // `IS NULL` for the workspace scope, never `= ?` with a null binding:
+            // `student_user_id = NULL` matches no row at all, and the ceiling
+            // would never bite on the scope teachers actually use.
+            $scope = $studentId === null ? 'student_user_id IS NULL' : 'student_user_id = ?';
+            $scopeBindings = $studentId === null ? [] : [$studentId];
+
+            $claimed = DB::affectingStatement(
+                'INSERT INTO freeze_period_starts (workspace_id, student_user_id, starts_on, created_at)
+                 SELECT ?, ?, ?, ?
+                   FROM (SELECT 1) AS guard
+                  WHERE (SELECT COUNT(*) FROM freeze_period_starts
+                          WHERE workspace_id = ?
+                            AND '.$scope.'
+                            AND starts_on >= ?
+                            AND starts_on < ?) < ?',
+                [
+                    $workspaceId, $studentId, $startsOn->toDateString(), now()->format('Y-m-d H:i:s'),
+                    $workspaceId, ...$scopeBindings,
+                    $startsOn->startOfMonth()->toDateString(),
+                    $startsOn->startOfMonth()->addMonthNoOverflow()->toDateString(),
+                    $limit,
+                ],
+            );
+
+            if ($claimed === 0) {
+                throw new DomainException(
+                    'لا تبدأ في الشهر الواحد أكثر من '
+                    .CountedNoun::of($limit, ['one' => 'فترة تجميد واحدة', 'two' => 'فترتي تجميد', 'few' => 'فترات تجميد', 'many' => 'فترة تجميد', 'other' => 'فترة تجميد'])
+                    .($studentId === null ? '' : ' لهذا الطالب')
+                    .' — والفترة التي رُفعت تُحسب أيضاً. اختر بداية في شهر آخر.',
+                );
+            }
+
+            return FreezePeriod::query()->create([
+                'student_user_id' => $studentId,
+                'starts_on' => $startsOn->toDateString(),
+                'ends_on' => $endsOn->toDateString(),
+                'reason' => $reason,
+                'created_by' => $actor->getKey(),
+            ]);
+        });
     }
 
     /**
