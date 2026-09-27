@@ -113,7 +113,7 @@ class SchoolYearResource extends Resource
 
                     TextInput::make('sort_order')
                         ->label('الترتيب')
-                        ->numeric()
+                        ->integer()->minValue(0)->maxValue(65535)
                         ->default(0)
                         ->required(),
 

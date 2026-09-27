@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Gamification\Filament\Resources\RewardResource\RelationManagers;
 
 use App\Modules\Gamification\Enums\RedemptionStatus;
+use App\Modules\Gamification\Filament\Resources\RedemptionResource;
 use App\Modules\Gamification\Models\Redemption;
 use App\Shared\Scopes\WorkspaceScope;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -75,7 +76,8 @@ class RedemptionsRelationManager extends RelationManager
                         RedemptionStatus::Fulfilled => 'success',
                         RedemptionStatus::Rejected => 'danger',
                     }),
-                TextColumn::make('claimed_month_key')->label('الشهر المحتسَب'),
+                TextColumn::make('claimed_month_key')->label('الشهر المحتسَب')
+                    ->formatStateUsing(fn (mixed $state): string => RedemptionResource::monthName($state)),
                 TextColumn::make('decider.first_name')->label('البتّ فيه')->placeholder('—')
                     ->formatStateUsing(fn (Redemption $record): ?string => $record->decider?->name),
                 TextColumn::make('decided_at')->label('تاريخ البتّ')->dateTime('Y-m-d H:i')->placeholder('—'),

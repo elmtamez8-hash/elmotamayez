@@ -6,6 +6,7 @@ namespace App\Modules\Settlement\Filament\Pages;
 
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
+use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Settlement\Actions\DecideRateChange;
 use App\Modules\Settlement\Enums\RateRequestStatus;
@@ -115,7 +116,9 @@ class ReviewRateRequests extends Page implements HasTable
                 TextColumn::make('teacher')->label('المدرّس')->placeholder('—')
                     ->state(fn (RateChangeRequest $record): ?string => $record->teacherProfile?->user?->name)
                     ->description(fn (RateChangeRequest $record): ?string => $record->workspace?->name),
-                TextColumn::make('session_type')->label('نوع الحصّة')->placeholder('—'),
+                TextColumn::make('session_type')->label('نوع الحصّة')->placeholder('—')->badge()
+                    ->formatStateUsing(fn (mixed $state): string => ($state instanceof ClassSessionType ? $state : ClassSessionType::tryFrom(is_string($state) ? $state : ''))?->label()
+                        ?? (is_scalar($state) ? (string) $state : '—')),
                 TextColumn::make('scope')->label('النطاق')->placeholder('كل المواد')
                     ->state(fn (RateChangeRequest $record): ?string => trim(implode(' · ', array_filter([
                         Subject::query()->whereKey($record->subject_id)->value('name'),

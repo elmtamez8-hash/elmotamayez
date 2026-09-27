@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources\PlanResource\Pages;
 
+use App\Filament\Support\MoneyInput;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Actions\CreatePlanForTeacher;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\PlanResource;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Contracts\CohortDirectory;
 use DomainException;
@@ -120,7 +122,7 @@ class CreatePlan extends CreateRecord
 
                     TextInput::make('duration_days')
                         ->label('المدّة بالأيّام')
-                        ->numeric()
+                        ->integer()
                         ->required(fn (callable $get): bool => $get('shape') !== 'sessions')
                         ->visible(fn (callable $get): bool => $get('shape') !== 'sessions')
                         ->minValue(1)
@@ -128,7 +130,7 @@ class CreatePlan extends CreateRecord
 
                     TextInput::make('session_count')
                         ->label('عدد الحصص')
-                        ->numeric()
+                        ->integer()
                         ->required(fn (callable $get): bool => $get('shape') === 'sessions')
                         ->visible(fn (callable $get): bool => $get('shape') === 'sessions')
                         ->minValue(1),
@@ -182,15 +184,13 @@ class CreatePlan extends CreateRecord
                 ]),
 
             Section::make('سعر المنصّة')
-                ->description('بالوحدةِ الصغرى: ٣٠٠ ريال تُكتَبُ 30000. وهو مطلوبٌ هنا (FR-017): '
+                ->description('بالعملةِ نفسِها: ٣٠٠ ريال تُكتَبُ 300، و٤٩٫٩٩ تُكتَبُ 49.99. وهو مطلوبٌ هنا (FR-017): '
                     .'مَن يُنشئُ بالنيابةِ هو نفسُه مَن يُسعِّر، فباقةٌ تنتظرُ تسعيرَه هي طابورٌ إلى نفسِه.')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('price_minor')
-                        ->label('السعر بالوحدة الصغرى')
-                        ->numeric()
-                        ->required()
-                        ->minValue(0),
+                    MoneyInput::make('price_minor', fn (): string => app(BillingSettings::class)->currency())
+                        ->label('السعر')
+                        ->required(),
 
                     Toggle::make('is_active')
                         ->label('مفعَّلة')

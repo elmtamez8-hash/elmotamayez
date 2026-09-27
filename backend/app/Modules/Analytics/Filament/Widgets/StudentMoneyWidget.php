@@ -10,6 +10,7 @@ use App\Modules\Analytics\Support\Money;
 use App\Modules\Payments\Models\CreditBalance;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Shared\Support\Countries;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -53,7 +54,8 @@ class StudentMoneyWidget extends BaseWidget
             ->paginationPageOptions([10, 25, 50])
             ->columns([
                 TextColumn::make('name')->label('الطالب')->searchable(['first_name', 'last_name']),
-                TextColumn::make('country')->label('البلد')->placeholder('غير محدَّد')->toggleable(),
+                TextColumn::make('country')->label('البلد')->placeholder('غير محدَّد')->toggleable()
+                    ->formatStateUsing(fn (mixed $state): ?string => Countries::name($state)),
                 TextColumn::make('paid_minor')
                     ->label('المدفوع')
                     ->formatStateUsing(fn (User $record): string => Money::line($this->paidBy($record), '٠٫٠٠'))

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
+use App\Filament\Support\MoneyInput;
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Actions\ApproveOrder;
@@ -83,9 +84,9 @@ class OrderResource extends Resource
                             ->label('الكورس')
                             ->relationship('course', 'title')
                             ->disabled(),
-                        TextInput::make('amount_minor')
-                            ->label('المبلغ (بالوحدات الصغرى)')
-                            ->integer()
+                        // للعرضِ وحدَه (معطَّلٌ فلا يُحفَظ)، وبالوحدةِ الكبرى كبقيّةِ اللوحة.
+                        MoneyInput::make('amount_minor', fn (?Order $record): ?string => $record?->currency)
+                            ->label('المبلغ')
                             ->disabled(),
                         TextInput::make('currency')
                             ->label('العملة')

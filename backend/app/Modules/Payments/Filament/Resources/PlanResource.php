@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\Support\MoneyInput;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\PlanResource\Pages;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\PlanShape;
 use App\Modules\Tenancy\Support\Permissions;
 use BackedEnum;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -162,7 +163,7 @@ class PlanResource extends Resource
 
             Section::make('سعر المنصّة')
                 ->description('اترُكْه فارغاً فلا تُعرَضُ الباقةُ للبيعِ أصلاً — وهذه هي حالتُها قبلَ التسعير، '
-                    .'لا «مجّاناً». بالوحدةِ الصغرى: ٣٠٠ ريال تُكتَبُ 30000.')
+                    .'لا «مجّاناً». يُكتَبُ بالعملةِ نفسِها: ٣٠٠ ريال تُكتَبُ 300، و٤٩٫٩٩ تُكتَبُ 49.99.')
                 ->columns(1)
                 ->schema([
                     /*
@@ -177,10 +178,8 @@ class PlanResource extends Resource
                     | from a writer without the permission, measured in
                     | `PlanFormTest`.
                     */
-                    TextInput::make('price_minor')
-                        ->label('السعر بالوحدة الصغرى')
-                        ->numeric()
-                        ->minValue(0)
+                    MoneyInput::make('price_minor', fn (?Plan $record): string => $record->currency ?? app(BillingSettings::class)->currency())
+                        ->label('السعر')
                         ->helperText('تغييرُ السعرِ لا يمسُّ اشتراكاً جارياً: كلُّ اشتراكٍ يحملُ لقطةَ سعرِه '
                             .'من لحظةِ الشراء (FR-030).'),
                 ]),
@@ -209,9 +208,8 @@ class PlanResource extends Resource
                 TextColumn::make('coverage_type')->label('التغطية')
                     ->formatStateUsing(fn (PlanCoverage $state): string => $state->label()),
                 TextColumn::make('price_minor')->label('السعر')->sortable()
-                    ->formatStateUsing(fn (?int $state): string => $state === null
-                        ? 'تنتظر التسعير'
-                        : number_format($state / 100, 2))
+                    ->placeholder('تنتظر التسعير')
+                    ->money(fn (Plan $record): string => $record->currency, divideBy: 100)
                     ->badge()
                     ->color(fn (?int $state): string => $state === null ? 'warning' : 'gray'),
                 /*

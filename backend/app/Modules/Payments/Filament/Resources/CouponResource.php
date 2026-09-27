@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Filament\Resources;
 
+use App\Filament\Support\MoneyInput;
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Payments\Enums\CouponScope;
 use App\Modules\Payments\Enums\CouponValueKind;
 use App\Modules\Payments\Filament\Resources\CouponResource\Pages;
 use App\Modules\Payments\Models\Coupon;
+use App\Modules\Payments\Models\CreditPackage;
+use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Store\Models\StoreItem;
+use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Support\MinorUnits;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -19,12 +26,15 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
@@ -103,13 +113,31 @@ class CouponResource extends Resource
                             ->mapWithKeys(fn (CouponValueKind $kind): array => [$kind->value => $kind->label()])
                             ->all()),
 
+                    /*
+                    | ⛔ عمودٌ واحدٌ بمعنيَين: نسبةٌ صحيحةٌ من ١ إلى ١٠٠، أو مبلغٌ
+                    | بالوحدةِ الصغرى. كانَ الحقلُ رقماً حرّاً يقبلُ ١٥٠٪ ويطلبُ
+                    | المبلغَ بالهللات. الآن النسبةُ عددٌ صحيحٌ بسقفِ ١٠٠، والمبلغُ
+                    | يُكتَبُ بالوحدةِ الكبرى (قرارُ المالك ٢٠٢٦-٠٩-٢٧) ويُخزَّنُ بالصغرى.
+                    | الملءُ يسألُ الصفَّ المخزَّن، والحفظُ يسألُ النوعَ المختارَ الآن.
+                    */
                     TextInput::make('value')
                         ->label('القيمة')
                         ->numeric()
                         ->required()
-                        ->minValue(1)
-                        ->helperText('نسبة: رقمٌ من ١ إلى ١٠٠. مبلغ ثابت: بالوحدة الصغرى، ويُقَصّ عند قيمة '
-                            .'السطر فلا يهبط المبلغُ تحت الصفر.'),
+                        ->minValue(fn (Get $get): int|float => self::isFixed($get('value_kind')) ? 0.01 : 1)
+                        ->maxValue(fn (Get $get): int => self::isFixed($get('value_kind')) ? 1_000_000 : 100)
+                        ->rule(fn (Get $get): string => self::isFixed($get('value_kind')) ? 'decimal:0,2' : 'integer')
+                        ->suffix(fn (Get $get): string => self::isFixed($get('value_kind'))
+                            ? MoneyInput::currencyLabel(app(BillingSettings::class)->currency())
+                            : '٪')
+                        ->formatStateUsing(fn (mixed $state, ?Coupon $record): mixed => $record?->value_kind === CouponValueKind::FixedMinor && is_numeric($state)
+                            ? MinorUnits::toMajor((int) $state)
+                            : $state)
+                        ->dehydrateStateUsing(fn (mixed $state, Get $get): ?int => self::isFixed($get('value_kind'))
+                            ? MinorUnits::fromMajor($state)
+                            : (is_numeric($state) ? (int) $state : null))
+                        ->helperText('نسبة: عددٌ صحيحٌ من ١ إلى ١٠٠. مبلغ ثابت: بالعملة نفسِها (٤٩٫٩٩ تُكتَبُ 49.99)، '
+                            .'ويُقَصّ عند قيمة السطر فلا يهبط المبلغُ تحت الصفر.'),
                 ]),
 
             Section::make('النطاق')
@@ -117,21 +145,53 @@ class CouponResource extends Resource
                     .'على مدرّسٍ واحد؛ وتحديدُ نوعٍ ومعرِّفٍ يقصره على شيءٍ واحدٍ بعينه.')
                 ->columns(3)
                 ->schema([
-                    TextInput::make('workspace_id')
-                        ->label('مساحة العمل')
-                        ->numeric()
+                    /*
+                    | ⚠️ كانَ رقماً يُكتَبُ باليد بلا مفتاحٍ أجنبيّ: رقمٌ خاطئٌ يكتبُ
+                    | كوبوناً لا يسري عند أحد، بلا خطأ. الآن اسمُ المدرّس.
+                    */
+                    Select::make('workspace_id')
+                        ->label('المدرّس / مساحة العمل')
+                        ->options(fn (): array => Workspace::query()->orderBy('name')->pluck('name', 'id')->all())
+                        ->searchable()
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set): mixed => $set('scope_uuid', null))
+                        ->placeholder('المنصّة كلّها')
                         ->helperText('فارغ = كوبون منصّة يسري عند كلّ مدرّس.'),
 
                     Select::make('scope_type')
                         ->label('النوع')
+                        ->live()
+                        ->afterStateUpdated(fn (Set $set): mixed => $set('scope_uuid', null))
+                        ->placeholder('كل شيء')
                         ->options(fn (): array => collect(CouponScope::cases())
                             ->mapWithKeys(fn (CouponScope $scope): array => [$scope->value => $scope->label()])
                             ->all()),
 
-                    TextInput::make('scope_uuid')
-                        ->label('المعرّف')
-                        ->maxLength(36)
-                        ->helperText('معرّف الكورس أو المنتج أو الحزمة.'),
+                    /*
+                    | ⚠️ كانَ نصّاً يُلصَقُ فيه uuid: خطأٌ حرفٌ واحدٌ يكتبُ كوبوناً لا
+                    | يطابقُ شيئاً. الآن قائمةٌ بالنوعِ المختار، وبمدرّسِ الكوبونِ إن
+                    | حُدِّد. وبتجاوزِ النطاق: الموظَّفُ ليسَ عضواً في مساحةِ المدرّس،
+                    | فقائمةٌ مقيَّدةٌ تعرضُ كورساتِه هو أو لا شيء — كما في `CreatePlan`.
+                    */
+                    Select::make('scope_uuid')
+                        ->label(fn (Get $get): string => match (self::scope($get('scope_type'))) {
+                            CouponScope::Course => 'الكورس',
+                            CouponScope::StoreItem => 'المنتج',
+                            CouponScope::CreditPackage => 'الحزمة',
+                            null => 'العنصر',
+                        })
+                        ->searchable()
+                        ->getSearchResultsUsing(fn (string $search, Get $get): array => self::scopeTargets(
+                            self::scope($get('scope_type')),
+                            self::workspaceId($get('workspace_id')),
+                            $search,
+                        ))
+                        ->getOptionLabelUsing(fn (mixed $value, Get $get): ?string => is_string($value)
+                            ? self::scopeTargetLabel(self::scope($get('scope_type')), $value)
+                            : null)
+                        ->visible(fn (Get $get): bool => self::scope($get('scope_type')) !== null)
+                        ->required(fn (Get $get): bool => self::scope($get('scope_type')) !== null)
+                        ->helperText('اكتب جزءاً من الاسم للبحث.'),
                 ]),
 
             Section::make('المدّة والسقف')
@@ -153,7 +213,7 @@ class CouponResource extends Resource
 
                     TextInput::make('max_redemptions')
                         ->label('سقف الاستعمال')
-                        ->numeric()
+                        ->integer()
                         ->minValue(1)
                         ->helperText('فارغ = بلا سقف. والسقفُ لا يُتجاوَز مهما تزامنت المحاولات.'),
 
@@ -172,14 +232,15 @@ class CouponResource extends Resource
             ->columns([
                 TextColumn::make('code')->label('الكود')->searchable()->sortable(),
                 TextColumn::make('value')->label('القيمة')->formatStateUsing(
-                    fn (int $state, Coupon $record): string => $record->value_kind === CouponValueKind::Percent
-                        ? $state.'٪'
-                        : (string) $state,
+                    fn (mixed $state, Coupon $record): string => $record->value_kind === CouponValueKind::Percent
+                        ? (int) $state.'٪'
+                        : MinorUnits::toMajor((int) $state).' '.MoneyInput::currencyLabel(app(BillingSettings::class)->currency()),
                 ),
                 TextColumn::make('scope_type')->label('النطاق')->badge()
-                    ->formatStateUsing(fn (?CouponScope $state): string => $state?->label() ?? 'كل شيء'),
-                TextColumn::make('workspace_id')->label('مساحة العمل')
-                    ->formatStateUsing(fn (?int $state): string => $state === null ? 'المنصّة' : (string) $state),
+                    ->placeholder('كل شيء')
+                    ->formatStateUsing(fn (mixed $state): string => self::scope($state)?->label() ?? 'كل شيء'),
+                TextColumn::make('workspace.name')->label('المدرّس')
+                    ->placeholder('المنصّة'),
                 // Read side by side on purpose: «١٢ من ٥٠» is the question an
                 // operator actually has, and two separate columns make them
                 // compare numbers on different rows of the same screen.
@@ -227,6 +288,96 @@ class CouponResource extends Resource
         Notification::make()->danger()->title('التحقّق بخطوتين مطلوب')->body($refusal)->persistent()->send();
 
         return true;
+    }
+
+    /** النوعُ يصلُ كائنَ enum من الصبِّ عندَ التعديل، ونصّاً من الاختيار. */
+    public static function isFixed(mixed $kind): bool
+    {
+        return ($kind instanceof CouponValueKind ? $kind : CouponValueKind::tryFrom(is_string($kind) ? $kind : ''))
+            === CouponValueKind::FixedMinor;
+    }
+
+    private static function scope(mixed $scope): ?CouponScope
+    {
+        if ($scope instanceof CouponScope) {
+            return $scope;
+        }
+
+        return is_string($scope) ? CouponScope::tryFrom($scope) : null;
+    }
+
+    private static function workspaceId(mixed $workspace): ?int
+    {
+        return is_numeric($workspace) ? (int) $workspace : null;
+    }
+
+    /**
+     * What a code may be narrowed to, uuid => label, for the chosen kind.
+     *
+     * ⚠️ `withoutWorkspaceScope()` on both tenant models, and the chosen teacher
+     * as an explicit `where` instead — the officer at this screen is a member of
+     * no teacher's workspace, so a scoped read would offer their own rows or
+     * nothing. A platform-wide code (no teacher chosen) names the teacher in the
+     * label, since two teachers may both sell «الفيزياء ١».
+     *
+     * @return array<string, string>
+     */
+    public static function scopeTargets(?CouponScope $scope, ?int $workspaceId, string $search = ''): array
+    {
+        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], trim($search)).'%';
+
+        return match ($scope) {
+            CouponScope::Course => Course::query()
+                ->withoutWorkspaceScope()
+                ->with('workspace:id,name')
+                ->when($workspaceId !== null, fn (Builder $query): Builder => $query->where('workspace_id', $workspaceId))
+                ->where('title', 'like', $like)
+                ->orderBy('title')
+                ->limit(50)
+                ->get(['uuid', 'title', 'workspace_id'])
+                ->mapWithKeys(fn (Course $course): array => [
+                    (string) $course->uuid => $workspaceId === null && $course->workspace !== null
+                        ? $course->title.' — '.$course->workspace->name
+                        : $course->title,
+                ])
+                ->all(),
+            CouponScope::StoreItem => StoreItem::query()
+                ->withoutWorkspaceScope()
+                ->with('workspace:id,name')
+                ->when($workspaceId !== null, fn (Builder $query): Builder => $query->where('workspace_id', $workspaceId))
+                ->where('title', 'like', $like)
+                ->orderBy('title')
+                ->limit(50)
+                ->get(['uuid', 'title', 'workspace_id'])
+                ->mapWithKeys(fn (StoreItem $item): array => [
+                    (string) $item->uuid => $workspaceId === null && $item->workspace !== null
+                        ? $item->title.' — '.$item->workspace->name
+                        : $item->title,
+                ])
+                ->all(),
+            // Platform-owned: a package belongs to no teacher, so the chosen
+            // workspace narrows nothing here.
+            CouponScope::CreditPackage => CreditPackage::query()
+                ->where('name', 'like', $like)
+                ->orderBy('sort_order')
+                ->limit(50)
+                ->pluck('name', 'uuid')
+                ->all(),
+            null => [],
+        };
+    }
+
+    /** The label of the stored target — a deleted or unknown one keeps its uuid rather than going blank. */
+    public static function scopeTargetLabel(?CouponScope $scope, string $uuid): string
+    {
+        $label = match ($scope) {
+            CouponScope::Course => Course::query()->withoutWorkspaceScope()->withTrashed()->where('uuid', $uuid)->value('title'),
+            CouponScope::StoreItem => StoreItem::query()->withoutWorkspaceScope()->where('uuid', $uuid)->value('title'),
+            CouponScope::CreditPackage => CreditPackage::query()->where('uuid', $uuid)->value('name'),
+            null => null,
+        };
+
+        return is_string($label) && $label !== '' ? $label : $uuid;
     }
 
     public static function canDelete(Model $record): bool

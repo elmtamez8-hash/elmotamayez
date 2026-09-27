@@ -101,6 +101,10 @@ class RoleResource extends Resource
                         ->label('الاسم')
                         ->required()
                         ->maxLength(125)
+                        // The helper text below was the only rule until now: «Course
+                        // Reviewer» or «مراجع» saved, and read in code as nothing.
+                        ->regex('/^[a-z0-9-]+$/')
+                        ->validationMessages(['regex' => 'حروفٌ لاتينيّةٌ صغيرةٌ وأرقامٌ وشَرطاتٌ فقط، مثل course-reviewer.'])
                         ->helperText('حروفٌ لاتينيّةٌ وشَرطات، مثل `course-reviewer`. يُقرأ في الشيفرة ولا يُترجَم.')
                         ->disabled(fn (?Role $record): bool => $record !== null
                             && in_array($record->name, Roles::workspaceRoles(), true))

@@ -88,23 +88,31 @@ class ExamResource extends Resource
                     ->description('تُطبَّقُ في الإجراءِ الذي يبدأُ المحاولةَ ويُصحِّحُها، لا في هذهِ الشاشةِ وحدَها.')
                     ->columns(3)
                     ->schema([
+                        // ⚠️ حدودُ الأعمدة (`unsignedSmallInteger` / `unsignedTinyInteger`)
+                        // لا ما يحتملُه SQLite: فراغٌ أو كسرٌ أو ٧٠٠٠٠ كانت تمرُّ هنا
+                        // وتُرفَضُ على MySQL صفحةَ خطأ.
                         TextInput::make('duration_minutes')
                             ->label('المدّة')
-                            ->numeric()
+                            ->integer()
+                            ->required()
                             ->minValue(1)
+                            ->maxValue(65535)
                             ->suffix('دقيقة')
                             ->default(60),
                         TextInput::make('passing_score')
                             ->label('درجة النجاح')
-                            ->numeric()
+                            ->integer()
+                            ->required()
                             ->minValue(0)
                             ->maxValue(100)
                             ->suffix('٪')
                             ->default(60),
                         TextInput::make('max_attempts')
                             ->label('أقصى عدد محاولات')
-                            ->numeric()
+                            ->integer()
+                            ->required()
                             ->minValue(1)
+                            ->maxValue(65535)
                             ->default(3),
                     ]),
             ]);
