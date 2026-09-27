@@ -34,6 +34,13 @@ export const P = {
    */
   certificatesViewAll: "certificates.view.all",
   sessionsManage: "sessions.manage",
+  /*
+   * ⚠️ NOT `sessions.manage`, AND THE DIFFERENCE WAS A BUTTON INTO A 403. The
+   * calendar offered «فترات التجميد» to everyone who could manage sessions,
+   * while `POST /freeze-periods` asks `freeze.manage` — a teacher's permission
+   * the assistant role does not hold. `Permissions::FREEZE_MANAGE`, copied.
+   */
+  freezeManage: "freeze.manage",
   settlementStatement: "settlement.statement.view",
   bankView: "bank.view",
   analyticsView: "analytics.view",
