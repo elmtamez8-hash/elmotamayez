@@ -11,6 +11,7 @@ import { sessionDayKey } from "@/lib/session-format";
 import { ScheduleIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readTeacherSessions, teacherSessionsAudience } from "./TeacherSessionsCard";
+import { isRefusal } from "./shared-read";
 import { counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
@@ -99,6 +100,7 @@ export function WeekSessionsChartCard() {
   const [rows, setRows] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState(false);
   /*
    * ⚠️ حالتانِ لا واحدة، ولمسُ الهاتفِ هو السبب. المرورُ (`hovered`) عابرٌ يزولُ
    * بمغادرةِ المؤشِّر؛ والضغطُ (`pinned`) يثبت. وهاتفٌ لا مؤشِّرَ له يُطلِقُ
@@ -117,13 +119,13 @@ export function WeekSessionsChartCard() {
 
     readTeacherSessions(hostUuid)
       .then((result) => setRows(result.data ?? []))
-      .catch((err) => setError(userMessage(err)))
+      .catch((err) => (isRefusal(err) ? setRefused(true) : setError(userMessage(err))))
       .finally(() => setLoading(false));
   }, [hostUuid, shown]);
 
   useEffect(load, [load]);
 
-  if (!shown) return null;
+  if (!shown || refused) return null;
 
   const days = buckets(rows, new Date(), zone);
   // ⚠️ المقامُ واحدٌ على الأقلّ: أسبوعٌ خالٍ يجعلُ `count / max` قسمةً على صفرٍ

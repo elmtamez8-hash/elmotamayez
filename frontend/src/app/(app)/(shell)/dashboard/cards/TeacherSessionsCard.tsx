@@ -11,7 +11,7 @@ import { can, P } from "@/lib/permissions";
 import type { User } from "@/lib/types";
 import { SessionsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
-import { sharedRead } from "./shared-read";
+import { isRefusal, sharedRead } from "./shared-read";
 import { SessionRow, useSessionTick } from "./UpcomingSessionsCard";
 
 /** «اليوم» بتقويمِ الجهاز، بالشكلِ الذي تُرسِلُه شاشةُ «حصصي» نفسُها. */
@@ -83,6 +83,7 @@ export function TeacherSessionsCard() {
   const [rows, setRows] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState(false);
 
   const load = useCallback(() => {
     if (hostUuid === null && !managesWorkspace) return;
@@ -92,7 +93,7 @@ export function TeacherSessionsCard() {
 
     readTeacherSessions(hostUuid)
       .then((result) => setRows((result.data ?? []).slice(0, 5)))
-      .catch((err) => setError(userMessage(err)))
+      .catch((err) => (isRefusal(err) ? setRefused(true) : setError(userMessage(err))))
       .finally(() => setLoading(false));
   }, [hostUuid, managesWorkspace]);
 
@@ -100,7 +101,7 @@ export function TeacherSessionsCard() {
 
   const tick = useSessionTick(rows);
 
-  if (hostUuid === null && !managesWorkspace) return null;
+  if ((hostUuid === null && !managesWorkspace) || refused) return null;
 
   return (
     <DashboardCard

@@ -1,3 +1,5 @@
+import { ApiError } from "@/lib/api";
+
 /**
  * قراءةٌ واحدةٌ يقرؤُها كرتانِ على اللوحة (٠٢٩ · `FR-018` · `US4`).
  *
@@ -29,4 +31,13 @@ export function sharedRead<T>(key: string, fetcher: () => Promise<T>): Promise<T
   inFlight.set(key, request);
 
   return request;
+}
+
+/**
+ * ⚠️ **الخادمُ رفضَ = البطاقةُ تختفي، لا تعرضُ «لا تملك صلاحية».** `can()` يقرأُ
+ * صلاحيّاتِ لحظةِ فتحِ الصفحة، فمساعدٌ سحبَ صاحبُ المساحةِ صلاحيّتَه وهو داخلَ
+ * اللوحةِ رأى ثلاثَ بطاقاتٍ حمراءَ عن شيءٍ لم يعُدْ له (٢٠٢٦-٠٩-٢٨).
+ */
+export function isRefusal(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 403;
 }

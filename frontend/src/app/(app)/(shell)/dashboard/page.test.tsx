@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import DashboardPage from "./page";
 import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 import { UNKNOWN_MESSAGE } from "@/lib/errors";
+import { ApiError } from "@/lib/api";
 
 /*
 | «لوحة التحكم» — أوّلُ شاشةٍ بعدَ تسجيلِ الدخول، **ولا صلاحيةَ عليها في القائمة**:
@@ -688,6 +689,22 @@ const HOST = {
 };
 
 describe("DashboardPage · المدرّس", () => {
+  it("hides a card the server refuses, even when the loaded permissions still grant it", async () => {
+    // صلاحيّةٌ سُحِبَت والصفحةُ مفتوحة: `can()` يقولُ نعم والخادمُ ٤٠٣.
+    asTeacher(HOST);
+    get.mockImplementation((path: string) =>
+      path.startsWith("/manage/grading/queue")
+        ? Promise.reject(new ApiError("forbidden", 403, {}))
+        : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصصي القادمة")).toBeDefined();
+    await waitFor(() => expect(screen.queryByText("بانتظار التصحيح")).toBeNull());
+    expect(screen.queryByText("لا تملك صلاحية لهذا الإجراء.")).toBeNull();
+  });
+
   it("asks for its host's own calendar and for the three counts", async () => {
     asTeacher(HOST);
 
