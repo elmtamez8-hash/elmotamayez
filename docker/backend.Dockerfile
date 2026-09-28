@@ -5,16 +5,25 @@ FROM php:8.5.10-fpm-alpine
 # ولا تُسمّي من يطلبُه. لا يظهرُ محلّيّاً إطلاقاً — PHP على جهازِ التطويرِ يأتي
 # بهما مثبَّتَين، فالبناءُ الأوّلُ للصورةِ هو أوّلُ مكانٍ يُسألُ فيه السؤال.
 # و`icu-dev` هو ما يُصرِّفُ `intl`، ويبقى مثبَّتاً لأنّ الصورةَ مرحلةٌ واحدة.
+#
+# ⛔ `gd` بلا `--with-jpeg --with-webp` يُصرَّفُ بـPNG وحدَه، فسقطَ كلُّ رفعِ
+# صورةٍ (صورةُ الحساب، تصميمُ الشهادة) بـ«No JPEG support in this PHP build»
+# حتّى 2026-09-28. محلّيّاً يأتي PHP بها كلِّها، فالإنتاجُ أوّلُ من يسأل —
+# ولذلك يُسقِطُ آخرُ سطرٍ هنا البناءَ نفسَه إن غاب JPEG أو WebP.
 RUN apk add --no-cache \
     git \
     curl \
     icu-dev \
     libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    freetype-dev \
     libzip-dev \
     oniguruma-dev \
     libxml2-dev \
     librdkafka-dev \
     postgresql-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install \
     pdo_mysql \
     pdo_pgsql \
@@ -25,7 +34,8 @@ RUN apk add --no-cache \
     mbstring \
     xml \
     bcmath \
-    pcntl
+    pcntl \
+    && php -r '$g = gd_info(); exit($g["JPEG Support"] && $g["WebP Support"] ? 0 : 1);'
 
 # ⚠️ `phpredis` امتدادٌ من PECL لا يُصرِّفُه `docker-php-ext-install`، وغيابُه
 # **لا يظهرُ إلّا وقتَ التشغيل**: `config/database.php` يفترضُ `phpredis` عميلاً
