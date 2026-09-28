@@ -6,6 +6,8 @@ namespace App\Modules\Marketplace\Filament\Resources;
 
 use App\Filament\Contracts\AwaitsDecision;
 use App\Filament\NavigationGroups;
+use App\Filament\Resources\WorkspaceResource;
+use App\Filament\Support\RecordLink;
 use App\Models\User;
 use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
 use App\Modules\Marketplace\Actions\RejectTeacherApplication;
@@ -129,7 +131,8 @@ class TeacherApplicationResource extends Resource implements AwaitsDecision
                 | المساحات، وبلا هذا العمودِ يقفُ اسمان متشابهان من مساحتَين
                 | مختلفتَين في صفَّين متجاورَين بلا ما يفرِّقُهما.
                 */
-                TextColumn::make('workspace.name')->label('مساحة العمل')->searchable()->toggleable(),
+                TextColumn::make('workspace.name')->label('مساحة العمل')->searchable()->toggleable()
+                    ->url(fn (TeacherApplication $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace)),
 
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => TeacherApplicationStatus::labelFor($state))
@@ -157,6 +160,8 @@ class TeacherApplicationResource extends Resource implements AwaitsDecision
                     ->color(fn (?string $state): string => $state === null
                         ? 'gray'
                         : TeacherProfileResource::approvalColor($state))
+                    // الملفُّ نفسُه بنقرة — لمن يفتحُ شاشةَ الملفّاتِ وحدَه.
+                    ->url(fn (TeacherApplication $record): ?string => RecordLink::to(TeacherProfileResource::class, $record->teacherProfile))
                     ->toggleable(),
 
                 TextColumn::make('submitted_at')->label('أُرسل')->dateTime('Y-m-d H:i')->placeholder('—')->sortable(),

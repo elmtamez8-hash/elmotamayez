@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\CourseResource\RelationManagers;
 
+use App\Filament\Resources\EnrollmentResource;
+use App\Filament\Resources\UserResource;
+use App\Filament\Support\RecordLink;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Scopes\WorkspaceScope;
@@ -51,7 +54,7 @@ class EnrollmentsRelationManager extends RelationManager
                 TextColumn::make('student.email')
                     ->label('الطالب')
                     ->searchable()
-                    ->copyable(),
+                    ->url(fn (Enrollment $record): ?string => RecordLink::to(UserResource::class, $record->student)),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => EnrollmentStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {
@@ -70,6 +73,7 @@ class EnrollmentsRelationManager extends RelationManager
                     ->dateTime('Y-m-d H:i')
                     ->sortable(),
             ])
-            ->recordUrl(fn (Enrollment $record): string => route('filament.admin.resources.enrollments.edit', $record));
+            // `getUrl()` لا اسمُ مسارٍ مكتوب — والرابطُ يسألُ بابَ شاشةِ التسجيلِ أوّلاً.
+            ->recordUrl(fn (Enrollment $record): ?string => RecordLink::to(EnrollmentResource::class, $record));
     }
 }

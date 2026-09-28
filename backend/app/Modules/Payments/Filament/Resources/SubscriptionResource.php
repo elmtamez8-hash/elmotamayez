@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Filament\Resources;
 
 use App\Filament\NavigationGroups;
+use App\Filament\Resources\UserResource;
+use App\Filament\Resources\WorkspaceResource;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\RecordLink;
 use App\Modules\Payments\Actions\CancelSubscription;
 use App\Modules\Payments\Enums\SubscriptionStatus;
 use App\Modules\Payments\Filament\Resources\SubscriptionResource\Pages;
@@ -96,7 +99,10 @@ class SubscriptionResource extends Resource
             // column — it is an accessor over the two — so a constrained eager
             // load naming it renders every row as a blank. Six call sites across
             // four modules shipped that way once.
-            ->with(['plan:id,title', 'workspace:id,name', 'student:id,first_name,last_name']);
+            // ⚠️ And `uuid` on both, because it is the route key: the links on
+            // these two columns build `getUrl(['record' => …])` from it, and a
+            // constrained load without it builds no url at all.
+            ->with(['plan:id,title', 'workspace:id,uuid,name', 'student:id,uuid,first_name,last_name']);
     }
 
     public static function form(Schema $schema): Schema
@@ -111,8 +117,11 @@ class SubscriptionResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('student.name')->label('الطالب')->searchable(['first_name', 'last_name']),
-                TextColumn::make('workspace.name')->label('المدرّس')->searchable(),
+                // الرابطانِ لمديرِ المنصّةِ وحدَه؛ مسؤولُ الماليّةِ يقرأُ نصّاً.
+                TextColumn::make('student.name')->label('الطالب')->searchable(['first_name', 'last_name'])
+                    ->url(fn (Subscription $record): ?string => RecordLink::to(UserResource::class, $record->student)),
+                TextColumn::make('workspace.name')->label('المدرّس')->searchable()
+                    ->url(fn (Subscription $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace)),
                 TextColumn::make('plan.title')->label('الباقة'),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (SubscriptionStatus $state): string => $state->label())

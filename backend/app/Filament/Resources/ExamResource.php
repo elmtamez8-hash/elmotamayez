@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\ExamResource\Pages;
+use App\Filament\Support\RecordLink;
 use App\Modules\Assessments\Enums\ExamStatus;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Courses\Models\Course;
@@ -131,10 +132,12 @@ class ExamResource extends Resource
                 TextColumn::make('course.title')
                     ->label('الكورس')
                     ->placeholder('—')
+                    ->url(fn (Exam $record): ?string => RecordLink::to(CourseResource::class, $record->course))
                     ->toggleable(),
                 TextColumn::make('course.workspace.name')
                     ->label('المدرّس')
                     ->placeholder('—')
+                    ->url(fn (Exam $record): ?string => RecordLink::to(WorkspaceResource::class, $record->course?->workspace))
                     ->toggleable(),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => ExamStatus::labelFor($state))

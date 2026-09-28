@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Filament\Resources\TaxonomyResource\RelationManagers;
 
+use App\Filament\Resources\WorkspaceResource;
+use App\Filament\Support\RecordLink;
 use App\Modules\Marketplace\Filament\Resources\TaxonomyResource;
 use App\Modules\Marketplace\Filament\Resources\TeacherProfileResource;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Policies\TaxonomyPolicy;
 use App\Shared\Scopes\WorkspaceScope;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -61,7 +64,8 @@ class TeacherProfilesRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('search_name')->label('المدرّس')->searchable()->sortable()->placeholder('—'),
 
-                TextColumn::make('workspace.name')->label('مساحة العمل')->toggleable(),
+                TextColumn::make('workspace.name')->label('مساحة العمل')->toggleable()
+                    ->url(fn (TeacherProfile $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace)),
 
                 TextColumn::make('approval_status')
                     ->label('الاعتماد')
@@ -87,7 +91,9 @@ class TeacherProfilesRelationManager extends RelationManager
                     ->options(TeacherProfileResource::APPROVAL_STATUSES),
 
                 TernaryFilter::make('is_publicly_listed')->label('معروض في السوق'),
-            ]);
+            ])
+            // الصفُّ يفتحُ ملفَّ المدرّس — والسؤالُ سؤالُ شاشةِ الملفّات لا سؤالُ التصنيف.
+            ->recordUrl(fn (TeacherProfile $record): ?string => RecordLink::to(TeacherProfileResource::class, $record));
     }
 
     /**

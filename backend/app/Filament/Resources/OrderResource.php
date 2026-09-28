@@ -8,6 +8,7 @@ use App\Filament\Contracts\AwaitsDecision;
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\OrderResource\Pages;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\RecordLink;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\TwoFactorMandate;
@@ -698,15 +699,20 @@ class OrderResource extends Resource implements AwaitsDecision
                             ->whereColumn('courses.id', 'orders.course_id'),
                         $direction === 'desc' ? 'desc' : 'asc',
                     ))
+                    // ⚠️ رابطٌ لمن يفتحُ الكورسَ وحدَه: شاشةُ الكورساتِ لمديرِ المنصّة،
+                    // ومسؤولُ الماليّةِ الذي يقرأُ هذا الجدولَ يرى نصّاً لا رابطاً.
+                    ->url(fn (Order $record): ?string => RecordLink::to(CourseResource::class, $record->course))
                     ->wrap(),
                 // ⚠️ بلا بحثٍ ولا ترتيب: `name` سِمةٌ محسوبةٌ لا عمود. {@see CourseResource}
                 TextColumn::make('user.name')
                     ->label('اسم المشتري')
                     ->placeholder('—'),
+                // من لا يفتحُ الحسابَ يبقى له النسخ؛ ومن يفتحُه ينقرُ فيصل.
                 TextColumn::make('user.email')
                     ->label('بريد المشتري')
                     ->searchable()
-                    ->copyable()
+                    ->url(fn (Order $record): ?string => RecordLink::to(UserResource::class, $record->user))
+                    ->copyable(fn (Order $record): bool => RecordLink::to(UserResource::class, $record->user) === null)
                     ->copyMessage('نُسخ البريد'),
                 TextColumn::make('kind')
                     ->label('النوع')
@@ -954,6 +960,37 @@ class OrderResource extends Resource implements AwaitsDecision
             'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
             'user',
             'approver',
+        ]);
+    }
+
+    /**
+     * البحثُ العامّ برقمِ الطلبِ (`uuid`) أو ببريدِ المشتري.
+     *
+     * الاستعلامُ هو {@see self::getEloquentQuery()} بعينِه — تجاوزُ النطاقِ وقطعُ
+     * الأنواعِ والتحميلُ المسبقُ للكورسِ والمشتري — فالبحثُ لا يرى ما لا تراه
+     * القائمة، والتفاصيلُ أدناه لا تسألُ قاعدةَ البياناتِ لكلِّ نتيجة.
+     *
+     * @return array<int, string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['uuid', 'user.email'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        /** @var Order $record */
+        return 'طلب '.mb_substr((string) $record->uuid, 0, 8).' — '.$record->user->email;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var Order $record */
+        return array_filter([
+            'الكورس' => $record->course?->title,
+            'الحالة' => OrderStatus::labelFor($record->status),
+            'المبلغ' => $record->amount.' '.$record->currency,
         ]);
     }
 
