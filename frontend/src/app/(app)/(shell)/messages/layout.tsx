@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatSoundToggle } from "@/components/community/ChatSoundToggle";
 import { ConversationList } from "@/components/community/ConversationList";
+import { Alert } from "@/components/ui/Alert";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
@@ -41,28 +42,48 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
   // `/messages` → the list is the screen. `/messages/{uuid}` → the thread is.
   const openUuid = pathname.startsWith("/messages/") ? pathname.slice("/messages/".length) : null;
 
-  const [rows, setRows] = useState<Conversation[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  /*
+   * ⚠️ `null` MEANS «NOT LOADED YET», AND ONLY THAT SHOWS THE SKELETON. The list
+   * is re-read on every message that arrives and every one the reader sends; the
+   * first version set a `loading` state on each of those, so the sidebar blinked
+   * grey rows in and out on every line of the conversation (live two-account
+   * test, 2026-09-28). A refresh now keeps the rows on screen and swaps the new
+   * ones in when they come — and a refresh that FAILS keeps them too, with a
+   * line saying the list may be behind, because ten true threads are better than
+   * an error box where they were.
+   */
+  const [rows, setRows] = useState<Conversation[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // Two refreshes in flight answer in any order; only the newest may land.
+  const latest = useRef(0);
 
   const load = useCallback(() => {
-    setState("loading");
-    setProblem(null);
+    const request = ++latest.current;
 
     conversations
       .list()
       .then((response) => {
+        if (request !== latest.current) return;
+
         setRows(response.data ?? []);
-        setState("ready");
+        setProblem(null);
       })
       .catch((error: unknown) => {
+        if (request !== latest.current) return;
+
         // Never a swallowed reason: the answer is in the response, and a blank
         // sidebar with nothing said is the defect this repository already paid
         // for once on the lesson screen.
         setProblem(userMessage(error));
-        setState("error");
       });
   }, []);
+
+  // The retry from the error box: back to the skeleton, since there is nothing
+  // else to show while it asks.
+  const retry = useCallback(() => {
+    setProblem(null);
+    load();
+  }, [load]);
 
   useEffect(load, [load]);
 
@@ -219,14 +240,24 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
         </div>
 
         <div className="min-h-0 flex-1">
-          {state === "loading" && <RowsSkeleton count={5} />}
+          {rows === null && problem === null && <RowsSkeleton count={5} />}
 
-          {state === "error" && (
-            <ErrorState onRetry={load} description={problem ?? undefined} />
-          )}
+          {rows === null && problem !== null && <ErrorState onRetry={retry} description={problem} />}
 
-          {state === "ready" && (
-            <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={onlineRows} />
+          {rows !== null && (
+            <div className="flex h-full flex-col">
+              {problem !== null && (
+                <div className="shrink-0 p-2">
+                  <Alert tone="warning" title="تعذّر تحديث المحادثات، وقد تكون القائمة متأخرة.">
+                    {problem}
+                  </Alert>
+                </div>
+              )}
+
+              <div className="min-h-0 flex-1">
+                <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={onlineRows} />
+              </div>
+            </div>
           )}
         </div>
       </aside>

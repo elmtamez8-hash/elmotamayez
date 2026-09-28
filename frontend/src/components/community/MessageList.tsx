@@ -5,6 +5,7 @@ import { useRef } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { VoiceNotePlayer } from "@/components/community/VoiceNotePlayer";
 import { useChatScroll } from "@/lib/chat-scroll";
 import { counted, formatDate, formatTime, NOUNS } from "@/lib/labels";
 import type { ChatMessage } from "@/lib/conversations";
@@ -323,10 +324,11 @@ function showsSender(previous: ChatMessage | null, message: ChatMessage): boolea
  * BECAUSE all three existing call sites pass literal `/public` paths. This would
  * be the call site that makes that note false.
  *
- * ⚠️ AND `<audio controls>` RATHER THAN A PLAYER. A voice note is seconds long
- * and needs play, pause and a scrub bar — every browser ships all three, in the
- * reader's own language, keyboard-accessible. The lesson player exists for HLS,
- * watermarks and grant renewal; none of that applies here.
+ * ⚠️ A SMALL PLAYER OF OUR OWN, NOT `<audio controls>`. The browser's controls
+ * read the length from the file, and a Chrome-recorded WebM has none until it is
+ * played through — every note showed «0:00 / 0:00». `VoiceNotePlayer` falls back
+ * to the server's `duration_seconds`. It is still not the lesson player, which
+ * exists for HLS, watermarks and grant renewal; none of that applies here.
  */
 function Attachment({
   attachment,
@@ -338,8 +340,7 @@ function Attachment({
   if (attachment.kind === "voice") {
     return (
       <div className="mb-1">
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls preload="metadata" src={attachment.url} className="w-56 max-w-full" />
+        <VoiceNotePlayer url={attachment.url} durationSeconds={attachment.duration_seconds} mine={mine} />
         {attachment.duration_seconds !== null && (
           <span className={mine ? "text-[10px] text-white/70" : "text-[10px] text-ink-muted"}>
             <bdi>{counted(attachment.duration_seconds, { ...NOUNS.seconds, zero: "أقل من ثانية" })}</bdi>

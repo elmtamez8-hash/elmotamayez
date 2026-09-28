@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { MessageList } from "./MessageList";
-import { decideScroll, isNearBottom, shapeOf } from "@/lib/chat-scroll";
+import { decideScroll, isNearBottom, nextPinned, shapeOf } from "@/lib/chat-scroll";
 import { mergeMessages, type ChatMessage } from "@/lib/conversations";
 
 /*
@@ -323,10 +323,122 @@ describe("MessageList — following the conversation", () => {
 
       rerender(<MessageList messages={first} currentUserUuid="me" />);
 
-      expect(observed).toEqual([screen.getByRole("list")]);
+      expect(observed).toEqual([screen.getByRole("list"), boxOf()]);
     } finally {
       globalThis.ResizeObserver = original;
     }
+  });
+
+  /*
+  | ⚠️ اختبارٌ حيٌّ بحسابين (٢٠٢٦-٠٩-٢٨): وصلت رسالةٌ فيها صورة، فنزلت القائمةُ إلى
+  | الأسفل قبلَ أن تُحمَّلَ الصورة، ثمّ طالت القائمةُ ٢٠٠ بكسل فبقيَ القارئُ فوقَ
+  | الأسفلِ بطولِها. حدثُ التمريرِ الذي أطلقه نزولُنا نحن يصلُ في الإطارِ التالي
+  | ويقرأُ الطولَ بعدَ نموِّ الصورة، فحُكِمَ على القارئِ «ابتعد» ولم يتبعه أحد.
+  | jsdom لا يُحدِّدُ `scrollTop` بحدٍّ أعلى كما يفعلُ المتصفّح، فنفعلُه هنا بأيدينا.
+  */
+  describe("a picture that grows after the message arrived", () => {
+    let callbacks: Array<() => void> = [];
+    let original: typeof ResizeObserver;
+
+    class CapturingResizeObserver {
+      constructor(private readonly callback: () => void) {}
+      observe() {
+        callbacks.push(this.callback);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+
+    beforeEach(() => {
+      callbacks = [];
+      original = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      globalThis.ResizeObserver = original;
+    });
+
+    /** A box whose `scrollTop` is clamped to its content, as a browser's is. */
+    function layout(box: HTMLElement, clientHeight: number): { grow: (to: number) => void } {
+      let height = 0;
+      let top = 0;
+
+      Object.defineProperty(box, "clientHeight", { value: clientHeight, configurable: true });
+      Object.defineProperty(box, "scrollHeight", { get: () => height, configurable: true });
+      Object.defineProperty(box, "scrollTop", {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.max(0, Math.min(value, height - clientHeight));
+        },
+        configurable: true,
+      });
+
+      return {
+        grow: (to: number) => {
+          height = to;
+        },
+      };
+    }
+
+    function distanceFromBottom(box: HTMLElement): number {
+      return box.scrollHeight - box.clientHeight - box.scrollTop;
+    }
+
+    /** The picture finished loading: the list grows and the observer reports it. */
+    function pictureLoads(): void {
+      act(() => callbacks.forEach((callback) => callback()));
+    }
+
+    const picture = (uuid: string, sender: string): ChatMessage => ({
+      ...from(uuid, "", "2026-08-23T10:01:00+00:00", sender),
+      attachment: { kind: "image", url: "https://files.test/p.jpg", duration_seconds: null },
+    });
+
+    it.each([
+      ["received", "them"],
+      ["sent", "me"],
+    ])("keeps a reader at the bottom pinned when a %s picture loads late", (_, sender) => {
+      const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+      const box = boxOf();
+      const { grow } = layout(box, 300);
+
+      grow(400);
+      scrollTo(box, 100); // At the bottom.
+
+      // The bubble arrives with an empty <img>: 60px, and the hook follows it down.
+      grow(460);
+      rerender(<MessageList messages={[...first, picture("m-2", sender)]} currentUserUuid="me" />);
+      expect(distanceFromBottom(box)).toBe(0);
+
+      // The picture loads (+200px) BEFORE the browser delivers the scroll event
+      // of our own scroll — which therefore reads 200px from the bottom.
+      grow(660);
+      fireEvent.scroll(box);
+      pictureLoads();
+
+      expect(distanceFromBottom(box)).toBe(0);
+      expect(screen.queryByRole("button", { name: /رسائل جديدة/ })).toBeNull();
+    });
+
+    it("does not yank a reader who scrolled up when a picture loads late", () => {
+      const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+      const box = boxOf();
+      const { grow } = layout(box, 300);
+
+      grow(1000);
+      scrollTo(box, 700); // At the bottom…
+      scrollTo(box, 200); // …then up into the history, on purpose.
+
+      grow(1060);
+      rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+      grow(1260);
+      pictureLoads();
+
+      expect(box.scrollTop).toBe(200);
+      expect(screen.getByRole("button", { name: /رسائل جديدة/ })).toBeTruthy();
+    });
   });
 
   it("is the only scroll box on the screen", () => {
@@ -360,6 +472,20 @@ describe("decideScroll", () => {
     // Hiding the NEWEST moves the tail and is still not «something new».
     expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
     expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: true, lastIsMine: true })).toBe("none");
+  });
+
+  it("unpins only when the reader moved up, never on a late report of our own scroll", () => {
+    const far = { scrollHeight: 1000, clientHeight: 300 };
+
+    // Our own scroll, reported after a picture grew the list: it moved DOWN.
+    expect(nextPinned(true, 400, { ...far, scrollTop: 500 })).toBe(true);
+    // The reader scrolled up, or the event reports no movement at all.
+    expect(nextPinned(true, 500, { ...far, scrollTop: 300 })).toBe(false);
+    expect(nextPinned(true, 500, { ...far, scrollTop: 500 })).toBe(false);
+    // Moving down while still far keeps a reader who was not following unpinned.
+    expect(nextPinned(false, 100, { ...far, scrollTop: 300 })).toBe(false);
+    // Near the bottom always follows.
+    expect(nextPinned(false, 900, { ...far, scrollTop: 650 })).toBe(true);
   });
 
   it("counts 120px from the bottom as still following", () => {
