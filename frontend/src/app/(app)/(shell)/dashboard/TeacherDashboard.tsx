@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { LatestCoursesCard } from "./cards/LatestCoursesCard";
 import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
 import { PendingGradingCard } from "./cards/PendingGradingCard";
 import { PrivateRequestsCard } from "./cards/PrivateRequestsCard";
@@ -64,6 +65,9 @@ export function TeacherDashboard() {
         {/* الرسمُ بجوارِ الجدولِ ومن ردِّه نفسِه: الجدولُ أقربُ خمسٍ والرسمُ شكلُ
             الأسبوعِ كلِّه — عيّنةٌ وإجماليٌّ من طلبٍ واحد. */}
         <WeekSessionsChartCard />
+        {/* الكورساتُ بجوارِ الحصص: المساعدُ يُحرِّرُ الدروسَ ولا يستضيفُ حصّة، وبدونِ
+            هذه البطاقةِ كانت لوحتُه إشعاراتٍ وروابطَ وحدَها (٢٠٢٦-٠٩-٢٨). */}
+        <LatestCoursesCard />
         <LatestNotificationsCard />
         {/* ⚠️ **بابُ كتابةٍ لا عرضٌ فقط** (طلبُ ٢٠٢٦-٠٩-٠٨): الأسئلةُ الشائعةُ
             حقلٌ كانَ الخادمُ يُرسِلُه `[]` حرفيّاً، فلم يكنْ للمدرّسِ موضعٌ يكتبُه

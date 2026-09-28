@@ -16,8 +16,12 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
  * إلى «تعذّر تحميل البيانات» لكلِّ طالبٍ ووليِّ أمرٍ على المنصّة. فما دامَ لا
  * مكوِّنَ يجمعُ قراءتَين، لا يوجدُ مكانٌ يمكنُ أن يقعَ فيه ذلك مرّةً أخرى.
  *
- * ⚠️ و`href` **إلزاميٌّ** (`FR-015`): بطاقةٌ بلا شاشةٍ كاملةٍ تصلُ إليها هي وعدٌ
- * بمكانٍ لا يوجد. ولذلك هو خاصّيّةٌ مطلوبةٌ في النوعِ لا خيارٌ يُنسى.
+ * ⚠️ و`href` **اختياريٌّ في النوعِ لا في القاعدة** (`FR-015`): كلُّ بطاقةٍ لها
+ * شاشةٌ كاملة، لكنّ **صلاحيّةَ القارئِ** هي التي تقرّرُ هل يُعرَضُ الرابطُ إليها.
+ * مساعدٌ يقرأُ الحصصَ (`sessions.view`) ولا يُديرُها يرى جدولَ مكانِ العمل، و
+ * «عرض الكل» إلى `‎/manage/sessions` كان سيفتحُ له شاشةً تحرسُها `sessions.manage`
+ * في القائمةِ الجانبيّة — رابطٌ إلى بابٍ مغلق. فالبطاقةُ تُمرِّرُ `undefined`
+ * حينَها، ولا يُمرَّرُ `undefined` لبطاقةٍ **لا شاشةَ لها أصلاً**.
  *
  * ⚠️ ولا يُضافُ إلى `components/ui/`: تلك المكتبةُ مشتركةٌ عبرَ المنتَجِ ومغلقةُ
  * المتغيّرات، وهذه البطاقةُ خاصّةٌ بشاشةٍ واحدة.
@@ -43,7 +47,8 @@ export function DashboardCard({
    * بجوارَها هو النصُّ ولا يُقرَأُ الرمزُ مرّتَين.
    */
   Icon?: ComponentType<IconProps>;
-  href: string;
+  /** بلا قيمةٍ = القارئُ لا يملكُ فتحَ الشاشة، فلا رابطَ يُعرَض. */
+  href?: string;
   linkLabel?: string;
   loading?: boolean;
   /** نصٌّ مقروءٌ مرَّ على `userMessage()` — لا خطأٌ خامٌّ أبداً. */
@@ -83,12 +88,14 @@ export function DashboardCard({
           )}
           <span className="truncate">{title}</span>
         </h3>
-        <Link
-          href={href}
-          className="shrink-0 rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          {linkLabel}
-        </Link>
+        {href !== undefined && (
+          <Link
+            href={href}
+            className="shrink-0 rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {linkLabel}
+          </Link>
+        )}
       </div>
 
       {loading ? (

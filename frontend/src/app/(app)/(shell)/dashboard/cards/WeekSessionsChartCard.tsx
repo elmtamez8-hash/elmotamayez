@@ -94,8 +94,8 @@ function clock(session: ClassSession, timeZone: string): string {
 export function WeekSessionsChartCard() {
   const { user } = useAuth();
   const zone = useViewerTimeZone();
-  const { hostUuid, managesWorkspace } = teacherSessionsAudience(user);
-  const shown = hostUuid !== null || managesWorkspace;
+  const { hostUuid, readsWorkspace, canManage } = teacherSessionsAudience(user);
+  const shown = hostUuid !== null || readsWorkspace;
 
   const [rows, setRows] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ export function WeekSessionsChartCard() {
     <DashboardCard
       title="حصص الأسبوع القادم"
       Icon={ScheduleIcon}
-      href="/manage/sessions"
+      href={canManage ? "/manage/sessions" : undefined}
       loading={loading}
       error={error}
       onRetry={load}
@@ -198,8 +198,11 @@ export function WeekSessionsChartCard() {
             <ul className="flex flex-col gap-1.5">
               {shownDay.sessions.map((session) => (
                 <li key={session.uuid} className="flex items-baseline justify-between gap-3 text-xs">
+                  {/* ⚠️ صفحةُ الإدارةِ لمن يُديرُ، وصفحةُ الحصّةِ لمن يقرأُ فقط —
+                      وهي نفسُ الصفحةِ التي يفتحُها `SessionRow` في الجدولِ فوقَه،
+                      و`ClassSessionPolicy::view()` يُجيزُها بـ`sessions.view`. */}
                   <Link
-                    href={`/manage/sessions/${session.uuid}`}
+                    href={canManage ? `/manage/sessions/${session.uuid}` : `/sessions/${session.uuid}`}
                     className="min-w-0 rounded text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     <span className="block truncate">{session.title}</span>
@@ -223,13 +226,16 @@ export function WeekSessionsChartCard() {
 
       {!loading && error === null && rows.length === 0 && (
         <p className="mt-4 text-sm text-ink-muted">
-          لا حصص في السبعة أيام القادمة.{" "}
+          لا حصص في السبعة أيام القادمة.
+          {canManage && " "}
+          {canManage && (
           <Link
             href="/manage/sessions"
             className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             أنشئ حصّة
           </Link>
+          )}
         </p>
       )}
     </DashboardCard>
