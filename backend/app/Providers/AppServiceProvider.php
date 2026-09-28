@@ -322,6 +322,21 @@ class AppServiceProvider extends ServiceProvider
             ->by('user:'.(string) $request->user()?->getKey()));
 
         /*
+        | The bytes of a chat picture or voice note (`/chat-media/{message}`).
+        |
+        | ⚠️ ITS OWN COUNTER, NOT `public`'S. The route is unauthenticated (an
+        | `<img>` carries no bearer token), so it is keyed by IP — and a thread
+        | shows every picture on its page at once, so on `public`'s 60 a minute a
+        | chatty thread spent a visitor's marketplace budget and was answered 429
+        | itself, and every picture became «تعذّر تحميل الصورة.» (review of #278).
+        | A classroom behind one address is many readers of the same room, hence
+        | the generous ceiling; the signature, fifteen minutes long and minted
+        | only for an admitted reader, is what guards the bytes.
+        */
+        RateLimiter::for('chat-media', fn (Request $request) => Limit::perMinute(600)
+            ->by('chat-media:'.$request->ip()));
+
+        /*
         | Provider webhooks.
         |
         | ⚠️ TWO KEYS, NOT ONE. The provider comes from the ROUTE, and the

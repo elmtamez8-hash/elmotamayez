@@ -1,4 +1,5 @@
 import { ContactTeacherButton } from "@/components/community/ContactTeacherButton";
+import { ViewableImage } from "@/components/ui/ImageLightbox";
 import {
   AcademicCapIcon,
   CheckIcon,
@@ -206,11 +207,14 @@ export default async function TeacherProfilePage({
               its width in the flex row. */}
           <div className="relative shrink-0 self-start">
             {teacher.photo_url ? (
-              <img
-                src={teacher.photo_url}
-                alt=""
-                className="h-32 w-32 rounded-2xl object-cover ring-1 ring-line"
-              />
+              // Pressed, the photo opens in the page's viewer at full size.
+              <ViewableImage src={teacher.photo_url} alt={`صورة ${teacher.name}`}>
+                <img
+                  src={teacher.photo_url}
+                  alt=""
+                  className="h-32 w-32 rounded-2xl object-cover ring-1 ring-line"
+                />
+              </ViewableImage>
             ) : (
               <span
                 className="flex h-32 w-32 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink ring-1 ring-line"

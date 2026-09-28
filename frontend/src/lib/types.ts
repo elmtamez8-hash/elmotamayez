@@ -419,6 +419,8 @@ export interface Order {
    */
   for_student_name?: string;
   receipt_url: string | null;
+  /** True for a JPEG/PNG receipt (opened in the page's viewer), false for a PDF; null with no link. */
+  receipt_is_image?: boolean | null;
   /** Hours the platform promises a receipt review in — null once decided. */
   review_sla_hours: number | null;
   /**

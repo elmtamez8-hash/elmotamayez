@@ -1,9 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MessageList } from "./MessageList";
-import { decideScroll, isNearBottom, shapeOf } from "@/lib/chat-scroll";
-import { mergeMessages, type ChatMessage } from "@/lib/conversations";
+import { decideScroll, isNearBottom, nextPinned, SETTLE_MS, shapeOf } from "@/lib/chat-scroll";
+import { mergeMessages, signedLinkExpiry, type ChatMessage } from "@/lib/conversations";
 
 /*
 | Spec 010 · US2 — the live insert must not show a message twice.
@@ -75,6 +75,35 @@ describe("mergeMessages", () => {
     const b = message("m-2", "الثانية", at);
 
     expect(mergeMessages([], [a, b]).map((m) => m.body)).toEqual(["الأولى", "الثانية"]);
+  });
+});
+
+describe("mergeMessages — a signed link", () => {
+  const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
+  const at = (seconds: number) => `https://files.test/p?expires=${Math.floor(NOW / 1000) + seconds}&signature=x`;
+  const picture = (url: string): ChatMessage => ({
+    ...message("m-1", "", "2026-09-28T12:00:00+00:00"),
+    attachment: { kind: "image", url, duration_seconds: null },
+  });
+
+  it("keeps the link it has while it is still good", () => {
+    const [merged] = mergeMessages([picture(at(600))], [picture(at(900))], NOW);
+
+    expect(merged.attachment?.url).toBe(at(600));
+  });
+
+  it("takes the fresh link within a minute of the old one's expiry", () => {
+    const [merged] = mergeMessages([picture(at(30))], [picture(at(900))], NOW);
+
+    expect(merged.attachment?.url).toBe(at(900));
+  });
+
+  it("still takes everything else from the newer copy", () => {
+    const newer = { ...picture(at(900)), is_helpful: true };
+    const [merged] = mergeMessages([picture(at(600))], [newer], NOW);
+
+    expect(merged.is_helpful).toBe(true);
+    expect(signedLinkExpiry(at(600))).toBe((Math.floor(NOW / 1000) + 600) * 1000);
   });
 });
 
@@ -323,10 +352,333 @@ describe("MessageList — following the conversation", () => {
 
       rerender(<MessageList messages={first} currentUserUuid="me" />);
 
-      expect(observed).toEqual([screen.getByRole("list")]);
+      expect(observed).toEqual([screen.getByRole("list"), boxOf()]);
     } finally {
       globalThis.ResizeObserver = original;
     }
+  });
+
+  /*
+  | ⚠️ اختبارٌ حيٌّ بحسابين (٢٠٢٦-٠٩-٢٨): وصلت رسالةٌ فيها صورة، فنزلت القائمةُ إلى
+  | الأسفل قبلَ أن تُحمَّلَ الصورة، ثمّ طالت القائمةُ ٢٠٠ بكسل فبقيَ القارئُ فوقَ
+  | الأسفلِ بطولِها. حدثُ التمريرِ الذي أطلقه نزولُنا نحن يصلُ في الإطارِ التالي
+  | ويقرأُ الطولَ بعدَ نموِّ الصورة، فحُكِمَ على القارئِ «ابتعد» ولم يتبعه أحد.
+  | jsdom لا يُحدِّدُ `scrollTop` بحدٍّ أعلى كما يفعلُ المتصفّح، فنفعلُه هنا بأيدينا.
+  */
+  describe("a picture that grows after the message arrived", () => {
+    let callbacks: Array<() => void> = [];
+    let original: typeof ResizeObserver;
+
+    class CapturingResizeObserver {
+      constructor(private readonly callback: () => void) {}
+      observe() {
+        callbacks.push(this.callback);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+
+    beforeEach(() => {
+      callbacks = [];
+      original = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = CapturingResizeObserver as unknown as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      globalThis.ResizeObserver = original;
+    });
+
+    /** A box whose `scrollTop` is clamped to its content, as a browser's is. */
+    function layout(box: HTMLElement, clientHeight: number): { grow: (to: number) => void } {
+      let height = 0;
+      let top = 0;
+
+      Object.defineProperty(box, "clientHeight", { value: clientHeight, configurable: true });
+      Object.defineProperty(box, "scrollHeight", { get: () => height, configurable: true });
+      Object.defineProperty(box, "scrollTop", {
+        get: () => top,
+        set: (value: number) => {
+          top = Math.max(0, Math.min(value, height - clientHeight));
+        },
+        configurable: true,
+      });
+
+      return {
+        grow: (to: number) => {
+          height = to;
+        },
+      };
+    }
+
+    function distanceFromBottom(box: HTMLElement): number {
+      return box.scrollHeight - box.clientHeight - box.scrollTop;
+    }
+
+    /** The picture finished loading: the list grows and the observer reports it. */
+    function pictureLoads(): void {
+      act(() => callbacks.forEach((callback) => callback()));
+    }
+
+    const picture = (uuid: string, sender: string): ChatMessage => ({
+      ...from(uuid, "", "2026-08-23T10:01:00+00:00", sender),
+      attachment: { kind: "image", url: "https://files.test/p.jpg", duration_seconds: null },
+    });
+
+    it.each([
+      ["received", "them"],
+      ["sent", "me"],
+    ])("keeps a reader at the bottom pinned when a %s picture loads late", (_, sender) => {
+      const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+      const box = boxOf();
+      const { grow } = layout(box, 300);
+
+      grow(400);
+      scrollTo(box, 100); // At the bottom.
+
+      // The bubble arrives with an empty <img>: 60px, and the hook follows it down.
+      grow(460);
+      rerender(<MessageList messages={[...first, picture("m-2", sender)]} currentUserUuid="me" />);
+      expect(distanceFromBottom(box)).toBe(0);
+
+      // The picture loads (+200px) BEFORE the browser delivers the scroll event
+      // of our own scroll — which therefore reads 200px from the bottom.
+      grow(660);
+      fireEvent.scroll(box);
+      pictureLoads();
+
+      expect(distanceFromBottom(box)).toBe(0);
+      expect(screen.queryByRole("button", { name: /رسائل جديدة/ })).toBeNull();
+    });
+
+    /*
+    | ⚠️ الاختبارُ الحيُّ الثاني على #278: أرسلَ الطالبُ صورة، فانتهى النزولُ الناعمُ
+    | قبلَ الأسفلِ الحقيقيِّ بـ ٥٩ بكسل (طولُ الفقاعةِ الجديدة)، والصورةُ «الكسولة»
+    | بلا حجمٍ تحتَ حافّةِ الصندوقِ فلم تُحمَّلْ أبداً، فلم يكبرْ شيءٌ ولم يتحرّكْ شيء.
+    */
+    it("lands a smooth scroll at the true bottom even when nothing grows afterwards", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+        let smoothTarget: number | null = null;
+
+        // A smooth scroll that aims at the bottom as it was when it started.
+        box.scrollTo = ((options: ScrollToOptions) => {
+          smoothTarget = options.top ?? null;
+        }) as typeof box.scrollTo;
+
+        grow(400);
+        scrollTo(box, 100); // At the bottom, following.
+
+        // The reader's own picture: the smooth scroll starts toward 460…
+        grow(460);
+        rerender(<MessageList messages={[...first, picture("m-2", "me")]} currentUserUuid="me" />);
+        expect(smoothTarget).toBe(460);
+
+        // …the bubble's last 59px are laid out after it started, and the animation
+        // ends where it was aimed: short of the bottom. No observer fires — a
+        // picture that never loads grows nothing.
+        grow(519);
+        scrollTo(box, 160);
+        expect(distanceFromBottom(box)).toBe(59);
+
+        fireEvent(box, new Event("scrollend"));
+
+        expect(distanceFromBottom(box)).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("asserts the bottom on a timer where the browser has no scrollend", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+
+        box.scrollTo = (() => undefined) as typeof box.scrollTo;
+
+        grow(400);
+        scrollTo(box, 100);
+
+        grow(460);
+        rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+        grow(519);
+
+        act(() => {
+          vi.advanceTimersByTime(SETTLE_MS);
+        });
+
+        expect(distanceFromBottom(box)).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not re-assert the bottom for a reader who scrolled up during the animation", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+
+        box.scrollTo = (() => undefined) as typeof box.scrollTo;
+
+        grow(1000);
+        scrollTo(box, 700);
+
+        grow(1060);
+        rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+        scrollTo(box, 200); // The reader takes over and goes up.
+        fireEvent(box, new Event("scrollend"));
+
+        expect(box.scrollTop).toBe(200);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("loads a picture at once, in a reserved box, never lazily at 0×0", () => {
+      render(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+      const image = screen.getByAltText("صورة مرفقة");
+
+      expect(image.getAttribute("loading")).not.toBe("lazy");
+      expect(image.className).toContain("h-48");
+      expect(image.className).toContain("w-48");
+
+      fireEvent.load(image);
+
+      expect(image.className).not.toContain("h-48");
+    });
+
+    it("does not yank a reader who scrolled up when a picture loads late", () => {
+      const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+      const box = boxOf();
+      const { grow } = layout(box, 300);
+
+      grow(1000);
+      scrollTo(box, 700); // At the bottom…
+      scrollTo(box, 200); // …then up into the history, on purpose.
+
+      grow(1060);
+      rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+      grow(1260);
+      pictureLoads();
+
+      expect(box.scrollTop).toBe(200);
+      expect(screen.getByRole("button", { name: /رسائل جديدة/ })).toBeTruthy();
+    });
+  });
+
+  /*
+  | ⚠️ مراجعةُ #278: كلُّ رسالةٍ جديدةٍ تُعيدُ قراءةَ الصفحة، والخادمُ يوقّعُ كلَّ
+  | رابطٍ من جديد — فكان مفتاحُ الصورةِ (الرابط) يتغيّرُ ويُعادُ تحميلُ كلِّ صورةٍ
+  | في المحادثة، ويبلغُ المحدِّدُ ٤٢٩ بعدَ رسالتينِ أو ثلاث.
+  */
+  describe("pictures across a re-read of the page", () => {
+    const withPicture = (url: string): ChatMessage => ({
+      ...from("m-p", "", "2026-08-23T10:02:00+00:00", "them"),
+      attachment: { kind: "image", url, duration_seconds: null },
+    });
+
+    it("keeps the same picture on screen when its link is re-signed", () => {
+      const { rerender } = render(
+        <MessageList messages={[...first, withPicture("https://files.test/p?expires=1&signature=a")]} currentUserUuid="me" />,
+      );
+      const image = screen.getByAltText("صورة مرفقة");
+
+      fireEvent.load(image);
+
+      rerender(
+        <MessageList messages={[...first, withPicture("https://files.test/p?expires=2&signature=b")]} currentUserUuid="me" />,
+      );
+
+      // The same element, still showing — not a fresh grey box re-downloading.
+      expect(screen.getByAltText("صورة مرفقة")).toBe(image);
+      expect(image.className).not.toContain("h-48");
+    });
+
+    it("offers «أعد المحاولة» on a picture that failed, and loads it again", () => {
+      render(<MessageList messages={[...first, withPicture("https://files.test/p?expires=1")]} currentUserUuid="me" />);
+
+      const failed = screen.getByAltText("صورة مرفقة");
+
+      fireEvent.error(failed);
+      expect(screen.getByText("تعذّر تحميل الصورة.")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "أعد المحاولة" }));
+
+      const again = screen.getByAltText("صورة مرفقة");
+
+      expect(again).not.toBe(failed);
+      expect(again.getAttribute("src")).toBe("https://files.test/p?expires=1");
+    });
+
+    it("asks for fresh links instead of retrying a signature that has run out", () => {
+      const onRefreshLinks = vi.fn();
+      const dead = "https://files.test/p?expires=1&signature=a";
+      const { rerender } = render(
+        <MessageList messages={[...first, withPicture(dead)]} currentUserUuid="me" onRefreshLinks={onRefreshLinks} />,
+      );
+
+      fireEvent.error(screen.getByAltText("صورة مرفقة"));
+      fireEvent.click(screen.getByRole("button", { name: "أعد المحاولة" }));
+
+      expect(onRefreshLinks).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("تعذّر تحميل الصورة.")).toBeTruthy();
+
+      // The fresh link arrives: the picture loads again on its own.
+      const fresh = `https://files.test/p?expires=${Math.floor(Date.now() / 1000) + 900}&signature=b`;
+
+      rerender(
+        <MessageList messages={[...first, withPicture(fresh)]} currentUserUuid="me" onRefreshLinks={onRefreshLinks} />,
+      );
+
+      expect(screen.getByAltText("صورة مرفقة").getAttribute("src")).toBe(fresh);
+    });
+
+    it("asks for fresh links when the viewer opens on a picture whose link has run out", () => {
+      const onRefreshLinks = vi.fn();
+
+      render(
+        <MessageList
+          messages={[...first, withPicture("https://files.test/p?expires=1&signature=a")]}
+          currentUserUuid="me"
+          onRefreshLinks={onRefreshLinks}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "عرض الصورة مكبّرة" }));
+
+      expect(onRefreshLinks).toHaveBeenCalledTimes(1);
+      expect(document.querySelector("dialog")?.open).toBe(true);
+    });
+
+    it("opens a picture in the page's viewer, never a new tab, on the thread's pictures", () => {
+      const second: ChatMessage = {
+        ...from("m-q", "", "2026-08-23T10:03:00+00:00", "me"),
+        attachment: { kind: "image", url: "https://files.test/q", duration_seconds: null },
+      };
+
+      render(
+        <MessageList messages={[...first, withPicture("https://files.test/p"), second]} currentUserUuid="me" />,
+      );
+
+      expect(document.querySelector('a[target="_blank"]')).toBeNull();
+
+      fireEvent.click(screen.getAllByRole("button", { name: "عرض الصورة مكبّرة" })[1]);
+
+      expect(document.querySelector("dialog")?.open).toBe(true);
+      expect(screen.getByText("٢ من ٢")).toBeTruthy();
+    });
   });
 
   it("is the only scroll box on the screen", () => {
@@ -360,6 +712,20 @@ describe("decideScroll", () => {
     // Hiding the NEWEST moves the tail and is still not «something new».
     expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
     expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: true, lastIsMine: true })).toBe("none");
+  });
+
+  it("unpins only when the reader moved up, never on a late report of our own scroll", () => {
+    const far = { scrollHeight: 1000, clientHeight: 300 };
+
+    // Our own scroll, reported after a picture grew the list: it moved DOWN.
+    expect(nextPinned(true, 400, { ...far, scrollTop: 500 })).toBe(true);
+    // The reader scrolled up, or the event reports no movement at all.
+    expect(nextPinned(true, 500, { ...far, scrollTop: 300 })).toBe(false);
+    expect(nextPinned(true, 500, { ...far, scrollTop: 500 })).toBe(false);
+    // Moving down while still far keeps a reader who was not following unpinned.
+    expect(nextPinned(false, 100, { ...far, scrollTop: 300 })).toBe(false);
+    // Near the bottom always follows.
+    expect(nextPinned(false, 900, { ...far, scrollTop: 650 })).toBe(true);
   });
 
   it("counts 120px from the bottom as still following", () => {

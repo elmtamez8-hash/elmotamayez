@@ -398,6 +398,7 @@ export default function ConversationPage() {
         messages={messages}
         currentUserUuid={user?.uuid ?? null}
         onLoadOlder={olderExhausted ? undefined : loadOlder}
+        onRefreshLinks={() => refresh("catch-up")}
         onReport={report}
         onHide={(messageUuid) => {
           conversations

@@ -14,7 +14,22 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
  * production on 2026-09-28 as «a message with an emoji appears only after a
  * refresh; plain text arrives live». The position is now recorded on every
  * `scroll` event, so the answer describes where the reader WAS.
+ *
+ * ⚠️ AND A SCROLL EVENT IS NOT ALWAYS THE READER. The browser dispatches the
+ * event for OUR OWN scroll a frame later, and reads the layout as it is THEN —
+ * after a picture that finished loading in between has already grown the list.
+ * So the event for «we just scrolled to the bottom» reported the reader 200px
+ * above it, the hook concluded they had scrolled away, and the ResizeObserver
+ * that exists for exactly that picture declined to follow (live two-account test,
+ * 2026-09-28: `scrollHeight - clientHeight - scrollTop` = 200 on both sides after
+ * an image arrived). Measured in Chromium: the observer fired, but only after the
+ * late scroll event had already cleared the flag. Content growth never moves
+ * `scrollTop`, and every scroll this hook makes moves it DOWN — so only an event
+ * whose `scrollTop` did not go down may unpin the reader; see `nextPinned()`.
  */
+
+/** The longest a smooth scroll is given before the bottom is asserted anyway. */
+export const SETTLE_MS = 700;
 
 /** How close to the bottom still counts as «following the conversation». */
 export const NEAR_BOTTOM_PX = 120;
@@ -46,6 +61,27 @@ export function isNearBottom(
   threshold = NEAR_BOTTOM_PX,
 ): boolean {
   return box.scrollHeight - box.scrollTop - box.clientHeight <= threshold;
+}
+
+/**
+ * Whether the reader is still following the conversation after a scroll event.
+ *
+ * Near the bottom always pins. Away from it unpins ONLY when `scrollTop` did not
+ * go down since the last event — the reader moved up (or not at all). A downward
+ * move that is still far from the bottom is one of our own scrolls reported late
+ * (see the banner) or a smooth scroll still on its way, and it keeps whatever
+ * the reader was.
+ */
+export function nextPinned(
+  pinned: boolean,
+  previousTop: number,
+  box: { scrollHeight: number; scrollTop: number; clientHeight: number },
+): boolean {
+  if (isNearBottom(box)) return true;
+
+  if (box.scrollTop <= previousTop) return false;
+
+  return pinned;
 }
 
 /**
@@ -104,8 +140,13 @@ export function useChatScroll(
   lastIsMine: boolean,
 ): { unseen: boolean; jumpToLatest: () => void } {
   const wasNearBottom = useRef(true);
+  // The `scrollTop` of the last scroll event. Infinity so the very first event
+  // is judged on its position alone.
+  const lastTop = useRef(Number.POSITIVE_INFINITY);
   const previous = useRef<ListShape | null>(null);
   const previousHeight = useRef(0);
+  // Removes the pending «re-assert the bottom» of a smooth scroll still running.
+  const settle = useRef<(() => void) | null>(null);
   const [unseen, setUnseen] = useState(false);
 
   const toBottom = useCallback(
@@ -116,8 +157,35 @@ export function useChatScroll(
 
       const top = element.scrollHeight;
 
+      settle.current?.();
+
       if (smooth && !prefersReducedMotion() && typeof element.scrollTo === "function") {
         element.scrollTo({ top, behavior: "smooth" });
+
+        /*
+         * ⚠️ A SMOOTH SCROLL AIMS AT THE BOTTOM AS IT WAS WHEN IT STARTED. Anything
+         * laid out after that — the bubble's own last pixels, the composer giving
+         * back the preview's height, a picture — is not in its target, and it can
+         * end short of the true bottom with nothing left to move it (live test on
+         * #278: 59px short, the new bubble's height). So when it ends, the bottom
+         * is asserted again, instantly, for a reader who is still following.
+         * `scrollend` where the browser has it; a timer where it does not.
+         */
+        const finish = () => {
+          settle.current?.();
+
+          if (wasNearBottom.current && box.current !== null) {
+            box.current.scrollTop = box.current.scrollHeight;
+          }
+        };
+        const timer = window.setTimeout(finish, SETTLE_MS);
+
+        element.addEventListener("scrollend", finish);
+        settle.current = () => {
+          element.removeEventListener("scrollend", finish);
+          window.clearTimeout(timer);
+          settle.current = null;
+        };
       } else {
         element.scrollTop = top;
       }
@@ -127,6 +195,8 @@ export function useChatScroll(
     [box],
   );
 
+  useEffect(() => () => settle.current?.(), []);
+
   // Where the reader is, recorded as they move — see the banner.
   useEffect(() => {
     const element = box.current;
@@ -134,7 +204,8 @@ export function useChatScroll(
     if (element === null) return;
 
     const onScroll = () => {
-      wasNearBottom.current = isNearBottom(element);
+      wasNearBottom.current = nextPinned(wasNearBottom.current, lastTop.current, element);
+      lastTop.current = element.scrollTop;
       // The height the next older page is measured against: whatever grew since
       // the last render (a picture finishing, a window resize) is already in it.
       previousHeight.current = element.scrollHeight;
@@ -178,6 +249,8 @@ export function useChatScroll(
 
   /*
    * A late-loading picture grows the content: stay pinned if the reader was.
+   * `wasNearBottom` here is the flag `nextPinned()` keeps, so our own late-reported
+   * scroll events cannot clear it before this runs — see the banner.
    *
    * ⚠️ RE-RUN WHEN THE LIST FIRST APPEARS. The `<ul>` is rendered only once
    * there is a message, and a room's chat (and an empty private thread) mounts
@@ -191,6 +264,8 @@ export function useChatScroll(
 
     if (element === null || typeof ResizeObserver === "undefined") return;
 
+    // Instant, never smooth: an instant scroll also cancels a smooth one still
+    // running toward the old, shorter bottom.
     const observer = new ResizeObserver(() => {
       if (wasNearBottom.current) toBottom(false);
 
@@ -198,6 +273,9 @@ export function useChatScroll(
     });
 
     observer.observe(element);
+    // The box too: a composer that grows (a picture's preview, an error line)
+    // shrinks the box, and the newest message would slide under it.
+    if (box.current !== null) observer.observe(box.current);
 
     return () => observer.disconnect();
   }, [content, box, toBottom, hasContent]);

@@ -84,3 +84,19 @@ it('keeps the file off every public path', function (): void {
 
     Storage::disk('public')->assertDirectoryEmpty('/');
 });
+
+/*
+| The client opens a picture in the page's own viewer and a PDF as a document,
+| so it has to be told which one it has — and only when it may open it at all.
+*/
+it('says whether the receipt is a picture or a document', function (): void {
+    expect($this->getJson("/api/v1/orders/{$this->order->uuid}")->assertOk()->json('receipt_is_image'))
+        ->toBeTrue();
+
+    $this->postJson("/api/v1/orders/{$this->order->uuid}/receipt", [
+        'receipt' => UploadedFile::fake()->createWithContent('transfer.pdf', "%PDF-1.4\n%%EOF\n"),
+    ])->assertOk();
+
+    expect($this->getJson("/api/v1/orders/{$this->order->uuid}")->assertOk()->json('receipt_is_image'))
+        ->toBeFalse();
+});

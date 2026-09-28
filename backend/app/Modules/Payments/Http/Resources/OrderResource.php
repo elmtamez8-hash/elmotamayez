@@ -87,15 +87,20 @@ class OrderResource extends JsonResource
             |
             | والموظّفُ يراهُ من فرعِه أدناه — هو من يقرّرُ على أساسِه.
             */
-            'receipt_url' => $this->hasMedia('receipt')
-                && ($this->granted_by === null
-                    || $this->granted_by === $request->user()?->getKey()
-                    || $this->viewerSeesAll($request))
+            'receipt_url' => $this->viewerMayOpenReceipt($request)
                 ? URL::temporarySignedRoute(
                     'orders.receipt',
                     now()->addMinutes(15),
                     ['order' => $this->uuid],
                 )
+                : null,
+            /*
+            | Whether that receipt is a picture — the client shows a picture in the
+            | page's image viewer and opens a PDF as a document. The same gate as
+            | the link: no link, no answer.
+            */
+            'receipt_is_image' => $this->viewerMayOpenReceipt($request)
+                ? str_starts_with((string) $this->latestReceipt()?->mime_type, 'image/')
                 : null,
             // Only while the answer is still owed. On a decided order the promise
             // is spent, and repeating it beside "معتمد" reads as a second wait
@@ -140,5 +145,18 @@ class OrderResource extends JsonResource
     private function viewerSeesAll(Request $request): bool
     {
         return $request->user()?->can(Permissions::ORDERS_VIEW_ALL) ?? false;
+    }
+
+    /**
+     * Whether this reader may open the receipt at all — the ONE gate behind both
+     * `receipt_url` and `receipt_is_image`, so the two can never disagree about
+     * who is told anything about the file (see the note at `receipt_url`).
+     */
+    private function viewerMayOpenReceipt(Request $request): bool
+    {
+        return $this->hasMedia('receipt')
+            && ($this->granted_by === null
+                || $this->granted_by === $request->user()?->getKey()
+                || $this->viewerSeesAll($request));
     }
 }

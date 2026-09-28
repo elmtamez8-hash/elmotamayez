@@ -212,3 +212,35 @@ it('previews an attachment-only thread with words rather than a blank line', fun
 
     expect($body)->toContain('رسالة صوتية');
 });
+
+/*
+| ⚠️ A THREAD LOADS EVERY PICTURE ON ITS PAGE AT ONCE, and on `public`'s sixty a
+| minute a chatty thread was answered 429 by its own pictures (review of #278).
+| The route has its own counter now — and the `api` group's guest floor (120 a
+| minute per IP, applied BEFORE it) is lifted from this route alone, so 125
+| reads from one address pass where 121 used to be refused.
+*/
+it('serves chat media on its own limiter, not the marketplace one', function (): void {
+    $route = app('router')->getRoutes()->getByName('chat.attachment');
+
+    expect($route?->gatherMiddleware())->toContain('throttle:chat-media')
+        ->and($route?->gatherMiddleware())->not->toContain('throttle:public')
+        ->and($route?->excludedMiddleware())->toContain('throttle:api');
+
+    $asset = readyAsset($this->conversation);
+
+    Sanctum::actingAs($this->student);
+
+    $url = (string) $this->postJson("/api/v1/conversations/{$this->conversation->uuid}/messages", [
+        'body' => '',
+        'attachment' => $asset->uuid,
+    ])->assertCreated()->json('attachment.url');
+
+    // A guest, as an `<img>` is: no bearer token on the request.
+    app('auth')->forgetGuards();
+
+    // No file on the disk: every read is a 404 — and never a 429.
+    foreach (range(1, 125) as $_) {
+        expect($this->get($url)->getStatusCode())->not->toBe(429);
+    }
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { TABLE_HINT, TransferDestination } from "@/components/billing/TransferDestination";
+import { useImageLightbox } from "@/components/ui/ImageLightbox";
 import {
   useCallback,
   useEffect,
@@ -469,16 +470,22 @@ export default function OrdersPage() {
              ثلاثةُ أشكالٍ مختلفةٍ فوقَ بعضِها كانت أكثرَ ما يبدو غيرَ منتهٍ في
              الجدول؛ وهي الآنَ ثلاثُ حبّاتٍ بحدٍّ واحدٍ وارتفاعٍ واحد. */
           <div className="flex flex-wrap items-center gap-1.5">
+            {/* A picture opens in the page's viewer; a PDF is a document and
+                opens as one, in the browser's own reader. */}
             {o.receipt_url && !(o.is_mine && o.status === "rejected") && (
-              <a
-                href={o.receipt_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2 py-1 text-xs font-medium text-ink transition duration-200 hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
-              >
-                <EyeIcon className="h-3.5 w-3.5" />
-                عرض الإيصال
-              </a>
+              o.receipt_is_image === true ? (
+                <ReceiptPicture url={o.receipt_url} />
+              ) : (
+                <a
+                  href={o.receipt_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={RECEIPT_CONTROL}
+                >
+                  <EyeIcon className="h-3.5 w-3.5" />
+                  عرض الإيصال
+                </a>
+              )
             )}
 
             {mayReplace && (
@@ -829,5 +836,23 @@ export default function OrdersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+const RECEIPT_CONTROL =
+  "inline-flex items-center gap-1 rounded-lg border border-line bg-surface px-2 py-1 text-xs font-medium text-ink transition duration-200 hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none";
+
+/** «عرض الإيصال» for a picture: the page's viewer, never a new tab. */
+function ReceiptPicture({ url }: { url: string }) {
+  const { open, lightbox } = useImageLightbox([{ src: url, alt: "إيصال التحويل" }]);
+
+  return (
+    <>
+      <button type="button" onClick={() => open(0)} className={RECEIPT_CONTROL}>
+        <EyeIcon className="h-3.5 w-3.5" />
+        عرض الإيصال
+      </button>
+      {lightbox}
+    </>
   );
 }

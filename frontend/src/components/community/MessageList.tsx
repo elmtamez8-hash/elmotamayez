@@ -1,13 +1,15 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useImageLightbox } from "@/components/ui/ImageLightbox";
+import { VoiceNotePlayer } from "@/components/community/VoiceNotePlayer";
 import { useChatScroll } from "@/lib/chat-scroll";
-import { counted, formatDate, formatTime, NOUNS } from "@/lib/labels";
-import type { ChatMessage } from "@/lib/conversations";
+import { formatDate, formatTime } from "@/lib/labels";
+import { signedLinkIsStale, type ChatMessage } from "@/lib/conversations";
 
 /**
  * One thread, oldest at the top.
@@ -34,6 +36,7 @@ export function MessageList({
   showAvatars = false,
   size = "compact",
   onLoadOlder,
+  onRefreshLinks,
 }: {
   messages: ChatMessage[];
   currentUserUuid: string | null;
@@ -75,11 +78,41 @@ export function MessageList({
   size?: "fill" | "compact";
   /** Present when there is an older page to ask for. */
   onLoadOlder?: () => void;
+  /**
+   * Re-read the newest page, for fresh signed links. Asked when a picture whose
+   * link has run out is retried or opened — retrying a dead signature cannot
+   * succeed, and nothing else would renew it until the next message arrives.
+   */
+  onRefreshLinks?: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLUListElement>(null);
 
   const last = messages[messages.length - 1];
+
+  /*
+   * Every picture in the thread, oldest first — the viewer's arrows walk them
+   * in the order they were sent.
+   */
+  const pictures = useMemo(
+    () =>
+      messages
+        .filter((message) => message.attachment !== null && message.attachment.kind === "image")
+        .map((message) => ({ uuid: message.uuid, src: message.attachment?.url ?? "", alt: "صورة مرفقة" })),
+    [messages],
+  );
+  const { open: openViewer, lightbox } = useImageLightbox(pictures);
+  const openPicture = (uuid: string) => {
+    const at = pictures.findIndex((picture) => picture.uuid === uuid);
+
+    if (at < 0) return;
+
+    // A link at or near its expiry would fail in the viewer: ask for fresh ones
+    // now, and the viewer swaps the picture in when they come.
+    if (pictures.some((picture) => signedLinkIsStale(picture.src))) onRefreshLinks?.();
+
+    openViewer(at);
+  };
 
   /*
     ⚠️ THIS IS THE ONLY SCROLL BOX, AND THERE WERE TWO. The thread page wrapped
@@ -207,8 +240,19 @@ export function MessageList({
                             : "rounded-2xl rounded-es-sm bg-surface px-3 py-2 text-ink"
                         }
                       >
+                        {/* Keyed by the MESSAGE, never by the link: the link is re-signed
+                            on every read of the page, and a key that changed with it
+                            remounted every picture and voice note in the thread on
+                            every new message — each re-downloaded, the limiter hit
+                            within three messages, and a playing note cut off. */}
                         {message.attachment !== null && (
-                          <Attachment attachment={message.attachment} mine={mine} />
+                          <Attachment
+                            key={message.uuid}
+                            attachment={message.attachment}
+                            mine={mine}
+                            onOpen={() => openPicture(message.uuid)}
+                            onRefreshLinks={onRefreshLinks}
+                          />
                         )}
 
                         {/* ⚠️ `body` IS NULL ON AN ATTACHMENT-ONLY MESSAGE. Rendering it
@@ -279,6 +323,8 @@ export function MessageList({
         )}
       </div>
 
+      {lightbox}
+
       {/*
         A new message arrived while the reader was up in the history. They are
         told, not moved — and one press takes them down to it.
@@ -323,43 +369,118 @@ function showsSender(previous: ChatMessage | null, message: ChatMessage): boolea
  * BECAUSE all three existing call sites pass literal `/public` paths. This would
  * be the call site that makes that note false.
  *
- * ⚠️ AND `<audio controls>` RATHER THAN A PLAYER. A voice note is seconds long
- * and needs play, pause and a scrub bar — every browser ships all three, in the
- * reader's own language, keyboard-accessible. The lesson player exists for HLS,
- * watermarks and grant renewal; none of that applies here.
+ * ⚠️ A SMALL PLAYER OF OUR OWN, NOT `<audio controls>`. The browser's controls
+ * read the length from the file, and a Chrome-recorded WebM has none until it is
+ * played through — every note showed «0:00 / 0:00». `VoiceNotePlayer` falls back
+ * to the server's `duration_seconds`. It is still not the lesson player, which
+ * exists for HLS, watermarks and grant renewal; none of that applies here.
  */
 function Attachment({
   attachment,
   mine,
+  onOpen,
+  onRefreshLinks,
 }: {
   attachment: NonNullable<ChatMessage["attachment"]>;
   mine: boolean;
+  /** Opens the picture in the thread's viewer. */
+  onOpen: () => void;
+  onRefreshLinks?: () => void;
 }) {
   if (attachment.kind === "voice") {
+    // The length is the player's own «0:03 / 0:07»; a second, spelled-out one
+    // under it said the same thing twice.
     return (
       <div className="mb-1">
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <audio controls preload="metadata" src={attachment.url} className="w-56 max-w-full" />
-        {attachment.duration_seconds !== null && (
-          <span className={mine ? "text-[10px] text-white/70" : "text-[10px] text-ink-muted"}>
-            <bdi>{counted(attachment.duration_seconds, { ...NOUNS.seconds, zero: "أقل من ثانية" })}</bdi>
-          </span>
-        )}
+        <VoiceNotePlayer url={attachment.url} durationSeconds={attachment.duration_seconds} mine={mine} />
       </div>
     );
   }
 
+  return <ChatImage url={attachment.url} onOpen={onOpen} onRefreshLinks={onRefreshLinks} />;
+}
+
+/**
+ * A picture in a bubble.
+ *
+ * ⚠️ NOT `loading="lazy"`, AND NEVER 0×0 WHILE IT LOADS. A lazy image is
+ * loaded when it intersects the VIEWPORT, but here it sits inside the thread's
+ * own scroll box, which clips it: a picture with no size yet, a few pixels below
+ * that box's visible edge, never intersects, so it never loads, never grows, and
+ * the pin in `useChatScroll` never hears about it (live test on #278: the newest
+ * bubble showed only its time, `complete=false`, 59px short of the bottom, until
+ * the reader scrolled by hand). A thread shows one page of messages and its
+ * pictures are short-lived signed links, so loading them at once costs little.
+ * The reserved box keeps most of the height in the layout before the bytes
+ * arrive; the API sends no dimensions, so it is a fixed square, released on load.
+ */
+function ChatImage({
+  url,
+  onOpen,
+  onRefreshLinks,
+}: {
+  url: string;
+  onOpen: () => void;
+  onRefreshLinks?: () => void;
+}) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  // A retry is a NEW `<img>` for the same link: the signature cannot take an
+  // extra query parameter to bust a cache, and it does not need to.
+  const [attempt, setAttempt] = useState(0);
+
+  // A fresh link is a fresh chance: a picture that failed on the old one loads
+  // again on its own. A loaded picture keeps showing while the new src arrives.
+  useEffect(() => {
+    setState((current) => (current === "failed" ? "loading" : current));
+  }, [url]);
+
+  const retry = () => {
+    // ⚠️ A DEAD SIGNATURE CANNOT BE RETRIED INTO LIFE. When the link has run
+    // out, the retry asks the thread for fresh links instead; the effect above
+    // loads the picture when the new one arrives.
+    if (onRefreshLinks !== undefined && signedLinkIsStale(url)) {
+      onRefreshLinks();
+
+      return;
+    }
+
+    setState("loading");
+    setAttempt((value) => value + 1);
+  };
+
+  if (state === "failed") {
+    return (
+      <p className="mb-1 flex flex-wrap items-center gap-2 text-xs">
+        <span className="opacity-80">تعذّر تحميل الصورة.</span>
+        <button type="button" onClick={retry} className="font-semibold underline">
+          أعد المحاولة
+        </button>
+      </p>
+    );
+  }
+
   return (
-    <a href={attachment.url} target="_blank" rel="noreferrer" className="mb-1 block">
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="عرض الصورة مكبّرة"
+      className="mb-1 block cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={attachment.url}
+        key={attempt}
+        src={url}
         alt="صورة مرفقة"
+        decoding="async"
+        onLoad={() => setState("loaded")}
+        onError={() => setState("failed")}
         // A ceiling on both axes: a portrait photograph from a phone is taller
         // than the viewport, and one message would otherwise fill the thread.
-        className="max-h-72 w-auto max-w-full rounded-xl object-contain"
-        loading="lazy"
+        className={
+          "max-h-72 max-w-full rounded-xl object-contain " +
+          (state === "loaded" ? "w-auto" : "h-48 w-48 bg-line")
+        }
       />
-    </a>
+    </button>
   );
 }

@@ -37,6 +37,7 @@ import {
   IconClock,
   IconClockHour4,
   IconMicrophone,
+  IconPlayerPause,
   IconPlayerPlay,
   IconChartHistogram,
   IconEraser,
@@ -179,6 +180,7 @@ export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
 // ٠٣٥ — أيقونةٌ لكلِّ نوعِ عنصرٍ في المنهج. تُقرأُ مع تسميةِ النوعِ لا بدلاً منها:
 // النوعُ مكتوبٌ بالكلمات في كلِّ صفّ، والأيقونةُ تأكيدٌ يُمسَحُ بالعين.
 export const PlayIcon = wrap(IconPlayerPlay, "h-4 w-4");
+export const PauseIcon = wrap(IconPlayerPause, "h-4 w-4");
 export const AudioIcon = wrap(IconMicrophone, "h-4 w-4");
 export const ExternalLinkIcon = wrap(IconExternalLink, "h-4 w-4");
 // فهرسُ المقال — الأيقونةُ تسمّي ما تعنيه، لا ما ترسمُه المكتبة.
