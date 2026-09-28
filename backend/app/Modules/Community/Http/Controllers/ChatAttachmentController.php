@@ -10,7 +10,6 @@ use App\Modules\Community\Actions\RequestChatAttachment;
 use App\Modules\Community\Http\Requests\RequestChatAttachmentRequest;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
-use App\Modules\Media\Http\Resources\MediaAssetResource;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\MediaProviderResolver;
@@ -83,6 +82,11 @@ class ChatAttachmentController extends Controller
      * a file that arrived and was refused is a 200 about a failed asset, not an
      * error about the request — and the client must read it BEFORE it sends, or
      * the sender is told «لم يكتمل رفع المرفق بعد» about a file that finished.
+     *
+     * ⚠️ TWO FIELDS, NOT `MediaAssetResource`. That resource carries
+     * `failure_reason`, which a provider fills from an exception's message — a
+     * disk path, a hostname — and the chat client needs only «ready or not» to
+     * choose its own Arabic sentence.
      */
     public function complete(
         Request $request,
@@ -90,9 +94,12 @@ class ChatAttachmentController extends Controller
         string $asset,
         CompleteChatAttachment $action,
     ): JsonResponse {
-        return response()->json(MediaAssetResource::make(
-            $action->handle($this->currentUser($request), $conversation, $asset),
-        ));
+        $settled = $action->handle($this->currentUser($request), $conversation, $asset);
+
+        return response()->json([
+            'uuid' => $settled->uuid,
+            'status' => $settled->status->value,
+        ]);
     }
 
     /** The bytes, behind a signature the reader was given while authorised. */

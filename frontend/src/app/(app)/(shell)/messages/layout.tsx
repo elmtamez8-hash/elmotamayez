@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChatSoundToggle } from "@/components/community/ChatSoundToggle";
 import { ConversationList } from "@/components/community/ConversationList";
@@ -31,6 +31,9 @@ import { userMessage } from "@/lib/errors";
  * media-query hook: `hidden md:block` renders both on the server and lets the
  * viewport decide, so there is no first paint with the wrong pane in it.
  */
+/** How often the list re-asks who is online while the tab is visible. */
+const ONLINE_REFRESH_MS = 30_000;
+
 export default function MessagesLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
@@ -64,37 +67,68 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
   useEffect(load, [load]);
 
   /*
-   * Which rows get the green dot — the open thread, when its other end is there.
+   * Which rows get the green dot: the other end is ON THE PLATFORM right now
+   * (owner decision, 2026-09-28 — «متصل الآن» like WhatsApp).
    *
-   * ⚠️ ONLY THE OPEN THREAD, AND THAT IS THE HONEST LIMIT. The dot is fed by the
-   * thread's presence channel, which says who has THAT thread open; joining one
-   * per row would be two hundred subscriptions and two hundred authorisations on
-   * one page load to answer a narrower question than a dot suggests. The page
-   * announces its own count through a window event, the pattern
-   * `conversations:changed` already uses across this route boundary.
+   * ⚠️ ASKED OF THE SERVER, NOT JOINED ON THE SOCKET. `GET /conversations/online`
+   * answers for the other end of MY OWN threads and nobody else, from Reverb's
+   * own record of who holds their `user.{uuid}` channel. A presence channel per
+   * row would be two hundred subscriptions and two hundred authorisations per
+   * page for a busy teacher; a presence channel per person that counterparts
+   * join would show each student the other students talking to that teacher.
+   *
+   * Refreshed every 30 seconds while the tab is visible, at once when it becomes
+   * visible again, and whenever a message arrives (someone who just wrote is
+   * online). The open thread's own presence (`chat-presence.{uuid}`) is merged
+   * in live, so the row the reader is looking at never lags its header.
    */
-  const [online, setOnline] = useState<ReadonlySet<string>>(new Set());
+  const [platformOnline, setPlatformOnline] = useState<ReadonlySet<string>>(new Set());
+  const [threadPresence, setThreadPresence] = useState<{ uuid: string; present: boolean } | null>(null);
+
+  const refreshOnline = useCallback(() => {
+    conversations
+      .online()
+      .then((response) => setPlatformOnline(new Set(response.online ?? [])))
+      // A dot that cannot be fetched is a dot that stays dark — not a banner
+      // over a list that is otherwise working.
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
-    const onPresence = (event: Event) => {
-      const { uuid, present } = (event as CustomEvent<{ uuid: string; present: boolean }>).detail;
+    refreshOnline();
 
-      setOnline((current) => {
-        if (current.has(uuid) === present) return current;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshOnline();
+    }, ONLINE_REFRESH_MS);
 
-        const next = new Set(current);
-
-        if (present) next.add(uuid);
-        else next.delete(uuid);
-
-        return next;
-      });
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshOnline();
     };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("conversations:changed", refreshOnline);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("conversations:changed", refreshOnline);
+    };
+  }, [refreshOnline]);
+
+  useEffect(() => {
+    const onPresence = (event: Event) =>
+      setThreadPresence((event as CustomEvent<{ uuid: string; present: boolean }>).detail);
 
     window.addEventListener(CHAT_PRESENCE_CHANGED, onPresence);
 
     return () => window.removeEventListener(CHAT_PRESENCE_CHANGED, onPresence);
   }, []);
+
+  const onlineRows = useMemo(() => {
+    if (threadPresence === null || !threadPresence.present) return platformOnline;
+
+    return new Set([...platformOnline, threadPresence.uuid]);
+  }, [platformOnline, threadPresence]);
 
   /*
    * The sidebar, live (`FR-054`).
@@ -119,7 +153,11 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
     const uuid = user?.uuid;
 
     if (uuid !== undefined && uuid !== null) {
-      listen(`user.${uuid}`, "message.posted", load)
+      // Somebody who just wrote is online: the dots are re-asked with the list.
+      listen(`user.${uuid}`, "message.posted", () => {
+        load();
+        refreshOnline();
+      })
         .then((off) => {
           if (cancelled) {
             off();
@@ -145,7 +183,7 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
       unsubscribe?.();
       window.removeEventListener("conversations:changed", load);
     };
-  }, [user?.uuid, load]);
+  }, [user?.uuid, load, refreshOnline]);
 
   return (
     /*
@@ -188,7 +226,7 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
           )}
 
           {state === "ready" && (
-            <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={online} />
+            <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={onlineRows} />
           )}
         </div>
       </aside>

@@ -32,11 +32,11 @@ class MessageResource extends JsonResource
             | screen lists messages with nobody's name on them.
             */
             'sender_name' => $this->whenLoaded('sender', fn () => $this->sender?->name),
-            // The face beside an incoming run. Read from relations the Action
-            // eager-loads (`AccountPhoto::eagerLoads('sender')`) — a lookup here
-            // would be one query per message.
-            'sender_avatar_url' => $this->whenLoaded(
-                'sender',
+            // The face beside an incoming run — in a PRIVATE thread only, and read
+            // from relations `SenderFaces` eager-loaded beside the flag. Absent in
+            // a room: classmates do not receive each other's photographs.
+            'sender_avatar_url' => $this->when(
+                $this->resource->showsSenderFace,
                 fn () => $this->sender === null ? null : AccountPhoto::url($this->sender),
             ),
             'is_helpful' => (bool) $this->is_helpful,

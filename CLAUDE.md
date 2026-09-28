@@ -305,7 +305,7 @@ _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo
 - A whisper is REFUSED on a private channel and ACCEPTED on a presence one, and that single fact decides both of this spec's channels in opposite directions.
 - Chat media reused the lesson-media `complete` endpoint, and its policy answered a TEACHER's question — a chat upload completes through `/conversations/{c}/attachments/{a}/complete` (post + uploader).
 - `join()` read `room.members`, which Echo's channel does not have, so «يكتب…» never sent a whisper — the member list is on `room.subscription`.
-- The green dot means «has THIS thread open», not «online», and only the open thread can say it.
+- «Online on the platform» is an OCCUPIED `private-user.{uuid}` channel asked of Reverb by the server, filtered to the other end of the reader's own threads — never a presence channel counterparts join (its member list leaks).
 
 ### Privacy, retention, erasure and offboarding → [`docs/gotchas/compliance.md`](docs/gotchas/compliance.md)
 _Read before touching `Modules/Compliance/`, retention sweeps, data requests, legal holds, teacher exit._

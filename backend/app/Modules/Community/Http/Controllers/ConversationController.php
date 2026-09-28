@@ -40,7 +40,7 @@ class ConversationController extends Controller
         | use for it, and would make two devices opening at once render
         | differently for no reason a person could name.
         */
-        return ConversationResource::make($conversation->loadMissing(['student', 'lastMessage.sender']))
+        return ConversationResource::make($conversation->loadMissing(['lastMessage.sender', ...ConversationResource::counterpartyLoads()]))
             ->response()
             ->setStatusCode(201);
     }

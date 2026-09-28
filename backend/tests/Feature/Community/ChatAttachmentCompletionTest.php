@@ -100,12 +100,21 @@ function chatUploadAndComplete(
     );
 }
 
+/** The row the completion settled — the response carries only uuid and status. */
+function chatAsset(TestResponse $response): MediaAsset
+{
+    return MediaAsset::query()->withoutGlobalScopes()->where('uuid', $response->json('uuid'))->firstOrFail();
+}
+
 it('lets a student finish their own picture and send it', function (): void {
     $response = chatUploadAndComplete($this->conversation, $this->student, 'image', chatPngBytes())
         ->assertOk();
 
     expect($response->json('status'))->toBe('ready')
-        ->and($response->json('mime_type'))->toBe('image/png');
+        ->and(chatAsset($response)->mime_type)->toBe('image/png')
+        // Two fields and nothing else: `failure_reason` can carry a provider's
+        // exception text, and the client picks its own sentence.
+        ->and(array_keys($response->json()))->toBe(['uuid', 'status']);
 
     $this->postJson("/api/v1/conversations/{$this->conversation->uuid}/messages", [
         'body' => '',
@@ -214,8 +223,8 @@ it('accepts a voice note recorded by Chrome, whose container libmagic calls vide
         ->assertOk();
 
     expect($response->json('status'))->toBe('ready')
-        ->and($response->json('mime_type'))->toBe('audio/webm')
-        ->and($response->json('failure_reason'))->toBeNull();
+        ->and(chatAsset($response)->mime_type)->toBe('audio/webm')
+        ->and(chatAsset($response)->failure_reason)->toBeNull();
 
     // And it renders as a voice note: the resource derives the kind from the
     // `audio/` prefix, which `video/webm` would have turned into a broken <img>.
@@ -236,7 +245,7 @@ it('still refuses a WebM that carries a video track as a voice note', function (
         ->assertOk();
 
     expect($response->json('status'))->toBe('failed')
-        ->and($response->json('failure_reason'))->toBe(MediaKind::Audio->rejectionMessage());
+        ->and(chatAsset($response)->failure_reason)->toBe(MediaKind::Audio->rejectionMessage());
 });
 
 it('reads a Safari recording (MP4 with a sound handler and none for video) as audio', function (): void {
@@ -256,4 +265,26 @@ it('refuses a PDF sent as a chat picture, which the lesson list would have accep
     chatUploadAndComplete($this->conversation, $this->student, 'image', "%PDF-1.4\n%%EOF\n")
         ->assertOk()
         ->assertJsonPath('status', 'failed');
+});
+
+it('refuses a chat attachment at the lesson door, even for a teacher who manages lessons', function (): void {
+    Sanctum::actingAs($this->student);
+
+    $ticket = $this->postJson("/api/v1/conversations/{$this->conversation->uuid}/attachments", [
+        'kind' => 'image',
+        'filename' => 'photo',
+    ])->assertCreated();
+
+    // A PDF, which the LESSON list accepts and the chat list refuses.
+    $this->call('PUT', (string) $ticket->json('upload.url'), [], [], [], [], "%PDF-1.4\n%%EOF\n")->assertOk();
+
+    // The owner holds LESSONS_MANAGE and is a member: the lesson policy says yes.
+    $this->setCurrentWorkspace($this->workspace, $this->teacher);
+    Sanctum::actingAs($this->teacher);
+
+    $this->postJson("/api/v1/media/assets/{$ticket->json('asset.uuid')}/complete")->assertNotFound();
+
+    $asset = MediaAsset::query()->withoutGlobalScopes()->where('uuid', $ticket->json('asset.uuid'))->firstOrFail();
+
+    expect($asset->status)->not->toBe(MediaAssetStatus::Ready);
 });

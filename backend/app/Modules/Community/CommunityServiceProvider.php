@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Community;
 
+use App\Modules\Community\Contracts\OnlineDirectory;
 use App\Modules\Community\Events\AnnouncementPublished;
 use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Events\PeriodicReviewPublished;
@@ -30,6 +31,7 @@ use App\Modules\Community\Policies\PeriodicReviewPolicy;
 use App\Modules\Community\Policies\ReportCardPolicy;
 use App\Modules\Community\Support\CommunityPersonalData;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
+use App\Modules\Community\Support\ReverbOnlineDirectory;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -85,6 +87,9 @@ class CommunityServiceProvider extends Module
         | `PlatformStaffDirectory` is registered the same way, for the same reason.
         */
         $this->app->scoped(AssistantScopeDirectory::class, EloquentAssistantScopeDirectory::class);
+
+        // Who is online, asked of Reverb itself — see `ReverbOnlineDirectory`.
+        $this->app->bind(OnlineDirectory::class, ReverbOnlineDirectory::class);
 
         /*
         | ⚠️ ONE TAGGED LINE, and `Compliance` names no table of ours — the shape

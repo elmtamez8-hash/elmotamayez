@@ -176,7 +176,16 @@ export function useChatScroll(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, lastIsMine, toBottom, box]);
 
-  // A late-loading picture grows the content: stay pinned if the reader was.
+  /*
+   * A late-loading picture grows the content: stay pinned if the reader was.
+   *
+   * ⚠️ RE-RUN WHEN THE LIST FIRST APPEARS. The `<ul>` is rendered only once
+   * there is a message, and a room's chat (and an empty private thread) mounts
+   * with none — an effect keyed on the refs alone ran once, found nothing to
+   * observe, and never ran again.
+   */
+  const hasContent = uuids.length > 0;
+
   useEffect(() => {
     const element = content.current;
 
@@ -191,7 +200,7 @@ export function useChatScroll(
     observer.observe(element);
 
     return () => observer.disconnect();
-  }, [content, box, toBottom]);
+  }, [content, box, toBottom, hasContent]);
 
   return {
     unseen,

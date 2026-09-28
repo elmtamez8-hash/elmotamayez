@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Modules\Community\Http\Resources\MessageResource;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\Message;
+use App\Modules\Community\Support\SenderFaces;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
+use Illuminate\Support\Collection;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -90,4 +94,28 @@ it('answers null rather than a broken link for somebody with no photo', function
 
     expect($row)->toHaveKey('counterparty_avatar_url')
         ->and($row['counterparty_avatar_url'])->toBeNull();
+});
+
+it('sends no photographs in a room, where classmates would receive each other\'s', function (string $kind): void {
+    $room = new Conversation(['workspace_id' => $this->workspace->getKey(), 'kind' => $kind]);
+    $room->id = 999_999;
+
+    $message = new Message(['sender_user_id' => $this->student->getKey(), 'body' => 'سؤال']);
+    $message->setRelation('sender', $this->student);
+
+    SenderFaces::stamp(new Collection([$message]), $room);
+
+    $payload = MessageResource::make($message)->resolve(request());
+
+    expect($payload)->not->toHaveKey('sender_avatar_url')
+        // Not loaded either: nothing read a photo the payload does not carry.
+        ->and($this->student->relationLoaded('studentProfile'))->toBeFalse();
+})->with(['session', 'lesson', 'cohort']);
+
+it('opens a thread with the counterpart\'s face already in the answer', function (): void {
+    Sanctum::actingAs($this->student);
+
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid])
+        ->assertCreated()
+        ->assertJsonPath('counterparty_avatar_url', asset('storage/account-photos/teacher.jpg'));
 });

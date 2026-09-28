@@ -290,6 +290,33 @@ describe("MessageList — following the conversation", () => {
     expect(box.scrollTop).toBe(640);
   });
 
+  it("starts watching the list for late-loading pictures once the first message arrives", () => {
+    const observed: Element[] = [];
+
+    class FakeResizeObserver {
+      observe(element: Element) {
+        observed.push(element);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+
+    try {
+      // A room's chat mounts empty: there is no list yet to watch.
+      const { rerender } = render(<MessageList messages={[]} currentUserUuid="me" />);
+      expect(observed).toHaveLength(0);
+
+      rerender(<MessageList messages={first} currentUserUuid="me" />);
+
+      expect(observed).toEqual([screen.getByRole("list")]);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
   it("is the only scroll box on the screen", () => {
     render(<MessageList size="fill" messages={first} currentUserUuid="me" />);
 

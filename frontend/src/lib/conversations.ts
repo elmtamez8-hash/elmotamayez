@@ -92,23 +92,6 @@ export interface Conversation {
 }
 
 /**
- * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
- *
- * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
- * fetching it from the browser answers **419**. The whole frontend reaches the
- * API through the same-origin rewrite; an absolute URL steps outside it, the
- * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
- * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
- * because `curl` sends no cookies and no `Origin`, so the one client that proved
- * the endpoint was the one client that could not reproduce the fault.
- *
- * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
- * genuinely remote URL — that is the entire point of `SC-001`, zero video
- * bandwidth through our own server — and rewriting it to a local path would send
- * the bytes to a route that does not exist. Only a URL whose path is already
- * ours is folded back onto this origin.
- */
-/**
  * The open thread telling the list beside it whether its other end is here, as
  * `{ uuid, present }` on `window`. See the messages layout for why only the open
  * thread can say so.
@@ -132,6 +115,23 @@ export class AttachmentRefused extends Error {
   }
 }
 
+/**
+ * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
+ *
+ * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
+ * fetching it from the browser answers **419**. The whole frontend reaches the
+ * API through the same-origin rewrite; an absolute URL steps outside it, the
+ * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
+ * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
+ * because `curl` sends no cookies and no `Origin`, so the one client that proved
+ * the endpoint was the one client that could not reproduce the fault.
+ *
+ * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
+ * genuinely remote URL — that is the entire point of `SC-001`, zero video
+ * bandwidth through our own server — and rewriting it to a local path would send
+ * the bytes to a route that does not exist. Only a URL whose path is already
+ * ours is folded back onto this origin.
+ */
 function sameOriginIfOurs(url: string): string {
   try {
     const parsed = new URL(url, window.location.origin);
@@ -144,6 +144,13 @@ function sameOriginIfOurs(url: string): string {
 
 export const conversations = {
   list: () => api.get<{ data: Conversation[] }>("/conversations"),
+
+  /**
+   * Which of MY threads have their other end on the platform right now — the
+   * list's green dots. Conversation uuids only; the server decides whose status
+   * I may see (the other end of my own private threads, nobody else).
+   */
+  online: () => api.get<{ online: string[] }>("/conversations/online"),
 
   /** Open the one private conversation with a teacher, or return the open one. */
   start: (workspaceUuid: string, studentUuid?: string) =>

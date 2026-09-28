@@ -190,17 +190,34 @@ class ConversationResource extends JsonResource
 
         $reader = $request->user();
 
-        if ($reader !== null && (int) $this->student_user_id === (int) $reader->getKey()) {
-            $owner = $this->relationLoaded('workspace') && $this->workspace?->relationLoaded('owner')
-                ? $this->workspace->owner
-                : null;
+        $person = $reader !== null && (int) $this->student_user_id === (int) $reader->getKey()
+            ? ($this->relationLoaded('workspace') && $this->workspace?->relationLoaded('owner') ? $this->workspace->owner : null)
+            : ($this->relationLoaded('student') ? $this->student : null);
 
-            return $owner === null ? null : AccountPhoto::url($owner);
+        // ⚠️ ONLY FROM LOADED PROFILES. Read otherwise, `teacherProfile` lazy-loads
+        // under whatever workspace scope the reader is in — one query per row, and
+        // an empty answer for a reader signed into another workspace.
+        if ($person === null || ! $person->relationLoaded('teacherProfile') || ! $person->relationLoaded('studentProfile')) {
+            return null;
         }
 
-        return $this->relationLoaded('student') && $this->student !== null
-            ? AccountPhoto::url($this->student)
-            : null;
+        return AccountPhoto::url($person);
+    }
+
+    /**
+     * What a caller loads so `counterparty_name` and `counterparty_avatar_url`
+     * are answered from memory — for the list and for a single thread alike.
+     *
+     * @return array<int|string, mixed>
+     */
+    public static function counterpartyLoads(): array
+    {
+        return [
+            'student',
+            'workspace.owner',
+            ...AccountPhoto::eagerLoads('student'),
+            ...AccountPhoto::eagerLoads('workspace.owner'),
+        ];
     }
 
     private function readerMayModerate(Request $request): bool

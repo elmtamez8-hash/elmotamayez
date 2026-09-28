@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
+use App\Modules\Community\Http\Controllers\ConversationPresenceController;
 use App\Modules\Community\Http\Controllers\Manage\AnnouncementController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
 use App\Modules\Community\Http\Controllers\Manage\GradingSchemeController;
@@ -77,6 +78,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | a limit on reading a chat is a limit on scrolling one.
     */
     Route::get('/conversations', [ConversationController::class, 'index']);
+
+    /*
+    | The list's green dots — «online on the platform» for the other end of each
+    | of the reader's OWN private threads. No parameter: nobody can ask about a
+    | person they share no thread with. Polled by the sidebar, so it sits on the
+    | read side and answers from a shared ten-second cache.
+    */
+    Route::get('/conversations/online', [ConversationPresenceController::class, 'index']);
     Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index']);
 
     Route::middleware('throttle:chat-write')->group(function (): void {

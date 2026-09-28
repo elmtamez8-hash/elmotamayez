@@ -11,7 +11,7 @@ use App\Modules\Community\Actions\ReadMessages;
 use App\Modules\Community\Data\PostMessageData;
 use App\Modules\Community\Http\Requests\PostMessageRequest;
 use App\Modules\Community\Http\Resources\MessageResource;
-use App\Modules\Identity\Support\AccountPhoto;
+use App\Modules\Community\Support\SenderFaces;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -61,7 +61,7 @@ class MessageController extends Controller
         | renders what it just sent — the broadcast is an accelerator for the OTHER
         | party's screen, never the sender's confirmation.
         */
-        return MessageResource::make($message->loadMissing(['sender', 'mediaAsset', ...AccountPhoto::eagerLoads('sender')]))
+        return MessageResource::make(SenderFaces::stampOne($message->loadMissing(['sender', 'mediaAsset'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -70,6 +70,6 @@ class MessageController extends Controller
     {
         $hidden = $action->handle($this->currentUser($request), $message);
 
-        return MessageResource::make($hidden->loadMissing(['sender', ...AccountPhoto::eagerLoads('sender')]))->response();
+        return MessageResource::make(SenderFaces::stampOne($hidden->loadMissing('sender')))->response();
     }
 }
