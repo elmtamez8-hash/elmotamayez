@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Identity\Actions;
 
 use App\Models\User;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Shared\Actions\Action;
 use DomainException;
 use Illuminate\Database\Eloquent\Model;
@@ -142,6 +143,15 @@ class SaveAccountPhoto extends Action
 
         if ($user->studentProfile !== null) {
             return [$user->studentProfile, 'avatar_path'];
+        }
+
+        // A STUDENT with no profile row — the demo accounts seeded before
+        // `student_profiles` existed (9 on production, 2026-09-28) — gets an
+        // empty one: every column but `user_id` is nullable, and refusing a
+        // student their own photo was the reported defect. A guardian or staff
+        // member still has no profile and is still refused below.
+        if ($user->platform_role === PlatformRole::Student) {
+            return [$user->studentProfile()->create([]), 'avatar_path'];
         }
 
         throw new DomainException('لا يوجد ملف شخصي لهذا الحساب يحمل صورة.');
