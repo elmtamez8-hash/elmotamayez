@@ -39,6 +39,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->student);
 
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 });
@@ -101,8 +102,10 @@ it('saves and returns a message while the broadcast service is throwing', functi
     // Read back through the shipped endpoint, still with the broken driver bound.
     $this->getJson("/api/v1/conversations/{$this->conversationUuid}/messages")
         ->assertOk()
-        ->assertJsonCount(1)
-        ->assertJsonPath('0.body', 'هل الحصّة غداً؟');
+        // Two: the thread's opening line (a conversation is born with its
+        // first message, 2026-09-28) and the one sent into the outage.
+        ->assertJsonCount(2)
+        ->assertJsonPath('1.body', 'هل الحصّة غداً؟');
 
     // And the rest of the platform is untouched.
     $this->getJson('/api/v1/conversations')->assertOk()->assertJsonCount(1);

@@ -306,6 +306,9 @@ final class PlatformSettings
         'community.review.min_sessions' => 'community.review.min_sessions',
         'community.review.period_days' => 'community.review.period_days',
         'community.chat.max_messages_per_minute' => 'community.chat.max_messages_per_minute',
+        // The fourth, added 2026-09-28: how many messages somebody who does not
+        // study with a teacher may send before the teacher's side answers.
+        'community.chat.prospect_message_cap' => 'community.chat.prospect_message_cap',
         // Cohorts (spec 021). Two rows: how many students a new group holds by
         // default, and how long «منع مؤقّت من الكتابة» lasts when the teacher does
         // not say. Both are judgements about one teacher's classroom that the

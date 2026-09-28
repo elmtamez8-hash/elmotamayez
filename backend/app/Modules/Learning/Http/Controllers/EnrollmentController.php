@@ -88,7 +88,8 @@ class EnrollmentController extends Controller
             // so a student can open the one private conversation with them, and a
             // Resource runs once per row — a query inside it is an N+1 by
             // construction.
-            ->with(['course', 'workspace'])
+            // `course.creator` names the teacher on «راسِل …» (2026-09-28).
+            ->with(['course.creator', 'workspace'])
             ->orderByDesc('enrolled_at')
             ->paginate(15);
 

@@ -22,7 +22,7 @@ import {
   MessagesIcon,
   ScheduleIcon,
 } from "@/components/icons";
-import { conversations } from "@/lib/conversations";
+import { contactTarget, conversations } from "@/lib/conversations";
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 
@@ -58,17 +58,31 @@ export default function EnrollmentsPage() {
   useEffect(load, [load]);
 
   /*
-   * One conversation per teacher: the endpoint returns the open one when there
-   * is one, so this button is safe to press twice — and safe to press from two
-   * devices at once, which is the race `StartConversation` declares.
+   * One conversation per teacher. ⛔ PRESSING NO LONGER CREATES IT (owner
+   * decision 2026-09-28): an existing thread opens, otherwise the compose view
+   * does, and the conversation is born with the first message sent from there
+   * — so nothing empty appears in either side's list.
    */
-  const openChat = (workspaceUuid: string) => {
+  const openChat = (workspaceUuid: string, name: string) => {
     setOpening(workspaceUuid);
     setChatProblem(null);
 
     conversations
-      .start(workspaceUuid)
-      .then((conversation) => router.push(`/messages/${conversation.uuid}`))
+      .contactOptions(workspaceUuid)
+      .then((response) => {
+        const option = response.data?.options[0];
+
+        if (option === undefined) {
+          setChatProblem(response.data?.note ?? "لا يمكن مراسلة هذا المدرّس الآن.");
+
+          return;
+        }
+
+        const target = contactTarget(option, workspaceUuid, name);
+
+        if ("href" in target) router.push(target.href);
+        else setChatProblem(target.reason);
+      })
       // Never a raw error — and never a swallowed one either.
       .catch((error: unknown) => setChatProblem(userMessage(error)))
       .finally(() => setOpening(null));
@@ -181,12 +195,16 @@ export default function EnrollmentsPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => openChat(enr.workspace_uuid as string)}
+                onClick={() =>
+                  openChat(enr.workspace_uuid as string, enr.contact_name ?? enr.teacher_name ?? "المدرّس")
+                }
                 loading={opening === enr.workspace_uuid}
                 loadingLabel="جارٍ الفتح…"
                 iconStart={<MessagesIcon className="h-4 w-4" />}
               >
-                {`راسل ${enr.teacher_name ?? "المدرّس"}`}
+                {/* The COURSE's teacher, the academy in brackets (2026-09-28) —
+                    `teacher_name` is the workspace, which read «راسل Nour Academy». */}
+                {`راسِل ${enr.contact_name ?? enr.teacher_name ?? "المدرّس"}`}
               </Button>
             )}
           </div>

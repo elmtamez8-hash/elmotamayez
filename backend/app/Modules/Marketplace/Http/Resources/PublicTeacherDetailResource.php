@@ -6,6 +6,9 @@ namespace App\Modules\Marketplace\Http\Resources;
 
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Tenancy\Enums\WorkspaceType;
+use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Support\TeacherContactName;
 use Illuminate\Http\Request;
 
 /**
@@ -20,6 +23,14 @@ class PublicTeacherDetailResource extends PublicTeacherCardResource
     {
         return [
             ...parent::toArray($request),
+
+            /*
+            | «تواصل مع المدرّس» (2026-09-28): the workspace a private conversation
+            | with this teacher is keyed on, and the name the button carries.
+            | One query on a single-profile read, never on the list: the card
+            | does not carry it.
+            */
+            'contact' => $this->contactShape(),
 
             'bio' => $this->bio,
             'qualifications' => $this->qualifications ?? [],
@@ -76,6 +87,25 @@ class PublicTeacherDetailResource extends PublicTeacherCardResource
             // رابطُ يوتيوب/فيميو كما كتبَه صاحبُه؛ العميلُ يستخرجُ المعرِّفَ ويبني
             // `src` بنفسِه، فلا يصلُ نصٌّ من لوحةِ مفاتيحِ مدرّسٍ إلى وسمِ إطار.
             'intro_video_url' => $this->intro_video_url,
+        ];
+    }
+
+    /** @return array{workspace_uuid: string, name: string}|null */
+    private function contactShape(): ?array
+    {
+        $workspace = Workspace::query()->find($this->workspace_id);
+
+        if (! $workspace instanceof Workspace) {
+            return null;
+        }
+
+        return [
+            'workspace_uuid' => (string) $workspace->uuid,
+            'name' => TeacherContactName::of(
+                $this->user?->name,
+                $workspace->name,
+                $workspace->type === WorkspaceType::Teacher->value,
+            ),
         ];
     }
 }

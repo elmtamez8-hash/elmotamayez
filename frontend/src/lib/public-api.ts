@@ -314,9 +314,23 @@ export type CourseDetail = {
    * visitor's business.
    */
   promo_video_id: string | null;
+  /** «تواصل مع المدرّس» — see {@link TeacherContact}. */
+  contact: TeacherContact | null;
+};
+
+/**
+ * «تواصل مع المدرّس» (2026-09-28): the workspace a private conversation is keyed
+ * on, and the name the button carries — the course's teacher with the academy in
+ * brackets, built on the server (`TeacherContactName`).
+ */
+export type TeacherContact = {
+  workspace_uuid: string;
+  name: string;
 };
 
 export type TeacherDetail = TeacherCard & {
+  /** «تواصل مع المدرّس» — see {@link TeacherContact}. */
+  contact: TeacherContact | null;
   bio: string | null;
   qualifications: string[];
   stats: {

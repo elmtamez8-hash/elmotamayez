@@ -64,6 +64,13 @@ class Conversation extends BaseModel
     /** Whether this thread's student is banned in this workspace right now. */
     public bool $studentBanned = false;
 
+    /**
+     * Whether THIS reader holds the thread as the student's guardian — stamped by
+     * `ListConversations` so the row is titled with the teacher AND the child it
+     * is about. Same declared-property rule as above.
+     */
+    public bool $readByGuardian = false;
+
     /** @return array<string, mixed> */
     protected function casts(): array
     {

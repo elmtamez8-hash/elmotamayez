@@ -2228,10 +2228,12 @@ it, so moving to a managed provider is a line of configuration.
 
 | Method | Path | Who |
 |---|---|---|
-| `GET` | `/api/v1/conversations` | either party |
-| `POST` | `/api/v1/conversations` | the student — opens or returns the one private thread |
+| `GET` | `/api/v1/conversations` | either party (and an authorised guardian). Threads with no message are hidden; `?include={uuid}` keeps the one being opened |
+| `POST` | `/api/v1/conversations` | the student, their guardian (`student` = the child, `messages` permission) or the teacher's side — sends the FIRST message (`body` required) and opens the one private thread with it, or writes into the existing one. `throttle:conversation-start` |
+| `GET` | `/api/v1/conversations/contact-options?workspace=` | a student or guardian — what «تواصل مع المدرّس» may do: one option per student they write as |
+| `GET · PUT` | `/api/v1/inbox-settings` | `settings.update` — the teacher's «استقبال رسائل من غير المشتركين» |
 | `GET` | `/api/v1/conversations/{conversation}/messages` | either party |
-| `POST` | `/api/v1/conversations/{conversation}/messages` | either party, while the relationship lasts |
+| `POST` | `/api/v1/conversations/{conversation}/messages` | either party — a subscriber without limit, a prospect up to `community.chat.prospect_message_cap` until the teacher's side answers |
 | `POST` | `/api/v1/conversations/{conversation}/attachments` | either party |
 | `DELETE` | `/api/v1/messages/{message}` | the author, or `chat.moderate` |
 | `POST` | `/api/v1/messages/{message}/helpful` | the teacher's side, in a room |

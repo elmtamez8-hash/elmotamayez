@@ -19,6 +19,11 @@ final class StartConversationData extends DataTransferObject
     public function __construct(
         public readonly string $workspaceUuid,
         public readonly ?string $studentUuid = null,
+        /*
+        | The first message (2026-09-28). A conversation is created together with
+        | it and never empty, so the request that opens one carries the words.
+        */
+        public readonly string $body = '',
     ) {}
 
     /** @param  array<string, mixed>  $data */
@@ -29,6 +34,7 @@ final class StartConversationData extends DataTransferObject
         return new self(
             workspaceUuid: (string) ($data['workspace'] ?? ''),
             studentUuid: is_string($student) && $student !== '' ? $student : null,
+            body: trim((string) ($data['body'] ?? '')),
         );
     }
 }

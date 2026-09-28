@@ -6,6 +6,7 @@ namespace App\Modules\Community\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Community\Actions\ListConversations;
+use App\Modules\Community\Actions\ReadContactOptions;
 use App\Modules\Community\Actions\StartConversation;
 use App\Modules\Community\Data\StartConversationData;
 use App\Modules\Community\Http\Requests\StartConversationRequest;
@@ -21,8 +22,10 @@ class ConversationController extends Controller
 {
     public function index(Request $request, ListConversations $action): AnonymousResourceCollection
     {
+        $include = $request->query('include');
+
         return ConversationResource::collection(
-            $action->handle($this->currentUser($request))
+            $action->handle($this->currentUser($request), is_string($include) ? $include : null)
         );
     }
 
@@ -40,8 +43,23 @@ class ConversationController extends Controller
         | use for it, and would make two devices opening at once render
         | differently for no reason a person could name.
         */
-        return ConversationResource::make($conversation->loadMissing(['student', 'lastMessage.sender']))
+        return ConversationResource::make($conversation->loadMissing(['student', 'workspace', 'lastMessage.sender']))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * What «تواصل مع المدرّس» can do for this reader with one teacher.
+     *
+     * The workspace arrives as a query string and is resolved inside the Action —
+     * never an implicit binding, for the reason the routes file gives.
+     */
+    public function contactOptions(Request $request, ReadContactOptions $action): JsonResponse
+    {
+        $validated = $request->validate(['workspace' => ['required', 'string', 'uuid']]);
+
+        return response()->json([
+            'data' => $action->handle($this->currentUser($request), (string) $validated['workspace']),
+        ]);
     }
 }

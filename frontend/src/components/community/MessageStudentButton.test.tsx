@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageStudentButton } from "./MessageStudentButton";
 
 /*
- * «راسِل» — the teacher's side opening the private thread.
+ * «راسِل» — the teacher's side opening the private thread, or the compose view
+ * when there is none yet (2026-09-28: no conversation before its first message).
  *
  * ⚠️ THE ASSERTION IS THE CALL LIST, because the whole defect was a request no
  * screen sent. `POST /conversations` has taken `student` since it shipped; the
@@ -25,48 +26,67 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => auth }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 describe("MessageStudentButton", () => {
+  let threads: { uuid: string; kind: string; student_uuid: string | null }[] = [];
+
   beforeEach(() => {
     api.get.mockReset();
     api.post.mockReset();
     push.mockReset();
     auth.user = { permissions: ["chat.reply"] };
+    threads = [];
 
-    api.get.mockImplementation((path: string) =>
-      path === "/workspaces"
-        ? Promise.resolve({
-            data: [
-              { uuid: "w-other", is_current: false },
-              { uuid: "w-1", is_current: true },
-            ],
-          })
-        : Promise.reject(new Error(`unexpected GET ${path}`)),
-    );
+    api.get.mockImplementation((path: string) => {
+      if (path === "/workspaces") {
+        return Promise.resolve({
+          data: [
+            { uuid: "w-other", is_current: false },
+            { uuid: "w-1", is_current: true },
+          ],
+        });
+      }
+
+      if (path === "/conversations") return Promise.resolve({ data: threads });
+
+      return Promise.reject(new Error(`unexpected GET ${path}`));
+    });
   });
 
-  it("opens the thread in the CURRENT workspace with that student, then goes to it", async () => {
-    api.post.mockResolvedValue({ uuid: "c-9" });
+  it("opens the compose view in the CURRENT workspace — and creates nothing", async () => {
+    render(<MessageStudentButton studentUuid="s-1" studentName="مريم" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "راسِل مريم" }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/messages/new?workspace=w-1&student=s-1&name=%D9%85%D8%B1%D9%8A%D9%85"),
+    );
+
+    // ⛔ No POST: the conversation is born with its first message (2026-09-28).
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
+  it("goes straight to the thread that already has messages", async () => {
+    threads = [
+      { uuid: "c-room", kind: "session", student_uuid: null },
+      { uuid: "c-9", kind: "private", student_uuid: "s-1" },
+    ];
 
     render(<MessageStudentButton studentUuid="s-1" studentName="مريم" />);
 
     await userEvent.click(screen.getByRole("button", { name: "راسِل مريم" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/messages/c-9"));
-
-    expect(api.get.mock.calls).toEqual([["/workspaces"]]);
-    expect(api.post.mock.calls).toEqual([
-      ["/conversations", { workspace: "w-1", student: "s-1" }],
-    ]);
+    expect(api.post).not.toHaveBeenCalled();
   });
 
-  it("shows the server's refusal as a sentence and stays put", async () => {
-    api.post.mockRejectedValue(new Error("Request failed with status 403"));
+  it("shows a failure as a sentence and stays put", async () => {
+    api.get.mockRejectedValue(new Error("Request failed with status 500"));
 
-    render(<MessageStudentButton studentUuid="s-stranger" studentName="غريب" />);
+    render(<MessageStudentButton studentUuid="s-1" studentName="مريم" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "راسِل غريب" }));
+    await userEvent.click(screen.getByRole("button", { name: "راسِل مريم" }));
 
     expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(screen.queryByText(/status 403/)).toBeNull();
+    expect(screen.queryByText(/status 500/)).toBeNull();
     expect(push).not.toHaveBeenCalled();
   });
 

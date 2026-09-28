@@ -39,6 +39,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->student);
 
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 });
@@ -110,6 +111,7 @@ it('lists conversations at a constant cost whatever their number', function () u
 
         Sanctum::actingAs($extra);
         $uuid = (string) $this->postJson('/api/v1/conversations', [
+            'body' => 'السلام عليكم',
             'workspace' => $this->workspace->uuid,
         ])->assertCreated()->json('uuid');
 

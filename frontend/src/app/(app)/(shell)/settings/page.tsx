@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { BellIcon, LockIcon, SettingsIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { PublicProfileUrlCard } from "@/components/marketplace/PublicProfileUrlCard";
+import { InboxSettingsCard } from "@/components/settings/InboxSettingsCard";
 import { TimezoneCard } from "@/components/settings/TimezoneCard";
 
 export default function SettingsPage() {
@@ -172,6 +173,10 @@ export default function SettingsPage() {
           is never asked (the 403 it used to take on every student's settings
           page), and everybody else gets the API's own answer. */}
       <PublicProfileUrlCard />
+
+      {/* «استقبال رسائل من غير المشتركين» — the owner's switch; renders nothing
+          without `settings.update`, so it is mounted unconditionally. */}
+      <InboxSettingsCard />
 
       {/*
         ⚠️ الرابطُ الداخلُ إلى شاشةٍ لم تكنْ موجودة. كلُّ ما تكتبُه الخطوةُ

@@ -119,6 +119,7 @@ it('leaves the student writing in their private thread with the teacher', functi
     signIn($this->fx['student']);
 
     $private = $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => (string) $this->fx['workspace']->uuid,
     ])->assertCreated()->json();
 

@@ -81,6 +81,7 @@ const course: CourseDetail = {
   private_session_min_lead_minutes: 120,
   private_subscription_available: false,
   promo_video_id: null,
+  contact: null,
 };
 
 async function renderPage() {
