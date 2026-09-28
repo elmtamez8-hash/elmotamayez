@@ -33,15 +33,20 @@ function assignment(overrides: Partial<AssistantAssignment> = {}): AssistantAssi
   };
 }
 
-function serve(team: AssistantAssignment[]) {
+function serve(team: AssistantAssignment[], teachersCount = 1) {
   get.mockImplementation((path: string) => {
-    if (path === "/manage/assistants") return Promise.resolve({ data: team });
-    if (path === "/courses?per_page=200") {
+    if (path === "/manage/assistants") {
+      return Promise.resolve({ data: team, meta: { teachers_count: teachersCount } });
+    }
+    // ⚠️ The picker reads the TEAM's course list, never the authoring index —
+    // any other path is rejected here the way an unexpected read should be.
+    if (path === "/manage/assistants/courses") {
       return Promise.resolve({
         data: [
-          { uuid: "c1", title: "الرياضيات" },
-          { uuid: "c2", title: "الفيزياء" },
+          { uuid: "c1", title: "الرياضيات", status: "published", cover_url: null, teacher: { name: "أحمد" } },
+          { uuid: "c2", title: "الفيزياء", status: "draft", cover_url: null, teacher: { name: "هدى" } },
         ],
+        meta: { teachers_count: teachersCount },
       });
     }
 
@@ -158,5 +163,39 @@ describe("AssistantsPage", () => {
     expect(screen.getByRole("alert")).toBeDefined();
     expect(screen.queryByText(/SQLSTATE/)).toBeNull();
     expect(screen.getByRole("link", { name: "دعوة مساعد" })).toBeDefined();
+  });
+
+  it("marks a draft on the card, and names each course's teacher only in an academy", async () => {
+    const confined = assignment({
+      is_confined: true,
+      courses: [
+        { uuid: "c1", title: "الرياضيات", status: "published", teacher: { name: "أحمد" } },
+        { uuid: "c2", title: "الفيزياء", status: "draft", teacher: { name: "هدى" } },
+      ],
+    });
+
+    serve([confined], 1);
+    const { unmount } = await act(async () => render(<AssistantsPage />));
+
+    const chips = screen.getByRole("list", { name: "كورسات هذا المساعد" });
+    expect(within(chips).getByText("مسودّة")).toBeDefined();
+    // «منشور» on every chip is noise; only the surprise is said.
+    expect(within(chips).queryByText("منشور")).toBeNull();
+    expect(within(chips).queryByText(/هدى/)).toBeNull();
+
+    unmount();
+    serve([confined], 2);
+    await open();
+
+    expect(within(screen.getByRole("list", { name: "كورسات هذا المساعد" })).getByText(/هدى/)).toBeDefined();
+  });
+
+  it("says a confinement to deleted courses out loud rather than showing nothing", async () => {
+    serve([assignment({ is_confined: true, courses: [], unavailable_courses_count: 1 })]);
+
+    await open();
+
+    expect(screen.getByText("مقصور على كورسات حُذفت، فلا يصل الآن إلى أيّ كورس")).toBeDefined();
+    expect(screen.queryByText("كل الكورسات")).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 
+import { CourseChip } from "@/components/community/AssistantCourse";
 import { AssistantScopeForm } from "@/components/community/AssistantScopeForm";
 import {
   BookIcon,
@@ -26,11 +27,14 @@ import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
-import { api } from "@/lib/api";
-import { assistants, scopeSummary, type AssistantAssignment } from "@/lib/assistants";
+import {
+  assistants,
+  scopeSummary,
+  type AssistantAssignment,
+  type AssistantCourse,
+} from "@/lib/assistants";
 import { userMessage } from "@/lib/errors";
 import { counted, NOUNS } from "@/lib/labels";
-import type { Course } from "@/lib/types";
 
 /**
  * The teacher's team (spec 010 · US1).
@@ -51,7 +55,8 @@ import type { Course } from "@/lib/types";
  */
 export default function AssistantsPage() {
   const [rows, setRows] = useState<AssistantAssignment[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<AssistantCourse[]>([]);
+  const [teachers, setTeachers] = useState(1);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -62,10 +67,13 @@ export default function AssistantsPage() {
   const load = useCallback(() => {
     setState("loading");
 
-    Promise.all([assistants.list(), api.get<{ data: Course[] }>("/courses?per_page=200")])
+    // ⚠️ `/manage/assistants/courses`, NOT the authoring index: the picker offers
+    // exactly the set the scope write accepts — this workspace's live courses.
+    Promise.all([assistants.list(), assistants.courses()])
       .then(([team, courseList]) => {
         setRows(team.data ?? []);
         setCourses(courseList.data ?? []);
+        setTeachers(courseList.meta?.teachers_count ?? team.meta?.teachers_count ?? 1);
         setState("ready");
       })
       .catch(() => setState("error"));
@@ -109,7 +117,7 @@ export default function AssistantsPage() {
 
   const active = rows.filter((row) => row.revoked_at === null);
   const past = rows.filter((row) => row.revoked_at !== null);
-  const courseOptions = courses.map((course) => ({ uuid: course.uuid, title: course.title }));
+  const academy = teachers > 1;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -166,7 +174,8 @@ export default function AssistantsPage() {
                   >
                     <AssistantCard
                       row={row}
-                      courses={courseOptions}
+                      courses={courses}
+                      showTeacher={academy}
                       busy={busy === row.uuid}
                       open={open.has(row.uuid)}
                       onToggle={() => toggle(row.uuid)}
@@ -191,7 +200,7 @@ export default function AssistantsPage() {
                 {past.map((row) => (
                   <li
                     key={row.uuid}
-                    className="flex items-center gap-3 rounded-2xl px-2 py-2.5 text-sm text-ink transition-colors duration-150 hover:bg-primary-soft/40"
+                    className="flex items-center gap-3 px-2 py-2.5 text-sm text-ink"
                   >
                     <Avatar url={null} name={row.assistant?.name ?? "—"} size="sm" />
                     <span className="min-w-0 flex-1 truncate text-ink-muted">
@@ -247,9 +256,19 @@ function Rule({ Icon, children }: { Icon: ComponentType<IconProps>; children: Re
   );
 }
 
+/** «وفي نطاقه كورسان حُذفا» — the course is the fronted predicate's subject, so nominative. */
+const DELETED_COURSES = {
+  one: "كورس واحد حُذف",
+  two: "كورسان حُذفا",
+  few: "كورسات حُذفت",
+  many: "كورساً حُذف",
+  other: "كورس حُذف",
+};
+
 function AssistantCard({
   row,
   courses,
+  showTeacher,
   busy,
   open,
   onToggle,
@@ -257,7 +276,8 @@ function AssistantCard({
   onRevoke,
 }: {
   row: AssistantAssignment;
-  courses: { uuid: string; title: string }[];
+  courses: AssistantCourse[];
+  showTeacher: boolean;
   busy: boolean;
   open: boolean;
   onToggle: () => void;
@@ -282,22 +302,27 @@ function AssistantCard({
             {/* ⚠️ `is_confined`, never `courses.length`: an empty list is EVERY
                 course, and reading it as none is the misreading the form's own
                 notice exists to prevent. */}
-            {row.is_confined
-              ? `مقصور على ${counted(row.courses.length, { ...NOUNS.courses, two: "كورسين" })}`
-              : scopeSummary(row)}
+            {!row.is_confined
+              ? scopeSummary(row)
+              : row.courses.length === 0
+                ? "مقصور على كورسات حُذفت، فلا يصل الآن إلى أيّ كورس"
+                : `مقصور على ${counted(row.courses.length, { ...NOUNS.courses, two: "كورسين" })}`}
           </p>
 
           {row.is_confined && row.courses.length > 0 && (
             <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="كورسات هذا المساعد">
               {row.courses.map((course) => (
-                <li
-                  key={course.uuid}
-                  className="rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs text-ink"
-                >
-                  {course.title}
-                </li>
+                <CourseChip key={course.uuid} course={course} showTeacher={showTeacher} />
               ))}
             </ul>
+          )}
+
+          {/* ⚠️ A deleted course still CONFINES — the server reads the scope row,
+              not the course — so its absence is said rather than swallowed. */}
+          {row.is_confined && row.courses.length > 0 && (row.unavailable_courses_count ?? 0) > 0 && (
+            <p className="mt-2 text-xs text-ink-muted">
+              {`وفي نطاقه ${counted(row.unavailable_courses_count ?? 0, DELETED_COURSES)}.`}
+            </p>
           )}
         </div>
       </div>
@@ -338,7 +363,13 @@ function AssistantCard({
           and ticks made before a fold are still there when it opens again. The
           arrival replays on every opening because `display` comes back. */}
       <div id={regionId} hidden={!open} className="banner-rise mt-4 rounded-2xl bg-surface p-4">
-        <AssistantScopeForm assignment={row} courses={courses} onSave={onSave} busy={busy} />
+        <AssistantScopeForm
+          assignment={row}
+          courses={courses}
+          onSave={onSave}
+          busy={busy}
+          showTeacher={showTeacher}
+        />
       </div>
     </Card>
   );

@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | every other inline limit on the platform.
     */
     Route::get('/manage/assistants', [ManageAssistantController::class, 'index']);
+    Route::get('/manage/assistants/courses', [ManageAssistantController::class, 'courses']);
 
     Route::middleware('throttle:authoring')->group(function (): void {
         Route::put('/manage/assistants/{assignment}/scope', [ManageAssistantController::class, 'scope']);

@@ -29,7 +29,12 @@ class SetAssistantScopeRequest extends FormRequest
             // Present and empty is «no confinement», which is a legitimate thing
             // to ask for: it is how an owner takes a restriction back off.
             'courses' => ['present', 'array', 'max:200'],
-            'courses.*' => ['string', WorkspaceRules::exists('courses', 'uuid')],
+            // ⚠️ `whereNull('deleted_at')` too: the rule is a raw query, so it
+            // sees soft-deleted rows the `SoftDeletes` scope hides from the
+            // Action — a deleted course passed here and was then dropped there
+            // in silence, and a list of ONLY deleted courses became the empty
+            // set, which is «every course».
+            'courses.*' => ['string', WorkspaceRules::exists('courses', 'uuid')->whereNull('deleted_at')],
         ];
     }
 }
