@@ -28,6 +28,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
  * whose `scrollTop` did not go down may unpin the reader; see `nextPinned()`.
  */
 
+/** The longest a smooth scroll is given before the bottom is asserted anyway. */
+export const SETTLE_MS = 700;
+
 /** How close to the bottom still counts as «following the conversation». */
 export const NEAR_BOTTOM_PX = 120;
 
@@ -142,6 +145,8 @@ export function useChatScroll(
   const lastTop = useRef(Number.POSITIVE_INFINITY);
   const previous = useRef<ListShape | null>(null);
   const previousHeight = useRef(0);
+  // Removes the pending «re-assert the bottom» of a smooth scroll still running.
+  const settle = useRef<(() => void) | null>(null);
   const [unseen, setUnseen] = useState(false);
 
   const toBottom = useCallback(
@@ -152,8 +157,35 @@ export function useChatScroll(
 
       const top = element.scrollHeight;
 
+      settle.current?.();
+
       if (smooth && !prefersReducedMotion() && typeof element.scrollTo === "function") {
         element.scrollTo({ top, behavior: "smooth" });
+
+        /*
+         * ⚠️ A SMOOTH SCROLL AIMS AT THE BOTTOM AS IT WAS WHEN IT STARTED. Anything
+         * laid out after that — the bubble's own last pixels, the composer giving
+         * back the preview's height, a picture — is not in its target, and it can
+         * end short of the true bottom with nothing left to move it (live test on
+         * #278: 59px short, the new bubble's height). So when it ends, the bottom
+         * is asserted again, instantly, for a reader who is still following.
+         * `scrollend` where the browser has it; a timer where it does not.
+         */
+        const finish = () => {
+          settle.current?.();
+
+          if (wasNearBottom.current && box.current !== null) {
+            box.current.scrollTop = box.current.scrollHeight;
+          }
+        };
+        const timer = window.setTimeout(finish, SETTLE_MS);
+
+        element.addEventListener("scrollend", finish);
+        settle.current = () => {
+          element.removeEventListener("scrollend", finish);
+          window.clearTimeout(timer);
+          settle.current = null;
+        };
       } else {
         element.scrollTop = top;
       }
@@ -162,6 +194,8 @@ export function useChatScroll(
     },
     [box],
   );
+
+  useEffect(() => () => settle.current?.(), []);
 
   // Where the reader is, recorded as they move — see the banner.
   useEffect(() => {

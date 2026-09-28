@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MessageList } from "./MessageList";
-import { decideScroll, isNearBottom, nextPinned, shapeOf } from "@/lib/chat-scroll";
+import { decideScroll, isNearBottom, nextPinned, SETTLE_MS, shapeOf } from "@/lib/chat-scroll";
 import { mergeMessages, type ChatMessage } from "@/lib/conversations";
 
 /*
@@ -419,6 +419,114 @@ describe("MessageList — following the conversation", () => {
 
       expect(distanceFromBottom(box)).toBe(0);
       expect(screen.queryByRole("button", { name: /رسائل جديدة/ })).toBeNull();
+    });
+
+    /*
+    | ⚠️ الاختبارُ الحيُّ الثاني على #278: أرسلَ الطالبُ صورة، فانتهى النزولُ الناعمُ
+    | قبلَ الأسفلِ الحقيقيِّ بـ ٥٩ بكسل (طولُ الفقاعةِ الجديدة)، والصورةُ «الكسولة»
+    | بلا حجمٍ تحتَ حافّةِ الصندوقِ فلم تُحمَّلْ أبداً، فلم يكبرْ شيءٌ ولم يتحرّكْ شيء.
+    */
+    it("lands a smooth scroll at the true bottom even when nothing grows afterwards", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+        let smoothTarget: number | null = null;
+
+        // A smooth scroll that aims at the bottom as it was when it started.
+        box.scrollTo = ((options: ScrollToOptions) => {
+          smoothTarget = options.top ?? null;
+        }) as typeof box.scrollTo;
+
+        grow(400);
+        scrollTo(box, 100); // At the bottom, following.
+
+        // The reader's own picture: the smooth scroll starts toward 460…
+        grow(460);
+        rerender(<MessageList messages={[...first, picture("m-2", "me")]} currentUserUuid="me" />);
+        expect(smoothTarget).toBe(460);
+
+        // …the bubble's last 59px are laid out after it started, and the animation
+        // ends where it was aimed: short of the bottom. No observer fires — a
+        // picture that never loads grows nothing.
+        grow(519);
+        scrollTo(box, 160);
+        expect(distanceFromBottom(box)).toBe(59);
+
+        fireEvent(box, new Event("scrollend"));
+
+        expect(distanceFromBottom(box)).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("asserts the bottom on a timer where the browser has no scrollend", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+
+        box.scrollTo = (() => undefined) as typeof box.scrollTo;
+
+        grow(400);
+        scrollTo(box, 100);
+
+        grow(460);
+        rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+        grow(519);
+
+        act(() => {
+          vi.advanceTimersByTime(SETTLE_MS);
+        });
+
+        expect(distanceFromBottom(box)).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not re-assert the bottom for a reader who scrolled up during the animation", () => {
+      vi.useFakeTimers();
+
+      try {
+        const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+        const box = boxOf();
+        const { grow } = layout(box, 300);
+
+        box.scrollTo = (() => undefined) as typeof box.scrollTo;
+
+        grow(1000);
+        scrollTo(box, 700);
+
+        grow(1060);
+        rerender(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+        scrollTo(box, 200); // The reader takes over and goes up.
+        fireEvent(box, new Event("scrollend"));
+
+        expect(box.scrollTop).toBe(200);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("loads a picture at once, in a reserved box, never lazily at 0×0", () => {
+      render(<MessageList messages={[...first, picture("m-2", "them")]} currentUserUuid="me" />);
+
+      const image = screen.getByAltText("صورة مرفقة");
+
+      expect(image.getAttribute("loading")).not.toBe("lazy");
+      expect(image.className).toContain("h-48");
+      expect(image.className).toContain("w-48");
+
+      fireEvent.load(image);
+
+      expect(image.className).not.toContain("h-48");
     });
 
     it("does not yank a reader who scrolled up when a picture loads late", () => {

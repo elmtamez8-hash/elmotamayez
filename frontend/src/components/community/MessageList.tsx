@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -350,16 +350,48 @@ function Attachment({
     );
   }
 
+  // Keyed by the link: a refreshed signature is a new picture to load.
+  return <ChatImage key={attachment.url} url={attachment.url} />;
+}
+
+/**
+ * A picture in a bubble.
+ *
+ * ⚠️ NOT `loading="lazy"`, AND NEVER 0×0 WHILE IT LOADS. A lazy image is
+ * loaded when it intersects the VIEWPORT, but here it sits inside the thread's
+ * own scroll box, which clips it: a picture with no size yet, a few pixels below
+ * that box's visible edge, never intersects, so it never loads, never grows, and
+ * the pin in `useChatScroll` never hears about it (live test on #278: the newest
+ * bubble showed only its time, `complete=false`, 59px short of the bottom, until
+ * the reader scrolled by hand). A thread shows one page of messages and its
+ * pictures are short-lived signed links, so loading them at once costs little.
+ * The reserved box keeps most of the height in the layout before the bytes
+ * arrive; the API sends no dimensions, so it is a fixed square, released on load.
+ */
+function ChatImage({ url }: { url: string }) {
+  const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+
+  if (state === "failed") {
+    return (
+      <p className="mb-1 text-xs opacity-80">تعذّر تحميل الصورة.</p>
+    );
+  }
+
   return (
-    <a href={attachment.url} target="_blank" rel="noreferrer" className="mb-1 block">
+    <a href={url} target="_blank" rel="noreferrer" className="mb-1 block">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={attachment.url}
+        src={url}
         alt="صورة مرفقة"
+        decoding="async"
+        onLoad={() => setState("loaded")}
+        onError={() => setState("failed")}
         // A ceiling on both axes: a portrait photograph from a phone is taller
         // than the viewport, and one message would otherwise fill the thread.
-        className="max-h-72 w-auto max-w-full rounded-xl object-contain"
-        loading="lazy"
+        className={
+          "max-h-72 max-w-full rounded-xl object-contain " +
+          (state === "loaded" ? "w-auto" : "h-48 w-48 bg-line")
+        }
       />
     </a>
   );
