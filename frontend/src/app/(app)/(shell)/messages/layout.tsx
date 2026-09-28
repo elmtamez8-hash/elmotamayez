@@ -3,11 +3,12 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { ChatSoundToggle } from "@/components/community/ChatSoundToggle";
 import { ConversationList } from "@/components/community/ConversationList";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
-import { conversations, type Conversation } from "@/lib/conversations";
+import { CHAT_PRESENCE_CHANGED, conversations, type Conversation } from "@/lib/conversations";
 import { listen } from "@/lib/echo";
 import { userMessage } from "@/lib/errors";
 
@@ -61,6 +62,39 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
   }, []);
 
   useEffect(load, [load]);
+
+  /*
+   * Which rows get the green dot — the open thread, when its other end is there.
+   *
+   * ⚠️ ONLY THE OPEN THREAD, AND THAT IS THE HONEST LIMIT. The dot is fed by the
+   * thread's presence channel, which says who has THAT thread open; joining one
+   * per row would be two hundred subscriptions and two hundred authorisations on
+   * one page load to answer a narrower question than a dot suggests. The page
+   * announces its own count through a window event, the pattern
+   * `conversations:changed` already uses across this route boundary.
+   */
+  const [online, setOnline] = useState<ReadonlySet<string>>(new Set());
+
+  useEffect(() => {
+    const onPresence = (event: Event) => {
+      const { uuid, present } = (event as CustomEvent<{ uuid: string; present: boolean }>).detail;
+
+      setOnline((current) => {
+        if (current.has(uuid) === present) return current;
+
+        const next = new Set(current);
+
+        if (present) next.add(uuid);
+        else next.delete(uuid);
+
+        return next;
+      });
+    };
+
+    window.addEventListener(CHAT_PRESENCE_CHANGED, onPresence);
+
+    return () => window.removeEventListener(CHAT_PRESENCE_CHANGED, onPresence);
+  }, []);
 
   /*
    * The sidebar, live (`FR-054`).
@@ -127,25 +161,41 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
      * browser's own collapsing chrome, so the send button sits under the address
      * bar exactly while somebody is typing.
      */
-    <div className="-m-6 flex h-[calc(100dvh-4rem)] overflow-hidden">
+    /*
+     * ⚠️ AND THE NEGATIVE MARGIN FOLLOWS THE SHELL'S PADDING AT EVERY WIDTH. The
+     * shell's `<main>` is `p-4 sm:p-6`; a flat `-m-6` overshot the phone's 16px by
+     * 8px on each side, which is a horizontal scrollbar and a page that scrolls
+     * behind the thread.
+     */
+    <div className="-m-4 flex h-[calc(100dvh-4rem)] overflow-hidden sm:-m-6">
       <aside
         className={
           // On a phone the sidebar IS the screen until a thread is open; from
           // `md` up it is a fixed column beside it.
           (openUuid === null ? "flex" : "hidden") +
-          " w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
+          " min-h-0 w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
         }
       >
-        {state === "loading" && <RowsSkeleton count={5} />}
+        <div className="flex shrink-0 items-center justify-end border-b border-line px-3 py-1">
+          <ChatSoundToggle />
+        </div>
 
-        {state === "error" && (
-          <ErrorState onRetry={load} description={problem ?? undefined} />
-        )}
+        <div className="min-h-0 flex-1">
+          {state === "loading" && <RowsSkeleton count={5} />}
 
-        {state === "ready" && <ConversationList rows={rows} activeUuid={openUuid} />}
+          {state === "error" && (
+            <ErrorState onRetry={load} description={problem ?? undefined} />
+          )}
+
+          {state === "ready" && (
+            <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={online} />
+          )}
+        </div>
       </aside>
 
-      <main className={(openUuid === null ? "hidden" : "flex") + " min-w-0 flex-1 md:flex"}>
+      {/* `min-h-0`: the thread's message box is the only thing that scrolls, and
+          a flex child without it grows to its content instead. */}
+      <main className={(openUuid === null ? "hidden" : "flex") + " min-h-0 min-w-0 flex-1 md:flex"}>
         {children}
       </main>
     </div>

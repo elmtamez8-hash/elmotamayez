@@ -252,13 +252,48 @@ export async function join(
 
   const room = connection.join(channel);
 
-  room
-    .here(handlers.here)
-    .joining(handlers.joining)
-    .leaving(handlers.leaving)
+  /*
+   * ⚠️ THE MEMBER LIST LIVES ON `room.subscription`, NOT ON `room`. The first
+   * version read `room.members.me` — a property Echo's channel object does not
+   * have — so `me` was always undefined and `whisper()` returned before sending
+   * anything. «يكتب…» had never once been shown to anybody, and nothing failed:
+   * the guard that protects against an unsubscribed channel is the same line
+   * that swallowed every whisper.
+   */
+  const subscription = (room as unknown as { subscription: PresenceSubscription }).subscription;
+
+  /*
+   * ⚠️ OUR OWN CALLBACKS, BOUND AND UNBOUND BY REFERENCE. Echo's `here()` and
+   * `joining()` wrap the handler in a closure of their own and offer no way to
+   * remove it, so a second holder of this channel (React's development
+   * double-invoke is one) left the first holder's handlers bound after it had
+   * released — and «joining» counted every arrival twice. Fresh closures per
+   * call, so unbinding one caller's never touches another's (the pusher-js rule
+   * `listen()` above already records).
+   */
+  const bindings: Array<[string, (payload: never) => void]> = [
+    [
+      "pusher:subscription_succeeded",
+      (payload: { members?: Record<string, ChatMember> }) =>
+        handlers.here(Object.values(payload.members ?? {})),
+    ],
+    ["pusher:member_added", (member: { info: ChatMember }) => handlers.joining(member.info)],
+    ["pusher:member_removed", (member: { info: ChatMember }) => handlers.leaving(member.info)],
     // The name is ours and travels only between clients — the server neither
     // stores it nor rebroadcasts it, which is what a whisper IS.
-    .listenForWhisper("typing", handlers.typing);
+    ["client-typing", (member: ChatMember) => handlers.typing(member)],
+  ];
+
+  for (const [event, callback] of bindings) subscription.bind(event, callback);
+
+  // A second holder arrives after the subscription already succeeded, and that
+  // event does not fire twice: hand it the list that is already there.
+  if (subscription.members?.subscribed === true && subscription.members.each !== undefined) {
+    const present: ChatMember[] = [];
+
+    subscription.members.each((member) => present.push(member.info));
+    handlers.here(present);
+  }
 
   holders.set(channel, (holders.get(channel) ?? 0) + 1);
 
@@ -269,6 +304,8 @@ export async function join(
       if (released) return;
 
       released = true;
+
+      for (const [event, callback] of bindings) subscription.unbind(event, callback);
 
       const left = (holders.get(channel) ?? 1) - 1;
 
@@ -286,18 +323,13 @@ export async function join(
      * members of THIS room.
      *
      * ⚠️ AND IT CARRIES THE SENDER'S OWN MEMBER INFO, because a whisper does NOT.
-     * The first version sent `{}` — the frame arrived, the handler ran, and the
-     * receiver had no uuid to compare against its own and no name to show, so
-     * every whisper both bypassed the «is this me» filter and rendered a nameless
-     * indicator. The server never sees a whisper at all, so there is nothing to
-     * stamp it: the identity has to be in the payload, taken from the membership
-     * the channel already authorised.
+     * The server never sees a whisper at all, so there is nothing to stamp it:
+     * the receiver needs a uuid to compare against its own and a name to show,
+     * and both are taken from the membership the channel already authorised.
+     * Before the subscription succeeds there is no `me`, and nothing is sent.
      */
     whisper: () => {
-      // `members` is pusher-js's own bookkeeping and is absent from Echo's
-      // published type; the cast reaches it without widening the channel to any.
-      const me = (room as unknown as { members?: { me?: { info?: ChatMember } } })
-        .members?.me?.info;
+      const me = subscription.members?.me?.info;
 
       if (me === undefined) return;
 
@@ -305,3 +337,17 @@ export async function join(
     },
   };
 }
+
+/*
+| The part of pusher-js's presence channel `join()` touches. Echo wraps it as
+| `.subscription` and publishes no type for it.
+*/
+type PresenceSubscription = {
+  bind: (event: string, callback: (payload: never) => void) => void;
+  unbind: (event: string, callback: (payload: never) => void) => void;
+  members?: {
+    subscribed?: boolean;
+    me?: { info?: ChatMember } | null;
+    each?: (callback: (member: { info: ChatMember }) => void) => void;
+  };
+};

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { PresenceAvatar } from "@/components/community/PresenceAvatar";
+
 /**
  * The bar above a thread (spec 010 · `FR-054` · `FR-064`).
  *
@@ -23,9 +25,15 @@ export function ChatHeader({
   banned,
   onBanToggle,
   busy = false,
+  avatarUrl = null,
+  online = false,
 }: {
   title: string;
   subtitle?: string | null;
+  /** The other end's account photo; null draws the initial. */
+  avatarUrl?: string | null;
+  /** Somebody else has this thread open right now — the green dot. */
+  online?: boolean;
   canModerate: boolean;
   banned: boolean;
   onBanToggle: () => void;
@@ -61,12 +69,7 @@ export function ChatHeader({
         </svg>
       </Link>
 
-      <span
-        aria-hidden="true"
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-ink"
-      >
-        {title.trim().charAt(0)}
-      </span>
+      <PresenceAvatar url={avatarUrl} name={title} online={online} />
 
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-sm font-semibold text-ink">{title}</h1>

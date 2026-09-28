@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AccountMenu } from "@/components/app/AccountMenu";
 import { Avatar } from "@/components/ui/Avatar";
 import { NotificationBell } from "@/components/app/NotificationBell";
+import { IncomingMessageSound } from "@/components/community/IncomingMessageSound";
 import { ServiceWorkerRegistrar } from "@/components/app/ServiceWorkerRegistrar";
 import { P, can, refusedBy } from "@/lib/permissions";
 import {
@@ -532,6 +533,9 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
+            {/* A chime for a chat message the reader is not looking at — here,
+                in the shell, because that is mostly while they are elsewhere. */}
+            <IncomingMessageSound />
             <ThemeToggle />
             {/*
               ⚠️ الروابطُ تُمرَّرُ مُرشَّحةً بـ`allowed()` — الحارسُ نفسُه الذي يرسمُ

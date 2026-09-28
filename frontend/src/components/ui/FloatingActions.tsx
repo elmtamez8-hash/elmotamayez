@@ -20,7 +20,28 @@ const SHOW_AFTER_PX = 400;
  *
  * A suffix match, because both routes carry a uuid — a prefix cannot name them.
  */
-const NO_FLOATING_CHROME = ["/room", "/take"];
+const NO_FLOATING_CHROME_SUFFIXES = ["/room", "/take"];
+
+/*
+ * ⚠️ AND THE CHAT, BY PREFIX, WHICH IS ABOUT THE PIXELS. `/messages` is a
+ * full-height screen whose composer is pinned to the bottom edge, and the
+ * WhatsApp button at `bottom-6 end-6` sat squarely on its send and «إزالة»
+ * buttons — reported from production on 2026-09-28. A support link floating over
+ * a message box is also a second way to «send a message» on the one screen whose
+ * whole job is sending messages. The list (`/messages`) goes too: on a phone it
+ * is the same full-height pane, and the button would cover its last row.
+ */
+const NO_FLOATING_CHROME_PREFIXES = ["/messages"];
+
+/** Whether this screen keeps the bottom corner for its own controls. */
+export function hidesFloatingChrome(pathname: string): boolean {
+  return (
+    NO_FLOATING_CHROME_SUFFIXES.some((suffix) => pathname.endsWith(suffix)) ||
+    NO_FLOATING_CHROME_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
+  );
+}
 
 /**
  * The floating WhatsApp and back-to-top buttons.
@@ -75,7 +96,7 @@ export function FloatingActions() {
    * `useState`/`useEffect` changes how many hooks run between two renders of the
    * same component, which React refuses outright.
    */
-  if (NO_FLOATING_CHROME.some((suffix) => pathname.endsWith(suffix))) return null;
+  if (hidesFloatingChrome(pathname)) return null;
 
   return (
     // end-6, not right-6: the page is RTL, and a logical property puts these on

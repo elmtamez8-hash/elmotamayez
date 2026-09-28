@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FloatingActions } from "./FloatingActions";
+import { FloatingActions, hidesFloatingChrome } from "./FloatingActions";
 import { STICKY_CTA_HEIGHT_VAR, StickyCtaBar } from "./StickyCtaBar";
 import { PlatformProvider } from "@/lib/platform-context";
 
@@ -76,7 +76,14 @@ describe("the floating WhatsApp button", () => {
 | ورقةٌ مؤقَّتة: رابطٌ يخرجُ بالطالبِ من المحاولةِ في منتصفِها.
 */
 describe("where it deliberately does not appear", () => {
-  it.each(["/sessions/abc-123/room", "/exams/abc-123/take"])(
+  it.each([
+    "/sessions/abc-123/room",
+    "/exams/abc-123/take",
+    // الشاتُ ملءَ الشاشة: زرُّ الواتسابِ كانَ فوقَ «إرسال» و«إزالة» (بلاغُ
+    // ٢٠٢٦-٠٩-٢٨)، والقائمةُ على الهاتفِ هي اللوحةُ نفسُها بارتفاعِها الكامل.
+    "/messages",
+    "/messages/abc-123",
+  ])(
     "draws nothing on %s",
     (path) => {
       pathname.mockReturnValue(path);
@@ -84,6 +91,13 @@ describe("where it deliberately does not appear", () => {
 
       expect(screen.queryByRole("link", { name: "تواصل معنا عبر واتساب" })).toBeNull();
       expect(screen.queryByRole("button", { name: "العودة إلى أعلى الصفحة" })).toBeNull();
+    },
+  );
+
+  it.each(["/messagesX", "/settings/messages-sound", "/orders"])(
+    "still draws on %s, which only looks like the chat",
+    (path) => {
+      expect(hidesFloatingChrome(path)).toBe(false);
     },
   );
 });
