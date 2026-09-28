@@ -170,6 +170,14 @@ class ConversationResource extends JsonResource
             return $this->relationLoaded('workspace') ? $this->workspace?->name : null;
         }
 
+        /*
+        | A guardian writes AS the child, so the other side is the teacher — and a
+        | parent of two needs to know WHICH child's thread this is.
+        */
+        if ($this->readByGuardian && $this->relationLoaded('workspace') && $this->relationLoaded('student')) {
+            return trim((string) $this->workspace?->name).' — عن '.trim((string) $this->student?->name);
+        }
+
         return $this->relationLoaded('student') ? $this->student?->name : null;
     }
 

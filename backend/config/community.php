@@ -71,6 +71,14 @@ return [
         'max_messages_per_minute' => 30,
 
         /*
+        | How many messages a NON-subscriber may send a teacher before anyone on
+        | the teacher's side has answered (owner decision 2026-09-28). The student
+        | and their guardian share the budget, and the first staff reply lifts it
+        | for good. A `platform_settings` row, edited from «إعدادات المنصّة».
+        */
+        'prospect_message_cap' => 3,
+
+        /*
         | Messages per page. Keyset pagination by `id`, never `paginate()`: the
         | full count is one more query at every fixture size, so a query-budget
         | test measured at two sizes cannot see it, and it drops the timed half of

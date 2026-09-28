@@ -38,6 +38,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->student);
 
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 
@@ -99,7 +100,8 @@ it('delivers a review term and raises a row for a human', function (): void {
 
     $this->postJson($this->url, ['body' => 'هل نرتّب اجتماع خارج المنصّة؟'])->assertCreated();
 
-    $this->getJson($this->url)->assertOk()->assertJsonCount(1);
+    // The opening line and this one.
+    $this->getJson($this->url)->assertOk()->assertJsonCount(2);
 
     expect(ModerationAction::query()->withoutWorkspaceScope()
         ->where('workspace_id', $this->workspace->getKey())
@@ -122,6 +124,7 @@ it('keeps one workspace term list out of another workspace', function (): void {
     Sanctum::actingAs($otherStudent);
 
     $uuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $other->uuid,
     ])->assertCreated()->json('uuid');
 

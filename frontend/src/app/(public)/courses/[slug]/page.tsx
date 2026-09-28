@@ -12,6 +12,7 @@ import {
 } from "@/components/marketplace/CourseOwnership";
 import { CourseRail } from "@/components/marketplace/CourseRail";
 import { CourseTabs } from "@/components/marketplace/CourseTabs";
+import { ContactTeacherButton } from "@/components/community/ContactTeacherButton";
 import { PrivateSessionRequestForm } from "@/components/courses/PrivateSessionRequestForm";
 import { PromoVideoButton } from "@/components/courses/PromoVideoButton";
 import { StarRating } from "@/components/marketplace/StarRating";
@@ -465,6 +466,16 @@ export default async function CoursePage({
               joinableGroup={course.cohorts.some((cohort) => cohort.is_joinable)}
               teacher={course.teacher}
             />
+            {/* «تواصل مع المدرّس» (2026-09-28) — a question before paying, or
+                after. The message goes to the teacher's whole team. */}
+            {course.contact !== null && course.contact !== undefined && (
+              <div className="mt-4">
+                <ContactTeacherButton
+                  workspaceUuid={course.contact.workspace_uuid}
+                  contactName={course.contact.name}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

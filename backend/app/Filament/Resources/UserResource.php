@@ -24,6 +24,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
@@ -210,6 +211,45 @@ class UserResource extends Resource
                     ->label('مدير منصّة')
                     ->placeholder('الكلّ'),
             ]);
+    }
+
+    /**
+     * البحثُ العامّ: البريدُ والاسمانِ والهاتف — أعمدةٌ حقيقيّةٌ كلُّها. `name`
+     * مُلحَقٌ لا عمود، فلا يُسمّى هنا. الجدولُ منصّيٌّ بلا نطاق، والنتيجةُ تفتحُ
+     * صفحةَ التعديلِ لمن يفتحُها ({@see self::canEdit()}).
+     *
+     * @return array<int, string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['email', 'first_name', 'last_name', 'phone'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        /** @var User $record */
+        return $record->name.' — '.$record->email;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var User $record */
+        return array_filter([
+            'الهاتف' => $record->phone,
+            'الصفة' => $record->platform_role instanceof PlatformRole
+                ? PlatformRole::labelFor($record->platform_role->value)
+                : null,
+        ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            UserResource\RelationManagers\OrdersRelationManager::class,
+            UserResource\RelationManagers\EnrollmentsRelationManager::class,
+            UserResource\RelationManagers\SubscriptionsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -6,6 +6,9 @@ namespace App\Modules\Community\Actions;
 
 use App\Models\User;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Community\Support\ConversationSides;
+use App\Modules\Community\Support\ProspectAllowance;
 use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaKind;
@@ -50,7 +53,11 @@ use Illuminate\Support\Facades\Gate;
  */
 class RequestChatAttachment extends Action
 {
-    public function __construct(private readonly MediaProviderResolver $providers) {}
+    public function __construct(
+        private readonly MediaProviderResolver $providers,
+        private readonly ConversationSides $sides,
+        private readonly ProspectAllowance $allowance,
+    ) {}
 
     /** @return array{asset: MediaAsset, ticket: UploadTicket} */
     public function handle(
@@ -63,6 +70,18 @@ class RequestChatAttachment extends Action
     ): array {
         if (Gate::forUser($sender)->denies('post', $conversation)) {
             throw new AuthorizationException('لا يمكنك الإرسال في هذه المحادثة.');
+        }
+
+        /*
+        | ⛔ THE PROSPECT CAP GUARDS THE TICKET TOO (security review of #276). A
+        | capped prospect is refused at the message, but a ticket reserves storage
+        | at the provider — without this a stranger with no messages left could
+        | still fill a teacher's bucket with uploads that can never be sent. A
+        | display-grade read is enough here: the message that would carry the
+        | file is counted again under the row lock.
+        */
+        if ($this->sides->speaksForStudent($sender, $conversation) && $this->allowance->remaining($conversation) === 0) {
+            throw new DomainException(ProspectAllowance::refusal(CommunitySettings::prospectMessageCap()));
         }
 
         /*

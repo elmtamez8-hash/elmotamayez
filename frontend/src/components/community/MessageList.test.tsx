@@ -146,6 +146,18 @@ describe("MessageList badges", () => {
     expect(screen.queryByText(/المركز/)).toBeNull();
     expect(screen.queryByText(/المستوى/)).toBeNull();
   });
+
+  it("labels a line the student's guardian wrote, and only that line", () => {
+    // 2026-09-28: a guardian writes AS the child, so the teacher must be able to
+    // tell the parent's words from the student's in one thread.
+    const parent = { ...message("m-1", "متى الامتحان؟", "2026-08-23T10:00:00+00:00"), sender_uuid: "p", sender_name: "أبو كريم", sent_by_guardian: true };
+    const child = { ...message("m-2", "شكراً", "2026-08-23T10:01:00+00:00"), sender_uuid: "k", sender_name: "كريم" };
+
+    render(<MessageList messages={[parent, child]} currentUserUuid="teacher" />);
+
+    expect(screen.getAllByText("وليّ الأمر")).toHaveLength(1);
+    expect(screen.getByText("أبو كريم")).toBeTruthy();
+  });
 });
 
 /*

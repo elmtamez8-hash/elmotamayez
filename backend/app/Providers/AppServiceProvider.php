@@ -593,6 +593,43 @@ class AppServiceProvider extends ServiceProvider
          * its own right: a report opens a moderation row, and a loop over it is a
          * way to bury the queue the teacher reads.
          */
+        /*
+         * Opening a private conversation with a teacher (2026-09-28).
+         *
+         * ⚠️ ITS OWN BUCKET, ON TOP OF `chat-write`. Since the public course page
+         * and the teacher page carry «تواصل مع المدرّس», this request reaches
+         * teachers who never heard of the sender — thirty a minute, `chat-write`'s
+         * ceiling, would let one account open threads with thirty teachers a
+         * minute and three hundred an evening. Five a minute is a person comparing
+         * teachers; twenty an hour and forty a day is still more than anybody
+         * shopping for a tutor writes. Keyed by user: the callers are students.
+         *
+         * ⚠️ THE ONE EXEMPTION IS THE TEACHER-SIDE START, AND IT IS NAMED BY THE
+         * REQUEST, NOT BY THE ACCOUNT (security review of #276). «راسِل» beside a
+         * new class of sixty is sixty first messages in an evening, and every one
+         * of them names a `student` the policy has already confined to the
+         * teacher's OWN enrolled students — a teacher can open a thread with
+         * nobody else — so this bucket would guard nothing there and block a real
+         * evening's work. A teaching account that names NO student is asking to be
+         * the student itself, which the policy now refuses; it is counted like
+         * everybody else, so probing that refusal costs the same as any other.
+         */
+        RateLimiter::for('conversation-start', function (Request $request) {
+            $user = $request->user();
+
+            if ($user instanceof User && $request->filled('student') && $user->teachesOnPlatform()) {
+                return Limit::none();
+            }
+
+            $key = (string) $user?->getKey();
+
+            return [
+                Limit::perMinute(5)->by('user:'.$key),
+                Limit::perHour(20)->by('user-hour:'.$key),
+                Limit::perDay(40)->by('user-day:'.$key),
+            ];
+        });
+
         RateLimiter::for('chat-report', fn (Request $request) => Limit::perMinute(10)
             ->by('user:'.(string) $request->user()?->getKey()));
 

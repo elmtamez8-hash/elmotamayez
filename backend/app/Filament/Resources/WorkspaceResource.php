@@ -6,16 +6,24 @@ namespace App\Filament\Resources;
 
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\WorkspaceResource\Pages;
+use App\Filament\Resources\WorkspaceResource\RelationManagers;
+use App\Filament\Support\RecordLink;
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Marketplace\Actions\SetMarketplaceParticipation;
 use App\Modules\Tenancy\Enums\WorkspaceType;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Scopes\WorkspaceScope;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\IconEntry;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -24,6 +32,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use UnitEnum;
 
@@ -78,9 +87,115 @@ class WorkspaceResource extends Resource
         return Auth::user()?->isSuperAdmin() ?? false;
     }
 
+    /**
+     * ⚠️ صفحةُ العرضِ لمديرِ المنصّةِ وحدَه، مكتوبةً هنا لا في السياسة: سياسةٌ
+     * بلا `view()` في Filament v5 **سماح**، وصفحةٌ تُفتَحُ بعنوانِها لا تمرُّ
+     * بالقائمةِ ولا ببابِها.
+     */
+    public static function canView(Model $record): bool
+    {
+        return static::canViewAny();
+    }
+
     public static function canCreate(): bool
     {
         return Auth::user()?->can('create', Workspace::class) ?? false;
+    }
+
+    /**
+     * البحثُ العامُّ يجدُ المكانَ باسمِه أو معرِّفِه أو بريدِ مالكِه، ويفتحُه على
+     * صفحةِ العرض — كانَ يجدُه ولا يفتحُ شيئاً: لا صفحةَ عرضٍ ولا تعديل، فيسقطُ
+     * Filament إلى «إجراءِ عرضٍ» في الجدولِ لا وجودَ له.
+     *
+     * @return array<int, string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'slug', 'owner.email'];
+    }
+
+    /** @return Builder<Model> */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->with('owner');
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var Workspace $record */
+        return array_filter([
+            'المالك' => $record->owner?->email,
+        ]);
+    }
+
+    /**
+     * ما يُقرَأُ عن مكانِ عمل: مالكُه وفريقُه وأرقامُه — قراءةً فقط.
+     *
+     * ⚠️ **الفريقُ بدورِ العضويّة، لا بمجرّدِ العضويّة.** `workspace_members`
+     * يحملُ صفوفَ الطلّابِ أيضاً (`docs/gotchas/tenancy.md`)، فقائمةُ «الأعضاء»
+     * بلا شرطٍ تعرضُ كلَّ طالبٍ مسجَّلٍ عضواً في الفريق. الطلّابُ عددٌ مستقلّ.
+     *
+     * ⚠️ **وعددُ الكورساتِ بلا نطاق.** سياقُ مديرِ المنصّةِ يرجعُ إلى
+     * `users.last_workspace_id`، فعدٌّ منطاقٌ لمكانٍ غيرِ مكانِه يقرأُ «٠».
+     * صفحةُ سجلٍّ واحد، فالاستعلاماتُ هنا ثابتةُ العدد.
+     */
+    public static function infolist(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('مكان العمل')
+                ->columns(2)
+                ->schema([
+                    TextEntry::make('name')->label('الاسم'),
+                    TextEntry::make('slug')->label('المُعرِّف')->copyable(),
+                    TextEntry::make('type')->label('النوع')->badge()
+                        ->formatStateUsing(fn (string $state): string => WorkspaceType::labelFor($state)),
+                    IconEntry::make('participates_in_marketplace')->label('في السوق')->boolean(),
+                    TextEntry::make('created_at')->label('أُنشئ في')->dateTime('Y-m-d H:i'),
+                ]),
+
+            Section::make('المالك')
+                ->columns(2)
+                ->schema([
+                    TextEntry::make('owner.name')->label('الاسم')->placeholder('—'),
+                    TextEntry::make('owner.email')
+                        ->label('البريد')
+                        ->placeholder('—')
+                        ->copyable()
+                        ->url(fn (Workspace $record): ?string => RecordLink::to(UserResource::class, $record->owner)),
+                ]),
+
+            Section::make('الأرقام')
+                ->columns(3)
+                ->schema([
+                    TextEntry::make('staff_count')
+                        ->label('الفريق')
+                        ->state(fn (Workspace $record): int => $record->members()
+                            ->wherePivot('role', '!=', Roles::STUDENT)
+                            ->count()),
+                    TextEntry::make('students_count')
+                        ->label('الطلّاب الأعضاء')
+                        ->state(fn (Workspace $record): int => $record->members()
+                            ->wherePivot('role', Roles::STUDENT)
+                            ->count()),
+                    TextEntry::make('courses_count')
+                        ->label('الكورسات')
+                        ->state(fn (Workspace $record): int => Course::query()
+                            ->withoutGlobalScope(WorkspaceScope::class)
+                            ->where('workspace_id', $record->getKey())
+                            ->count()),
+                ]),
+
+        ]);
+    }
+
+    /** دورُ العضويّةِ من صفِّ الجدولِ الوسيط. */
+    public static function pivotRole(User $member): string
+    {
+        $pivot = $member->getRelationValue('pivot');
+        $role = $pivot instanceof Model ? $pivot->getAttribute('role') : $member->getAttribute('role');
+
+        return is_string($role) ? $role : '';
     }
 
     /**
@@ -147,7 +262,7 @@ class WorkspaceResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withCount(['members']);
+        return parent::getEloquentQuery()->with('owner')->withCount(['members']);
     }
 
     public static function table(Table $table): Table
@@ -162,8 +277,8 @@ class WorkspaceResource extends Resource
                 TextColumn::make('owner.email')
                     ->label('المالك')
                     ->searchable()
-                    ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->url(fn (Workspace $record): ?string => RecordLink::to(UserResource::class, $record->owner)),
                 TextColumn::make('members_count')
                     ->label('الأعضاء')
                     ->badge()
@@ -179,6 +294,7 @@ class WorkspaceResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
+                ViewAction::make()->label('عرض'),
                 self::participationAction(),
             ]);
     }
@@ -231,6 +347,16 @@ class WorkspaceResource extends Resource
         return [
             'index' => Pages\ListWorkspaces::route('/'),
             'create' => Pages\CreateWorkspace::route('/create'),
+            'view' => Pages\ViewWorkspace::route('/{record}'),
+        ];
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\CoursesRelationManager::class,
+            RelationManagers\MembersRelationManager::class,
+            RelationManagers\StudentsRelationManager::class,
         ];
     }
 }

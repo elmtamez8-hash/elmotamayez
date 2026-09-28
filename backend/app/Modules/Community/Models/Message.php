@@ -31,6 +31,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $media_asset_id
  * @property CarbonImmutable|null $hidden_at
  * @property bool $is_helpful
+ * @property bool $from_staff the teacher's side wrote this line of a private
+ *                            thread (2026-09-28) — written once, at insert
+ * @property bool $sent_by_guardian the student's guardian wrote this, as the
+ *                                  student (2026-09-28) — written once, at insert
  * @property-read MediaAsset|null $mediaAsset
  */
 class Message extends BaseModel
@@ -56,6 +60,13 @@ class Message extends BaseModel
         | with a `201` and three nulls behind it.
         */
         'media_asset_id',
+        // Written once at insert, like the attachment: WHO on the student's side
+        // typed this line is a fact about the moment it was sent, and must not
+        // change when a relation is revoked later.
+        'sent_by_guardian',
+        // Written once at insert: which side of a private thread wrote the line,
+        // as the policy judged it at that moment. The prospect cap reads it.
+        'from_staff',
     ];
 
     /*
@@ -84,6 +95,8 @@ class Message extends BaseModel
         return [
             'hidden_at' => 'immutable_datetime',
             'is_helpful' => 'boolean',
+            'sent_by_guardian' => 'boolean',
+            'from_staff' => 'boolean',
         ];
     }
 

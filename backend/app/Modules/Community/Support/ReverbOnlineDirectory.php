@@ -38,7 +38,9 @@ final class ReverbOnlineDirectory implements OnlineDirectory
 
     private const CACHE_KEY = 'community:online-user-channels';
 
-    private const CACHE_SECONDS = 10;
+    private const FRESH_SECONDS = 10;
+
+    private const STALE_SECONDS = 30;
 
     public function __construct(private readonly BroadcastManager $broadcast) {}
 
@@ -56,34 +58,55 @@ final class ReverbOnlineDirectory implements OnlineDirectory
     /** @return array<string, true> */
     private function occupiedUserUuids(): array
     {
+        /*
+        | ⚠️ `flexible`, NOT `remember`: fresh for ten seconds, then served stale for
+        | twenty more while ONE locked refresh runs after the response. With
+        | `remember`, the instant the entry expired every sidebar polling at that
+        | moment asked Reverb at once.
+        */
         /** @var array<string, true> $cached */
-        $cached = Cache::remember(self::CACHE_KEY, self::CACHE_SECONDS, function (): array {
+        $cached = Cache::flexible(
+            self::CACHE_KEY,
+            [self::FRESH_SECONDS, self::STALE_SECONDS],
+            fn (): array => $this->askReverb(),
+        );
+
+        return $cached;
+    }
+
+    /**
+     * One question to Reverb. Any failure — no socket configured, the server
+     * down, the 3-second client timeout in `config/broadcasting.php` — answers
+     * «nobody», which is also what an outage looks like: a dot that does not
+     * light is not an error anybody can act on.
+     *
+     * @return array<string, true>
+     */
+    private function askReverb(): array
+    {
+        try {
+            // Inside the try: resolving the connection can itself throw (a
+            // missing key, an unreachable driver).
             $broadcaster = $this->broadcast->connection();
 
-            // `null` or `log` in tests and in a deployment with no socket: nobody
-            // is online, which is also what an outage looks like.
+            // `null` or `log` in tests and in a deployment with no socket.
             if (! $broadcaster instanceof PusherBroadcaster) {
                 return [];
             }
 
-            try {
-                $response = $broadcaster->getPusher()->getChannels(['filter_by_prefix' => self::PREFIX]);
-            } catch (Throwable $e) {
-                // A dot that does not light is not an error anybody can act on.
-                Log::warning('community.online_lookup_failed', ['exception' => $e::class]);
+            $response = $broadcaster->getPusher()->getChannels(['filter_by_prefix' => self::PREFIX]);
+        } catch (Throwable $e) {
+            Log::warning('community.online_lookup_failed', ['exception' => $e::class]);
 
-                return [];
-            }
+            return [];
+        }
 
-            $uuids = [];
+        $uuids = [];
 
-            foreach (array_keys((array) ($response->channels ?? [])) as $name) {
-                $uuids[substr((string) $name, strlen(self::PREFIX))] = true;
-            }
+        foreach (array_keys((array) ($response->channels ?? [])) as $name) {
+            $uuids[substr((string) $name, strlen(self::PREFIX))] = true;
+        }
 
-            return $uuids;
-        });
-
-        return $cached;
+        return $uuids;
     }
 }

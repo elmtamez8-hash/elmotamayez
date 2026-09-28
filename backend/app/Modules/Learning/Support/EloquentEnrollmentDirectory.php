@@ -43,6 +43,18 @@ class EloquentEnrollmentDirectory implements EnrollmentDirectory
             ->exists();
     }
 
+    public function accessEndedAt(User $user, int $workspaceId): ?CarbonImmutable
+    {
+        $latest = Enrollment::query()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('workspace_id', $workspaceId)
+            ->whereNotIn('status', Enrollment::GRANTING_STATUSES)
+            ->max('updated_at');
+
+        return $latest === null ? null : CarbonImmutable::parse((string) $latest);
+    }
+
     /** @return list<int> */
     public function activeCourseIdsFor(User $user): array
     {

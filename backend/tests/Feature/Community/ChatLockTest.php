@@ -184,6 +184,7 @@ it('stops a removed student writing in the room, and only in that room', functio
     // its own appeal, and folding one into the other is how the audited one
     // stops being the only way.
     $private = $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json();
 

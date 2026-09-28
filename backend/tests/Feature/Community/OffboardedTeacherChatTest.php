@@ -82,6 +82,7 @@ it('stops the student writing once the exit completes, and not before', function
     Sanctum::actingAs($this->student);
 
     $uuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->leaving->uuid,
     ])->assertCreated()->json('uuid');
 
@@ -119,6 +120,7 @@ it('leaves the archive readable, because reading and writing are two abilities',
     Sanctum::actingAs($this->student);
 
     $uuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->leaving->uuid,
     ])->assertCreated()->json('uuid');
 
@@ -134,7 +136,7 @@ it('leaves the archive readable, because reading and writing are two abilities',
     // disappear on the day the other side leaves.
     $this->getJson("/api/v1/conversations/{$uuid}/messages")
         ->assertOk()
-        ->assertJsonCount(1);
+        ->assertJsonCount(2);
 });
 
 it('refuses to open a NEW thread after the exit, which is the other door', function (): void {
@@ -149,6 +151,7 @@ it('refuses to open a NEW thread after the exit, which is the other door', funct
     Sanctum::actingAs($this->student);
 
     $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->leaving->uuid,
     ])->assertForbidden();
 });
@@ -161,6 +164,7 @@ it('does not touch the teacher who is staying', function (): void {
     Sanctum::actingAs($this->otherStudent);
 
     $uuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->staying->uuid,
     ])->assertCreated()->json('uuid');
 

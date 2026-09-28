@@ -139,7 +139,9 @@ export default function ConversationPage() {
     let cancelled = false;
 
     conversations
-      .list()
+      // `include`: a thread with no message yet is left off the list (2026-09-28),
+      // and this is the one screen that must still find it.
+      .list(uuid)
       .then((response) => {
         if (cancelled) return;
 

@@ -53,7 +53,7 @@ beforeEach(function (): void {
     $open = function ($who): string {
         Sanctum::actingAs($who);
 
-        return (string) $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid])
+        return (string) $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'السلام عليكم'])
             ->assertCreated()
             ->json('uuid');
     };
@@ -116,6 +116,32 @@ it('answers conversation uuids and nothing that names a person', function (): vo
 
     expect(array_keys($body))->toBe(['online'])
         ->and(json_encode($body))->not->toContain((string) $this->teacher->uuid);
+});
+
+it('answers «nobody» rather than an error when Reverb is down', function (): void {
+    Cache::flush();
+
+    $pusher = Mockery::mock(Pusher::class);
+    $pusher->shouldReceive('getChannels')->andThrow(new RuntimeException('connection timed out'));
+
+    $manager = Mockery::mock(BroadcastManager::class);
+    $manager->shouldReceive('connection')->andReturn(new PusherBroadcaster($pusher));
+
+    expect((new ReverbOnlineDirectory($manager))->onlineAmong(['u-1']))->toBe([]);
+
+    // And a connection that cannot even be resolved answers the same.
+    $broken = Mockery::mock(BroadcastManager::class);
+    $broken->shouldReceive('connection')->andThrow(new InvalidArgumentException('no driver'));
+    Cache::flush();
+
+    expect((new ReverbOnlineDirectory($broken))->onlineAmong(['u-1']))->toBe([]);
+
+    // Through the endpoint, with the real binding: a 200 and an empty list.
+    app()->instance(OnlineDirectory::class, new ReverbOnlineDirectory($broken));
+    Cache::flush();
+    Sanctum::actingAs($this->student);
+
+    $this->getJson('/api/v1/conversations/online')->assertOk()->assertExactJson(['online' => []]);
 });
 
 it('reads «online» as an occupied private user channel on Reverb, filtered to the uuids asked', function (): void {

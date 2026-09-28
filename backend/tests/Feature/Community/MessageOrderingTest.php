@@ -37,6 +37,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->student);
 
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 });
@@ -75,8 +76,9 @@ it('returns the same order to both parties when every message shares one timesta
     $teacherOrder = $this->getJson("/api/v1/conversations/{$this->conversationUuid}/messages")
         ->assertOk()->json('*.body');
 
-    expect($studentOrder)->toBe($bodies)
-        ->and($teacherOrder)->toBe($bodies);
+    // The thread's opening line first — a conversation is born with it.
+    expect($studentOrder)->toBe(['السلام عليكم', ...$bodies])
+        ->and($teacherOrder)->toBe(['السلام عليكم', ...$bodies]);
 });
 
 it('keeps the newest message as the conversation pointer even when an older id lands last', function (): void {

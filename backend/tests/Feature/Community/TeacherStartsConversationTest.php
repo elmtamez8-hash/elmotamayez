@@ -44,6 +44,7 @@ beforeEach(function (): void {
 
 it('lets a teacher open the thread with their own student, and returns the same one twice', function (): void {
     $first = $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspaceA->uuid,
         'student' => $this->studentA->uuid,
     ])->assertCreated()->json();
@@ -52,6 +53,7 @@ it('lets a teacher open the thread with their own student, and returns the same 
 
     // The second press finds the open thread rather than writing another.
     $second = $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspaceA->uuid,
         'student' => $this->studentA->uuid,
     ])->assertCreated()->json('uuid');
@@ -68,6 +70,7 @@ it('lets a teacher open the thread with their own student, and returns the same 
 
 it('refuses a teacher a thread with a student who studies elsewhere, writing nothing and naming nobody', function (): void {
     $response = $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspaceA->uuid,
         'student' => $this->stranger->uuid,
     ]);
@@ -80,6 +83,7 @@ it('refuses a teacher a thread with a student who studies elsewhere, writing not
 
 it('refuses a teacher who names another workspace to reach the student studying there', function (): void {
     $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspaceB->uuid,
         'student' => $this->stranger->uuid,
     ])->assertForbidden();

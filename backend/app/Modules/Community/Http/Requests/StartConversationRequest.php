@@ -29,6 +29,13 @@ class StartConversationRequest extends FormRequest
             */
             'workspace' => ['required', 'string', 'uuid'],
             'student' => ['nullable', 'string', 'uuid'],
+            /*
+            | ⛔ REQUIRED (2026-09-28): a conversation is born with its first
+            | message and never empty. The same ceiling as `PostMessageRequest`;
+            | no attachment, because an attachment is uploaded INTO a conversation
+            | and this one does not exist yet.
+            */
+            'body' => ['required', 'string', 'max:4000'],
         ];
     }
 }

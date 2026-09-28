@@ -39,7 +39,7 @@ beforeEach(function (): void {
     // Through the door, so the student's participant row exists and the thread
     // is on THEIR list as well as the teacher's.
     Sanctum::actingAs($this->student);
-    $uuid = (string) $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid])
+    $uuid = (string) $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'السلام عليكم'])
         ->assertCreated()
         ->json('uuid');
 
@@ -63,6 +63,8 @@ it('puts each sender\'s own photo on their messages', function (): void {
     $page = $this->getJson("/api/v1/conversations/{$this->conversation->uuid}/messages")->assertOk();
 
     expect($page->json('*.sender_avatar_url'))->toBe([
+        // The thread was born with the student's first message.
+        asset('storage/account-photos/student.jpg'),
         asset('storage/account-photos/student.jpg'),
         asset('storage/account-photos/teacher.jpg'),
     ]);
@@ -115,7 +117,7 @@ it('sends no photographs in a room, where classmates would receive each other\'s
 it('opens a thread with the counterpart\'s face already in the answer', function (): void {
     Sanctum::actingAs($this->student);
 
-    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid])
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'السلام عليكم'])
         ->assertCreated()
         ->assertJsonPath('counterparty_avatar_url', asset('storage/account-photos/teacher.jpg'));
 });

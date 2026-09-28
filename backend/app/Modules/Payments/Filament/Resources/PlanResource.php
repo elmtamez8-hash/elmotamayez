@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Filament\Resources;
 
 use App\Filament\NavigationGroups;
+use App\Filament\Resources\WorkspaceResource;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\RecordLink;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Filament\Resources\PlanResource\Pages;
@@ -194,7 +196,9 @@ class PlanResource extends Resource
             ->defaultSort('price_minor')
             ->columns([
                 TextColumn::make('title')->label('الباقة')->searchable()->sortable(),
-                TextColumn::make('workspace.name')->label('المدرّس')->searchable(),
+                // رابطٌ لمديرِ المنصّةِ وحدَه؛ مسؤولُ الماليّةِ يقرأُ نصّاً.
+                TextColumn::make('workspace.name')->label('المدرّس')->searchable()
+                    ->url(fn (Plan $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace)),
                 /*
                 | 036 -- ONE COLUMN FOR BOTH SHAPES, and `state()` rather than
                 | `formatStateUsing` because there is no single column to format:

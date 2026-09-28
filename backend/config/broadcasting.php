@@ -43,6 +43,14 @@ return [
             ],
             'client_options' => [
                 // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                //
+                // ⚠️ SHORT, BECAUSE A REQUEST WAITS ON IT. The chat list asks Reverb
+                // who is online (`ReverbOnlineDirectory`) inside an HTTP request, and
+                // Guzzle's default is to wait for ever — a hung Reverb would hold a
+                // PHP-FPM worker per open sidebar. A publish that misses this window
+                // fails its queued job and is retried, which is where that belongs.
+                'connect_timeout' => 2,
+                'timeout' => 3,
             ],
         ],
 
