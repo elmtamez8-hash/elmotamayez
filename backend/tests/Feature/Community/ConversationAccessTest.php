@@ -52,6 +52,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->studentA);
 
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspaceA->uuid,
     ])->assertCreated()->json('uuid');
 
@@ -62,9 +63,10 @@ beforeEach(function (): void {
 
 it('lets both parties read the conversation they belong to', function (): void {
     Sanctum::actingAs($this->studentA);
+    // The opening line and the greeting after it.
     $this->getJson("/api/v1/conversations/{$this->conversationUuid}/messages")
         ->assertOk()
-        ->assertJsonCount(1);
+        ->assertJsonCount(2);
 
     // The teacher's side of the same conversation. Without this half every
     // refusal below could just as well be a broken endpoint.
@@ -72,7 +74,7 @@ it('lets both parties read the conversation they belong to', function (): void {
     Sanctum::actingAs($this->ownerA);
     $this->getJson("/api/v1/conversations/{$this->conversationUuid}/messages")
         ->assertOk()
-        ->assertJsonCount(1);
+        ->assertJsonCount(2);
 });
 
 it('refuses the other workspace student every door into it', function (): void {

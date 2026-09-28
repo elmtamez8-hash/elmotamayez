@@ -26,6 +26,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $lesson_id
  * @property int|null $last_message_id
  * @property CarbonInterface|null $locked_at
+ * @property CarbonInterface|null $staff_replied_at when the teacher's side first
+ *                                                  wrote here — lifts the prospect
+ *                                                  cap; stamped by a conditional
+ *                                                  UPDATE in `PostMessage`, never
+ *                                                  mass-assigned
  */
 class Conversation extends BaseModel
 {
@@ -64,12 +69,20 @@ class Conversation extends BaseModel
     /** Whether this thread's student is banned in this workspace right now. */
     public bool $studentBanned = false;
 
+    /**
+     * Whether THIS reader holds the thread as the student's guardian — stamped by
+     * `ListConversations` so the row is titled with the teacher AND the child it
+     * is about. Same declared-property rule as above.
+     */
+    public bool $readByGuardian = false;
+
     /** @return array<string, mixed> */
     protected function casts(): array
     {
         return [
             'kind' => ConversationKind::class,
             'locked_at' => 'datetime',
+            'staff_replied_at' => 'datetime',
         ];
     }
 

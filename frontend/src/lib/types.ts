@@ -312,7 +312,13 @@ export interface Enrollment {
   course_title: string;
   /** Whose workspace the course belongs to — the private chat is opened by it. */
   workspace_uuid: string | null;
+  /** The WORKSPACE's name — «عند …». Not the name on «راسِل»; see `contact_name`. */
   teacher_name: string | null;
+  /**
+   * The name on «راسِل …» (2026-09-28): the course's teacher with the academy in
+   * brackets, or the teacher alone for a solo teacher. Built on the server.
+   */
+  contact_name?: string | null;
   source: string;
   status: string;
   /** The door's own answer (`Enrollment::grantsContentAccess()`) — never re-derived from `status`. */

@@ -265,7 +265,7 @@ export const family = {
   revoke: (uuid: string) => api.delete<GuardianRelation>(`/family/relations/${uuid}`),
 };
 
-/** The six permissions a guardian relation can carry, matching the backend enum. */
+/** The seven permissions a guardian relation can carry, matching the backend enum. */
 export const GUARDIAN_PERMISSIONS: { key: string; label: string }[] = [
   { key: "attendance", label: "الحضور والغياب" },
   { key: "payments", label: "المدفوعات والمستحقّات" },
@@ -285,4 +285,10 @@ export const GUARDIAN_PERMISSIONS: { key: string; label: string }[] = [
    * would be a cross-workspace export of a child's entire record.
    */
   { key: "data_rights", label: "الموافقة على معالجة البيانات وطلب حقوقها" },
+  /*
+   * The seventh (2026-09-28): writing to the child's teachers in the child's own
+   * private conversation, and reading it. Not backfilled onto older relations —
+   * see `GuardianPermission::Messages` — so an existing guardian gains it here.
+   */
+  { key: "messages", label: "مراسلة المدرّسين باسم الطالب" },
 ];

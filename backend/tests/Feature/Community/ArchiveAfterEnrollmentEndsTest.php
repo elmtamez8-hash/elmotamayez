@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Community\Models\Message;
+use App\Modules\Community\Support\TeacherInboxSettings;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Roles;
@@ -30,13 +31,20 @@ beforeEach(function (): void {
 
     Sanctum::actingAs($this->student);
 
+    // A conversation is born with its first message (2026-09-28).
     $this->conversationUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'شكراً على الحصّة.',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 
-    $this->postJson("/api/v1/conversations/{$this->conversationUuid}/messages", [
-        'body' => 'شكراً على الحصّة.',
-    ])->assertCreated();
+    /*
+    | ⚠️ FR-014 HOLDS WITH «استقبال رسائل من غير المشتركين» SWITCHED OFF. Since
+    | 2026-09-28 a former student is a PROSPECT, and a teacher who takes prospect
+    | messages (the default) reopens the thread to them under the prospect cap —
+    | `ProspectConversationTest` measures that half. This file keeps the rule it
+    | was written for, at the setting that still states it.
+    */
+    app(TeacherInboxSettings::class)->setAcceptsProspects($this->workspace->refresh(), false);
 });
 
 it('keeps the archive readable and refuses new messages once the enrolment ends', function (): void {

@@ -86,6 +86,9 @@ class ReadPublicCourse extends Action
                 // that does not exist and every screen renders a blank. Six call
                 // sites shipped that way in 010.
                 'creator:id,first_name,last_name',
+                // «تواصل مع المدرّس» opens the conversation with the course's
+                // WORKSPACE, and names it by its type (2026-09-28).
+                'workspace:id,uuid,name,type',
                 // ⚠️ THE BYPASS IS PER MODEL, AND `teacher_profiles` IS TENANT
                 // OWNED. Declared on the outer query it does NOT reach inside a
                 // relation query — so for the signed-in foreign teacher above,

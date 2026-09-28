@@ -49,6 +49,17 @@ final class CommunitySettings
     }
 
     /**
+     * How many messages a non-subscriber may send before the teacher's side
+     * answers (2026-09-28). Enforced in `PostMessage`, under the conversation's
+     * row lock. Never below one: a zero would make «تواصل مع المدرّس» a button
+     * that can send nothing at all.
+     */
+    public static function prospectMessageCap(): int
+    {
+        return max(1, (int) PlatformSettings::get('community.chat.prospect_message_cap', 3));
+    }
+
+    /**
      * Messages per page.
      *
      * From config alone, never `platform_settings`: keyset pagination sizes are

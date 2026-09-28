@@ -31,6 +31,12 @@ class MessageResource extends JsonResource
             | screen lists messages with nobody's name on them.
             */
             'sender_name' => $this->whenLoaded('sender', fn () => $this->sender?->name),
+            /*
+            | The student's guardian typed this, writing as the student
+            | (2026-09-28). Stored at send time, so the teacher reads «وليّ الأمر»
+            | beside the parent's name instead of mistaking it for the child's.
+            */
+            'sent_by_guardian' => (bool) $this->sent_by_guardian,
             'is_helpful' => (bool) $this->is_helpful,
             /*
             | ⚠️ NULL IS THE ANSWER FOR MOST SENDERS, AND IT IS AN ANSWER. A

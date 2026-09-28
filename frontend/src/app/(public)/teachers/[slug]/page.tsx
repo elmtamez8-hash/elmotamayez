@@ -1,3 +1,4 @@
+import { ContactTeacherButton } from "@/components/community/ContactTeacherButton";
 import {
   AcademicCapIcon,
   CheckIcon,
@@ -286,6 +287,17 @@ export default async function TeacherProfilePage({
                   {teacher.grade_levels.map((level) => level.name).join(" · ")}
                 </span>
               </p>
+            )}
+
+            {/* «تواصل مع المدرّس» (2026-09-28): the private conversation with
+                this teacher's side, opened by its first message. */}
+            {teacher.contact !== null && teacher.contact !== undefined && (
+              <div className="mt-4">
+                <ContactTeacherButton
+                  workspaceUuid={teacher.contact.workspace_uuid}
+                  contactName={teacher.contact.name}
+                />
+              </div>
             )}
           </div>
         </div>

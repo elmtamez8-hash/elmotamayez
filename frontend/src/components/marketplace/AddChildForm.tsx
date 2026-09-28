@@ -69,7 +69,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
       // screen is where any of it is taken away again.
       const common = {
         relation_type: "parent",
-        permissions: ["attendance", "payments", "schedule", "results", "academic_warnings"],
+        permissions: ["attendance", "payments", "schedule", "results", "academic_warnings", "messages"],
       };
 
       /*

@@ -8,6 +8,7 @@ use App\Filament\NavigationGroups;
 use App\Filament\Support\MoneyInput;
 use App\Filament\Support\PercentInput;
 use App\Models\User;
+use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Compliance\Actions\SaveDataCategory;
 use App\Modules\Compliance\Models\DataCategory;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
@@ -95,6 +96,8 @@ class ManagePlatformSettings extends Page
             'auth_session_cap_per_user' => PlatformSettings::get('auth.auth_session_cap_per_user'),
             'auth_session_cap_min_age_days' => PlatformSettings::get('auth.auth_session_cap_min_age_days'),
             'session_idle_days' => PlatformSettings::get('auth.session_idle_days'),
+            // `CommunitySettings` carries the fallback and the clamp.
+            'prospect_message_cap' => CommunitySettings::prospectMessageCap(),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
@@ -241,6 +244,14 @@ class ManagePlatformSettings extends Page
                                 ->label('أقصر عمر يبلغه السقف (بالأيام)')
                                 ->helperText('السقف لا يحذف صفّاً أحدث من هذا. أطول من مدّة الاحتفاظ، وإلّا لم يبقَ للحساب سجلّ يُقرَأ.')
                                 ->integer()->minValue(1)->maxValue(65535)->required(),
+                        ]),
+                    Section::make('المحادثات')
+                        ->description('مراسلة المدرّسين من صفحة الكورس وصفحة المدرّس.')
+                        ->schema([
+                            TextInput::make('prospect_message_cap')
+                                ->label('رسائل غير المشترك قبل أوّل ردّ من المدرّس')
+                                ->helperText('من لا يدرس عند المدرّس يرسل هذا العدد ثمّ ينتظر الردّ؛ الطالب ووليّ أمره يتشاركان العدد، وأوّل ردّ من فريق المدرّس يرفع الحدّ نهائياً.')
+                                ->integer()->minValue(1)->maxValue(50)->required(),
                         ]),
                     Section::make('الفيديو')
                         ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
@@ -394,6 +405,7 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('auth.auth_session_cap_min_age_days', (int) $data['auth_session_cap_min_age_days'], $userId);
         PlatformSettings::set('auth.session_idle_days', (int) $data['session_idle_days'], $userId);
         $this->saveSessionRetention((int) $data['auth_session_retain_days']);
+        PlatformSettings::set('community.chat.prospect_message_cap', max(1, (int) $data['prospect_message_cap']), $userId);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);

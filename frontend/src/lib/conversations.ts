@@ -15,6 +15,8 @@ export interface ChatMessage {
   body: string;
   sender_uuid: string | null;
   sender_name: string | null;
+  /** The student's guardian wrote this, as the student (2026-09-28). */
+  sent_by_guardian?: boolean;
   is_helpful: boolean;
   /**
    * ⚠️ NULL FOR MOST SENDERS, AND NULL IS AN ANSWER. A teacher and an assistant
@@ -111,19 +113,113 @@ function sameOriginIfOurs(url: string): string {
   }
 }
 
-export const conversations = {
-  list: () => api.get<{ data: Conversation[] }>("/conversations"),
+/**
+ * What «تواصل مع المدرّس» can do for this reader with one teacher (2026-09-28):
+ * one entry per student they may write AS — themselves, or each of a guardian's
+ * children. The server derives it from the door's own predicate, so the button
+ * never offers what `POST /conversations` would refuse.
+ */
+export interface ContactOption {
+  student_uuid: string;
+  /** Null for the reader themself; the child's name for a guardian. */
+  student_name: string | null;
+  /** A thread that already has messages in it — the button goes straight there. */
+  conversation_uuid: string | null;
+  /** Whether a (first) message may be sent now. */
+  can_start: boolean;
+  /** Why not, as a sentence for the reader — never an error. */
+  reason: string | null;
+  is_subscriber: boolean;
+  /** Messages left before the teacher answers; null means no limit. */
+  remaining: number | null;
+}
 
-  /** Open the one private conversation with a teacher, or return the open one. */
-  start: (workspaceUuid: string, studentUuid?: string) =>
+export interface ContactOptions {
+  options: ContactOption[];
+  /** Why there is nothing to offer (a guardian with no linked child, a teacher). */
+  note: string | null;
+}
+
+/**
+ * Where «راسِل» / «تواصل مع المدرّس» takes the reader when no thread exists yet.
+ *
+ * ⛔ A COMPOSE VIEW, NEVER A NEW EMPTY THREAD (owner decision 2026-09-28). The
+ * conversation is created by the first message, so nothing appears in either
+ * side's list until somebody has written.
+ */
+export function composeHref(params: {
+  workspace: string;
+  student?: string | null;
+  name?: string | null;
+  remaining?: number | null;
+}): string {
+  const query = new URLSearchParams({ workspace: params.workspace });
+
+  if (params.student) query.set("student", params.student);
+  if (params.name) query.set("name", params.name);
+  if (params.remaining !== null && params.remaining !== undefined) {
+    query.set("remaining", String(params.remaining));
+  }
+
+  return `/messages/new?${query.toString()}`;
+}
+
+/**
+ * Where one contact option leads: the existing thread, the compose view, or a
+ * sentence saying why neither (the teacher does not take new messages, the cap
+ * is reached). One spelling for every button that reads the options.
+ */
+export function contactTarget(
+  option: ContactOption,
+  workspaceUuid: string,
+  name: string,
+): { href: string } | { reason: string } {
+  if (option.conversation_uuid !== null) return { href: `/messages/${option.conversation_uuid}` };
+
+  if (!option.can_start) {
+    return { reason: option.reason ?? "لا يمكن مراسلة هذا المدرّس الآن." };
+  }
+
+  return {
+    href: composeHref({
+      workspace: workspaceUuid,
+      // The reader themself needs no `student`; a guardian names the child.
+      student: option.student_name === null ? null : option.student_uuid,
+      name,
+      remaining: option.remaining,
+    }),
+  };
+}
+
+export const conversations = {
+  /**
+   * Every thread with something in it. `include` keeps the one being opened in
+   * the list even while it is empty, so its heading still resolves.
+   */
+  list: (include?: string) =>
+    api.get<{ data: Conversation[] }>(
+      `/conversations${include ? `?include=${encodeURIComponent(include)}` : ""}`,
+    ),
+
+  /**
+   * Send the FIRST message to a teacher's side — which opens the one private
+   * conversation, or writes into it if it already exists. There is no way to
+   * open an empty one.
+   */
+  start: (workspaceUuid: string, body: string, studentUuid?: string | null) =>
     api.post<Conversation>("/conversations", {
       workspace: workspaceUuid,
+      body,
       ...(studentUuid ? { student: studentUuid } : {}),
     }),
 
+  contactOptions: (workspaceUuid: string) =>
+    api.get<{ data: ContactOptions }>(
+      `/conversations/contact-options?workspace=${encodeURIComponent(workspaceUuid)}`,
+    ),
+
   /**
-   * «راسِل» — the teacher's side opening (or reopening) the thread with one of
-   * their students.
+   * The workspace the teacher's side is acting in — for «راسِل» beside a student.
    *
    * ⚠️ THE WORKSPACE IS THE ONE THE API IS ACTING IN, read from `/workspaces`
    * exactly as the team screen reads it, never assumed from a list the student
@@ -131,14 +227,14 @@ export const conversations = {
    * (`ConversationPolicy::post()` — an active enrolment in that workspace), so
    * a stranger's uuid is refused at the door rather than filtered here.
    */
-  openWithStudent: async (studentUuid: string) => {
+  currentWorkspaceUuid: async (): Promise<string> => {
     const workspaces = await api.get<{ data: Workspace[] }>("/workspaces");
     const list = workspaces.data ?? [];
     const current = list.find((w) => w.is_current) ?? list[0];
 
     if (current === undefined) throw new Error("no workspace");
 
-    return conversations.start(current.uuid, studentUuid);
+    return current.uuid;
   },
 
   /**

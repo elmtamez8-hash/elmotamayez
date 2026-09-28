@@ -8,6 +8,8 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Tenancy\Enums\WorkspaceType;
+use App\Shared\Support\TeacherContactName;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Collection;
@@ -70,6 +72,13 @@ class PublicCourseDetailResource extends JsonResource
             'subject' => $this->subjectShape(),
             'grade_level' => $this->grade_level,
             'teacher' => $this->teacherShape(),
+            /*
+            | «تواصل مع المدرّس» (2026-09-28): the workspace the private
+            | conversation is keyed on, and the name the button carries — the
+            | course's teacher with the academy in brackets. A uuid and a name,
+            | the same two things `EnrollmentResource` already sends a student.
+            */
+            'contact' => $this->contactShape(),
             'type' => $this->course_type,
             'lessons_count' => (int) ($this->getAttribute('lessons_count') ?? 0),
             'duration_seconds' => $this->duration_seconds,
@@ -120,6 +129,25 @@ class PublicCourseDetailResource extends JsonResource
             // teacher nobody has rated yet.
             'trust_score' => $profile->trust_score,
             'trust_score_band' => $profile->trustScoreBand(),
+        ];
+    }
+
+    /** @return array{workspace_uuid: string, name: string}|null */
+    private function contactShape(): ?array
+    {
+        $workspace = $this->relationLoaded('workspace') ? $this->workspace : null;
+
+        if ($workspace === null) {
+            return null;
+        }
+
+        return [
+            'workspace_uuid' => (string) $workspace->uuid,
+            'name' => TeacherContactName::of(
+                $this->creator?->name,
+                $workspace->name,
+                $workspace->type === WorkspaceType::Teacher->value,
+            ),
         ];
     }
 

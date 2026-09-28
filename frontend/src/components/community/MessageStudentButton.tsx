@@ -5,13 +5,13 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth-context";
-import { conversations } from "@/lib/conversations";
+import { composeHref, conversations } from "@/lib/conversations";
 import { userMessage } from "@/lib/errors";
 import { P, can } from "@/lib/permissions";
 
 /**
- * «راسِل» — opens (or reopens) the private thread with one student and takes the
- * teacher into it.
+ * «راسِل» — opens the private thread with one student, or the compose view when
+ * there is none yet, and takes the teacher into it.
  *
  * ⛔ `POST /conversations` HAS TAKEN A `student` SINCE IT SHIPPED, AND NOTHING ON A
  * TEACHER'S SCREEN EVER SENT IT. The only caller was the student's own
@@ -45,8 +45,26 @@ export function MessageStudentButton({
     setProblem(null);
 
     try {
-      const thread = await conversations.openWithStudent(studentUuid);
-      router.push(`/messages/${thread.uuid}`);
+      /*
+       * ⛔ PRESSING NO LONGER CREATES A THREAD (owner decision 2026-09-28). The
+       * one that already has messages opens; otherwise the compose view does,
+       * and the conversation is born with the first message sent from there —
+       * so the student's list never shows an empty thread from their teacher.
+       * The teacher's own list already holds every thread they may open.
+       */
+      const [workspace, list] = await Promise.all([
+        conversations.currentWorkspaceUuid(),
+        conversations.list(),
+      ]);
+      const existing = (list.data ?? []).find(
+        (row) => row.kind === "private" && row.student_uuid === studentUuid,
+      );
+
+      router.push(
+        existing !== undefined
+          ? `/messages/${existing.uuid}`
+          : composeHref({ workspace, student: studentUuid, name: studentName }),
+      );
     } catch (error: unknown) {
       setProblem(userMessage(error));
       setOpening(false);

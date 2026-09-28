@@ -91,6 +91,8 @@ final class PublicFieldAllowlist
         'availability',
         'faqs',
         'intro_video_url',
+        // «تواصل مع المدرّس» — see `CONTACT` below.
+        'contact',
     ];
 
     /** @var list<string> */
@@ -203,7 +205,22 @@ final class PublicFieldAllowlist
         | button shown over a course nobody can buy.
         */
         'enrolment_open',
+        // «تواصل مع المدرّس» — see `CONTACT` below.
+        'contact',
     ];
+
+    /*
+    | «تواصل مع المدرّس» (2026-09-28) — on the course page and the teacher page.
+    |
+    | The workspace's UUID and the name the button carries, and nothing else.
+    | The uuid is what a private conversation is keyed on, and publishing it is
+    | the feature: the conversation door (`ConversationPolicy::post()`) decides
+    | who may write, and knowing the key opens nothing — a student's own
+    | enrolment list has carried the same uuid since spec 010. `workspace` and
+    | `workspace_id` stay FORBIDDEN: a key named `workspace_uuid` is not them.
+    */
+    /** @var list<string> */
+    public const CONTACT = ['workspace_uuid', 'name'];
 
     /*
     | The author, as the course page shows them (FR-004) — name, face, trust and

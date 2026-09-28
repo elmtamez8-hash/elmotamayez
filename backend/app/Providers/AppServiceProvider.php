@@ -593,6 +593,38 @@ class AppServiceProvider extends ServiceProvider
          * its own right: a report opens a moderation row, and a loop over it is a
          * way to bury the queue the teacher reads.
          */
+        /*
+         * Opening a private conversation with a teacher (2026-09-28).
+         *
+         * ⚠️ ITS OWN BUCKET, ON TOP OF `chat-write`. Since the public course page
+         * and the teacher page carry «تواصل مع المدرّس», this request reaches
+         * teachers who never heard of the sender — thirty a minute, `chat-write`'s
+         * ceiling, would let one account open threads with thirty teachers a
+         * minute and three hundred an evening. Five a minute is a person comparing
+         * teachers; twenty an hour and forty a day is still more than anybody
+         * shopping for a tutor writes. Keyed by user: the callers are students.
+         *
+         * ⚠️ AND A TEACHER IS NOT COUNTED HERE. «راسِل» beside a new class of
+         * sixty is sixty first messages in an evening, to the teacher's own
+         * enrolled students (a teacher cannot open a thread with anyone else —
+         * `ConversationPolicy::post()`), so `chat-write` alone bounds them.
+         */
+        RateLimiter::for('conversation-start', function (Request $request) {
+            $user = $request->user();
+
+            if ($user instanceof User && $user->teachesOnPlatform()) {
+                return Limit::none();
+            }
+
+            $key = (string) $user?->getKey();
+
+            return [
+                Limit::perMinute(5)->by('user:'.$key),
+                Limit::perHour(20)->by('user-hour:'.$key),
+                Limit::perDay(40)->by('user-day:'.$key),
+            ];
+        });
+
         RateLimiter::for('chat-report', fn (Request $request) => Limit::perMinute(10)
             ->by('user:'.(string) $request->user()?->getKey()));
 

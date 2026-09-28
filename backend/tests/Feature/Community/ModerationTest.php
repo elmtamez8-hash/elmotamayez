@@ -59,6 +59,7 @@ beforeEach(function (): void {
     Sanctum::actingAs($this->student);
 
     $this->privateUuid = (string) $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertCreated()->json('uuid');
 });
@@ -88,6 +89,7 @@ it('stops a banned participant writing anywhere in the workspace', function (): 
     // ⚠️ AND THE DOOR TO A NEW THREAD, which a ban that only guarded `PostMessage`
     // would leave wide open.
     $this->postJson('/api/v1/conversations', [
+        'body' => 'السلام عليكم',
         'workspace' => $this->workspace->uuid,
     ])->assertForbidden();
 

@@ -12,6 +12,8 @@ use App\Modules\Community\Support\BanReader;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\GuardianDirectory;
+use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -40,10 +42,15 @@ class ListConversations extends Action
     public function __construct(
         private readonly AssistantScopeDirectory $assistants,
         private readonly BanReader $bans,
+        private readonly GuardianDirectory $guardians,
     ) {}
 
-    /** @return Collection<int, Conversation> */
-    public function handle(User $user): Collection
+    /**
+     * @param  string|null  $includeUuid  the thread the reader is opening, which is
+     *                                    listed even while it holds no message
+     * @return Collection<int, Conversation>
+     */
+    public function handle(User $user, ?string $includeUuid = null): Collection
     {
         $workspaceId = app(WorkspaceContext::class)->id();
 
@@ -56,7 +63,21 @@ class ListConversations extends Action
             && $user->hasPermissionTo(Permissions::CHAT_REPLY)
             && $user->workspaces()->withoutGlobalScopes()->whereKey($workspaceId)->exists();
 
-        if ($participantIds === [] && ! $teacherSide) {
+        /*
+        | ⚠️ A GUARDIAN'S THREADS ARE THEIR CHILDREN'S, DERIVED FROM THE SAME
+        | PREDICATE THE DOOR ASKS (2026-09-28). A guardian has no participant row
+        | — the thread is the child's, and a row of their own would outlive a
+        | revoked relation — so their list is «private threads whose student is a
+        | child of mine under `messages`», which is exactly what
+        | `ConversationPolicy::view()` admits them on.
+        */
+        $childIds = $this->guardians
+            ->childrenOf($user, GuardianPermission::Messages)
+            ->map(fn (User $child): int => (int) $child->getKey())
+            ->values()
+            ->all();
+
+        if ($participantIds === [] && ! $teacherSide && $childIds === []) {
             return collect();
         }
 
@@ -68,8 +89,15 @@ class ListConversations extends Action
             // page one query cheaper and the list nameless, which a budget test
             // reads as an improvement.
             ->with(['lastMessage.sender', 'lastMessage.mediaAsset', 'student', 'workspace'])
-            ->where(function (Builder $query) use ($participantIds, $teacherSide, $workspaceId): void {
+            ->where(function (Builder $query) use ($participantIds, $teacherSide, $workspaceId, $childIds): void {
                 $query->whereIn('id', $participantIds);
+
+                if ($childIds !== []) {
+                    $query->orWhere(function (Builder $children) use ($childIds): void {
+                        $children->whereIn('student_user_id', $childIds)
+                            ->where('kind', ConversationKind::Private->value);
+                    });
+                }
 
                 if ($teacherSide) {
                     $query->orWhere(function (Builder $mine) use ($workspaceId): void {
@@ -78,11 +106,29 @@ class ListConversations extends Action
                     });
                 }
             })
-            // Newest activity first; a thread with nothing in it sinks to the
-            // bottom rather than disappearing.
+            /*
+            | ⛔ A THREAD WITH NOTHING IN IT IS NOT LISTED (owner decision
+            | 2026-09-28). Threads are born with their first message now, but the
+            | rows opened empty before that stay in the table, and a list full of
+            | conversations nobody wrote in is what the owner reported. The one
+            | exception is the thread being opened, so its heading still resolves.
+            */
+            ->where(function (Builder $query) use ($includeUuid): void {
+                $query->whereNotNull('last_message_id');
+
+                if ($includeUuid !== null && $includeUuid !== '') {
+                    $query->orWhere('uuid', $includeUuid);
+                }
+            })
             ->orderByDesc('last_message_id')
             ->limit(self::LIMIT)
             ->get();
+
+        foreach ($rows as $conversation) {
+            $conversation->readByGuardian = $conversation->kind === ConversationKind::Private
+                && in_array((int) $conversation->student_user_id, $childIds, true)
+                && ! in_array($conversation->getKey(), $participantIds, true);
+        }
 
         if (! $teacherSide) {
             return $rows;
@@ -97,7 +143,7 @@ class ListConversations extends Action
         | not a second predicate written here.
         */
         $mine = $rows->filter(function (Conversation $conversation) use ($user, $participantIds): bool {
-            if (in_array($conversation->getKey(), $participantIds, true)) {
+            if (in_array($conversation->getKey(), $participantIds, true) || $conversation->readByGuardian) {
                 return true;
             }
 

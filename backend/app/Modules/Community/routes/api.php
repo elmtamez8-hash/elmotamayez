@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
+use App\Modules\Community\Http\Controllers\InboxSettingsController;
 use App\Modules\Community\Http\Controllers\Manage\AnnouncementController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
 use App\Modules\Community\Http\Controllers\Manage\GradingSchemeController;
@@ -79,8 +80,31 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index']);
 
+    /*
+    | «تواصل مع المدرّس» (2026-09-28): what the button may do for this reader
+    | with this teacher — one entry per student they may write as. A read, so no
+    | write bucket; the workspace is a query string resolved inside the Action.
+    */
+    Route::get('/conversations/contact-options', [ConversationController::class, 'contactOptions']);
+
+    /*
+    | The teacher's «استقبال رسائل من غير المشتركين». `settings.update` inside the
+    | controller — the tenant owner's permission, which no assistant holds.
+    */
+    Route::get('/inbox-settings', [InboxSettingsController::class, 'show']);
+    Route::put('/inbox-settings', [InboxSettingsController::class, 'update'])
+        ->middleware('throttle:authoring');
+
     Route::middleware('throttle:chat-write')->group(function (): void {
-        Route::post('/conversations', [ConversationController::class, 'store']);
+        /*
+        | ⚠️ AND A SECOND, TIGHTER BUCKET OF ITS OWN (2026-09-28). This request
+        | now opens a thread with a teacher who may never have heard of the
+        | sender, so `chat-write`'s thirty a minute would let one account open
+        | threads with thirty teachers a minute. `conversation-start` counts
+        | threads, not lines.
+        */
+        Route::post('/conversations', [ConversationController::class, 'store'])
+            ->middleware('throttle:conversation-start');
         Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store']);
         Route::delete('/messages/{message}', [MessageController::class, 'destroy']);
         Route::post('/messages/{message}/helpful', [SessionChatController::class, 'helpful']);

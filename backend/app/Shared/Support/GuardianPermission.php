@@ -44,6 +44,25 @@ enum GuardianPermission: string
      */
     case DataRights = 'data_rights';
 
+    /**
+     * Writing to the child's teachers in the child's own private conversation,
+     * and reading it (2026-09-28, «تواصل مع المدرّس»).
+     *
+     * ⚠️ A PERMISSION OF ITS OWN, NOT ONE OF THE SIX ABOVE. Each of those opens a
+     * category of the child's RECORD; this one opens the child's CORRESPONDENCE
+     * and lets an adult speak in the child's thread. Hanging it off `Schedule` or
+     * `Results` would make «may I write to my son's teacher» depend on a box
+     * ticked for a different reason, and unticking marks would silently take the
+     * conversation away.
+     *
+     * ⚠️ AND IT IS NOT BACKFILLED onto relations made before it existed. A grant
+     * the student never saw would widen what every existing guardian may read —
+     * the direction `GuardianDirectory::permissionsFor()` calls unsafe. A new
+     * link receives it by default (`LinkGuardianData` defaults to `values()`),
+     * and an existing one gains it when the permissions are edited on /family.
+     */
+    case Messages = 'messages';
+
     public function label(): string
     {
         return match ($this) {
@@ -53,6 +72,7 @@ enum GuardianPermission: string
             self::Results => 'النتائج والدرجات',
             self::AcademicWarnings => 'الإنذارات الأكاديمية',
             self::DataRights => 'الموافقة على معالجة البيانات وطلب حقوقها',
+            self::Messages => 'مراسلة المدرّسين باسم الطالب',
         };
     }
 

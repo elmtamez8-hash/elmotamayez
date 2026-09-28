@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
+use App\Modules\Community\Support\ConversationSides;
+use App\Modules\Community\Support\TeacherInboxSettings;
 use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Tenancy\Support\Permissions;
@@ -46,6 +48,8 @@ class ConversationPolicy
         private readonly CohortDirectory $cohorts,
         private readonly WriteBanReader $writeBans,
         private readonly SessionContentAccess $sessionContent,
+        private readonly ConversationSides $sides,
+        private readonly TeacherInboxSettings $inbox,
     ) {}
 
     /** May this person read the thread at all? */
@@ -59,7 +63,25 @@ class ConversationPolicy
             return Response::allow();
         }
 
-        return $this->teacherSide($user, $conversation);
+        $staff = $this->teacherSide($user, $conversation);
+
+        if ($staff->allowed()) {
+            return $staff;
+        }
+
+        /*
+        | ⚠️ A GUARDIAN READS THEIR CHILD'S THREAD, AND ONLY WITH `messages`
+        | (owner decision 2026-09-28). Asked after the teacher's side because that
+        | is the common reader and its answer costs nothing more; asked at all
+        | because the guardian writes AS the child, and writing into a thread you
+        | cannot read is typing into the dark. Revoke the relation or untick the
+        | permission and both doors close on the next request.
+        */
+        if ($this->sides->isAuthorisedGuardian($user, $conversation)) {
+            return Response::allow();
+        }
+
+        return $staff;
     }
 
     /**
@@ -219,13 +241,55 @@ class ConversationPolicy
         }
 
         /*
-        | ⚠️ THE SAME CONDITION FOR BOTH SIDES. A rule that only stopped the
-        | student writing would bind the person with less power in the
-        | relationship and leave the teacher messaging someone who has left.
+        | A SUBSCRIBER WRITES WITHOUT LIMIT, and «subscriber» is this one
+        | predicate — an active or completed enrolment in the workspace. A live
+        | subscription and a cohort seat both imply one (see
+        | `ProspectAllowance`), so there is nothing to add beside it.
         */
-        return $this->enrollments->hasActiveEnrollmentInWorkspace($student, (int) $conversation->workspace_id)
+        if ($this->enrollments->hasActiveEnrollmentInWorkspace($student, (int) $conversation->workspace_id)) {
+            return Response::allow();
+        }
+
+        /*
+        | ⛔ A PROSPECT (owner decision 2026-09-28). Until that day this line
+        | refused every non-subscriber on both sides — «انتهت علاقتك التعليميّة
+        | هنا» — so nobody could ask a teacher a question before paying. Now the
+        | teacher decides, with «استقبال رسائل من غير المشتركين» (on by default).
+        |
+        | ⚠️ THE SETTING BINDS BOTH SIDES, the rule this branch has always kept:
+        | a door that only stopped the student would leave the teacher writing to
+        | somebody who cannot answer. With the setting OFF this branch is exactly
+        | the pre-2026-09-28 rule, FR-014's read-only archive included.
+        |
+        | ⚠️ AND WITH IT ON, A FORMER STUDENT IS A PROSPECT — which reopens the
+        | archive FR-014 closed, limited by the cap until the teacher answers and
+        | unlimited in a thread the teacher already answered in. Written down
+        | rather than discovered: switching the setting off restores FR-014.
+        */
+        if (! $this->inbox->acceptsProspectsIn((int) $conversation->workspace_id)) {
+            return Response::deny($this->sides->speaksForStudent($user, $conversation)
+                ? 'لا يستقبل هذا المدرّس رسائل جديدة من غير طلابه حالياً.'
+                : 'هذا الطالب لا يدرس عندكم الآن، واستقبال رسائل غير المشتركين مغلق في إعداداتكم.');
+        }
+
+        /*
+        | The student's side may write; HOW MUCH is `PostMessage`'s question,
+        | because it needs a row lock this method cannot take.
+        */
+        if ($this->sides->speaksForStudent($user, $conversation)) {
+            return Response::allow();
+        }
+
+        /*
+        | ⚠️ THE TEACHER'S SIDE ANSWERS A PROSPECT AND NEVER OPENS ONE. Without this
+        | «راسِل» would take any account's uuid on the platform and start a thread
+        | with it — a cold-message channel to every student who ever signed up.
+        | A thread exists only once somebody has written in it, so «it exists and
+        | has a message» is «the prospect wrote first».
+        */
+        return $conversation->exists && $conversation->last_message_id !== null
             ? Response::allow()
-            : Response::deny('انتهت علاقتك التعليميّة هنا، والمحادثة صارت للقراءة فقط.');
+            : Response::deny('هذا الطالب لا يدرس عندكم، فلا تُبدأ المحادثة معه. يمكنك الردّ إن راسلك أولاً.');
     }
 
     /**

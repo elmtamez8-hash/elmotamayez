@@ -132,6 +132,11 @@ export function MessageList({
                 <div className="mb-1 flex flex-wrap items-center gap-2 px-1 text-xs text-ink-muted">
                   <span className="font-medium">{message.sender_name ?? "—"}</span>
 
+                  {/* A guardian writes AS the child, in the child's thread
+                      (2026-09-28) — the teacher must not read the parent's words
+                      as the student's. Stored at send time on the server. */}
+                  {message.sent_by_guardian === true && <Badge tone="warning">وليّ الأمر</Badge>}
+
                   {/* ⚠️ RENDERED ONLY WHEN THERE IS SOMETHING TO RENDER. `null` is
                       the answer for every teacher, every assistant and every
                       student on their first day — an empty badge, a dash, or a

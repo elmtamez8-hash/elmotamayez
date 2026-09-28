@@ -6,12 +6,16 @@ namespace App\Modules\Community\Actions;
 
 use App\Models\User;
 use App\Modules\Community\Data\PostMessageData;
+use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Enums\ModerationVerdict;
 use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
+use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Community\Support\ConversationSides;
+use App\Modules\Community\Support\ProspectAllowance;
 use App\Modules\Community\Support\TermFilter;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
@@ -19,10 +23,12 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use DomainException;
+use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use PDOException;
 use Throwable;
 
 /**
@@ -38,9 +44,13 @@ use Throwable;
  */
 class PostMessage extends Action
 {
+    use DetectsConcurrencyErrors;
+
     public function __construct(
         private readonly AssistantScopeDirectory $assistants,
         private readonly TermFilter $terms,
+        private readonly ConversationSides $sides,
+        private readonly ProspectAllowance $allowance,
     ) {}
 
     public function handle(User $sender, PostMessageData $data): Message
@@ -54,6 +64,30 @@ class PostMessage extends Action
             throw new ModelNotFoundException('لم نجد هذه المحادثة.');
         }
 
+        return $this->deliver($sender, $conversation, $data);
+    }
+
+    /**
+     * Write one message into a conversation — or into one that does not exist
+     * yet, which this call then creates (2026-09-28).
+     *
+     * ⛔ «NO CONVERSATION UNTIL THE FIRST MESSAGE» (owner decision, reported from
+     * production). `StartConversation` used to insert the thread when «راسل» was
+     * pressed, so an empty conversation sat in both sides' lists before anybody
+     * had typed a word. Now it hands this method an UNSAVED `Conversation`, and
+     * the thread, its participant row and its first message are one
+     * transaction: a refusal of the words (the term list, the cap) leaves
+     * nothing behind at all.
+     *
+     * ⚠️ A UNIQUE VIOLATION ON THE THREAD IS RETHROWN, NOT HANDLED HERE. Two
+     * devices sending a first message in the same second both try to insert;
+     * the loser's whole transaction — message included — rolls back, and
+     * `StartConversation` re-reads the winner and delivers into it. Catching it
+     * here would mean deciding which thread a message belongs to from inside
+     * the transaction that just failed.
+     */
+    public function deliver(User $sender, Conversation $conversation, PostMessageData $data): Message
+    {
         Gate::forUser($sender)->authorize('post', $conversation);
 
         /*
@@ -86,25 +120,37 @@ class PostMessage extends Action
             throw new DomainException('اكتب رسالة أو أرفق ملفاً.');
         }
 
-        $message = DB::transaction(function () use ($conversation, $sender, $data, $attachment): Message {
-            $message = Message::query()->create([
-                // ⚠️ FROM THE CONVERSATION, NEVER FROM THE CONTEXT. The sender is
-                // usually a student, who is a member of no workspace at all — so
-                // the trait's auto-fill would write null, or for a teacher signed
-                // into a second workspace, the wrong one.
-                'workspace_id' => $conversation->workspace_id,
-                'conversation_id' => $conversation->getKey(),
-                'sender_user_id' => $sender->getKey(),
-                // Null rather than '' when there is only an attachment: the
-                // column is nullable precisely so the two cases stay distinct.
-                'body' => $data->body === '' ? null : $data->body,
-                'media_asset_id' => $attachment?->getKey(),
-            ]);
+        $isPrivate = $conversation->kind === ConversationKind::Private;
+        $fromStudentSide = $isPrivate && $this->sides->speaksForStudent($sender, $conversation);
 
-            $this->claimLastMessage($conversation, (int) $message->getKey());
+        /*
+        | Asked before the transaction: whether the student studies here does not
+        | change because of what this transaction does, and asking it inside would
+        | hold the row lock across an enrolment read for nothing. A thread that
+        | does not exist yet holds no message, so its first one is always inside
+        | the budget — its gate is the unique index, not a count.
+        */
+        $capped = $fromStudentSide && $conversation->exists && $this->allowance->isProspect($conversation);
 
-            return $message;
-        });
+        try {
+            $message = DB::transaction(
+                fn (): Message => $this->write($conversation, $sender, $data, $attachment, $capped, $isPrivate && ! $fromStudentSide),
+                // ⚠️ ONE ATTEMPT FOR A NEW THREAD. A retry would find the model
+                // already marked `exists` by the rolled-back insert and write a
+                // message against a conversation id that no longer exists.
+                attempts: $conversation->exists ? 3 : 1,
+            );
+        } catch (PDOException $e) {
+            // A deadlock or a lock wait the retries could not clear is neither the
+            // cap nor the sender's fault — and never a 500. `QueryException` is a
+            // `PDOException`, so the unique violation `StartConversation` handles
+            // passes through here untouched.
+            if (! $this->causedByConcurrencyError($e)) {
+                throw $e;
+            }
+
+            throw new DomainException('تعذّر إرسال الرسالة الآن. حاول مرة أخرى.');
+        }
 
         foreach ($filtered['review'] as $term) {
             /*
@@ -133,6 +179,88 @@ class PostMessage extends Action
         }
 
         $this->announce($conversation, $message, $sender);
+
+        return $message;
+    }
+
+    /**
+     * The body of {@see deliver()}'s transaction.
+     *
+     * ⚠️ FOR A CAPPED SENDER THE GATE IS THE FIRST STATEMENT, AND NOTHING IS READ
+     * ABOVE IT. `UPDATE conversations SET id = id` changes nothing and still takes
+     * the row's exclusive lock until commit, so two sends a millisecond apart
+     * queue on it and the second one COUNTS the first — the `CreateFreezePeriod`
+     * idiom. Never `lockForUpdate()`, which is a no-op on SQLite, and never
+     * `INSERT … WHERE (SELECT COUNT(*)) < ?`, which is not atomic on MySQL.
+     * `staff_replied_at` is re-read after the gate for the same reason: a reply
+     * committed while this send waited lifts the cap for it.
+     */
+    private function write(
+        Conversation $conversation,
+        User $sender,
+        PostMessageData $data,
+        ?MediaAsset $attachment,
+        bool $capped,
+        bool $fromStaff,
+    ): Message {
+        if (! $conversation->exists) {
+            // The thread and its student's participant row, then the message —
+            // one write. See `StartConversation` for why only the student
+            // gets a participant row.
+            $conversation->save();
+
+            ConversationParticipant::query()->create([
+                'conversation_id' => $conversation->getKey(),
+                'user_id' => $conversation->student_user_id,
+            ]);
+        } elseif ($capped) {
+            DB::update('UPDATE conversations SET id = id WHERE id = ?', [$conversation->getKey()]);
+
+            $replied = Conversation::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->getKey())
+                ->value('staff_replied_at');
+
+            if ($replied === null) {
+                $cap = CommunitySettings::prospectMessageCap();
+
+                if ($this->allowance->sentSoFar((int) $conversation->getKey()) >= $cap) {
+                    throw new DomainException(ProspectAllowance::refusal($cap));
+                }
+            }
+        }
+
+        $message = Message::query()->create([
+            // ⚠️ FROM THE CONVERSATION, NEVER FROM THE CONTEXT. The sender is
+            // usually a student, who is a member of no workspace at all — so
+            // the trait's auto-fill would write null, or for a teacher signed
+            // into a second workspace, the wrong one.
+            'workspace_id' => $conversation->workspace_id,
+            'conversation_id' => $conversation->getKey(),
+            'sender_user_id' => $sender->getKey(),
+            // Null rather than '' when there is only an attachment: the
+            // column is nullable precisely so the two cases stay distinct.
+            'body' => $data->body === '' ? null : $data->body,
+            'media_asset_id' => $attachment?->getKey(),
+            // The teacher sees WHO on the student's side wrote this line.
+            'sent_by_guardian' => ! $fromStaff
+                && $conversation->kind === ConversationKind::Private
+                && (int) $sender->getKey() !== (int) $conversation->student_user_id,
+        ]);
+
+        $this->claimLastMessage($conversation, (int) $message->getKey());
+
+        if ($fromStaff) {
+            /*
+            | The teacher's side has answered, which lifts the prospect cap for
+            | good. Conditional, so the FIRST reply's moment is the one kept.
+            */
+            Conversation::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->getKey())
+                ->whereNull('staff_replied_at')
+                ->update(['staff_replied_at' => now()]);
+        }
 
         return $message;
     }
@@ -304,6 +432,33 @@ class PostMessage extends Action
             foreach ($workspace->members()->get() as $member) {
                 if ($this->assistants->mayActOnStudent($member, $workspaceId, $studentId)) {
                     $uuids[] = (string) $member->uuid;
+                }
+            }
+        }
+
+        /*
+        | ⚠️ A GUARDIAN WHO HAS WRITTEN HERE IS TOLD OF THE ANSWER, AND ONE WHO
+        | HAS NOT IS NOT (2026-09-28). A guardian has no participant row — the
+        | thread is the child's, and their right to it is the relation, checked
+        | on every read — so without this the parent who asked the question
+        | never learns it was answered. Pushing every line of a child's
+        | correspondence to every authorised adult, unasked, is a different
+        | product, so it is only the guardians who took part.
+        */
+        $guardianIds = $this->sides->guardianIdsFor($conversation);
+
+        if ($guardianIds !== []) {
+            $spoke = Message::query()
+                ->withoutWorkspaceScope()
+                ->where('conversation_id', $conversation->getKey())
+                ->whereIn('sender_user_id', $guardianIds)
+                ->distinct()
+                ->pluck('sender_user_id')
+                ->all();
+
+            if ($spoke !== []) {
+                foreach (User::query()->whereIn('id', $spoke)->pluck('uuid') as $uuid) {
+                    $uuids[] = (string) $uuid;
                 }
             }
         }
