@@ -5,12 +5,16 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Community\Actions\PostMessage;
 use App\Modules\Community\Data\PostMessageData;
+use App\Modules\Community\Enums\ModerationVerdict;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
+use App\Modules\Community\Models\ModerationAction;
+use App\Modules\Community\Policies\ConversationPolicy;
 use App\Modules\Community\Support\TeacherInboxSettings;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\GuardianPermission;
@@ -49,6 +53,10 @@ beforeEach(function (): void {
 
     // Studies nowhere: a member of no workspace, the self-registered shape.
     $this->prospect = User::factory()->create(['platform_role' => PlatformRole::Student]);
+
+    // A prospect reaches only a teacher the platform publishes (`TeacherStanding`).
+    $this->workspace->forceFill(['participates_in_marketplace' => true])->save();
+    $this->profile = marketplaceTeacher($this->workspace);
 });
 
 function contactAsProspect(object $test, string $body = 'هل الكورس مناسب للصف الثالث؟'): TestResponse
@@ -133,7 +141,7 @@ it('caps a prospect at three messages until the teacher replies, then lifts the 
     Sanctum::actingAs($this->owner);
     $this->postJson($url, ['body' => 'أهلاً، نعم مناسب.'])->assertCreated();
 
-    expect(contactThread($this, $this->prospect)?->staff_replied_at)->not->toBeNull();
+    expect(Message::query()->withoutWorkspaceScope()->where('body', 'أهلاً، نعم مناسب.')->value('from_staff'))->toBeTrue();
 
     Sanctum::actingAs($this->prospect);
     foreach (['الرابعة', 'الخامسة', 'السادسة'] as $body) {
@@ -529,4 +537,191 @@ it('answers a deadlock on the gate with «try again», never a 500 and never the
 
     expect(fn () => app(PostMessage::class)->handle($this->prospect, new PostMessageData($uuid, 'الثانية')))
         ->toThrow(DomainException::class, 'تعذّر إرسال الرسالة الآن. حاول مرة أخرى.');
+});
+
+/*
+| Security review of #276 (2026-09-28) and the owner's decisions that came with it.
+*/
+
+it('refuses a teaching account as the student of a thread, and counts its attempts', function (): void {
+    // Public teacher signup creates a workspace before approval, so an
+    // unapproved applicant already «teaches on the platform».
+    [, $otherTeacher] = $this->createWorkspaceWithOwner(['name' => 'Rival']);
+    Sanctum::actingAs($otherTeacher);
+
+    $refused = $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'تعالَ اشتغل عندنا'])
+        ->assertForbidden();
+    expect((string) $refused->json('message'))->toBe(ConversationPolicy::TEACHING_ACCOUNT);
+    expect(contactThread($this, $otherTeacher))->toBeNull();
+
+    // No exemption from the limiter without a named student: five refusals, then 429.
+    foreach (range(1, 4) as $n) {
+        $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => "محاولة {$n}"])->assertForbidden();
+    }
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'السادسة'])->assertStatus(429);
+});
+
+it('refuses a guardian writing as themselves — a guardian always names a child', function (): void {
+    $guardian = contactGuardian($this->subscriber);
+    Sanctum::actingAs($guardian);
+
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'سؤال'])
+        ->assertForbidden();
+
+    expect(contactThread($this, $guardian))->toBeNull();
+});
+
+it('carries the child\'s workspace ban onto the guardian, at the door and on the button', function (): void {
+    $guardian = contactGuardian($this->subscriber);
+
+    ModerationAction::query()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'actor_user_id' => $this->owner->getKey(),
+        'subject_type' => ModerationAction::SUBJECT_USER,
+        'subject_id' => $this->subscriber->getKey(),
+        'verdict' => ModerationVerdict::Banned,
+        'reason' => 'إساءة',
+    ]);
+
+    Sanctum::actingAs($guardian);
+    $this->postJson('/api/v1/conversations', [
+        'workspace' => $this->workspace->uuid,
+        'student' => $this->subscriber->uuid,
+        'body' => 'أنا أكتب بدلاً منه',
+    ])->assertForbidden();
+
+    $option = $this->getJson('/api/v1/conversations/contact-options?workspace='.$this->workspace->uuid)
+        ->assertOk()->json('data.options.0');
+    expect($option['can_start'])->toBeFalse()
+        ->and((string) $option['reason'])->toContain('ابنك');
+});
+
+it('keeps prospects away from a suspended or unapproved teacher, and not subscribers', function (string $status): void {
+    $this->profile->forceFill(['approval_status' => $status])->save();
+
+    $refused = contactAsProspect($this)->assertForbidden();
+    expect((string) $refused->json('message'))->toContain('لا يستقبل هذا المدرّس');
+
+    Sanctum::actingAs($this->subscriber);
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'سؤال عن الواجب'])
+        ->assertCreated();
+})->with(['suspended', 'pending']);
+
+it('refuses a capped prospect an upload ticket', function (): void {
+    $uuid = contactAsProspect($this)->assertCreated()->json('uuid');
+    $url = "/api/v1/conversations/{$uuid}/messages";
+    $this->postJson($url, ['body' => 'الثانية'])->assertCreated();
+
+    // One message left: a ticket is still issued.
+    $this->postJson("/api/v1/conversations/{$uuid}/attachments", ['kind' => 'image', 'filename' => 'a.jpg', 'size_bytes' => 1000])
+        ->assertSuccessful();
+
+    $this->postJson($url, ['body' => 'الثالثة'])->assertCreated();
+
+    $this->postJson("/api/v1/conversations/{$uuid}/attachments", ['kind' => 'image', 'filename' => 'b.jpg', 'size_bytes' => 1000])
+        ->assertUnprocessable();
+});
+
+it('caps a former student from scratch: a reply from while they were enrolled unlocks nothing', function (): void {
+    Sanctum::actingAs($this->subscriber);
+    $uuid = $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'سؤال وأنا مشترك'])
+        ->assertCreated()->json('uuid');
+    $url = "/api/v1/conversations/{$uuid}/messages";
+
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    Sanctum::actingAs($this->owner);
+    $this->postJson($url, ['body' => 'ردّ أثناء الاشتراك'])->assertCreated();
+
+    // The enrolment ends later (an Eloquent update, which moves `updated_at`).
+    $this->travel(2)->minutes();
+    Enrollment::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $this->subscriber->getKey())
+        ->update(['status' => 'expired']);
+    $this->travel(1)->minutes();
+
+    Sanctum::actingAs($this->subscriber);
+    foreach (['١', '٢', '٣'] as $n) {
+        $this->postJson($url, ['body' => "بعد الانتهاء {$n}"])->assertCreated();
+    }
+    $this->postJson($url, ['body' => 'الرابعة'])->assertUnprocessable();
+
+    // A reply AFTER the enrolment ended is the one that counts.
+    $this->travel(1)->minutes();
+    Sanctum::actingAs($this->owner);
+    $this->postJson($url, ['body' => 'أهلاً بعودتك'])->assertCreated();
+
+    Sanctum::actingAs($this->subscriber);
+    $this->postJson($url, ['body' => 'الرابعة'])->assertCreated();
+});
+
+it('lets the teacher side reply in existing threads while prospects are switched off', function (): void {
+    $uuid = contactAsProspect($this)->assertCreated()->json('uuid');
+
+    app(TeacherInboxSettings::class)->setAcceptsProspects($this->workspace->refresh(), false);
+
+    Sanctum::actingAs($this->prospect);
+    $this->postJson("/api/v1/conversations/{$uuid}/messages", ['body' => 'الثانية'])->assertForbidden();
+
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/conversations/{$uuid}/messages", ['body' => 'أهلاً، هذا ردّي'])->assertCreated();
+});
+
+it('puts the included thread first, even when it is empty', function (): void {
+    Sanctum::actingAs($this->subscriber);
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'مرحباً'])->assertCreated();
+
+    [$other, $otherOwner] = $this->createWorkspaceWithOwner(['name' => 'Other']);
+    $empty = Conversation::query()->withoutWorkspaceScope()->create([
+        'workspace_id' => $other->getKey(),
+        'kind' => 'private',
+        'student_user_id' => $this->subscriber->getKey(),
+    ]);
+    DB::table('conversation_participants')->insert([
+        'conversation_id' => $empty->getKey(),
+        'user_id' => $this->subscriber->getKey(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    Sanctum::actingAs($this->subscriber);
+    expect($this->getJson('/api/v1/conversations?include='.$empty->uuid)->assertOk()->json('0.uuid'))
+        ->toBe((string) $empty->uuid);
+});
+
+it('treats a re-sent first message as the retry it is', function (): void {
+    Sanctum::actingAs($this->prospect);
+
+    $first = $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'هل يوجد خصم؟'])
+        ->assertCreated()->json('uuid');
+    $again = $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'هل يوجد خصم؟'])
+        ->assertCreated()->json('uuid');
+
+    expect($again)->toBe($first)
+        ->and(Message::query()->withoutWorkspaceScope()->where('body', 'هل يوجد خصم؟')->count())->toBe(1);
+
+    // A different message is a message.
+    $this->postJson('/api/v1/conversations', ['workspace' => $this->workspace->uuid, 'body' => 'وسؤال آخر'])->assertCreated();
+    expect(Message::query()->withoutWorkspaceScope()->where('conversation_id', contactThread($this, $this->prospect)?->getKey())->count())->toBe(2);
+});
+
+it('grants messages to every ACCEPTED guardian on deploy, and to nobody else', function (): void {
+    $accepted = ParentStudentRelation::factory()->parent()->create([
+        'student_user_id' => $this->subscriber->getKey(),
+        'permissions' => ['attendance'],
+    ]);
+    $pending = ParentStudentRelation::factory()->pending()->create(['permissions' => ['attendance']]);
+    $revoked = ParentStudentRelation::factory()->revoked()->create(['permissions' => ['attendance']]);
+
+    $migration = require base_path('app/Modules/Identity/Database/Migrations/2026_09_28_000600_grant_messages_to_accepted_guardians.php');
+    $migration->up();
+
+    $permissions = fn (ParentStudentRelation $row): array => json_decode(
+        (string) DB::table('parent_student_relations')->where('id', $row->getKey())->value('permissions'),
+        true,
+    );
+
+    expect($permissions($accepted))->toBe(['attendance', 'messages'])
+        ->and($permissions($pending))->toBe(['attendance'])
+        ->and($permissions($revoked))->toBe(['attendance']);
 });

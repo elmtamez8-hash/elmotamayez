@@ -9,6 +9,7 @@ use App\Modules\Community\Data\PostMessageData;
 use App\Modules\Community\Data\StartConversationData;
 use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Models\Message;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -42,6 +43,9 @@ use Illuminate\Database\QueryException;
  */
 class StartConversation extends Action
 {
+    /** How long a word-for-word repeat of the newest line counts as a retry. */
+    private const RESEND_WINDOW_SECONDS = 60;
+
     public function __construct(private readonly PostMessage $post) {}
 
     public function handle(User $actor, StartConversationData $data): Conversation
@@ -58,6 +62,10 @@ class StartConversation extends Action
         $existing = $this->find((int) $workspace->getKey(), (int) $student->getKey());
 
         if ($existing instanceof Conversation) {
+            if ($this->isResend($actor, $existing, $message->body)) {
+                return $existing;
+            }
+
             $this->post->deliver($actor, $existing, $message);
 
             return $existing->refresh();
@@ -87,6 +95,36 @@ class StartConversation extends Action
         }
 
         return $candidate->refresh();
+    }
+
+    /**
+     * The same first message, from the same person, seconds after it was saved.
+     *
+     * ⛔ A DROPPED RESPONSE IS NOT A SECOND MESSAGE (security review of #276). The
+     * compose view sends once; if the answer is lost on a bad connection the
+     * person presses «إرسال» again and, without this, the teacher reads the
+     * question twice — and a prospect spends two of their three messages on one.
+     * The thread's newest line being theirs, word for word, inside the window is
+     * the retry; the thread is returned as it stands and nothing is written.
+     * Chosen over a client key because it needs no column and no client state
+     * that a reload would lose.
+     */
+    private function isResend(User $actor, Conversation $conversation, string $body): bool
+    {
+        if ($body === '' || $conversation->last_message_id === null) {
+            return false;
+        }
+
+        $last = Message::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($conversation->last_message_id)
+            ->first();
+
+        return $last instanceof Message
+            && (int) $last->sender_user_id === (int) $actor->getKey()
+            && (string) $last->body === $body
+            && $last->created_at !== null
+            && $last->created_at->greaterThanOrEqualTo(now()->subSeconds(self::RESEND_WINDOW_SECONDS));
     }
 
     /** The one private thread between this workspace and this student, if any. */

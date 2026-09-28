@@ -22,6 +22,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\DetectsConcurrencyErrors;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -131,10 +132,11 @@ class PostMessage extends Action
         | the budget — its gate is the unique index, not a count.
         */
         $capped = $fromStudentSide && $conversation->exists && $this->allowance->isProspect($conversation);
+        $epoch = $capped ? $this->allowance->epoch($conversation) : null;
 
         try {
             $message = DB::transaction(
-                fn (): Message => $this->write($conversation, $sender, $data, $attachment, $capped, $isPrivate && ! $fromStudentSide),
+                fn (): Message => $this->write($conversation, $sender, $data, $attachment, $capped, $epoch, $isPrivate && ! $fromStudentSide),
                 // ⚠️ ONE ATTEMPT FOR A NEW THREAD. A retry would find the model
                 // already marked `exists` by the rolled-back insert and write a
                 // message against a conversation id that no longer exists.
@@ -192,8 +194,10 @@ class PostMessage extends Action
      * queue on it and the second one COUNTS the first — the `CreateFreezePeriod`
      * idiom. Never `lockForUpdate()`, which is a no-op on SQLite, and never
      * `INSERT … WHERE (SELECT COUNT(*)) < ?`, which is not atomic on MySQL.
-     * `staff_replied_at` is re-read after the gate for the same reason: a reply
-     * committed while this send waited lifts the cap for it.
+     * The teacher's answer is looked for after the gate for the same reason: a
+     * reply committed while this send waited lifts the cap for it. Both are
+     * counted from the EPOCH — when the student became a prospect — see
+     * `ProspectAllowance`.
      */
     private function write(
         Conversation $conversation,
@@ -201,6 +205,7 @@ class PostMessage extends Action
         PostMessageData $data,
         ?MediaAsset $attachment,
         bool $capped,
+        ?CarbonImmutable $epoch,
         bool $fromStaff,
     ): Message {
         if (! $conversation->exists) {
@@ -216,17 +221,8 @@ class PostMessage extends Action
         } elseif ($capped) {
             DB::update('UPDATE conversations SET id = id WHERE id = ?', [$conversation->getKey()]);
 
-            $replied = Conversation::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($conversation->getKey())
-                ->value('staff_replied_at');
-
-            if ($replied === null) {
-                $cap = CommunitySettings::prospectMessageCap();
-
-                if ($this->allowance->sentSoFar((int) $conversation->getKey()) >= $cap) {
-                    throw new DomainException(ProspectAllowance::refusal($cap));
-                }
+            if ($this->allowance->exhausted((int) $conversation->getKey(), $epoch)) {
+                throw new DomainException(ProspectAllowance::refusal(CommunitySettings::prospectMessageCap()));
             }
         }
 
@@ -243,24 +239,14 @@ class PostMessage extends Action
             'body' => $data->body === '' ? null : $data->body,
             'media_asset_id' => $attachment?->getKey(),
             // The teacher sees WHO on the student's side wrote this line.
+            // Which side wrote it — the prospect cap lifts on a teacher-side line.
+            'from_staff' => $fromStaff,
             'sent_by_guardian' => ! $fromStaff
                 && $conversation->kind === ConversationKind::Private
                 && (int) $sender->getKey() !== (int) $conversation->student_user_id,
         ]);
 
         $this->claimLastMessage($conversation, (int) $message->getKey());
-
-        if ($fromStaff) {
-            /*
-            | The teacher's side has answered, which lifts the prospect cap for
-            | good. Conditional, so the FIRST reply's moment is the one kept.
-            */
-            Conversation::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($conversation->getKey())
-                ->whereNull('staff_replied_at')
-                ->update(['staff_replied_at' => now()]);
-        }
 
         return $message;
     }

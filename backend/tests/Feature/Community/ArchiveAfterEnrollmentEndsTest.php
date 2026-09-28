@@ -70,7 +70,7 @@ it('keeps the archive readable and refuses new messages once the enrolment ends'
     $this->postJson($url, ['body' => 'مرحباً مجدّداً'])->assertForbidden();
 });
 
-it('refuses the teacher a new message into a relationship that has ended', function (): void {
+it('still lets the teacher answer in a thread whose relationship has ended', function (): void {
     Enrollment::query()->withoutWorkspaceScope()
         ->whereKey($this->enrollment->getKey())
         ->update(['status' => 'expired']);
@@ -81,7 +81,10 @@ it('refuses the teacher a new message into a relationship that has ended', funct
     $url = "/api/v1/conversations/{$this->conversationUuid}/messages";
 
     $this->getJson($url)->assertOk()->assertJsonCount(1);
-    $this->postJson($url, ['body' => 'عد إلينا'])->assertForbidden();
+
+    // ⛔ Changed 2026-09-28 (owner decision): the prospect switch stops strangers
+    // writing and never silences the teacher side in a thread that exists.
+    $this->postJson($url, ['body' => 'عد إلينا'])->assertCreated();
 });
 
 it('hides a message from its own sender and leaves the row for moderation', function (): void {

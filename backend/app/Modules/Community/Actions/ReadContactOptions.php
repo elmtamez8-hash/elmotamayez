@@ -7,6 +7,7 @@ namespace App\Modules\Community\Actions;
 use App\Models\User;
 use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Policies\ConversationPolicy;
 use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Community\Support\ProspectAllowance;
 use App\Modules\Identity\Support\PlatformRole;
@@ -62,7 +63,7 @@ class ReadContactOptions extends Action
         | a public page — and the teacher is not a prospect of their own workspace.
         */
         if ($actor->teachesOnPlatform()) {
-            return ['options' => [], 'note' => 'حسابك حساب تدريس، والمراسلة من هنا للطلاب وأولياء الأمور.'];
+            return ['options' => [], 'note' => ConversationPolicy::TEACHING_ACCOUNT];
         }
 
         if ($actor->platform_role === PlatformRole::Parent) {

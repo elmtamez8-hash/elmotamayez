@@ -26,11 +26,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $lesson_id
  * @property int|null $last_message_id
  * @property CarbonInterface|null $locked_at
- * @property CarbonInterface|null $staff_replied_at when the teacher's side first
- *                                                  wrote here — lifts the prospect
- *                                                  cap; stamped by a conditional
- *                                                  UPDATE in `PostMessage`, never
- *                                                  mass-assigned
  */
 class Conversation extends BaseModel
 {
@@ -82,7 +77,6 @@ class Conversation extends BaseModel
         return [
             'kind' => ConversationKind::class,
             'locked_at' => 'datetime',
-            'staff_replied_at' => 'datetime',
         ];
     }
 

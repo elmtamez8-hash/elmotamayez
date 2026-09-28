@@ -56,6 +56,23 @@ interface EnrollmentDirectory
     public function hasActiveEnrollmentInWorkspace(User $user, int $workspaceId): bool;
 
     /**
+     * When this user's LAST enrolment in this workspace stopped granting access,
+     * or null when they never held one that ended (2026-09-28).
+     *
+     * The moment a former student became a prospect again: Community counts the
+     * prospect's messages, and looks for the teacher's answer, from here — so a
+     * reply written while they were still enrolled does not lift the cap on the
+     * day they leave.
+     *
+     * ⚠️ READ FROM `updated_at` OF THE NON-GRANTING ROWS, because `enrollments`
+     * has no «ended at» column and every writer that ends one
+     * (`ChangeEnrollmentStatus`, `SubscriptionAccess`) is an Eloquent update,
+     * which touches it. A later unrelated write to a lapsed row can only move
+     * this LATER — the strict direction: fewer earlier replies count.
+     */
+    public function accessEndedAt(User $user, int $workspaceId): ?CarbonImmutable;
+
+    /**
      * Every course this user is actively enrolled in.
      *
      * The reason issuing grants for a list of lessons does not scale with the

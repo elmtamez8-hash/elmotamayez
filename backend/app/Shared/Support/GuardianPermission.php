@@ -55,11 +55,11 @@ enum GuardianPermission: string
      * ticked for a different reason, and unticking marks would silently take the
      * conversation away.
      *
-     * ⚠️ AND IT IS NOT BACKFILLED onto relations made before it existed. A grant
-     * the student never saw would widen what every existing guardian may read —
-     * the direction `GuardianDirectory::permissionsFor()` calls unsafe. A new
-     * link receives it by default (`LinkGuardianData` defaults to `values()`),
-     * and an existing one gains it when the permissions are edited on /family.
+     * ⚠️ AND EVERY ACCEPTED RELATION RECEIVED IT ON DEPLOY (owner decision
+     * 2026-09-28, `2026_09_28_000600_grant_messages_to_accepted_guardians`) —
+     * pending and revoked rows did not. A new link receives it by default
+     * (`LinkGuardianData` defaults to `values()`), and the student removes it on
+     * /family like any other permission.
      */
     case Messages = 'messages';
 

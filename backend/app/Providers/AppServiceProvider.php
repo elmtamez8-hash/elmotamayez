@@ -604,15 +604,20 @@ class AppServiceProvider extends ServiceProvider
          * teachers; twenty an hour and forty a day is still more than anybody
          * shopping for a tutor writes. Keyed by user: the callers are students.
          *
-         * ⚠️ AND A TEACHER IS NOT COUNTED HERE. «راسِل» beside a new class of
-         * sixty is sixty first messages in an evening, to the teacher's own
-         * enrolled students (a teacher cannot open a thread with anyone else —
-         * `ConversationPolicy::post()`), so `chat-write` alone bounds them.
+         * ⚠️ THE ONE EXEMPTION IS THE TEACHER-SIDE START, AND IT IS NAMED BY THE
+         * REQUEST, NOT BY THE ACCOUNT (security review of #276). «راسِل» beside a
+         * new class of sixty is sixty first messages in an evening, and every one
+         * of them names a `student` the policy has already confined to the
+         * teacher's OWN enrolled students — a teacher can open a thread with
+         * nobody else — so this bucket would guard nothing there and block a real
+         * evening's work. A teaching account that names NO student is asking to be
+         * the student itself, which the policy now refuses; it is counted like
+         * everybody else, so probing that refusal costs the same as any other.
          */
         RateLimiter::for('conversation-start', function (Request $request) {
             $user = $request->user();
 
-            if ($user instanceof User && $user->teachesOnPlatform()) {
+            if ($user instanceof User && $request->filled('student') && $user->teachesOnPlatform()) {
                 return Limit::none();
             }
 

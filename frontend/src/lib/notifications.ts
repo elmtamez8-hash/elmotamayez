@@ -287,8 +287,8 @@ export const GUARDIAN_PERMISSIONS: { key: string; label: string }[] = [
   { key: "data_rights", label: "الموافقة على معالجة البيانات وطلب حقوقها" },
   /*
    * The seventh (2026-09-28): writing to the child's teachers in the child's own
-   * private conversation, and reading it. Not backfilled onto older relations —
-   * see `GuardianPermission::Messages` — so an existing guardian gains it here.
+   * private conversation, and reading it. Granted to every accepted relation on
+   * deploy — see `GuardianPermission::Messages` — and removable here.
    */
   { key: "messages", label: "مراسلة المدرّسين باسم الطالب" },
 ];

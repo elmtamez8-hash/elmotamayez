@@ -10,8 +10,10 @@ use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
 use App\Modules\Community\Support\ConversationSides;
 use App\Modules\Community\Support\TeacherInboxSettings;
+use App\Modules\Community\Support\TeacherStanding;
 use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
@@ -39,6 +41,9 @@ use Illuminate\Auth\Access\Response;
  */
 class ConversationPolicy
 {
+    /** Shown on the button (`ReadContactOptions`) and at the door alike. */
+    public const TEACHING_ACCOUNT = 'حسابك حساب تدريس، والمراسلة من هنا للطلاب وأولياء الأمور.';
+
     public function __construct(
         private readonly AssistantScopeDirectory $assistants,
         private readonly EnrollmentDirectory $enrollments,
@@ -50,6 +55,7 @@ class ConversationPolicy
         private readonly SessionContentAccess $sessionContent,
         private readonly ConversationSides $sides,
         private readonly TeacherInboxSettings $inbox,
+        private readonly TeacherStanding $standing,
     ) {}
 
     /** May this person read the thread at all? */
@@ -241,6 +247,36 @@ class ConversationPolicy
         }
 
         /*
+        | ⛔ THE STUDENT OF A PRIVATE THREAD IS A LEARNER (security review of #276).
+        | Without these two refusals a TEACHER account — `teachesOnPlatform()` is
+        | true the moment public signup creates their workspace, before approval —
+        | could omit `student` and write to any other teacher as a «prospect», and
+        | a GUARDIAN could open a thread as themselves instead of as a child. The
+        | same sentence `ReadContactOptions` shows, so the button and the door say
+        | one thing.
+        */
+        if ($student->teachesOnPlatform()) {
+            return Response::deny(self::TEACHING_ACCOUNT);
+        }
+
+        if ($student->platform_role === PlatformRole::Parent) {
+            return Response::deny('وليّ الأمر يراسل المدرّس باسم ابنه، فاختر الابن أولاً.');
+        }
+
+        $speaksForStudent = $this->sides->speaksForStudent($user, $conversation);
+
+        /*
+        | ⛔ A GUARDIAN CARRIES THE CHILD'S BAN (security review of #276). The ban
+        | above is asked of the SENDER; a guardian writes as the child, into the
+        | child's thread, so a banned student's parent was the way around it.
+        */
+        if ($speaksForStudent
+            && (int) $user->getKey() !== $studentId
+            && $this->bans->isBanned($studentId, (int) $conversation->workspace_id)) {
+            return Response::deny('تم إيقاف الكتابة عن حساب ابنك عند هذا المدرّس. يمكنك القراءة.');
+        }
+
+        /*
         | A SUBSCRIBER WRITES WITHOUT LIMIT, and «subscriber» is this one
         | predicate — an active or completed enrolment in the workspace. A live
         | subscription and a cohort seat both imply one (see
@@ -251,32 +287,24 @@ class ConversationPolicy
         }
 
         /*
-        | ⛔ A PROSPECT (owner decision 2026-09-28). Until that day this line
-        | refused every non-subscriber on both sides — «انتهت علاقتك التعليميّة
-        | هنا» — so nobody could ask a teacher a question before paying. Now the
-        | teacher decides, with «استقبال رسائل من غير المشتركين» (on by default).
-        |
-        | ⚠️ THE SETTING BINDS BOTH SIDES, the rule this branch has always kept:
-        | a door that only stopped the student would leave the teacher writing to
-        | somebody who cannot answer. With the setting OFF this branch is exactly
-        | the pre-2026-09-28 rule, FR-014's read-only archive included.
-        |
-        | ⚠️ AND WITH IT ON, A FORMER STUDENT IS A PROSPECT — which reopens the
-        | archive FR-014 closed, limited by the cap until the teacher answers and
-        | unlimited in a thread the teacher already answered in. Written down
-        | rather than discovered: switching the setting off restores FR-014.
+        | ⛔ A PROSPECT (owner decisions 2026-09-28). Until that day this line
+        | refused every non-subscriber on both sides — so nobody could ask a
+        | teacher a question before paying. A former student is a prospect again,
+        | with the cap counted from the day their access ended (`ProspectAllowance`).
         */
-        if (! $this->inbox->acceptsProspectsIn((int) $conversation->workspace_id)) {
-            return Response::deny($this->sides->speaksForStudent($user, $conversation)
-                ? 'لا يستقبل هذا المدرّس رسائل جديدة من غير طلابه حالياً.'
-                : 'هذا الطالب لا يدرس عندكم الآن، واستقبال رسائل غير المشتركين مغلق في إعداداتكم.');
-        }
+        if ($speaksForStudent) {
+            // The teacher's switch, «استقبال رسائل من غير المشتركين».
+            if (! $this->inbox->acceptsProspectsIn((int) $conversation->workspace_id)) {
+                return Response::deny('لا يستقبل هذا المدرّس رسائل جديدة من غير طلابه حالياً.');
+            }
 
-        /*
-        | The student's side may write; HOW MUCH is `PostMessage`'s question,
-        | because it needs a row lock this method cannot take.
-        */
-        if ($this->sides->speaksForStudent($user, $conversation)) {
+            // A suspended teacher, or an applicant not yet approved, is not
+            // somebody the platform lets strangers court.
+            if (! $this->standing->reachableByProspects((int) $conversation->workspace_id)) {
+                return Response::deny('لا يستقبل هذا المدرّس رسائل من غير طلابه الآن.');
+            }
+
+            // HOW MUCH is `PostMessage`'s question — it needs a row lock.
             return Response::allow();
         }
 
@@ -285,7 +313,11 @@ class ConversationPolicy
         | «راسِل» would take any account's uuid on the platform and start a thread
         | with it — a cold-message channel to every student who ever signed up.
         | A thread exists only once somebody has written in it, so «it exists and
-        | has a message» is «the prospect wrote first».
+        | has a message» is «somebody on the student's side wrote».
+        |
+        | ⛔ AND THE SWITCH DOES NOT BIND THIS SIDE (owner decision 2026-09-28).
+        | Turning prospects off stops strangers writing; it does not silence the
+        | teacher in threads that already exist — including a former student's.
         */
         return $conversation->exists && $conversation->last_message_id !== null
             ? Response::allow()

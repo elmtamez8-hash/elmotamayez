@@ -120,6 +120,15 @@ class ListConversations extends Action
                     $query->orWhere('uuid', $includeUuid);
                 }
             })
+            /*
+            | The thread being opened first, whatever its pointer: an EMPTY one
+            | sorts after every other row (NULLs last on MySQL), and past the
+            | limit it would vanish from the one screen that asked for it.
+            */
+            ->when(
+                $includeUuid !== null && $includeUuid !== '',
+                fn (Builder $query) => $query->orderByRaw('CASE WHEN uuid = ? THEN 0 ELSE 1 END', [$includeUuid]),
+            )
             ->orderByDesc('last_message_id')
             ->limit(self::LIMIT)
             ->get();
