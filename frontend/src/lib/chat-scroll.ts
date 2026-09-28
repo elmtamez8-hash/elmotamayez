@@ -65,6 +65,10 @@ export function decideScroll(
 
   if (previous === null || previous.count === 0) return "bottom-instant";
 
+  // Something was taken away (a message hidden, possibly the newest). Nothing
+  // arrived, so there is nothing to follow and nothing to announce.
+  if (next.count < previous.count) return "none";
+
   // The tail moved: something new at the bottom.
   if (next.last !== previous.last) {
     if (context.lastIsMine || context.wasNearBottom) return "bottom-smooth";

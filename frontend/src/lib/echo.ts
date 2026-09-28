@@ -288,7 +288,7 @@ export async function join(
 
   // A second holder arrives after the subscription already succeeded, and that
   // event does not fire twice: hand it the list that is already there.
-  if (subscription.members?.subscribed === true && subscription.members.each !== undefined) {
+  if (subscription.subscribed === true && subscription.members?.each !== undefined) {
     const present: ChatMember[] = [];
 
     subscription.members.each((member) => present.push(member.info));
@@ -345,8 +345,9 @@ export async function join(
 type PresenceSubscription = {
   bind: (event: string, callback: (payload: never) => void) => void;
   unbind: (event: string, callback: (payload: never) => void) => void;
+  // On the CHANNEL in pusher-js (`core/channels/channel.ts`), not on `members`.
+  subscribed?: boolean;
   members?: {
-    subscribed?: boolean;
     me?: { info?: ChatMember } | null;
     each?: (callback: (member: { info: ChatMember }) => void) => void;
   };

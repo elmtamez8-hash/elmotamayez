@@ -318,6 +318,9 @@ describe("decideScroll", () => {
     expect(decideScroll(before, shape("z", "a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("keep-offset");
     // A message hidden in the middle moves neither end.
     expect(decideScroll(shape("a", "b", "c"), shape("a", "c"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
+    // Hiding the NEWEST moves the tail and is still not «something new».
+    expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
+    expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: true, lastIsMine: true })).toBe("none");
   });
 
   it("counts 120px from the bottom as still following", () => {

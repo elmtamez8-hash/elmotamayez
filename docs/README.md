@@ -2233,6 +2233,7 @@ it, so moving to a managed provider is a line of configuration.
 | `GET` | `/api/v1/conversations/{conversation}/messages` | either party |
 | `POST` | `/api/v1/conversations/{conversation}/messages` | either party, while the relationship lasts |
 | `POST` | `/api/v1/conversations/{conversation}/attachments` | either party |
+| `POST` | `/api/v1/conversations/{conversation}/attachments/{asset}/complete` | the uploader, while they may post there — never `/media/assets/{asset}/complete`, which is the lesson author's door |
 | `DELETE` | `/api/v1/messages/{message}` | the author, or `chat.moderate` |
 | `POST` | `/api/v1/messages/{message}/helpful` | the teacher's side, in a room |
 | `POST` | `/api/v1/conversations/{conversation}/lock` | `chat.moderate`. Closes a ROOM's discussion and opens it again; whoever holds the permission keeps writing, or the teacher cannot answer the last question on screen. Refused on a private thread — silencing one person there is a **ban**, which is declared, recorded and appealable |
