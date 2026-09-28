@@ -242,6 +242,45 @@ class Order extends BaseModel implements HasMedia
     }
 
     /**
+     * The orders an officer may APPROVE — narrower than «awaiting a decision».
+     *
+     * ⛔ **لا اعتمادَ بلا إيصال (قرارُ المالك ٢٠٢٦-٠٩-٢٨).** `pending` يعني أنّ
+     * الطالبَ لم يدفعْ بعد؛ `under_review` هو ما يكتبُه {@see UploadPaymentReceipt}
+     * حينَ يُرفَعُ الإيصال. فالاعتمادُ على `under_review` وحدَه — وكانَ يقبلُ
+     * `pending` أيضاً، فاعتمدَ موظّفٌ طلباً عليه «لا إيصال» وفتحَ رصيداً لم يُدفَع.
+     *
+     * ⚠️ **استثناءٌ واحدٌ ضيّق: طلبٌ مبلغُه صفر.** كوبونٌ بمئةٍ في المئة، أو كوبونٌ
+     * ثابتٌ قُصَّ إلى الصفر، أو كورسٌ سعرُه صفرٌ بيعَ عبرَ {@see CreateOrder} —
+     * لا تحويلَ هناكَ ليُرفَعَ إيصالُه، وبلا هذا الاستثناءِ يبقى الطلبُ `pending`
+     * إلى الأبد. ولا استثناءَ لمنحِ الموظّف (`granted_by`): شاشةُ المنح ترفعُ
+     * الإيصالَ في المعاملةِ نفسِها فيصلُ الطلبُ `under_review` كأيِّ طلب.
+     *
+     * ⚠️ **وهذا لا يمسُّ `awaitingDecisionStatuses()`**: الرفضُ والسقفُ والكوبونُ
+     * والإلغاءُ يقرؤون «لم يُقرَّرْ بعد»، وهو سؤالٌ آخرُ جوابُه ما زالَ الحالتَين.
+     *
+     * A scope as well as an instance method for the reason the pair above has
+     * both: the scope is what the atomic claim in {@see ApproveOrder} runs.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeApprovable(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q): Builder => $q
+            ->where('status', 'under_review')
+            ->orWhere(fn (Builder $free): Builder => $free
+                ->where('status', 'pending')
+                ->where('amount_minor', 0)));
+    }
+
+    /** {@see scopeApprovable()}, asked of one loaded row. */
+    public function isApprovable(): bool
+    {
+        return $this->status === 'under_review'
+            || ($this->status === 'pending' && (int) $this->amount_minor === 0);
+    }
+
+    /**
      * Whether a receipt may still be uploaded onto this order (027 · FR-032).
      *
      * ⚠️ WIDER THAN `isPending()`, AND ONLY BY `rejected`. A refusal the payer

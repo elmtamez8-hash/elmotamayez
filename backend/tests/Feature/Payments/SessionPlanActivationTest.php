@@ -136,7 +136,7 @@ function sessionPlanBought(Plan $plan): Order
         (string) test()->cohort->uuid,
     );
 
-    app(ApproveOrder::class)->handle($order->refresh(), test()->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), test()->officer);
 
     return $order->refresh();
 }

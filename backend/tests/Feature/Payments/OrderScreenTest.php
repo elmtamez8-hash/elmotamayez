@@ -144,6 +144,7 @@ it('carries the signed receipt link inside the approval window', function (): vo
     Storage::fake('local');
 
     $this->order->addMedia(UploadedFile::fake()->image('receipt.jpg'))->toMediaCollection('receipt');
+    receiptUploaded($this->order);
 
     Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
         ->mountAction('approve')
@@ -153,20 +154,58 @@ it('carries the signed receipt link inside the approval window', function (): vo
         ->assertMountedActionModalSeeHtml(['>افتحِ الإيصال</a>', 'signature=']);
 });
 
-it('says there is no receipt inside the approval window when there is none', function (): void {
+/*
+| The one receipt-less order the window still opens on: a zero amount, where no
+| transfer exists to upload (owner decision 2026-09-28 · `Order::scopeApprovable()`).
+*/
+it('says why there is no receipt inside the approval window on a zero-amount order', function (): void {
+    $this->order->forceFill(['amount_minor' => 0])->save();
+
     Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
         ->mountAction('approve')
-        ->assertMountedActionModalSee('لا إيصالَ على هذا الطلب — تحقّقْ من التحويل قبل الاعتماد.');
+        ->assertMountedActionModalSee('لا إيصالَ على هذا الطلب لأنّ مبلغَه صفر — لا تحويلَ يُطابَق.');
 });
 
-it('offers the decision on the screen that shows the receipt', function (): void {
+/*
+| ⛔ لا اعتمادَ بلا إيصال (قرارُ المالك ٢٠٢٦-٠٩-٢٨). `pending` يعني أنّ الطالبَ لم
+| يدفعْ بعد: «اعتمد» مخفيّ، و«ارفض» باقٍ لإغلاقِ طلبٍ متروك.
+*/
+it('offers only the refusal on an order whose receipt was never uploaded', function (): void {
     Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
-        ->assertActionVisible('approve')
+        ->assertActionHidden('approve')
         ->assertActionVisible('reject');
 });
 
+it('approves nothing when the hidden button is called directly on a pending order', function (): void {
+    // The raw Livewire calls, not `callAction()` — that helper refuses to press
+    // a hidden action before the component is ever asked.
+    Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
+        ->call('mountAction', 'approve')
+        ->call('callMountedAction');
+
+    expect($this->order->fresh()?->status)->toBe('pending')
+        ->and(PaymentTransaction::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('refuses in the Action when the screen still shows a receipt the row no longer has', function (): void {
+    // The page loaded while the row read `under_review`, so the button is on
+    // screen; the row is `pending` by the time it is pressed. The Action reads
+    // the row, not the page, and refuses — the panel's visibility is a hint.
+    receiptUploaded($this->order);
+
+    $page = Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()]);
+
+    Order::query()->withoutGlobalScopes()->whereKey($this->order->getKey())->update(['status' => 'pending']);
+
+    $page->callAction('approve');
+
+    expect($this->order->fresh()?->status)->toBe('pending')
+        ->and($this->order->fresh()?->approved_by)->toBeNull()
+        ->and(PaymentTransaction::query()->withoutGlobalScopes()->count())->toBe(0);
+});
+
 /**
- * ⚠️ الشرطُ `isPending()` لا `status === 'pending'`.
+ * ⚠️ الشرطُ `isApprovable()` (وكانَ `isPending()`) لا `status === 'pending'`.
  *
  * {@see UploadPaymentReceipt} يختمُ `under_review`، ومطالبةُ `ApproveOrder` تقبلُه
  * — فالهجاءُ الثاني كان يُخفي الزرَّينِ عن الطلباتِ التي لها إيصال، أي عن الطلبِ
@@ -181,6 +220,8 @@ it('keeps the buttons on an order whose receipt moved it to under review', funct
 });
 
 it('mints the transaction and the audit stamp when the button is the door', function (): void {
+    receiptUploaded($this->order);
+
     Livewire::test(EditOrder::class, ['record' => $this->order->getRouteKey()])
         ->callAction('approve')
         ->assertHasNoActionErrors();

@@ -254,6 +254,7 @@ _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withhold
 - Cancelling a plan refunds its UNUSED part only (days, or sessions for an hours plan), floored to the minor unit, and the amount is `payment_transactions.refunded_minor` — «reversed» no longer means «all of it went back»; the teacher keeps delivered sessions' pay.
 - A subscription that ends early releases the no-hold seats inside its window that no live subscription covers — even when the student keeps an outright enrolment in the course — and `liveOn($moment)` judges the status at that moment.
 - Money is typed and shown in MAJOR units through the model's virtual attribute (`Plan::price` over `price_minor`, built by `MinorUnits::attribute()`); the `*_minor` column stays the stored truth, a form never converts, and the attribute is neither appended nor (on a plan or a course) fillable.
+- NO RECEIPT, NO APPROVAL: `ApproveOrder` claims on `Order::scopeApprovable()` (`under_review`, or a zero-amount `pending`), never on `awaitingDecision()` — which stays wide for the ceiling, rejection and coupons; the staff grant uploads its own receipt and is not an exception.
 
 ### Teacher settlement → [`docs/gotchas/settlement.md`](docs/gotchas/settlement.md)
 _Read before touching `Modules/Settlement/`, teaching units, the ledger, payouts._

@@ -97,7 +97,7 @@ function orderForCohort(?Cohort $cohort = null): Order
 
 function approveIt(Order $order): Order
 {
-    return app(ApproveOrder::class)->handle($order, test()->officer);
+    return app(ApproveOrder::class)->handle(receiptUploaded($order), test()->officer);
 }
 
 it('turns one approval into a subscription, an enrolment, a group and a message', function (): void {
@@ -152,7 +152,7 @@ it('refuses the APPROVAL when the group filled up after the order, writing nothi
 
     $order->refresh();
 
-    expect($order->status)->toBe('pending')
+    expect($order->status)->toBe('under_review')
         ->and($order->approved_at)->toBeNull()
         ->and(Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->exists())->toBeFalse()
         ->and(Enrollment::query()->withoutWorkspaceScope()
@@ -204,7 +204,7 @@ it('refuses the approval rather than moving a student who joined another group',
 
     expect(fn () => approveIt($order))->toThrow(DomainException::class);
 
-    expect($order->refresh()->status)->toBe('pending')
+    expect($order->refresh()->status)->toBe('under_review')
         ->and(CohortMembership::query()->withoutWorkspaceScope()
             ->where('student_user_id', $this->student->getKey())
             ->whereNull('closed_at')

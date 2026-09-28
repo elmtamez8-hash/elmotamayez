@@ -109,7 +109,7 @@ it('names the kind when a refused order has no course, rather than dropping the 
 it('tells a store buyer their receipt was accepted, and where their purchase is', function (): void {
     $order = receiptNoticeUpload(receiptNoticeOrder(OrderKind::Store, withCourse: false), $this->student);
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->owner);
 
     $notices = receiptNoticesFor($this->student, NotificationType::ReceiptApproved);
 
@@ -136,7 +136,7 @@ it('sends a credit buyer to their balance', function (): void {
 it('says nothing extra about a course order, whose enrolment notice already speaks', function (): void {
     $order = receiptNoticeUpload(receiptNoticeOrder(OrderKind::Course), $this->student);
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->owner);
 
     // One click, one message: the enrolment notice is the outcome here.
     expect(receiptNoticesFor($this->student, NotificationType::ReceiptApproved))->toHaveCount(0)

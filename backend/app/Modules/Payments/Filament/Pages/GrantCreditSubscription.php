@@ -84,9 +84,14 @@ use UnitEnum;
  * ⚠️ AND THE GUARD IS `kind`, NOT THE STATUS FILTER. That distinction became load
  * bearing in 027 · FR-027, which widened this query to keep recently APPROVED
  * subscription orders listed so a failed activation is visible. Approved rows
- * carry no decision control — both buttons are `->visible(isPending())` on
- * `OrderResource` — so widening the statuses cannot reopen 024's rule; widening
- * the kind still would.
+ * carry no decision control — «اعتمد» is `->visible(isApprovable())` and «ارفض»
+ * `->visible(isPending())` on `OrderResource` — so widening the statuses cannot
+ * reopen 024's rule; widening the kind still would.
+ *
+ * ⛔ AND A ROW READING «لا إيصال» CARRIES NO «اعتمد» (owner decision 2026-09-28):
+ * approval needs `under_review`, which only an uploaded receipt writes. The
+ * grant form below is not an exception — it uploads its receipt in the same
+ * transaction, so its order arrives `under_review` like any other.
  *
  * @property-read Schema $form
  */

@@ -189,7 +189,7 @@ it('leaves an approved order fulfilled through the queued listener', function ()
     $purchase = buyOneCopy($buyer);
     $order = Order::query()->whereKey($purchase->order_id)->firstOrFail();
 
-    app(ApproveOrder::class)->handle($order, $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->owner);
 
     expect($purchase->refresh()->fulfilled_at)->not->toBeNull()
         ->and((int) $this->item->refresh()->stock)->toBe(0);

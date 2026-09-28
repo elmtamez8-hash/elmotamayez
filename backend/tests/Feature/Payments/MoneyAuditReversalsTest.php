@@ -81,7 +81,7 @@ beforeEach(function (): void {
 function moneyAuditMonth(): Subscription
 {
     $order = app(PurchaseSubscription::class)->handle(test()->student, (string) test()->plan->uuid);
-    app(ApproveOrder::class)->handle($order, test()->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), test()->officer);
 
     return Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->firstOrFail();
 }
@@ -138,7 +138,7 @@ function moneyAuditPackageBought(): CreditPurchase
     );
 
     $purchase = app(PurchaseCredits::class)->handle(test()->student, test()->course, $package);
-    app(ApproveOrder::class)->handle(moneyAuditOrder((int) $purchase->order_id), test()->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded(moneyAuditOrder((int) $purchase->order_id)), test()->officer);
 
     return $purchase;
 }
@@ -193,7 +193,7 @@ it('reverses an hours plan, which writes no subscription row, the same way', fun
     ]);
 
     $order = app(PurchaseSubscription::class)->handle($this->student, (string) $plan->uuid);
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     $entry = CreditTransaction::query()->withoutWorkspaceScope()
         ->where('source_type', ActivateSubscription::CREDIT_SOURCE_TYPE)
@@ -235,7 +235,7 @@ it('hands the course back to the running subscription when an outright purchase 
         Course::query()->withoutWorkspaceScope()->findOrFail($this->course->getKey()),
         $this->student,
     );
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     // The precondition: the purchase took the subscriber's row.
     expect(moneyAuditEnrollment()->order_id)->toBe((int) $order->getKey());
@@ -305,10 +305,10 @@ it('opens nothing when the order was reversed before the queued listener ran', f
         Course::query()->withoutWorkspaceScope()->findOrFail($this->course->getKey()),
         $this->student,
     );
-    app(ApproveOrder::class)->handle($courseOrder, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($courseOrder), $this->officer);
 
     $monthOrder = app(PurchaseSubscription::class)->handle($this->student, (string) $this->plan->uuid);
-    app(ApproveOrder::class)->handle($monthOrder, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($monthOrder), $this->officer);
 
     // The events, as the worker will receive them: approved in memory.
     $staleCourse = moneyAuditOrder((int) $courseOrder->getKey());
@@ -386,7 +386,7 @@ it('closes the course an hours plan opened when the plan is reversed', function 
     ]);
 
     $order = app(PurchaseSubscription::class)->handle($this->student, (string) $plan->uuid);
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     expect(moneyAuditEnrollment())->source->toBe('session_plan')->status->toBe('active');
 

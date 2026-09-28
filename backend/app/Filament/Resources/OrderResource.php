@@ -344,7 +344,10 @@ class OrderResource extends Resource implements AwaitsDecision
      * فعلاً — فبقيَ الطالبُ بلا أرصدةٍ دفعَ ثمنَها. الحقلُ صارَ نائباً للقراءةِ
      * لا حقلاً يُحفَظ.
      *
-     * ⚠️ AND THE PREDICATE IS `isPending()`, THE MODEL'S OWN SPELLING —
+     * ⚠️ AND THE PREDICATE IS NOW `isApprovable()` (2026-09-28), which drops a
+     * receipt-less `pending` order (a zero amount excepted). History, kept
+     * because it is why the model owns the spelling: it was `isPending()`, and
+     * before that
      * `status === 'pending'` was a SECOND one, and it hid both buttons on exactly
      * the orders that have a receipt: {@see UploadPaymentReceipt} stamps
      * `under_review`, which `ApproveOrder`'s claim accepts and this test did not.
@@ -362,7 +365,11 @@ class OrderResource extends Resource implements AwaitsDecision
             ->label('اعتمد')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->color('success')
-            ->visible(fn (Order $record): bool => $record->isPending())
+            // ⛔ `isApprovable()`, NOT `isPending()` (owner decision 2026-09-28):
+            // no receipt, no approve button. Reject below keeps `isPending()` so
+            // an abandoned `pending` order can still be turned down. The Action
+            // refuses the same thing again — this only stops offering it.
+            ->visible(fn (Order $record): bool => $record->isApprovable())
             ->authorize('approve')
                 // A confirmation, because approving mints an entitlement and
                 // nothing here takes it back.
@@ -380,7 +387,9 @@ class OrderResource extends Resource implements AwaitsDecision
                 $media = $record->latestReceipt();
 
                 if ($media === null) {
-                    return new HtmlString(e($lead.'لا إيصالَ على هذا الطلب — تحقّقْ من التحويل قبل الاعتماد.'));
+                    // Reachable only by the zero-amount exception now
+                    // ({@see Order::scopeApprovable()}): nothing was transferred.
+                    return new HtmlString(e($lead.'لا إيصالَ على هذا الطلب لأنّ مبلغَه صفر — لا تحويلَ يُطابَق.'));
                 }
 
                 return new HtmlString(e($lead).'<a href="'.e(self::receiptUrl($record)).'" target="_blank" '

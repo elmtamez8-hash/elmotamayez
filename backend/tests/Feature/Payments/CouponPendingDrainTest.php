@@ -68,7 +68,7 @@ it('still lets the same buyer order without the code, and another buyer use it',
 it('lets the buyer use the code again once the first order is decided', function (): void {
     $first = drainPurchase($this->buyer, $this->item, $this->coupon->code);
 
-    app(ApproveOrder::class)->handle(Order::query()->withoutWorkspaceScope()->findOrFail($first->order_id), $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded(Order::query()->withoutWorkspaceScope()->findOrFail($first->order_id)), $this->owner);
 
     expect(drainPurchase($this->buyer, $this->item, $this->coupon->code)->discount_minor)->toBe(5_000)
         ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(2);

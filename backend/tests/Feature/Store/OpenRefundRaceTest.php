@@ -48,7 +48,7 @@ beforeEach(function (): void {
         'item_uuid' => $this->item->uuid,
     ]));
 
-    app(ApproveOrder::class)->handle(Order::query()->whereKey($purchase->order_id)->firstOrFail(), $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded(Order::query()->whereKey($purchase->order_id)->firstOrFail()), $this->owner);
 
     $this->purchase = $purchase->refresh();
 });

@@ -76,7 +76,7 @@ beforeEach(function (): void {
         'cohort',
         (string) $this->cohort->uuid,
     );
-    app(ApproveOrder::class)->handle($order, makePlatformStaff(Roles::FINANCE_ADMIN));
+    app(ApproveOrder::class)->handle(receiptUploaded($order), makePlatformStaff(Roles::FINANCE_ADMIN));
 
     $this->subscription = Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->firstOrFail();
 

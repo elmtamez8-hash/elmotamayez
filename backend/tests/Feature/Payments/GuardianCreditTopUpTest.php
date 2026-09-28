@@ -318,7 +318,7 @@ it('puts the order, the balance and the credits on the CHILD (SC-001 Â· SC-005 Â
     expect((int) $order->user_id)->toBe($this->child->getKey())
         ->and((int) $order->granted_by)->toBe($this->guardian->getKey());
 
-    app(ApproveOrder::class)->handle($order, makePlatformStaff(Roles::FINANCE_ADMIN));
+    app(ApproveOrder::class)->handle(receiptUploaded($order), makePlatformStaff(Roles::FINANCE_ADMIN));
 
     $balance = CreditBalance::query()->withoutWorkspaceScope()
         ->where('student_user_id', $this->child->getKey())

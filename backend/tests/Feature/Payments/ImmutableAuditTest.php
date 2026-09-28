@@ -43,7 +43,7 @@ beforeEach(function (): void {
     ]);
 
     $this->actingAs($this->owner);
-    app(ApproveOrder::class)->handle($order, $this->owner, '198.51.100.4', 'Firefox');
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->owner, '198.51.100.4', 'Firefox');
 
     $this->entry = ActivityEntry::query()->where('description', 'approved')->firstOrFail();
 });

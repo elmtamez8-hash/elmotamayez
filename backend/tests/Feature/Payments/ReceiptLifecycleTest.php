@@ -12,9 +12,11 @@ use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Events\ReceiptUploaded;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Tenancy\Support\Roles;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Activitylog\Models\Activity;
 
 /*
@@ -192,6 +194,70 @@ it('refuses a second decision after either one', function (): void {
 
     expect(fn () => app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner))
         ->toThrow(DomainException::class);
+});
+
+// No receipt, no approval (owner decision 2026-09-28) ------------------------
+
+it('refuses to approve an order whose receipt was never uploaded', function (): void {
+    expect(fn () => app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner))
+        ->toThrow(DomainException::class, 'لا يمكن اعتماد طلب لم يُرفَع إيصال دفعه بعد.');
+
+    $order = $this->order->refresh();
+
+    // The ROW: nothing claimed, nothing minted, nothing logged.
+    expect($order->status)->toBe('pending')
+        ->and($order->approved_by)->toBeNull()
+        ->and($order->transactions()->withoutGlobalScopes()->count())->toBe(0)
+        ->and(Activity::query()->where('description', 'approved')->count())->toBe(0);
+});
+
+it('approves the same order once its receipt is uploaded', function (): void {
+    uploadReceipt($this->order);
+
+    app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner);
+
+    expect($this->order->refresh()->status)->toBe('approved');
+});
+
+it('reads the status from the row, not from a stale copy loaded before the upload', function (): void {
+    // The panel table polls every ten seconds, so the instance handed to the
+    // Action can predate the upload — and must not be refused for it.
+    $stale = $this->order->refresh();
+
+    uploadReceipt($this->order);
+
+    app(ApproveOrder::class)->handle($stale, $this->owner);
+
+    expect($this->order->refresh()->status)->toBe('approved');
+});
+
+it('approves a zero-amount order with no receipt, because there is no transfer to upload', function (): void {
+    /*
+    | ⚠️ THE ONE KEPT EXCEPTION. A 100% coupon, a fixed coupon clamped to zero or
+    | a zero-price course sold through `CreateOrder` leaves nothing to transfer;
+    | without this the order sits `pending` for ever.
+    */
+    $this->order->forceFill(['amount_minor' => 0])->save();
+
+    app(ApproveOrder::class)->handle($this->order->refresh(), $this->owner);
+
+    expect($this->order->refresh()->status)->toBe('approved');
+});
+
+it('answers 422 with the sentence at the API when there is no receipt', function (): void {
+    $this->seed(RolesAndPermissionsSeeder::class);
+
+    $officer = makePlatformStaff(Roles::FINANCE_ADMIN);
+    $officer->securitySettings()->updateOrCreate([], [
+        'two_factor_required_at' => now()->addDays(14),
+    ]);
+    Sanctum::actingAs($officer->refresh());
+
+    $this->postJson("/api/v1/orders/{$this->order->uuid}/approve")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'لا يمكن اعتماد طلب لم يُرفَع إيصال دفعه بعد.');
+
+    expect($this->order->refresh()->status)->toBe('pending');
 });
 
 // The trail ------------------------------------------------------------------
