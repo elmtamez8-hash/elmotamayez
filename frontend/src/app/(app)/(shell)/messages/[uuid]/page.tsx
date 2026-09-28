@@ -1,17 +1,18 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatHeader } from "@/components/community/ChatHeader";
 import { Composer, type PendingAttachment } from "@/components/community/Composer";
 import { MessageList } from "@/components/community/MessageList";
 import { Alert } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
 import {
+  AttachmentRefused,
+  CHAT_PRESENCE_CHANGED,
   conversations,
   mergeMessages,
   moderation,
@@ -22,6 +23,7 @@ import {
 import { join, listen } from "@/lib/echo";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
+import { throttleWhisper, useTypingIndicator } from "@/lib/typing-indicator";
 
 /**
  * One thread (spec 010 · US2 · `FR-054`).
@@ -60,30 +62,44 @@ export default function ConversationPage() {
   const [banned, setBanned] = useState(false);
   /** How many OTHER people have this thread open right now. Never stored. */
   const [present, setPresent] = useState(0);
-  const [typing, setTyping] = useState<string | null>(null);
-  const [whisper, setWhisper] = useState<(() => void) | null>(null);
+  const { typing, heard, settle } = useTypingIndicator();
   const [pending, setPending] = useState<PendingAttachment | null>(null);
   const [moderating, setModerating] = useState(false);
   const [olderExhausted, setOlderExhausted] = useState(false);
 
-  const bottom = useRef<HTMLDivElement | null>(null);
-  const lastWhisper = useRef(0);
+  /*
+   * ⚠️ AT MOST ONE WHISPER EVERY TWO SECONDS (`throttleWhisper`). One per
+   * keystroke is one FRAME per keystroke — Reverb's own rate limiter would begin
+   * dropping them mid-sentence and the indicator on the other side would flicker
+   * rather than hold. A ref, not state: the throttle has to survive re-renders and
+   * the channel's `whisper` arrives after the first one.
+   */
+  const whisper = useRef<(() => void) | null>(null);
+  const announceTyping = useMemo(() => throttleWhisper(() => whisper.current?.()), []);
 
   /*
-   * ⚠️ AT MOST ONE WHISPER EVERY TWO SECONDS. One per keystroke is one FRAME per
-   * keystroke — Reverb's own rate limiter would begin dropping them mid-sentence,
-   * and the indicator on the other side would flicker rather than hold. Two
-   * seconds is comfortably inside the three-second expiry on the receiving end, so
-   * a continuous typist never appears to stop.
+   * Their message arrived, so they have stopped typing — cleared at once rather
+   * than after the three-second expiry, which read as «still typing» under the
+   * very message they had just sent.
    */
-  const announceTyping = () => {
-    const now = Date.now();
+  const newest = messages[messages.length - 1];
 
-    if (whisper === null || now - lastWhisper.current < 2000) return;
+  useEffect(() => {
+    if (newest !== undefined) settle(newest.sender_uuid);
+  }, [newest, settle]);
 
-    lastWhisper.current = now;
-    whisper();
-  };
+  // Tell the list beside this thread whether the other end is here (the dot).
+  useEffect(() => {
+    const announce = (isPresent: boolean): void => {
+      window.dispatchEvent(
+        new CustomEvent(CHAT_PRESENCE_CHANGED, { detail: { uuid, present: isPresent } }),
+      );
+    };
+
+    announce(present > 0);
+
+    return () => announce(false);
+  }, [uuid, present]);
 
   const refresh = useCallback(
     (mode: "initial" | "catch-up") => {
@@ -167,10 +183,6 @@ export default function ConversationPage() {
     };
   }, [uuid, refresh]);
 
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
-
   /*
    * Who else is here, and who is typing (`FR-058` · `FR-059`).
    *
@@ -186,12 +198,6 @@ export default function ConversationPage() {
   useEffect(() => {
     let cancelled = false;
     let release: (() => void) | null = null;
-    let typingTimer: number | undefined;
-
-    const dropTyping = () => {
-      window.clearTimeout(typingTimer);
-      typingTimer = window.setTimeout(() => setTyping(null), 3000);
-    };
 
     join(`chat-presence.${uuid}`, {
       here: (members) => setPresent(members.filter((m) => m.uuid !== user?.uuid).length),
@@ -204,8 +210,7 @@ export default function ConversationPage() {
       typing: (member) => {
         if (member.uuid === user?.uuid) return;
 
-        setTyping(member.name);
-        dropTyping();
+        heard(member);
       },
     })
       .then((room) => {
@@ -216,16 +221,16 @@ export default function ConversationPage() {
         }
 
         release = room.release;
-        setWhisper(() => room.whisper);
+        whisper.current = room.whisper;
       })
       .catch(() => undefined);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(typingTimer);
+      whisper.current = null;
       release?.();
     };
-  }, [uuid, user?.uuid]);
+  }, [uuid, user?.uuid, heard]);
 
   const send = () => {
     const body = draft.trim();
@@ -274,7 +279,10 @@ export default function ConversationPage() {
       .catch((error: unknown) => {
         const fields = fieldErrors(error);
 
-        if (fields.body) {
+        if (error instanceof AttachmentRefused) {
+          // Our own sentence about the file, never the server's reason text.
+          setProblem(error.message);
+        } else if (fields.body) {
           setBodyError(fields.body);
         } else {
           setProblem(userMessage(error));
@@ -343,20 +351,33 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-1 flex-col">
-      <ChatHeader
-        title={thread?.counterparty_name ?? "المحادثة"}
-        // ⚠️ «يكتب…» OUTRANKS «متصل الآن», because it implies it and says more.
-        // Showing both stacks two lines of status under a two-word name.
-        subtitle={typing !== null ? "يكتب…" : present > 0 ? "متصل الآن" : null}
-        canModerate={thread?.can_moderate ?? false}
-        banned={banned}
-        onBanToggle={toggleBan}
-        busy={moderating}
-      />
+    /*
+     * ⚠️ ONE SCROLL BOX, AND THE PAGE DOES NOT SCROLL BEHIND IT. This column is
+     * exactly the pane's height (`h-full min-h-0`); the header, the alerts and the
+     * composer keep their own height (`shrink-0`) and the message list takes what
+     * is left and scrolls inside itself. The list used to sit in an
+     * `overflow-y-auto` of this page while carrying one of its own, and a flex
+     * child without `min-h-0` grew to its content — so an alert above it pushed
+     * the composer down and a second scrollbar appeared beside the first.
+     */
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      <div className="shrink-0">
+        <ChatHeader
+          title={thread?.counterparty_name ?? "المحادثة"}
+          // ⚠️ «يكتب…» OUTRANKS «متصل الآن», because it implies it and says more.
+          // Showing both stacks two lines of status under a two-word name.
+          subtitle={typing !== null ? "يكتب…" : present > 0 ? "متصل الآن" : null}
+          avatarUrl={thread?.counterparty_avatar_url ?? null}
+          online={present > 0}
+          canModerate={thread?.can_moderate ?? false}
+          banned={banned}
+          onBanToggle={toggleBan}
+          busy={moderating}
+        />
+      </div>
 
       {problem !== null && (
-        <div className="p-3">
+        <div className="shrink-0 p-3">
           <Alert tone="danger" title="تعذّر إتمام الطلب">
             {problem}
           </Alert>
@@ -364,37 +385,29 @@ export default function ConversationPage() {
       )}
 
       {notice !== null && (
-        <div className="p-3">
+        <div className="shrink-0 p-3">
           <Alert tone="info" title="تمّ">
             {notice}
           </Alert>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
-        {messages.length > 0 && !olderExhausted && (
-          <div className="p-3 text-center">
-            <Button variant="secondary" onClick={loadOlder}>
-              الرسائل الأقدم
-            </Button>
-          </div>
-        )}
+      <MessageList
+        size="fill"
+        showAvatars
+        messages={messages}
+        currentUserUuid={user?.uuid ?? null}
+        onLoadOlder={olderExhausted ? undefined : loadOlder}
+        onReport={report}
+        onHide={(messageUuid) => {
+          conversations
+            .hide(messageUuid)
+            .then(() => setMessages((current) => current.filter((m) => m.uuid !== messageUuid)))
+            .catch((error: unknown) => setProblem(userMessage(error)));
+        }}
+      />
 
-        <MessageList
-          messages={messages}
-          currentUserUuid={user?.uuid ?? null}
-          onReport={report}
-          onHide={(messageUuid) => {
-            conversations
-              .hide(messageUuid)
-              .then(() => setMessages((current) => current.filter((m) => m.uuid !== messageUuid)))
-              .catch((error: unknown) => setProblem(userMessage(error)));
-          }}
-        />
-
-        <div ref={bottom} />
-      </div>
-
+      <div className="shrink-0">
       <Composer
         value={draft}
         onChange={(next) => {
@@ -407,6 +420,7 @@ export default function ConversationPage() {
         pending={pending}
         onAttachmentChange={setPending}
       />
+      </div>
     </div>
   );
 }

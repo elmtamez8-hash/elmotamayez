@@ -31,7 +31,13 @@ class CompleteMediaUpload extends Action
         private readonly MediaProviderResolver $providers,
     ) {}
 
-    public function handle(MediaAsset $asset): MediaAsset
+    /**
+     * @param  list<string>|null  $allowedMimeTypes  the caller's own list, for an
+     *                                               owner whose files are not lesson files
+     *                                               (a chat picture is not a slide deck).
+     *                                               Null is the kind's lesson list.
+     */
+    public function handle(MediaAsset $asset, ?array $allowedMimeTypes = null): MediaAsset
     {
         $provider = $this->providers->for($asset);
 
@@ -41,7 +47,13 @@ class CompleteMediaUpload extends Action
         $failureReason = $report->failureReason;
 
         if ($status === MediaAssetStatus::Ready) {
-            $rejection = $this->rejectionReason($asset->kind, $report->mimeType, $report->sizeBytes, $report->durationSeconds);
+            $rejection = $this->rejectionReason(
+                $asset->kind,
+                $allowedMimeTypes ?? MediaLimits::allowedMimeTypes($asset->kind),
+                $report->mimeType,
+                $report->sizeBytes,
+                $report->durationSeconds,
+            );
 
             if ($rejection !== null) {
                 $status = MediaAssetStatus::Failed;
@@ -84,15 +96,17 @@ class CompleteMediaUpload extends Action
      * whatever had been uploaded, so a 60 MB "PDF" passed the only real check
      * and its rejection message, when one came, said "not a supported video".
      */
+    /** @param  list<string>  $allowedMimeTypes */
     private function rejectionReason(
         MediaKind $kind,
+        array $allowedMimeTypes,
         ?string $mimeType,
         ?int $sizeBytes,
         ?int $durationSeconds,
     ): ?string {
         // Fails closed. An undetectable type is not a permission to publish it —
         // that is precisely the shape of a file pretending to be one.
-        if ($mimeType === null || ! in_array($mimeType, MediaLimits::allowedMimeTypes($kind), true)) {
+        if ($mimeType === null || ! in_array($mimeType, $allowedMimeTypes, true)) {
             return $kind->rejectionMessage();
         }
 

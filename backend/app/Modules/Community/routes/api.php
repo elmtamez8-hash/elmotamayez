@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Community\Http\Controllers\AssistantController;
 use App\Modules\Community\Http\Controllers\ChatAttachmentController;
 use App\Modules\Community\Http\Controllers\ConversationController;
+use App\Modules\Community\Http\Controllers\ConversationPresenceController;
 use App\Modules\Community\Http\Controllers\InboxSettingsController;
 use App\Modules\Community\Http\Controllers\Manage\AnnouncementController;
 use App\Modules\Community\Http\Controllers\Manage\AssistantController as ManageAssistantController;
@@ -78,6 +79,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     | a limit on reading a chat is a limit on scrolling one.
     */
     Route::get('/conversations', [ConversationController::class, 'index']);
+
+    /*
+    | The list's green dots — «online on the platform» for the other end of each
+    | of the reader's OWN private threads. No parameter: nobody can ask about a
+    | person they share no thread with. Polled by the sidebar, so it sits on the
+    | read side and answers from a shared ten-second cache.
+    */
+    Route::get('/conversations/online', [ConversationPresenceController::class, 'index']);
     Route::get('/conversations/{conversation}/messages', [MessageController::class, 'index']);
 
     /*
@@ -141,6 +150,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | could mint upload tickets faster than any ceiling could refuse the files.
         */
         Route::post('/conversations/{conversation}/attachments', [ChatAttachmentController::class, 'store']);
+
+        /*
+        | «The bytes are there» — for the chat, not through the lesson door.
+        |
+        | ⚠️ `/media/assets/{asset}/complete` ASKS `LESSONS_MANAGE`, so every
+        | student picture was refused AFTER it had uploaded (production,
+        | 2026-09-28). Both segments are strings resolved inside the Action, for
+        | the reason at the top of this file: an implicit `{asset}` binding
+        | resolves any workspace's row for a student before a policy runs.
+        */
+        Route::post(
+            '/conversations/{conversation}/attachments/{asset}/complete',
+            [ChatAttachmentController::class, 'complete'],
+        );
     });
 
     /*

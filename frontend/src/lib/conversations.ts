@@ -15,6 +15,8 @@ export interface ChatMessage {
   body: string;
   sender_uuid: string | null;
   sender_name: string | null;
+  /** The sender's account photo; null draws their initial instead. */
+  sender_avatar_url?: string | null;
   /** The student's guardian wrote this, as the student (2026-09-28). */
   sent_by_guardian?: boolean;
   is_helpful: boolean;
@@ -56,6 +58,11 @@ export interface Conversation {
    * Null in a public room, which is a class rather than a person.
    */
   counterparty_name: string | null;
+  /**
+   * The face beside `counterparty_name` — the teacher for a student, the student
+   * for the teaching side. Null draws the initial.
+   */
+  counterparty_avatar_url?: string | null;
   /** Whether THIS reader may hide a message or ban the sender in this thread. */
   can_moderate: boolean;
   /**
@@ -84,6 +91,30 @@ export interface Conversation {
     created_at: string | null;
   } | null;
   updated_at: string | null;
+}
+
+/**
+ * The open thread telling the list beside it whether its other end is here, as
+ * `{ uuid, present }` on `window`. See the messages layout for why only the open
+ * thread can say so.
+ */
+export const CHAT_PRESENCE_CHANGED = "chat-presence:changed";
+
+/**
+ * The server received the file and refused what it was.
+ *
+ * Carries its own sentence rather than the server's `failure_reason`: that field
+ * can hold a provider's exception text, and a raw error never reaches the screen.
+ */
+export class AttachmentRefused extends Error {
+  constructor(public readonly kind: "image" | "voice") {
+    super(
+      kind === "image"
+        ? "لم نتمكّن من قبول هذه الصورة. الصيغ المقبولة: PNG وJPEG وWebP."
+        : "لم نتمكّن من قبول هذا التسجيل الصوتي. سجّله من جديد وأعد الإرسال.",
+    );
+    this.name = "AttachmentRefused";
+  }
 }
 
 /**
@@ -202,6 +233,13 @@ export const conversations = {
     ),
 
   /**
+   * Which of MY threads have their other end on the platform right now — the
+   * list's green dots. Conversation uuids only; the server decides whose status
+   * I may see (the other end of my own private threads, nobody else).
+   */
+  online: () => api.get<{ online: string[] }>("/conversations/online"),
+
+  /**
    * Send the FIRST message to a teacher's side — which opens the one private
    * conversation, or writes into it if it already exists. There is no way to
    * open an empty one.
@@ -299,7 +337,21 @@ export const conversations = {
 
     if (!response.ok) throw new Error("upload-failed");
 
-    await api.post(`/media/assets/${ticket.asset.uuid}/complete`);
+    /*
+     * ⚠️ THE CHAT'S OWN COMPLETION, NOT `/media/assets/{asset}/complete`. That one
+     * is the lesson author's door (`LESSONS_MANAGE`), so every student picture
+     * was refused with «لا تملك صلاحية لهذا الإجراء» after it had uploaded.
+     *
+     * ⚠️ AND ITS ANSWER IS READ. A file that arrived and was refused (a PDF sent
+     * as a picture, a recording the server could not prove was sound) is a 200
+     * about a FAILED asset — and sending on regardless is what produced «لم يكتمل
+     * رفع المرفق بعد» about a voice note the sender had watched finish.
+     */
+    const settled = await api.post<{ uuid: string; status: string }>(
+      `/conversations/${conversationUuid}/attachments/${ticket.asset.uuid}/complete`,
+    );
+
+    if (settled.status !== "ready") throw new AttachmentRefused(kind);
 
     return ticket.asset.uuid;
   },

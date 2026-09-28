@@ -1,13 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ChatSoundToggle } from "@/components/community/ChatSoundToggle";
 import { ConversationList } from "@/components/community/ConversationList";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
-import { conversations, type Conversation } from "@/lib/conversations";
+import { CHAT_PRESENCE_CHANGED, conversations, type Conversation } from "@/lib/conversations";
 import { listen } from "@/lib/echo";
 import { userMessage } from "@/lib/errors";
 
@@ -30,6 +31,9 @@ import { userMessage } from "@/lib/errors";
  * media-query hook: `hidden md:block` renders both on the server and lets the
  * viewport decide, so there is no first paint with the wrong pane in it.
  */
+/** How often the list re-asks who is online while the tab is visible. */
+const ONLINE_REFRESH_MS = 30_000;
+
 export default function MessagesLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
@@ -63,6 +67,70 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
   useEffect(load, [load]);
 
   /*
+   * Which rows get the green dot: the other end is ON THE PLATFORM right now
+   * (owner decision, 2026-09-28 — «متصل الآن» like WhatsApp).
+   *
+   * ⚠️ ASKED OF THE SERVER, NOT JOINED ON THE SOCKET. `GET /conversations/online`
+   * answers for the other end of MY OWN threads and nobody else, from Reverb's
+   * own record of who holds their `user.{uuid}` channel. A presence channel per
+   * row would be two hundred subscriptions and two hundred authorisations per
+   * page for a busy teacher; a presence channel per person that counterparts
+   * join would show each student the other students talking to that teacher.
+   *
+   * Refreshed every 30 seconds while the tab is visible, at once when it becomes
+   * visible again, and whenever a message arrives (someone who just wrote is
+   * online). The open thread's own presence (`chat-presence.{uuid}`) is merged
+   * in live, so the row the reader is looking at never lags its header.
+   */
+  const [platformOnline, setPlatformOnline] = useState<ReadonlySet<string>>(new Set());
+  const [threadPresence, setThreadPresence] = useState<{ uuid: string; present: boolean } | null>(null);
+
+  const refreshOnline = useCallback(() => {
+    conversations
+      .online()
+      .then((response) => setPlatformOnline(new Set(response.online ?? [])))
+      // A dot that cannot be fetched is a dot that stays dark — not a banner
+      // over a list that is otherwise working.
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    refreshOnline();
+
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshOnline();
+    }, ONLINE_REFRESH_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshOnline();
+    };
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("conversations:changed", refreshOnline);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("conversations:changed", refreshOnline);
+    };
+  }, [refreshOnline]);
+
+  useEffect(() => {
+    const onPresence = (event: Event) =>
+      setThreadPresence((event as CustomEvent<{ uuid: string; present: boolean }>).detail);
+
+    window.addEventListener(CHAT_PRESENCE_CHANGED, onPresence);
+
+    return () => window.removeEventListener(CHAT_PRESENCE_CHANGED, onPresence);
+  }, []);
+
+  const onlineRows = useMemo(() => {
+    if (threadPresence === null || !threadPresence.present) return platformOnline;
+
+    return new Set([...platformOnline, threadPresence.uuid]);
+  }, [platformOnline, threadPresence]);
+
+  /*
    * The sidebar, live (`FR-054`).
    *
    * ⚠️ `user.{uuid}` AND NOT THE CONVERSATION CHANNEL. This pane shows threads the
@@ -85,7 +153,11 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
     const uuid = user?.uuid;
 
     if (uuid !== undefined && uuid !== null) {
-      listen(`user.${uuid}`, "message.posted", load)
+      // Somebody who just wrote is online: the dots are re-asked with the list.
+      listen(`user.${uuid}`, "message.posted", () => {
+        load();
+        refreshOnline();
+      })
         .then((off) => {
           if (cancelled) {
             off();
@@ -111,7 +183,7 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
       unsubscribe?.();
       window.removeEventListener("conversations:changed", load);
     };
-  }, [user?.uuid, load]);
+  }, [user?.uuid, load, refreshOnline]);
 
   return (
     /*
@@ -127,25 +199,41 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
      * browser's own collapsing chrome, so the send button sits under the address
      * bar exactly while somebody is typing.
      */
-    <div className="-m-6 flex h-[calc(100dvh-4rem)] overflow-hidden">
+    /*
+     * ⚠️ AND THE NEGATIVE MARGIN FOLLOWS THE SHELL'S PADDING AT EVERY WIDTH. The
+     * shell's `<main>` is `p-4 sm:p-6`; a flat `-m-6` overshot the phone's 16px by
+     * 8px on each side, which is a horizontal scrollbar and a page that scrolls
+     * behind the thread.
+     */
+    <div className="-m-4 flex h-[calc(100dvh-4rem)] overflow-hidden sm:-m-6">
       <aside
         className={
           // On a phone the sidebar IS the screen until a thread is open; from
           // `md` up it is a fixed column beside it.
           (openUuid === null ? "flex" : "hidden") +
-          " w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
+          " min-h-0 w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
         }
       >
-        {state === "loading" && <RowsSkeleton count={5} />}
+        <div className="flex shrink-0 items-center justify-end border-b border-line px-3 py-1">
+          <ChatSoundToggle />
+        </div>
 
-        {state === "error" && (
-          <ErrorState onRetry={load} description={problem ?? undefined} />
-        )}
+        <div className="min-h-0 flex-1">
+          {state === "loading" && <RowsSkeleton count={5} />}
 
-        {state === "ready" && <ConversationList rows={rows} activeUuid={openUuid} />}
+          {state === "error" && (
+            <ErrorState onRetry={load} description={problem ?? undefined} />
+          )}
+
+          {state === "ready" && (
+            <ConversationList rows={rows} activeUuid={openUuid} onlineUuids={onlineRows} />
+          )}
+        </div>
       </aside>
 
-      <main className={(openUuid === null ? "hidden" : "flex") + " min-w-0 flex-1 md:flex"}>
+      {/* `min-h-0`: the thread's message box is the only thing that scrolls, and
+          a flex child without it grows to its content instead. */}
+      <main className={(openUuid === null ? "hidden" : "flex") + " min-h-0 min-w-0 flex-1 md:flex"}>
         {children}
       </main>
     </div>

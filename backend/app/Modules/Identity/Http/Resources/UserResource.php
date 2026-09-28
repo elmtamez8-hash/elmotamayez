@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Http\Resources;
 
 use App\Models\User;
 use App\Modules\Identity\Actions\SaveAccountPhoto;
+use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
@@ -289,13 +290,10 @@ class UserResource extends JsonResource
      * ملفُّ المدرّسِ أوّلاً ثمّ ملفُّ الطالب، بنفسِ ترتيبِ
      * {@see SaveAccountPhoto} — ترتيبانِ
      * مختلفانِ يعنيانِ حساباً يرفعُ صورةً في مكانٍ وتُقرأُ من مكانٍ آخر.
+     * والقاعدةُ في {@see AccountPhoto} وحدَها، وتقرؤها المحادثةُ أيضاً.
      */
     private function accountPhotoUrl(): ?string
     {
-        $path = $this->teacherProfile === null
-            ? $this->studentProfile?->avatar_path
-            : $this->teacherProfile->photo_path;
-
-        return $path === null ? null : asset('storage/'.$path);
+        return AccountPhoto::url($this->resource);
     }
 }

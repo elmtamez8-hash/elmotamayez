@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Community\Actions\CompleteChatAttachment;
 use App\Modules\Community\Actions\RequestChatAttachment;
 use App\Modules\Community\Http\Requests\RequestChatAttachmentRequest;
 use App\Modules\Community\Models\Conversation;
@@ -13,6 +14,7 @@ use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Providers\LocalMediaProvider;
 use App\Modules\Media\Support\MediaProviderResolver;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -68,6 +70,36 @@ class ChatAttachmentController extends Controller
                 'headers' => $result['ticket']->headers,
             ],
         ], 201);
+    }
+
+    /**
+     * The bytes have landed — read them and settle the asset.
+     *
+     * ⚠️ NOT `/media/assets/{asset}/complete`, whose policy is the lesson
+     * author's. See `CompleteChatAttachment` for what it refused and why.
+     *
+     * The answer is the asset's own status, `ready` or `failed` with the reason:
+     * a file that arrived and was refused is a 200 about a failed asset, not an
+     * error about the request — and the client must read it BEFORE it sends, or
+     * the sender is told «لم يكتمل رفع المرفق بعد» about a file that finished.
+     *
+     * ⚠️ TWO FIELDS, NOT `MediaAssetResource`. That resource carries
+     * `failure_reason`, which a provider fills from an exception's message — a
+     * disk path, a hostname — and the chat client needs only «ready or not» to
+     * choose its own Arabic sentence.
+     */
+    public function complete(
+        Request $request,
+        string $conversation,
+        string $asset,
+        CompleteChatAttachment $action,
+    ): JsonResponse {
+        $settled = $action->handle($this->currentUser($request), $conversation, $asset);
+
+        return response()->json([
+            'uuid' => $settled->uuid,
+            'status' => $settled->status->value,
+        ]);
     }
 
     /** The bytes, behind a signature the reader was given while authorised. */

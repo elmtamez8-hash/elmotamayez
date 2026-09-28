@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MessageList } from "./MessageList";
+import { decideScroll, isNearBottom, shapeOf } from "@/lib/chat-scroll";
 import { mergeMessages, type ChatMessage } from "@/lib/conversations";
 
 /*
@@ -171,8 +172,12 @@ describe("MessageList badges", () => {
 | يُقاسُ بضبطِ المقاساتِ بأنفسِنا، وهذا هو المكانُ الوحيدُ الذي يُقاسُ منه.
 */
 describe("MessageList — following the conversation", () => {
+  function from(uuid: string, body: string, at: string, sender: string): ChatMessage {
+    return { ...message(uuid, body, at), sender_uuid: sender, sender_name: sender === "me" ? "أنا" : "المدرّس" };
+  }
+
   function boxOf(): HTMLElement {
-    return screen.getAllByRole("list")[0];
+    return screen.getByTestId("chat-scroll");
   }
 
   function size(box: HTMLElement, scrollHeight: number, clientHeight: number): void {
@@ -180,42 +185,185 @@ describe("MessageList — following the conversation", () => {
     Object.defineProperty(box, "clientHeight", { value: clientHeight, configurable: true });
   }
 
-  it("scrolls a reader who is already at the bottom down to the newest message", () => {
-    const first = [message("m-1", "أهلاً", "2026-08-23T10:00:00+00:00")];
+  /** The reader moves: the position is recorded from the scroll event, as in a browser. */
+  function scrollTo(box: HTMLElement, top: number): void {
+    box.scrollTop = top;
+    fireEvent.scroll(box);
+  }
 
+  const first = [from("m-1", "أهلاً", "2026-08-23T10:00:00+00:00", "them")];
+
+  it("scrolls a reader who is already at the bottom down to the newest message", () => {
     const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
 
     const box = boxOf();
     size(box, 400, 300);
-    box.scrollTop = 100; // Exactly at the bottom of a 400px thread in a 300px box.
+    scrollTo(box, 100); // Exactly at the bottom of a 400px thread in a 300px box.
 
+    size(box, 470, 300);
     rerender(
       <MessageList
-        messages={[...first, message("m-2", "سؤال", "2026-08-23T10:01:00+00:00")]}
+        messages={[...first, from("m-2", "سؤال", "2026-08-23T10:01:00+00:00", "them")]}
         currentUserUuid="me"
       />,
     );
 
-    expect(box.scrollTop).toBe(box.scrollHeight);
+    expect(box.scrollTop).toBe(470);
   });
 
-  it("leaves a reader who has scrolled up exactly where they were", () => {
-    const first = [message("m-1", "أهلاً", "2026-08-23T10:00:00+00:00")];
-
+  /*
+  | ⚠️ بلاغُ ٢٠٢٦-٠٩-٢٨: «رسالةٌ فيها إيموجي لا تظهرُ إلّا بعدَ التحديث». كان سؤالُ
+  | «هل القارئُ في الأسفل؟» يُسألُ بعدَ رسمِ الفقاعةِ الجديدة، فيُحسَبُ طولُها هي
+  | عليه: سطرٌ قصيرٌ يتبعُه النزول، وسطرٌ أطولُ ببضعِ بكسلات — والإيموجي يرفعُ
+  | السطر — يُحكَمُ عليه «ابتعدَ القارئ» فيبقى تحتَ الحافّة. والجوابُ الآنَ عمّا
+  | كانَ قبلَ وصولِها.
+  */
+  it("still follows when the new message is taller than the threshold on its own", () => {
     const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
 
     const box = boxOf();
     size(box, 400, 300);
-    // Far from the bottom: they are reading something older on purpose.
-    box.scrollTop = 0;
+    scrollTo(box, 100);
 
+    // A 150px bubble: measured AFTER it arrived, the reader would be 150px from the
+    // bottom — further than the threshold — and would have been left behind.
+    size(box, 550, 300);
     rerender(
       <MessageList
-        messages={[...first, message("m-2", "سؤال", "2026-08-23T10:01:00+00:00")]}
+        messages={[...first, from("m-2", "تمام 👍🏽👍🏽👍🏽", "2026-08-23T10:01:00+00:00", "them")]}
+        currentUserUuid="me"
+      />,
+    );
+
+    expect(box.scrollTop).toBe(550);
+    expect(screen.queryByRole("button", { name: /رسائل جديدة/ })).toBeNull();
+  });
+
+  it("leaves a reader who has scrolled up where they were, and says a message came", () => {
+    const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+
+    const box = boxOf();
+    size(box, 1000, 300);
+    scrollTo(box, 0); // Reading something older on purpose.
+
+    size(box, 1070, 300);
+    rerender(
+      <MessageList
+        messages={[...first, from("m-2", "سؤال", "2026-08-23T10:01:00+00:00", "them")]}
         currentUserUuid="me"
       />,
     );
 
     expect(box.scrollTop).toBe(0);
+
+    const pill = screen.getByRole("button", { name: /رسائل جديدة/ });
+
+    fireEvent.click(pill);
+
+    expect(box.scrollTop).toBe(1070);
+    expect(screen.queryByRole("button", { name: /رسائل جديدة/ })).toBeNull();
+  });
+
+  it("always takes the reader down to a message they sent themselves", () => {
+    const { rerender } = render(<MessageList messages={first} currentUserUuid="me" />);
+
+    const box = boxOf();
+    size(box, 1000, 300);
+    scrollTo(box, 0);
+
+    size(box, 1070, 300);
+    rerender(
+      <MessageList
+        messages={[...first, from("m-2", "ردّي", "2026-08-23T10:01:00+00:00", "me")]}
+        currentUserUuid="me"
+      />,
+    );
+
+    expect(box.scrollTop).toBe(1070);
+  });
+
+  it("keeps the reader on the same line when an older page arrives above", () => {
+    const { rerender } = render(<MessageList messages={first} currentUserUuid="me" onLoadOlder={() => {}} />);
+
+    const box = boxOf();
+    size(box, 1000, 300);
+    scrollTo(box, 40);
+
+    // The older page adds 600px above what they were reading.
+    size(box, 1600, 300);
+    rerender(
+      <MessageList
+        messages={[from("m-0", "قديمة", "2026-08-23T09:00:00+00:00", "them"), ...first]}
+        currentUserUuid="me"
+        onLoadOlder={() => {}}
+      />,
+    );
+
+    expect(box.scrollTop).toBe(640);
+  });
+
+  it("starts watching the list for late-loading pictures once the first message arrives", () => {
+    const observed: Element[] = [];
+
+    class FakeResizeObserver {
+      observe(element: Element) {
+        observed.push(element);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+
+    try {
+      // A room's chat mounts empty: there is no list yet to watch.
+      const { rerender } = render(<MessageList messages={[]} currentUserUuid="me" />);
+      expect(observed).toHaveLength(0);
+
+      rerender(<MessageList messages={first} currentUserUuid="me" />);
+
+      expect(observed).toEqual([screen.getByRole("list")]);
+    } finally {
+      globalThis.ResizeObserver = original;
+    }
+  });
+
+  it("is the only scroll box on the screen", () => {
+    render(<MessageList size="fill" messages={first} currentUserUuid="me" />);
+
+    // The list itself no longer scrolls; the one box around it does.
+    expect(screen.getByRole("list").className).not.toContain("overflow");
+    expect(boxOf().className).toContain("overflow-y-auto");
+    expect(boxOf().className).toContain("min-h-0");
+  });
+});
+
+describe("decideScroll", () => {
+  const shape = (...uuids: string[]) => shapeOf(uuids);
+
+  it("opens a thread at its newest message", () => {
+    expect(decideScroll(null, shape("a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe(
+      "bottom-instant",
+    );
+  });
+
+  it("follows, pills, or keeps the offset", () => {
+    const before = shape("a", "b");
+
+    expect(decideScroll(before, shape("a", "b", "c"), { wasNearBottom: true, lastIsMine: false })).toBe("bottom-smooth");
+    expect(decideScroll(before, shape("a", "b", "c"), { wasNearBottom: false, lastIsMine: false })).toBe("pill");
+    expect(decideScroll(before, shape("a", "b", "c"), { wasNearBottom: false, lastIsMine: true })).toBe("bottom-smooth");
+    expect(decideScroll(before, shape("z", "a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("keep-offset");
+    // A message hidden in the middle moves neither end.
+    expect(decideScroll(shape("a", "b", "c"), shape("a", "c"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
+    // Hiding the NEWEST moves the tail and is still not «something new».
+    expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: false, lastIsMine: false })).toBe("none");
+    expect(decideScroll(shape("a", "b", "c"), shape("a", "b"), { wasNearBottom: true, lastIsMine: true })).toBe("none");
+  });
+
+  it("counts 120px from the bottom as still following", () => {
+    expect(isNearBottom({ scrollHeight: 1000, scrollTop: 580, clientHeight: 300 })).toBe(true);
+    expect(isNearBottom({ scrollHeight: 1000, scrollTop: 579, clientHeight: 300 })).toBe(false);
   });
 });

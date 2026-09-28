@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Resources;
 
 use App\Modules\Community\Models\Message;
+use App\Modules\Identity\Support\AccountPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -31,6 +32,13 @@ class MessageResource extends JsonResource
             | screen lists messages with nobody's name on them.
             */
             'sender_name' => $this->whenLoaded('sender', fn () => $this->sender?->name),
+            // The face beside an incoming run — in a PRIVATE thread only, and read
+            // from relations `SenderFaces` eager-loaded beside the flag. Absent in
+            // a room: classmates do not receive each other's photographs.
+            'sender_avatar_url' => $this->when(
+                $this->resource->showsSenderFace,
+                fn () => $this->sender === null ? null : AccountPhoto::url($this->sender),
+            ),
             /*
             | The student's guardian typed this, writing as the student
             | (2026-09-28). Stored at send time, so the teacher reads «وليّ الأمر»

@@ -13,6 +13,7 @@ use App\Modules\Community\Actions\SetConversationWriteBan;
 use App\Modules\Community\Http\Resources\ConversationResource;
 use App\Modules\Community\Http\Resources\MessageResource;
 use App\Modules\Community\Models\Conversation;
+use App\Modules\Community\Support\SenderFaces;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -139,7 +140,9 @@ class SessionChatController extends Controller
     public function helpful(Request $request, string $message, MarkHelpful $action): JsonResponse
     {
         return MessageResource::make(
-            $action->handle($this->currentUser($request), $message)->loadMissing('sender')
+            // A room's message: `SenderFaces` decides from the kind and loads the
+            // photo relations only where the payload will carry them.
+            SenderFaces::stampOne($action->handle($this->currentUser($request), $message)->loadMissing('sender'))
         )->response();
     }
 }

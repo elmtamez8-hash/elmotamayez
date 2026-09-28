@@ -83,6 +83,9 @@ class Message extends BaseModel
     /** The sender's cumulative level, or null for a teacher, an assistant, or a first day. */
     public ?int $senderLevel = null;
 
+    /** Whether the payload carries the sender's photo — private threads only (`SenderFaces`). */
+    public bool $showsSenderFace = false;
+
     // `hidden_at` and `is_helpful` are claimed by their own Actions, each with a
     // conditional update behind it; neither is mass-assignable.
 

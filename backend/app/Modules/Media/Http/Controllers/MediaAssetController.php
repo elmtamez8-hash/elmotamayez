@@ -71,6 +71,16 @@ class MediaAssetController extends Controller
 
     public function complete(MediaAsset $asset, CompleteMediaUpload $action): JsonResponse
     {
+        /*
+        | ⚠️ A LESSON'S FILE ONLY. This door's policy is the lesson author's
+        | (`LESSONS_MANAGE`) and its allow-list is the lesson list, so a chat
+        | attachment finished here skipped both chat checks — the uploader and the
+        | chat's own mime list (a PDF passed as a «picture»). Chat uploads finish
+        | at `/conversations/{c}/attachments/{a}/complete`; anything that is not a
+        | lesson's answers as if it did not exist.
+        */
+        abort_unless($asset->owner_type === Lesson::class, 404);
+
         $this->authorize('view', $asset);
 
         return response()->json(MediaAssetResource::make($action->handle($asset)));

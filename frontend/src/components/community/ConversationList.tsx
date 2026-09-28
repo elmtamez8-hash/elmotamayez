@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { PresenceAvatar } from "@/components/community/PresenceAvatar";
 import { formatDateTime } from "@/lib/labels";
 import type { Conversation } from "@/lib/conversations";
 
@@ -24,9 +25,15 @@ import type { Conversation } from "@/lib/conversations";
 export function ConversationList({
   rows,
   activeUuid,
+  onlineUuids = new Set<string>(),
 }: {
   rows: Conversation[];
   activeUuid: string | null;
+  /**
+   * Threads whose other end has the thread open right now — see
+   * `PresenceAvatar` for why that, and not «online», is what a dot can say.
+   */
+  onlineUuids?: ReadonlySet<string>;
 }) {
   const [query, setQuery] = useState("");
 
@@ -59,7 +66,9 @@ export function ConversationList({
           {rows.length === 0 ? "لا محادثات بعد." : "لا نتائج لهذا البحث."}
         </p>
       ) : (
-        <ul className="flex-1 overflow-y-auto">
+        // `min-h-0`, or a flex child is at least as tall as its content and the
+        // overflow never engages — the list grows past the pane and is clipped.
+        <ul className="min-h-0 flex-1 overflow-y-auto">
           {shown.map((row) => {
             const active = row.uuid === activeUuid;
 
@@ -74,7 +83,11 @@ export function ConversationList({
                       : "flex items-start gap-3 border-b border-line p-3 hover:bg-surface-raised"
                   }
                 >
-                  <Avatar name={row.counterparty_name} />
+                  <PresenceAvatar
+                    url={row.counterparty_avatar_url ?? null}
+                    name={row.counterparty_name ?? "؟"}
+                    online={onlineUuids.has(row.uuid)}
+                  />
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
@@ -99,25 +112,5 @@ export function ConversationList({
         </ul>
       )}
     </div>
-  );
-}
-
-/**
- * The first letter, in a circle.
- *
- * No photo: the thread carries no avatar for either side, and inventing one from
- * a marketplace image would put a teacher's promotional headshot on the student's
- * own row too.
- */
-function Avatar({ name }: { name: string | null | undefined }) {
-  const letter = (name ?? "؟").trim().charAt(0);
-
-  return (
-    <span
-      aria-hidden="true"
-      className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary-ink"
-    >
-      {letter}
-    </span>
   );
 }

@@ -226,6 +226,7 @@ _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video pl
 - `PlaybackGrantResource` sends OUR route as `manifest_url`, never the manifest's own url.
 - The player needed hls.js, and «صيغة غير مدعومة» was the shipped answer until 019.
 - `ReconcileAssetStatus` existed since 004 and was never scheduled.
+- The magic bytes name the CONTAINER, not the content — every browser voice note is `video/webm` or `video/mp4` to libmagic, so an audio asset proves its tracks (`AudioContainer`), and a chat attachment has its own mime list.
 
 ### Billing, credits, payments and plans → [`docs/gotchas/billing.md`](docs/gotchas/billing.md)
 _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withholding, webhooks, subscriptions._
@@ -303,6 +304,9 @@ _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo
 - A permission nothing links to is a permission nobody has, and 021 shipped one for a phase.
 - A whisper is REFUSED on a private channel and ACCEPTED on a presence one, and that single fact decides both of this spec's channels in opposite directions.
 - A private conversation is born WITH its first message (`POST /conversations` requires `body`; empty rows are hidden from lists); its student is never a teaching account or a guardian; a PROSPECT writes `community.chat.prospect_message_cap` messages per THREAD counted from the EPOCH (thread start, or when their last enrolment ended) until a `from_staff` line AFTER it — gated by `UPDATE conversations SET id = id` first, and only to a publicly listed teacher; the `accepts_prospects` switch binds the student's side only; staff never OPEN a prospect thread; a guardian writes AS the child under `GuardianPermission::Messages` and carries the child's ban.
+- Chat media reused the lesson-media `complete` endpoint, and its policy answered a TEACHER's question — a chat upload completes through `/conversations/{c}/attachments/{a}/complete` (post + uploader).
+- `join()` read `room.members`, which Echo's channel does not have, so «يكتب…» never sent a whisper — the member list is on `room.subscription`.
+- «Online on the platform» is an OCCUPIED `private-user.{uuid}` channel asked of Reverb by the server, filtered to the other end of the reader's own threads — never a presence channel counterparts join (its member list leaks).
 
 ### Privacy, retention, erasure and offboarding → [`docs/gotchas/compliance.md`](docs/gotchas/compliance.md)
 _Read before touching `Modules/Compliance/`, retention sweeps, data requests, legal holds, teacher exit._
@@ -341,6 +345,8 @@ _Read before touching anything under `frontend/src/`._
 - A screen with no permission gate may only make reads EVERYBODY holds — and `/dashboard` made one nobody but a teacher did.
 - AN ENDPOINT NO FILE IN `frontend/src` CALLS IS A FEATURE NOBODY HAS — and three of them surfaced in one day (2026-09-06), each reported by the user as a missing product.
 - A session time is drawn on `useViewerTimeZone()`, never on `session.timezone` — that field is the PLATFORM zone.
+- «Is the reader at the bottom?» is asked BEFORE the new message is laid out (`lib/chat-scroll.ts`) — asked after, its own height counts against it, and one scroll box per thread.
+- The floating WhatsApp button is hidden on `/messages` by prefix — `hidesFloatingChrome()` is the one place that rule is written.
 
 ### HTTP surface, rate limits and proxies → [`docs/gotchas/http-and-security.md`](docs/gotchas/http-and-security.md)
 _Read before touching routes, middleware, rate limiters, API response shapes, logging._

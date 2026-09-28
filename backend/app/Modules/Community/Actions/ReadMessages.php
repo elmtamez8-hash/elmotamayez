@@ -9,6 +9,7 @@ use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Support\ChatRankStamper;
 use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Community\Support\SenderFaces;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
@@ -109,6 +110,9 @@ class ReadMessages extends Action
         if ($conversation->kind->isPublic()) {
             $this->ranks->stamp($page, (int) $conversation->workspace_id);
         }
+
+        // The sender's face — the mirror of the badges: private threads only.
+        SenderFaces::stamp($page, $conversation);
 
         return [$conversation, $page];
     }
