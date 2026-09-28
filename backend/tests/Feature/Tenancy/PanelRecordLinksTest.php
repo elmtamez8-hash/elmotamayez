@@ -20,6 +20,7 @@ use App\Filament\Resources\WorkspaceResource;
 use App\Filament\Resources\WorkspaceResource\Pages\ViewWorkspace;
 use App\Filament\Resources\WorkspaceResource\RelationManagers\CoursesRelationManager as WorkspaceCoursesRelationManager;
 use App\Filament\Resources\WorkspaceResource\RelationManagers\MembersRelationManager as WorkspaceMembersRelationManager;
+use App\Filament\Resources\WorkspaceResource\RelationManagers\StudentsRelationManager as WorkspaceStudentsRelationManager;
 use App\Filament\Support\RecordLink;
 use App\Models\User;
 use App\Modules\Assessments\Models\Exam;
@@ -295,11 +296,13 @@ it('shows a super admin another workspace\'s courses and staff, and its students
     Livewire::test(WorkspaceCoursesRelationManager::class, $owner)
         ->assertCanSeeTableRecords([$this->course]);
 
-    // `workspace_members` carries student rows: the default is the team alone.
+    // `workspace_members` carries student rows: the team table never shows one,
+    // and the students have a table of their own.
     Livewire::test(WorkspaceMembersRelationManager::class, $owner)
         ->assertCanSeeTableRecords([$this->awayOwner])
-        ->assertCanNotSeeTableRecords([$this->awayStudent])
-        ->filterTable('membership', 'students')
+        ->assertCanNotSeeTableRecords([$this->awayStudent]);
+
+    Livewire::test(WorkspaceStudentsRelationManager::class, $owner)
         ->assertCanSeeTableRecords([$this->awayStudent])
         ->assertCanNotSeeTableRecords([$this->awayOwner]);
 
@@ -326,6 +329,7 @@ it('shows no relation manager and no workspace page to platform staff who own a 
 
     expect(WorkspaceCoursesRelationManager::canViewForRecord($this->away, ViewWorkspace::class))->toBeFalse()
         ->and(WorkspaceMembersRelationManager::canViewForRecord($this->away, ViewWorkspace::class))->toBeFalse()
+        ->and(WorkspaceStudentsRelationManager::canViewForRecord($this->away, ViewWorkspace::class))->toBeFalse()
         ->and(ExamsRelationManager::canViewForRecord($this->course, EditCourse::class))->toBeFalse()
         ->and(WorkspaceResource::canView($this->away))->toBeFalse();
 

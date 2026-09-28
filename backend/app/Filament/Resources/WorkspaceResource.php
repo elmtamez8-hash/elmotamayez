@@ -186,22 +186,6 @@ class WorkspaceResource extends Resource
                             ->count()),
                 ]),
 
-            Section::make('الفريق')
-                ->description('المالكُ والمدرّسون والمساعدون وكلُّ دورٍ مخصَّص — بلا الطلّاب.')
-                ->schema([
-                    TextEntry::make('staff')
-                        ->hiddenLabel()
-                        ->placeholder('لا أحد')
-                        ->listWithLineBreaks()
-                        ->bulleted()
-                        ->state(fn (Workspace $record): array => $record->members()
-                            ->wherePivot('role', '!=', Roles::STUDENT)
-                            ->orderBy('first_name')
-                            ->get()
-                            ->map(fn (User $member): string => $member->name.' — '.$member->email
-                                .' ('.Roles::label(self::pivotRole($member)).')')
-                            ->all()),
-                ]),
         ]);
     }
 
@@ -372,6 +356,7 @@ class WorkspaceResource extends Resource
         return [
             RelationManagers\CoursesRelationManager::class,
             RelationManagers\MembersRelationManager::class,
+            RelationManagers\StudentsRelationManager::class,
         ];
     }
 }

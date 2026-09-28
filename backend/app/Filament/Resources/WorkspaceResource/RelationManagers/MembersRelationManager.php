@@ -12,7 +12,6 @@ use BackedEnum;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -21,9 +20,9 @@ use Illuminate\Support\Facades\Auth;
 /**
  * أعضاءُ مكانِ العملِ ودورُ كلٍّ منهم — قراءةً فقط.
  *
- * ⚠️ **الدورُ عمودٌ ظاهرٌ ومرشِّح، لا افتراض.** `workspace_members` يحملُ صفوفَ
- * الطلّابِ أيضاً، فقائمةٌ بلا دورٍ تعرضُ الطالبَ عضواً في الفريق. الافتراضُ
- * «الفريقُ وحدَه»، والطلّابُ خيارٌ في المرشِّحِ يُختارُ عمداً.
+ * ⚠️ **الفريقُ بدورِ العضويّة، لا بمجرّدِ العضويّة.** `workspace_members` يحملُ
+ * صفوفَ الطلّابِ أيضاً، فهذا الجدولُ يعرضُ `role != student` وحدَه، والطلّابُ
+ * جدولٌ مستقلّ ({@see StudentsRelationManager}) — لا مرشِّحٌ يخلطُ الاثنين.
  *
  * ⚠️ **ولا إرفاقَ ولا فكَّ ولا تعديل.** العضويّةُ تُكتَبُ من الدعوةِ وقبولِها
  * وتغييرِ الدور، وكلٌّ منها يمرُّ بـ`StaffAccounts` الذي يرفضُ حسابَ طالبٍ أو وليِّ
@@ -34,11 +33,11 @@ class MembersRelationManager extends RelationManager
 {
     protected static string $relationship = 'members';
 
-    protected static ?string $modelLabel = 'عضو';
+    protected static ?string $modelLabel = 'عضو فريق';
 
-    protected static ?string $pluralModelLabel = 'الأعضاء';
+    protected static ?string $pluralModelLabel = 'الفريق';
 
-    protected static ?string $title = 'الأعضاء';
+    protected static ?string $title = 'الفريق';
 
     protected static string|BackedEnum|null $icon = Heroicon::OutlinedUsers;
 
@@ -50,6 +49,17 @@ class MembersRelationManager extends RelationManager
     public function isReadOnly(): bool
     {
         return true;
+    }
+
+    /**
+     * The team: every pivot role but a student's.
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    protected function scopeMembers(Builder $query): Builder
+    {
+        return $query->where('workspace_members.role', '!=', Roles::STUDENT);
     }
 
     public function table(Table $table): Table
@@ -68,19 +78,6 @@ class MembersRelationManager extends RelationManager
                     ->formatStateUsing(fn (?string $state): string => Roles::label((string) $state)),
                 TextColumn::make('joined_at')->label('انضمّ')->dateTime('Y-m-d')->placeholder('—'),
             ])
-            ->filters([
-                SelectFilter::make('membership')
-                    ->label('الصفة')
-                    ->options([
-                        'staff' => 'الفريق',
-                        'students' => 'الطلّاب',
-                    ])
-                    ->default('staff')
-                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
-                        'staff' => $query->where('workspace_members.role', '!=', Roles::STUDENT),
-                        'students' => $query->where('workspace_members.role', Roles::STUDENT),
-                        default => $query,
-                    }),
-            ]);
+            ->modifyQueryUsing(fn (Builder $query): Builder => $this->scopeMembers($query));
     }
 }
