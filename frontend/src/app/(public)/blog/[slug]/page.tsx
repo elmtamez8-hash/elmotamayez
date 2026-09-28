@@ -7,6 +7,7 @@ import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
 import { Badge } from "@/components/ui/Badge";
 import { CourseCard } from "@/components/marketplace/CourseCard";
+import { ArticleBody } from "@/components/blog/ArticleBody";
 import { ArticleToc } from "@/components/blog/ArticleToc";
 import { CtaBand } from "@/components/blog/CtaBand";
 import { counted, formatDate } from "@/lib/labels";
@@ -361,10 +362,7 @@ export default async function ArticlePage({
           itself — there is nothing to configure here and no `body` field to
           render by mistake. `prose-article` is the typography rule in
           globals.css; this component sets no colours of its own. */}
-          <div
-            className="prose-article"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
+          <ArticleBody html={html} />
 
           {article.tags && article.tags.length > 0 ? (
             <ul className="mt-10 flex flex-wrap items-center gap-2">

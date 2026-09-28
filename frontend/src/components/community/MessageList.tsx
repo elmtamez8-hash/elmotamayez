@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useImageLightbox } from "@/components/ui/ImageLightbox";
 import { VoiceNotePlayer } from "@/components/community/VoiceNotePlayer";
 import { useChatScroll } from "@/lib/chat-scroll";
-import { counted, formatDate, formatTime, NOUNS } from "@/lib/labels";
+import { formatDate, formatTime } from "@/lib/labels";
 import type { ChatMessage } from "@/lib/conversations";
 
 /**
@@ -81,6 +82,24 @@ export function MessageList({
   const content = useRef<HTMLUListElement>(null);
 
   const last = messages[messages.length - 1];
+
+  /*
+   * Every picture in the thread, oldest first — the viewer's arrows walk them
+   * in the order they were sent.
+   */
+  const pictures = useMemo(
+    () =>
+      messages
+        .filter((message) => message.attachment !== null && message.attachment.kind === "image")
+        .map((message) => ({ uuid: message.uuid, src: message.attachment?.url ?? "", alt: "صورة مرفقة" })),
+    [messages],
+  );
+  const { open: openViewer, lightbox } = useImageLightbox(pictures);
+  const openPicture = (uuid: string) => {
+    const at = pictures.findIndex((picture) => picture.uuid === uuid);
+
+    if (at >= 0) openViewer(at);
+  };
 
   /*
     ⚠️ THIS IS THE ONLY SCROLL BOX, AND THERE WERE TWO. The thread page wrapped
@@ -208,8 +227,18 @@ export function MessageList({
                             : "rounded-2xl rounded-es-sm bg-surface px-3 py-2 text-ink"
                         }
                       >
+                        {/* Keyed by the MESSAGE, never by the link: the link is re-signed
+                            on every read of the page, and a key that changed with it
+                            remounted every picture and voice note in the thread on
+                            every new message — each re-downloaded, the limiter hit
+                            within three messages, and a playing note cut off. */}
                         {message.attachment !== null && (
-                          <Attachment attachment={message.attachment} mine={mine} />
+                          <Attachment
+                            key={message.uuid}
+                            attachment={message.attachment}
+                            mine={mine}
+                            onOpen={() => openPicture(message.uuid)}
+                          />
                         )}
 
                         {/* ⚠️ `body` IS NULL ON AN ATTACHMENT-ONLY MESSAGE. Rendering it
@@ -280,6 +309,8 @@ export function MessageList({
         )}
       </div>
 
+      {lightbox}
+
       {/*
         A new message arrived while the reader was up in the history. They are
         told, not moved — and one press takes them down to it.
@@ -333,25 +364,24 @@ function showsSender(previous: ChatMessage | null, message: ChatMessage): boolea
 function Attachment({
   attachment,
   mine,
+  onOpen,
 }: {
   attachment: NonNullable<ChatMessage["attachment"]>;
   mine: boolean;
+  /** Opens the picture in the thread's viewer. */
+  onOpen: () => void;
 }) {
   if (attachment.kind === "voice") {
+    // The length is the player's own «0:03 / 0:07»; a second, spelled-out one
+    // under it said the same thing twice.
     return (
       <div className="mb-1">
         <VoiceNotePlayer url={attachment.url} durationSeconds={attachment.duration_seconds} mine={mine} />
-        {attachment.duration_seconds !== null && (
-          <span className={mine ? "text-[10px] text-white/70" : "text-[10px] text-ink-muted"}>
-            <bdi>{counted(attachment.duration_seconds, { ...NOUNS.seconds, zero: "أقل من ثانية" })}</bdi>
-          </span>
-        )}
       </div>
     );
   }
 
-  // Keyed by the link: a refreshed signature is a new picture to load.
-  return <ChatImage key={attachment.url} url={attachment.url} />;
+  return <ChatImage url={attachment.url} onOpen={onOpen} />;
 }
 
 /**
@@ -368,19 +398,40 @@ function Attachment({
  * The reserved box keeps most of the height in the layout before the bytes
  * arrive; the API sends no dimensions, so it is a fixed square, released on load.
  */
-function ChatImage({ url }: { url: string }) {
+function ChatImage({ url, onOpen }: { url: string; onOpen: () => void }) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+  // A retry is a NEW `<img>` for the same link: the signature cannot take an
+  // extra query parameter to bust a cache, and it does not need to.
+  const [attempt, setAttempt] = useState(0);
 
   if (state === "failed") {
     return (
-      <p className="mb-1 text-xs opacity-80">تعذّر تحميل الصورة.</p>
+      <p className="mb-1 flex flex-wrap items-center gap-2 text-xs">
+        <span className="opacity-80">تعذّر تحميل الصورة.</span>
+        <button
+          type="button"
+          onClick={() => {
+            setState("loading");
+            setAttempt((value) => value + 1);
+          }}
+          className="font-semibold underline"
+        >
+          أعد المحاولة
+        </button>
+      </p>
     );
   }
 
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="mb-1 block">
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label="عرض الصورة مكبّرة"
+      className="mb-1 block cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        key={attempt}
         src={url}
         alt="صورة مرفقة"
         decoding="async"
@@ -393,6 +444,6 @@ function ChatImage({ url }: { url: string }) {
           (state === "loaded" ? "w-auto" : "h-48 w-48 bg-line")
         }
       />
-    </a>
+    </button>
   );
 }

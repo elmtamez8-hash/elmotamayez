@@ -212,3 +212,29 @@ it('previews an attachment-only thread with words rather than a blank line', fun
 
     expect($body)->toContain('رسالة صوتية');
 });
+
+/*
+| ⚠️ A THREAD LOADS EVERY PICTURE ON ITS PAGE AT ONCE, and on `public`'s sixty a
+| minute a chatty thread was answered 429 by its own pictures (review of #278).
+| The route has its own counter now; sixty-one reads from one address pass.
+*/
+it('serves chat media on its own limiter, not the marketplace one', function (): void {
+    $route = app('router')->getRoutes()->getByName('chat.attachment');
+
+    expect($route?->gatherMiddleware())->toContain('throttle:chat-media')
+        ->and($route?->gatherMiddleware())->not->toContain('throttle:public');
+
+    $asset = readyAsset($this->conversation);
+
+    Sanctum::actingAs($this->student);
+
+    $url = (string) $this->postJson("/api/v1/conversations/{$this->conversation->uuid}/messages", [
+        'body' => '',
+        'attachment' => $asset->uuid,
+    ])->assertCreated()->json('attachment.url');
+
+    // No file on the disk: every read is a 404 — and never a 429.
+    foreach (range(1, 61) as $_) {
+        expect($this->get($url)->getStatusCode())->not->toBe(429);
+    }
+});

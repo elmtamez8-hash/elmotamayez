@@ -79,6 +79,19 @@ describe("VoiceNotePlayer", () => {
     expect(screen.getByRole("button", { name: "تشغيل الرسالة الصوتية" })).toBeTruthy();
   });
 
+  it("never claims to be playing after the element drops its media", () => {
+    const { container } = render(<VoiceNotePlayer url="https://files.test/v.webm" durationSeconds={5} mine={false} />);
+    const element = audioOf(container);
+
+    fireEvent(element, new Event("play"));
+    expect(screen.getByRole("button", { name: "إيقاف الرسالة الصوتية مؤقتاً" })).toBeTruthy();
+
+    fireEvent(element, new Event("emptied"));
+
+    expect(screen.getByRole("button", { name: "تشغيل الرسالة الصوتية" })).toBeTruthy();
+    expect(screen.getByText("0:00 / 0:05")).toBeTruthy();
+  });
+
   it("says so on the bubble when the note cannot be played", async () => {
     const { container } = render(<VoiceNotePlayer url="https://files.test/v.webm" durationSeconds={5} mine={false} />);
     const element = audioOf(container);

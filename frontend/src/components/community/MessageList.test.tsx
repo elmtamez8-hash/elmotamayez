@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MessageList } from "./MessageList";
 import { decideScroll, isNearBottom, nextPinned, SETTLE_MS, shapeOf } from "@/lib/chat-scroll";
-import { mergeMessages, type ChatMessage } from "@/lib/conversations";
+import { mergeMessages, signedLinkExpiry, type ChatMessage } from "@/lib/conversations";
 
 /*
 | Spec 010 · US2 — the live insert must not show a message twice.
@@ -75,6 +75,35 @@ describe("mergeMessages", () => {
     const b = message("m-2", "الثانية", at);
 
     expect(mergeMessages([], [a, b]).map((m) => m.body)).toEqual(["الأولى", "الثانية"]);
+  });
+});
+
+describe("mergeMessages — a signed link", () => {
+  const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
+  const at = (seconds: number) => `https://files.test/p?expires=${Math.floor(NOW / 1000) + seconds}&signature=x`;
+  const picture = (url: string): ChatMessage => ({
+    ...message("m-1", "", "2026-09-28T12:00:00+00:00"),
+    attachment: { kind: "image", url, duration_seconds: null },
+  });
+
+  it("keeps the link it has while it is still good", () => {
+    const [merged] = mergeMessages([picture(at(600))], [picture(at(900))], NOW);
+
+    expect(merged.attachment?.url).toBe(at(600));
+  });
+
+  it("takes the fresh link within a minute of the old one's expiry", () => {
+    const [merged] = mergeMessages([picture(at(30))], [picture(at(900))], NOW);
+
+    expect(merged.attachment?.url).toBe(at(900));
+  });
+
+  it("still takes everything else from the newer copy", () => {
+    const newer = { ...picture(at(900)), is_helpful: true };
+    const [merged] = mergeMessages([picture(at(600))], [newer], NOW);
+
+    expect(merged.is_helpful).toBe(true);
+    expect(signedLinkExpiry(at(600))).toBe((Math.floor(NOW / 1000) + 600) * 1000);
   });
 });
 
@@ -546,6 +575,69 @@ describe("MessageList — following the conversation", () => {
 
       expect(box.scrollTop).toBe(200);
       expect(screen.getByRole("button", { name: /رسائل جديدة/ })).toBeTruthy();
+    });
+  });
+
+  /*
+  | ⚠️ مراجعةُ #278: كلُّ رسالةٍ جديدةٍ تُعيدُ قراءةَ الصفحة، والخادمُ يوقّعُ كلَّ
+  | رابطٍ من جديد — فكان مفتاحُ الصورةِ (الرابط) يتغيّرُ ويُعادُ تحميلُ كلِّ صورةٍ
+  | في المحادثة، ويبلغُ المحدِّدُ ٤٢٩ بعدَ رسالتينِ أو ثلاث.
+  */
+  describe("pictures across a re-read of the page", () => {
+    const withPicture = (url: string): ChatMessage => ({
+      ...from("m-p", "", "2026-08-23T10:02:00+00:00", "them"),
+      attachment: { kind: "image", url, duration_seconds: null },
+    });
+
+    it("keeps the same picture on screen when its link is re-signed", () => {
+      const { rerender } = render(
+        <MessageList messages={[...first, withPicture("https://files.test/p?expires=1&signature=a")]} currentUserUuid="me" />,
+      );
+      const image = screen.getByAltText("صورة مرفقة");
+
+      fireEvent.load(image);
+
+      rerender(
+        <MessageList messages={[...first, withPicture("https://files.test/p?expires=2&signature=b")]} currentUserUuid="me" />,
+      );
+
+      // The same element, still showing — not a fresh grey box re-downloading.
+      expect(screen.getByAltText("صورة مرفقة")).toBe(image);
+      expect(image.className).not.toContain("h-48");
+    });
+
+    it("offers «أعد المحاولة» on a picture that failed, and loads it again", () => {
+      render(<MessageList messages={[...first, withPicture("https://files.test/p?expires=1")]} currentUserUuid="me" />);
+
+      const failed = screen.getByAltText("صورة مرفقة");
+
+      fireEvent.error(failed);
+      expect(screen.getByText("تعذّر تحميل الصورة.")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "أعد المحاولة" }));
+
+      const again = screen.getByAltText("صورة مرفقة");
+
+      expect(again).not.toBe(failed);
+      expect(again.getAttribute("src")).toBe("https://files.test/p?expires=1");
+    });
+
+    it("opens a picture in the page's viewer, never a new tab, on the thread's pictures", () => {
+      const second: ChatMessage = {
+        ...from("m-q", "", "2026-08-23T10:03:00+00:00", "me"),
+        attachment: { kind: "image", url: "https://files.test/q", duration_seconds: null },
+      };
+
+      render(
+        <MessageList messages={[...first, withPicture("https://files.test/p"), second]} currentUserUuid="me" />,
+      );
+
+      expect(document.querySelector('a[target="_blank"]')).toBeNull();
+
+      fireEvent.click(screen.getAllByRole("button", { name: "عرض الصورة مكبّرة" })[1]);
+
+      expect(document.querySelector("dialog")?.open).toBe(true);
+      expect(screen.getByText("٢ من ٢")).toBeTruthy();
     });
   });
 

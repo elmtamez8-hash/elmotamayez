@@ -6,6 +6,7 @@ import { BookIcon, ClockIcon, SparkIcon, UsersIcon } from "@/components/icons";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCover } from "@/components/marketplace/CourseCover";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
+import { ViewableImage } from "@/components/ui/ImageLightbox";
 import {
   CourseOwnedBadge,
   CourseOwnershipProvider,
@@ -312,12 +313,20 @@ export default async function CoursePage({
           وأوّلُ ما يُرى يجبُ أن يكونَ الكورسَ نفسَه.
         */}
         <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-primary sm:aspect-[21/7]">
-          <CourseCover
-            title={course.title}
-            coverUrl={course.cover_url}
-            subject={course.subject}
-            variant="hero"
-          />
+          {/* The hero crops the cover to a band; pressed, the whole picture
+              opens in the page's viewer. No cover, nothing to enlarge. */}
+          {course.cover_url !== null ? (
+            <ViewableImage src={course.cover_url} alt={`غلاف ${course.title}`} layout="fill">
+              <CourseCover
+                title={course.title}
+                coverUrl={course.cover_url}
+                subject={course.subject}
+                variant="hero"
+              />
+            </ViewableImage>
+          ) : (
+            <CourseCover title={course.title} coverUrl={null} subject={course.subject} variant="hero" />
+          )}
 
           <CourseOwnedBadge />
         </div>

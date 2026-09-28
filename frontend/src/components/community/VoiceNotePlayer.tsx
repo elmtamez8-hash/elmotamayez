@@ -51,6 +51,14 @@ export function VoiceNotePlayer({
       setPlaying(false);
       setFailed(true);
     };
+    // The element dropped its media (a new `src`, a reload): nothing is playing
+    // any more, whatever the last event said, so the button must not claim it.
+    const onEmptied = () => {
+      setPlaying(false);
+      setCurrent(0);
+      setFailed(false);
+      setMediaDuration(Number.NaN);
+    };
 
     element.addEventListener("loadedmetadata", onDuration);
     element.addEventListener("durationchange", onDuration);
@@ -59,6 +67,7 @@ export function VoiceNotePlayer({
     element.addEventListener("pause", onPause);
     element.addEventListener("ended", onEnded);
     element.addEventListener("error", onError);
+    element.addEventListener("emptied", onEmptied);
 
     return () => {
       element.removeEventListener("loadedmetadata", onDuration);
@@ -68,6 +77,7 @@ export function VoiceNotePlayer({
       element.removeEventListener("pause", onPause);
       element.removeEventListener("ended", onEnded);
       element.removeEventListener("error", onError);
+      element.removeEventListener("emptied", onEmptied);
     };
   }, []);
 

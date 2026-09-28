@@ -299,10 +299,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
 | ⚠️ AND IT IS NOT A PUBLIC ROUTE IN THE `publiclyListed()` SENSE. Nothing here is
 | reachable without a signature, so `PublicExposureTest`'s allowlist does not
 | apply — but the route is unauthenticated, so it carries a named limiter like
-| every other unauthenticated write-adjacent surface on the platform.
+| every other unauthenticated write-adjacent surface on the platform. Its OWN
+| limiter (`chat-media`), not `public`: see `registerRateLimiters()`.
 */
 Route::get('/chat-media/{message}', [ChatAttachmentController::class, 'show'])
-    ->middleware(['signed', 'throttle:public'])
+    ->middleware(['signed', 'throttle:chat-media'])
     ->name('chat.attachment');
 
 /*

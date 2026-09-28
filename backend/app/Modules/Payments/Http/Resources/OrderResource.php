@@ -97,6 +97,17 @@ class OrderResource extends JsonResource
                     ['order' => $this->uuid],
                 )
                 : null,
+            /*
+            | Whether that receipt is a picture — the client shows a picture in the
+            | page's image viewer and opens a PDF as a document. The same gate as
+            | the link: no link, no answer.
+            */
+            'receipt_is_image' => $this->hasMedia('receipt')
+                && ($this->granted_by === null
+                    || $this->granted_by === $request->user()?->getKey()
+                    || $this->viewerSeesAll($request))
+                ? str_starts_with((string) $this->latestReceipt()?->mime_type, 'image/')
+                : null,
             // Only while the answer is still owed. On a decided order the promise
             // is spent, and repeating it beside "معتمد" reads as a second wait
             // about to begin.

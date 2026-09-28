@@ -18,6 +18,7 @@ import { LessonRail } from "@/components/learn/LessonRail";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useLightboxIn } from "@/components/ui/ImageLightbox";
 import { Modal } from "@/components/ui/Modal";
 import { ApiError, api } from "@/lib/api";
 import { isAssignmentReference, type LessonReference } from "@/lib/courses";
@@ -509,10 +510,7 @@ export default function LearnLessonPage({
               {/* Rendered from Markdown on the server with raw HTML stripped, not
               escaped — the same string every reader is served. The page used to
               show the SOURCE, asterisks and all. */}
-              <div
-                className="text-ink"
-                dangerouslySetInnerHTML={{ __html: detail.content_html }}
-              />
+              <LessonBody html={detail.content_html} />
             </Card>
           )}
 
@@ -734,5 +732,22 @@ function SessionSlot({
     <Alert tone="warning" title="لا تسجيل لهذه الحصة">
       مضى موعد الحصة ({when}) ولم يُنشر تسجيل لها. اسأل مدرّسك إن كنت تنتظره.
     </Alert>
+  );
+}
+
+/**
+ * An article or note lesson's body. Rendered from Markdown on the server with raw
+ * HTML stripped, not escaped — the same string every reader is served (the page
+ * used to show the SOURCE, asterisks and all). Every picture in it opens the
+ * page's image viewer; nothing is added to the markup to do that.
+ */
+function LessonBody({ html }: { html: string }) {
+  const { body, lightbox } = useLightboxIn<HTMLDivElement>(html);
+
+  return (
+    <>
+      <div className="text-ink" {...body} />
+      {lightbox}
+    </>
   );
 }

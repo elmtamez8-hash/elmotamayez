@@ -368,12 +368,29 @@ export const conversations = {
  * blindly shows the sender their own sentence twice; keyed by uuid, the second
  * copy replaces the first and the list stays in id order because the server
  * returns it that way.
+ *
+ * ⚠️ AND A PICTURE KEEPS THE LINK IT ALREADY HAS WHILE THAT LINK IS STILL GOOD.
+ * The server signs every attachment afresh on every read, and the thread
+ * re-reads its newest page on every message that arrives — so taking the new
+ * copy whole changed every `src` in the thread each time: every picture
+ * re-downloaded (the route answers `no-store`), the shared limiter answered 429
+ * within three messages, and a voice note playing at the time stopped. The
+ * old link is kept until a minute before its `expires`, then the fresh one
+ * takes over.
  */
-export function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+export function mergeMessages(
+  existing: ChatMessage[],
+  incoming: ChatMessage[],
+  now: number = Date.now(),
+): ChatMessage[] {
   const byUuid = new Map<string, ChatMessage>();
 
-  for (const message of [...existing, ...incoming]) {
+  for (const message of existing) {
     byUuid.set(message.uuid, message);
+  }
+
+  for (const message of incoming) {
+    byUuid.set(message.uuid, keepLiveAttachment(byUuid.get(message.uuid), message, now));
   }
 
   return [...byUuid.values()].sort((a, b) => {
@@ -384,6 +401,34 @@ export function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]):
     // so ties keep the order the server sent, which is its monotonic key.
     return left === right ? 0 : left < right ? -1 : 1;
   });
+}
+
+/** How long before its expiry a signed link is swapped for the fresh one. */
+const LINK_MARGIN_MS = 60_000;
+
+function keepLiveAttachment(previous: ChatMessage | undefined, next: ChatMessage, now: number): ChatMessage {
+  const before = previous?.attachment ?? null;
+  const after = next.attachment;
+
+  if (before === null || after === null || before.url === after.url || before.kind !== after.kind) return next;
+
+  const expires = signedLinkExpiry(before.url);
+
+  if (expires === null || expires - LINK_MARGIN_MS <= now) return next;
+
+  return { ...next, attachment: { ...after, url: before.url } };
+}
+
+/** The `expires` of a Laravel signed link, in milliseconds, or null. */
+export function signedLinkExpiry(url: string): number | null {
+  try {
+    const value = new URL(url, "http://local.invalid").searchParams.get("expires");
+    const seconds = value === null ? Number.NaN : Number(value);
+
+    return Number.isFinite(seconds) ? seconds * 1000 : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
