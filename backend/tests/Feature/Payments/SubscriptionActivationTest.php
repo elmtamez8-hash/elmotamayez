@@ -239,6 +239,10 @@ it('opens the private-session door instead of a group when that is what was boug
 });
 
 it('prints the next lesson in the platform timezone, never as a raw timestamp', function (): void {
+    // Pinned: the lesson below is dated 2026-10-03, and the weekly time-travel
+    // run (+400d) found it in the past and printed «no upcoming lesson».
+    $this->travelTo(CarbonImmutable::parse('2026-09-28 09:00:00', 'UTC'));
+
     /*
     | ٠٢٧ · T075 — `2026-09-26T14:00:00+00:00` وصلَ فعلاً إلى جرسِ طالبٍ على
     | الإنتاجِ في ٢٠٢٦-٠٩-٢٠، وفي فقرةٍ عربيّةٍ يُعيدُ الـbidi ترتيبَه إلى
