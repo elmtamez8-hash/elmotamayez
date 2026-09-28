@@ -98,6 +98,29 @@ final class MediaLimits
     }
 
     /**
+     * What a chat attachment may be, per the kind it travels under.
+     *
+     * ⚠️ NOT THE LESSON LIST. A chat picture travels as `MediaKind::Document`,
+     * whose list is PDFs and slide decks with two image types beside them — so a
+     * PDF «picture» passed completion and rendered as a broken `<img>`, while a
+     * WebP photograph (which the composer offers) was refused. And a voice note
+     * is what a browser's recorder writes, `audio/webm` or `audio/mp4`, which a
+     * list written for lecture recordings never named.
+     *
+     * The caller passes this into `CompleteMediaUpload`; Media itself never asks
+     * what a conversation is.
+     *
+     * @return list<string>
+     */
+    public static function chatAllowedMimeTypes(MediaKind $kind): array
+    {
+        /** @var list<string> $types */
+        $types = config('media.chat_allowed_mime_types.'.$kind->value, []);
+
+        return $types;
+    }
+
+    /**
      * The refusal names the actual number.
      *
      * "حجم الملف يتجاوز الحد المسموح" tells a teacher their file is too big and

@@ -135,6 +135,31 @@ return [
     ],
 
     /*
+    | A chat attachment's own list (`MediaLimits::chatAllowedMimeTypes()`), keyed
+    | by the kind it travels under — a picture is a `document`, a voice note is
+    | `audio`. Narrower than the lesson lists on the picture side (no PDF behind
+    | an `<img>`) and wider on the sound side: `audio/webm` and `audio/mp4` are
+    | what Chrome, Firefox and Safari record, reported by
+    | `AudioContainer` once the tracks prove there is no video in the file.
+    */
+    'chat_allowed_mime_types' => [
+        'audio' => [
+            'audio/webm',
+            'audio/mp4',
+            'audio/ogg',
+            'audio/mpeg',
+            'audio/aac',
+            'audio/wav',
+            'audio/x-wav',
+        ],
+        'document' => [
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+        ],
+    ],
+
+    /*
     | Size ceilings per kind. A lecture note is not a lecture: giving a PDF the
     | video allowance means one mis-picked file uploads a gigabyte before anyone
     | notices. Overridden at runtime by platform_settings, like every other

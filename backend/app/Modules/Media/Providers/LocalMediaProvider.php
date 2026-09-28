@@ -11,8 +11,10 @@ use App\Modules\Media\Data\PlaybackManifest;
 use App\Modules\Media\Data\ProviderCapabilities;
 use App\Modules\Media\Data\UploadTicket;
 use App\Modules\Media\Enums\MediaAssetStatus;
+use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Enums\PlaybackFormat;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Support\AudioContainer;
 use App\Modules\Media\Support\FetchableSourceUrl;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Filesystem\Filesystem;
@@ -168,7 +170,7 @@ class LocalMediaProvider implements MediaProviderInterface
                 // No processing step: the file is playable as soon as it lands.
                 status: MediaAssetStatus::Ready,
                 durationSeconds: $asset->duration_seconds,
-                mimeType: $this->detectMimeType($path),
+                mimeType: $this->detectMimeType($path, $asset->kind),
                 sizeBytes: $disk->size($path),
             );
         } catch (Throwable $e) {
@@ -226,8 +228,14 @@ class LocalMediaProvider implements MediaProviderInterface
      *
      * Null when nothing recognisable is found — which CompleteMediaUpload treats
      * as a rejection, not as permission.
+     *
+     * ⚠️ FOR AN AUDIO ASSET THE CONTAINER IS NOT THE ANSWER. libmagic calls every
+     * WebM `video/webm` — including the voice note Chrome's recorder writes — so
+     * an audio asset in a WebM or MP4 container is asked what its TRACKS are
+     * ({@see AudioContainer}). Sound alone is reported as `audio/webm` or
+     * `audio/mp4`; anything else keeps the container's name and is refused.
      */
-    private function detectMimeType(string $path): ?string
+    private function detectMimeType(string $path, MediaKind $kind): ?string
     {
         $stream = $this->disk()->readStream($path);
 
@@ -253,6 +261,14 @@ class LocalMediaProvider implements MediaProviderInterface
         // It printed a DEPRECATED warning into the output of every local ingest.
         $mime = finfo_buffer($finfo, $head);
 
-        return $mime === false || $mime === '' ? null : $mime;
+        if ($mime === false || $mime === '') {
+            return null;
+        }
+
+        if ($kind === MediaKind::Audio) {
+            return AudioContainer::audioOnlyMime($head, $mime) ?? $mime;
+        }
+
+        return $mime;
     }
 }

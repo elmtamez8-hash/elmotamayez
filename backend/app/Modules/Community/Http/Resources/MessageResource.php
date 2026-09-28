@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Resources;
 
 use App\Modules\Community\Models\Message;
+use App\Modules\Identity\Support\AccountPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -31,6 +32,13 @@ class MessageResource extends JsonResource
             | screen lists messages with nobody's name on them.
             */
             'sender_name' => $this->whenLoaded('sender', fn () => $this->sender?->name),
+            // The face beside an incoming run. Read from relations the Action
+            // eager-loads (`AccountPhoto::eagerLoads('sender')`) — a lookup here
+            // would be one query per message.
+            'sender_avatar_url' => $this->whenLoaded(
+                'sender',
+                fn () => $this->sender === null ? null : AccountPhoto::url($this->sender),
+            ),
             'is_helpful' => (bool) $this->is_helpful,
             /*
             | ⚠️ NULL IS THE ANSWER FOR MOST SENDERS, AND IT IS AN ANSWER. A

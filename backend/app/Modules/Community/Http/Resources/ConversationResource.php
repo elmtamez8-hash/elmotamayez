@@ -6,6 +6,7 @@ namespace App\Modules\Community\Http\Resources;
 
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
+use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\Request;
@@ -60,6 +61,7 @@ class ConversationResource extends JsonResource
             | in the marketplace, which is the one they will recognise.
             */
             'counterparty_name' => $this->counterpartyName($request),
+            'counterparty_avatar_url' => $this->counterpartyAvatarUrl($request),
 
             /*
             | Whether THIS reader may hide a message or ban the sender here.
@@ -169,6 +171,36 @@ class ConversationResource extends JsonResource
         }
 
         return $this->relationLoaded('student') ? $this->student?->name : null;
+    }
+
+    /**
+     * The face beside `counterparty_name`, from the same side of the same rule.
+     *
+     * The student is shown the TEACHER — the workspace owner, whose name the
+     * workspace carries — and everybody on the teaching side is shown the
+     * student. Null in a public room, and null when the relations were not
+     * eager-loaded: a lookup here would be a query per row of the list
+     * (`ListConversations` loads them through `AccountPhoto::eagerLoads()`).
+     */
+    private function counterpartyAvatarUrl(Request $request): ?string
+    {
+        if ($this->kind->isPublic()) {
+            return null;
+        }
+
+        $reader = $request->user();
+
+        if ($reader !== null && (int) $this->student_user_id === (int) $reader->getKey()) {
+            $owner = $this->relationLoaded('workspace') && $this->workspace?->relationLoaded('owner')
+                ? $this->workspace->owner
+                : null;
+
+            return $owner === null ? null : AccountPhoto::url($owner);
+        }
+
+        return $this->relationLoaded('student') && $this->student !== null
+            ? AccountPhoto::url($this->student)
+            : null;
     }
 
     private function readerMayModerate(Request $request): bool

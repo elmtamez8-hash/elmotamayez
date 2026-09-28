@@ -88,6 +88,10 @@ class RequestChatAttachment extends Action
             'workspace_id' => $conversation->workspace_id,
             'owner_type' => Conversation::class,
             'owner_id' => $conversation->getKey(),
+            // ⚠️ THE CONVERSATION HAS TWO ENDS, SO THE OWNER DOES NOT SAY WHOSE
+            // FILE THIS IS. `CompleteChatAttachment` asks this column, never «may
+            // they post here», before it settles the upload.
+            'uploaded_by_user_id' => $sender->getKey(),
             // Stamped from whoever actually took it, never from the config —
             // `MediaProviderResolver::for()` reads this column back later, and a
             // row recording the CONFIGURED provider is a lie the day a kind is

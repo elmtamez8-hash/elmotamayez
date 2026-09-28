@@ -117,6 +117,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
         | could mint upload tickets faster than any ceiling could refuse the files.
         */
         Route::post('/conversations/{conversation}/attachments', [ChatAttachmentController::class, 'store']);
+
+        /*
+        | «The bytes are there» — for the chat, not through the lesson door.
+        |
+        | ⚠️ `/media/assets/{asset}/complete` ASKS `LESSONS_MANAGE`, so every
+        | student picture was refused AFTER it had uploaded (production,
+        | 2026-09-28). Both segments are strings resolved inside the Action, for
+        | the reason at the top of this file: an implicit `{asset}` binding
+        | resolves any workspace's row for a student before a policy runs.
+        */
+        Route::post(
+            '/conversations/{conversation}/attachments/{asset}/complete',
+            [ChatAttachmentController::class, 'complete'],
+        );
     });
 
     /*

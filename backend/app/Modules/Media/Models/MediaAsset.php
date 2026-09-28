@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property CarbonInterface|null $ready_at
  * @property CarbonInterface|null $archived_at retention took the file; the row is the receipt
  * @property CarbonInterface|null $retain_until FR-036 — a per-asset date that overrides the category
+ * @property int|null $uploaded_by_user_id who asked for the ticket (chat attachments)
  */
 class MediaAsset extends BaseModel
 {
@@ -45,6 +46,9 @@ class MediaAsset extends BaseModel
         'workspace_id',
         'owner_type',
         'owner_id',
+        // Who asked for the ticket. Read by `CompleteChatAttachment`; a lesson
+        // asset leaves it null because its door is the lesson, not the person.
+        'uploaded_by_user_id',
         'provider',
         'provider_asset_id',
         'kind',

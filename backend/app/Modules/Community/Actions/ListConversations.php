@@ -9,6 +9,7 @@ use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
+use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -67,7 +68,12 @@ class ListConversations extends Action
             // read per row: a `whenLoaded` key that is simply absent makes the
             // page one query cheaper and the list nameless, which a budget test
             // reads as an improvement.
-            ->with(['lastMessage.sender', 'lastMessage.mediaAsset', 'student', 'workspace'])
+            ->with([
+                'lastMessage.sender', 'lastMessage.mediaAsset', 'student', 'workspace.owner',
+                // The faces beside the names — `counterparty_avatar_url`.
+                ...AccountPhoto::eagerLoads('student'),
+                ...AccountPhoto::eagerLoads('workspace.owner'),
+            ])
             ->where(function (Builder $query) use ($participantIds, $teacherSide, $workspaceId): void {
                 $query->whereIn('id', $participantIds);
 
