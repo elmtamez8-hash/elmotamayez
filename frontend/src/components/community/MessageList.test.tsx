@@ -622,6 +622,46 @@ describe("MessageList — following the conversation", () => {
       expect(again.getAttribute("src")).toBe("https://files.test/p?expires=1");
     });
 
+    it("asks for fresh links instead of retrying a signature that has run out", () => {
+      const onRefreshLinks = vi.fn();
+      const dead = "https://files.test/p?expires=1&signature=a";
+      const { rerender } = render(
+        <MessageList messages={[...first, withPicture(dead)]} currentUserUuid="me" onRefreshLinks={onRefreshLinks} />,
+      );
+
+      fireEvent.error(screen.getByAltText("صورة مرفقة"));
+      fireEvent.click(screen.getByRole("button", { name: "أعد المحاولة" }));
+
+      expect(onRefreshLinks).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("تعذّر تحميل الصورة.")).toBeTruthy();
+
+      // The fresh link arrives: the picture loads again on its own.
+      const fresh = `https://files.test/p?expires=${Math.floor(Date.now() / 1000) + 900}&signature=b`;
+
+      rerender(
+        <MessageList messages={[...first, withPicture(fresh)]} currentUserUuid="me" onRefreshLinks={onRefreshLinks} />,
+      );
+
+      expect(screen.getByAltText("صورة مرفقة").getAttribute("src")).toBe(fresh);
+    });
+
+    it("asks for fresh links when the viewer opens on a picture whose link has run out", () => {
+      const onRefreshLinks = vi.fn();
+
+      render(
+        <MessageList
+          messages={[...first, withPicture("https://files.test/p?expires=1&signature=a")]}
+          currentUserUuid="me"
+          onRefreshLinks={onRefreshLinks}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "عرض الصورة مكبّرة" }));
+
+      expect(onRefreshLinks).toHaveBeenCalledTimes(1);
+      expect(document.querySelector("dialog")?.open).toBe(true);
+    });
+
     it("opens a picture in the page's viewer, never a new tab, on the thread's pictures", () => {
       const second: ChatMessage = {
         ...from("m-q", "", "2026-08-23T10:03:00+00:00", "me"),

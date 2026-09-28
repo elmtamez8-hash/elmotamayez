@@ -281,6 +281,7 @@ export function SessionChat({
         messages={messages}
         currentUserUuid={user?.uuid ?? null}
         showBadges
+        onRefreshLinks={() => refresh(room.uuid)}
         onReport={report}
         onMarkHelpful={room.can_moderate ? markHelpful : undefined}
         onSilence={

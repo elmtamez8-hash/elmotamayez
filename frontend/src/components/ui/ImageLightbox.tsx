@@ -28,6 +28,15 @@ import { arabicNumber } from "@/lib/numerals";
 export type LightboxImage = { src: string; alt: string };
 
 const MAX_ZOOM = 4;
+/** A click within this long of a pinch ending belongs to the pinch. */
+const PINCH_CLICK_GRACE_MS = 350;
+/** How far one arrow press moves a zoomed picture. */
+const PAN: Record<string, [number, number]> = {
+  ArrowLeft: [-80, 0],
+  ArrowRight: [80, 0],
+  ArrowUp: [0, -80],
+  ArrowDown: [0, 80],
+};
 
 export function ImageLightbox({
   images,
@@ -50,6 +59,8 @@ export function ImageLightbox({
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const pinched = useRef(false);
+  const pinchEndedAt = useRef(Number.NEGATIVE_INFINITY);
+  const stage = useRef<HTMLDivElement>(null);
 
   const open = index !== null && images[index] !== undefined;
 
@@ -63,11 +74,23 @@ export function ImageLightbox({
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const root = document.documentElement;
     const overflow = root.style.overflow;
+    const gutter = root.style.scrollbarGutter;
 
     root.style.overflow = "hidden";
+    /*
+     * ⚠️ AND THE GUTTER TOO. `globals.css` gives `html` `scrollbar-gutter:
+     * stable`, so with its scrollbar hidden the page still keeps the scrollbar's
+     * strip — and the backdrop, sized to the viewport inside it, left ~15px of
+     * page showing down one edge (measured in Chrome). Released while open,
+     * restored on close; the page behind shifts under the backdrop, unseen.
+     */
+    root.style.scrollbarGutter = "auto";
 
     return () => {
       root.style.overflow = overflow;
+      root.style.scrollbarGutter = gutter;
+      pointers.current.clear();
+      pinch.current = null;
       opener?.focus();
     };
   }, [open]);
@@ -87,11 +110,14 @@ export function ImageLightbox({
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  // Every picture opens fitted.
+  // Every picture opens fitted — and a new link for the same picture (a
+  // refreshed signature) is a fresh chance to load it.
+  const currentSrc = index !== null ? images[index]?.src ?? null : null;
+
   useEffect(() => {
     setZoom(1);
     setFailed(false);
-  }, [index]);
+  }, [index, currentSrc]);
 
   const last = images.length - 1;
   const hasPrevious = index !== null && index > 0;
@@ -113,11 +139,8 @@ export function ImageLightbox({
   const close = () => ref.current?.close();
 
   const toggleZoom = () => {
-    if (pinched.current) {
-      pinched.current = false;
-
-      return;
-    }
+    // The click a browser may fire at the end of a pinch is not a tap.
+    if (performance.now() - pinchEndedAt.current < PINCH_CLICK_GRACE_MS) return;
 
     if (zoom === 1 && image.current !== null) baseWidth.current = image.current.clientWidth;
 
@@ -126,6 +149,8 @@ export function ImageLightbox({
 
   const onPointerDown = (event: React.PointerEvent) => {
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // The finger keeps reporting to the stage even when it slides off it.
+    (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
 
     if (pointers.current.size === 2) {
       if (zoom === 1 && image.current !== null) baseWidth.current = image.current.clientWidth;
@@ -149,7 +174,14 @@ export function ImageLightbox({
   const onPointerEnd = (event: React.PointerEvent) => {
     pointers.current.delete(event.pointerId);
 
-    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size < 2 && pinch.current !== null) {
+      pinch.current = null;
+
+      if (pinched.current) {
+        pinched.current = false;
+        pinchEndedAt.current = performance.now();
+      }
+    }
   };
 
   const zoomed = zoom > 1;
@@ -166,6 +198,16 @@ export function ImageLightbox({
           close();
         }
 
+        // Zoomed, the arrows move ACROSS the picture; fitted, between pictures.
+        const pan = PAN[event.key];
+
+        if (zoomed && pan !== undefined) {
+          event.preventDefault();
+          stage.current?.scrollBy?.({ left: pan[0], top: pan[1] });
+
+          return;
+        }
+
         if (event.key === "ArrowLeft") (rtl ? next : previous)();
         if (event.key === "ArrowRight") (rtl ? previous : next)();
       }}
@@ -179,12 +221,14 @@ export function ImageLightbox({
       className="fixed inset-0 m-0 h-auto max-h-none w-auto max-w-none border-0 bg-overlay p-0 text-ink"
     >
       <div
+        ref={stage}
         data-lightbox-stage=""
         className="absolute inset-0 overflow-auto [touch-action:pan-x_pan-y]"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
+        onPointerLeave={onPointerEnd}
       >
         <div data-lightbox-stage="" className="flex min-h-full min-w-full items-center justify-center p-4 sm:p-14">
           {failed ? (

@@ -419,6 +419,13 @@ function keepLiveAttachment(previous: ChatMessage | undefined, next: ChatMessage
   return { ...next, attachment: { ...after, url: before.url } };
 }
 
+/** True when a signed link has expired or will within the margin — time to ask for fresh ones. */
+export function signedLinkIsStale(url: string, now: number = Date.now()): boolean {
+  const expires = signedLinkExpiry(url);
+
+  return expires !== null && expires - LINK_MARGIN_MS <= now;
+}
+
 /** The `expires` of a Laravel signed link, in milliseconds, or null. */
 export function signedLinkExpiry(url: string): number | null {
   try {

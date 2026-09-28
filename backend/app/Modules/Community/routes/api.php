@@ -301,9 +301,17 @@ Route::middleware('auth:sanctum')->group(function (): void {
 | apply — but the route is unauthenticated, so it carries a named limiter like
 | every other unauthenticated write-adjacent surface on the platform. Its OWN
 | limiter (`chat-media`), not `public`: see `registerRateLimiters()`.
+|
+| ⚠️ AND WITHOUT THE `api` GROUP'S FLOOR. `throttleApi()` puts `throttle:api` on
+| every route in the group, and for a guest — which an `<img>` always is, it
+| carries no token — that is 120 a minute per IP, shared with every other guest
+| request from the address, and it runs BEFORE this route's own limiter. So the
+| real ceiling stayed 120 however generous `chat-media` was (re-review of #278).
+| The signature guards the bytes; `chat-media` alone bounds the flood.
 */
 Route::get('/chat-media/{message}', [ChatAttachmentController::class, 'show'])
     ->middleware(['signed', 'throttle:chat-media'])
+    ->withoutMiddleware('throttle:api')
     ->name('chat.attachment');
 
 /*

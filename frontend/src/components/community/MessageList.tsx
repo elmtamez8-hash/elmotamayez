@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -9,7 +9,7 @@ import { useImageLightbox } from "@/components/ui/ImageLightbox";
 import { VoiceNotePlayer } from "@/components/community/VoiceNotePlayer";
 import { useChatScroll } from "@/lib/chat-scroll";
 import { formatDate, formatTime } from "@/lib/labels";
-import type { ChatMessage } from "@/lib/conversations";
+import { signedLinkIsStale, type ChatMessage } from "@/lib/conversations";
 
 /**
  * One thread, oldest at the top.
@@ -36,6 +36,7 @@ export function MessageList({
   showAvatars = false,
   size = "compact",
   onLoadOlder,
+  onRefreshLinks,
 }: {
   messages: ChatMessage[];
   currentUserUuid: string | null;
@@ -77,6 +78,12 @@ export function MessageList({
   size?: "fill" | "compact";
   /** Present when there is an older page to ask for. */
   onLoadOlder?: () => void;
+  /**
+   * Re-read the newest page, for fresh signed links. Asked when a picture whose
+   * link has run out is retried or opened — retrying a dead signature cannot
+   * succeed, and nothing else would renew it until the next message arrives.
+   */
+  onRefreshLinks?: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLUListElement>(null);
@@ -98,7 +105,13 @@ export function MessageList({
   const openPicture = (uuid: string) => {
     const at = pictures.findIndex((picture) => picture.uuid === uuid);
 
-    if (at >= 0) openViewer(at);
+    if (at < 0) return;
+
+    // A link at or near its expiry would fail in the viewer: ask for fresh ones
+    // now, and the viewer swaps the picture in when they come.
+    if (pictures.some((picture) => signedLinkIsStale(picture.src))) onRefreshLinks?.();
+
+    openViewer(at);
   };
 
   /*
@@ -238,6 +251,7 @@ export function MessageList({
                             attachment={message.attachment}
                             mine={mine}
                             onOpen={() => openPicture(message.uuid)}
+                            onRefreshLinks={onRefreshLinks}
                           />
                         )}
 
@@ -365,11 +379,13 @@ function Attachment({
   attachment,
   mine,
   onOpen,
+  onRefreshLinks,
 }: {
   attachment: NonNullable<ChatMessage["attachment"]>;
   mine: boolean;
   /** Opens the picture in the thread's viewer. */
   onOpen: () => void;
+  onRefreshLinks?: () => void;
 }) {
   if (attachment.kind === "voice") {
     // The length is the player's own «0:03 / 0:07»; a second, spelled-out one
@@ -381,7 +397,7 @@ function Attachment({
     );
   }
 
-  return <ChatImage url={attachment.url} onOpen={onOpen} />;
+  return <ChatImage url={attachment.url} onOpen={onOpen} onRefreshLinks={onRefreshLinks} />;
 }
 
 /**
@@ -398,24 +414,45 @@ function Attachment({
  * The reserved box keeps most of the height in the layout before the bytes
  * arrive; the API sends no dimensions, so it is a fixed square, released on load.
  */
-function ChatImage({ url, onOpen }: { url: string; onOpen: () => void }) {
+function ChatImage({
+  url,
+  onOpen,
+  onRefreshLinks,
+}: {
+  url: string;
+  onOpen: () => void;
+  onRefreshLinks?: () => void;
+}) {
   const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
   // A retry is a NEW `<img>` for the same link: the signature cannot take an
   // extra query parameter to bust a cache, and it does not need to.
   const [attempt, setAttempt] = useState(0);
 
+  // A fresh link is a fresh chance: a picture that failed on the old one loads
+  // again on its own. A loaded picture keeps showing while the new src arrives.
+  useEffect(() => {
+    setState((current) => (current === "failed" ? "loading" : current));
+  }, [url]);
+
+  const retry = () => {
+    // ⚠️ A DEAD SIGNATURE CANNOT BE RETRIED INTO LIFE. When the link has run
+    // out, the retry asks the thread for fresh links instead; the effect above
+    // loads the picture when the new one arrives.
+    if (onRefreshLinks !== undefined && signedLinkIsStale(url)) {
+      onRefreshLinks();
+
+      return;
+    }
+
+    setState("loading");
+    setAttempt((value) => value + 1);
+  };
+
   if (state === "failed") {
     return (
       <p className="mb-1 flex flex-wrap items-center gap-2 text-xs">
         <span className="opacity-80">تعذّر تحميل الصورة.</span>
-        <button
-          type="button"
-          onClick={() => {
-            setState("loading");
-            setAttempt((value) => value + 1);
-          }}
-          className="font-semibold underline"
-        >
+        <button type="button" onClick={retry} className="font-semibold underline">
           أعد المحاولة
         </button>
       </p>

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImageLightbox, useLightboxIn, ViewableImage, type LightboxImage } from "./ImageLightbox";
 
@@ -149,7 +149,9 @@ describe("ImageLightbox", () => {
 
     expect(zoomed.getAttribute("aria-pressed")).toBe("true");
 
-    fireEvent.keyDown(dialog() as HTMLDialogElement, { key: "ArrowLeft" });
+    // Zoomed, the arrow keys pan (below) — the on-screen arrow still changes picture.
+    fireEvent.click(screen.getByRole("button", { name: "الصورة التالية" }));
+    expect(shown()).toBe("الثالثة");
     expect(screen.getByRole("button", { name: "تكبير الصورة" }).getAttribute("aria-pressed")).toBe("false");
   });
 
@@ -163,6 +165,88 @@ describe("ImageLightbox", () => {
     fireEvent.pointerMove(stage, { pointerId: 2, clientX: 300, clientY: 100 });
 
     expect(screen.getByRole("button", { name: "تصغير الصورة" })).toBeTruthy();
+  });
+
+  it("releases the page's scrollbar strip while open, and gives it back", () => {
+    document.documentElement.style.scrollbarGutter = "stable";
+    openFromButton();
+
+    expect(document.documentElement.style.scrollbarGutter).toBe("auto");
+
+    fireEvent.click(screen.getByRole("button", { name: "إغلاق عارض الصور" }));
+
+    expect(document.documentElement.style.scrollbarGutter).toBe("stable");
+    document.documentElement.style.scrollbarGutter = "";
+  });
+
+  it("lets the next tap zoom after a pinch, and swallows only the pinch's own click", () => {
+    openFromButton();
+
+    const stage = (dialog() as HTMLDialogElement).querySelector("[data-lightbox-stage]") as HTMLElement;
+    let clock = 1_000;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => clock);
+
+    try {
+      fireEvent.pointerDown(stage, { pointerId: 1, clientX: 100, clientY: 100 });
+      fireEvent.pointerDown(stage, { pointerId: 2, clientX: 200, clientY: 100 });
+      fireEvent.pointerMove(stage, { pointerId: 2, clientX: 300, clientY: 100 });
+      fireEvent.pointerUp(stage, { pointerId: 2 });
+      fireEvent.pointerUp(stage, { pointerId: 1 });
+
+      // The click the browser fires as the fingers lift: not a tap.
+      fireEvent.click(screen.getByRole("button", { name: "تصغير الصورة" }));
+      expect(screen.getByRole("button", { name: "تصغير الصورة" })).toBeTruthy();
+
+      // A real tap a moment later zooms back out.
+      clock += 1_000;
+      fireEvent.click(screen.getByRole("button", { name: "تصغير الصورة" }));
+      expect(screen.getByRole("button", { name: "تكبير الصورة" })).toBeTruthy();
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it("forgets a finger that slid off the stage, so one finger never pinches", () => {
+    openFromButton();
+
+    const stage = (dialog() as HTMLDialogElement).querySelector("[data-lightbox-stage]") as HTMLElement;
+
+    fireEvent.pointerDown(stage, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerLeave(stage, { pointerId: 1 });
+    fireEvent.pointerDown(stage, { pointerId: 2, clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(stage, { pointerId: 2, clientX: 400, clientY: 100 });
+
+    expect(screen.getByRole("button", { name: "تكبير الصورة" })).toBeTruthy();
+  });
+
+  it("pans a zoomed picture with the arrows instead of changing it", () => {
+    openFromButton();
+
+    const stage = (dialog() as HTMLDialogElement).querySelector("[data-lightbox-stage]") as HTMLElement;
+    const scrollBy = vi.fn();
+
+    stage.scrollBy = scrollBy as unknown as typeof stage.scrollBy;
+
+    fireEvent.click(screen.getByRole("button", { name: "تكبير الصورة" }));
+    fireEvent.keyDown(dialog() as HTMLDialogElement, { key: "ArrowLeft" });
+
+    expect(shown()).toBe("الثانية");
+    expect(scrollBy).toHaveBeenCalledWith({ left: -80, top: 0 });
+  });
+
+  it("tries again when the picture's link is renewed", () => {
+    const { rerender } = render(
+      <ImageLightbox images={[{ src: "https://files.test/old", alt: "أ" }]} index={0} onIndexChange={() => {}} onClose={() => {}} />,
+    );
+
+    fireEvent.error(screen.getByRole("img"));
+    expect(screen.getByText("تعذّر تحميل الصورة.")).toBeTruthy();
+
+    rerender(
+      <ImageLightbox images={[{ src: "https://files.test/new", alt: "أ" }]} index={0} onIndexChange={() => {}} onClose={() => {}} />,
+    );
+
+    expect(screen.getByRole("img").getAttribute("src")).toBe("https://files.test/new");
   });
 
   it("says so when a picture will not load", () => {
