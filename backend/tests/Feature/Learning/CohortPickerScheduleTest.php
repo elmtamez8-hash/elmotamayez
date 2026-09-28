@@ -22,6 +22,10 @@ use Illuminate\Support\Carbon;
 | بالتعريف.
 */
 beforeEach(function (): void {
+    // Pinned: the fixtures below are dated, and the weekly time-travel run
+    // (+400d) read them as long past.
+    $this->travelTo(Carbon::parse('2026-09-28 09:00:00', 'UTC'));
+
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
