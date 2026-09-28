@@ -15,6 +15,7 @@ use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
+use App\Modules\Payments\Filament\Pages\GrantCreditSubscription;
 use App\Shared\Support\Countries;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -335,8 +336,10 @@ class CreateAccount extends Page
             Action::make('grant')
                 ->label('منح رصيد حصص')
                 ->icon(Heroicon::OutlinedGift)
-                ->url('/admin/grant-credit-subscription')
-                ->visible(fn (): bool => Auth::user() instanceof User),
+                // `getUrl()` لا مسارٌ مكتوب، والظهورُ بابُ تلك الصفحةِ نفسُه: مسؤولُ
+                // الامتثالِ يصلُ هذه الشاشةَ ولا يصلُ المنحَ، فلا يُرسَمُ له رابطٌ إلى ٤٠٣.
+                ->url(fn (): string => GrantCreditSubscription::getUrl())
+                ->visible(fn (): bool => GrantCreditSubscription::canAccess()),
         ];
     }
 }

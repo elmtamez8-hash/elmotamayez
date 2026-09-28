@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\EnrollmentResource\Pages;
+use App\Filament\Support\RecordLink;
 use App\Modules\Learning\Enums\EnrollmentStatus;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Payments\Actions\ChangeEnrollmentStatus;
@@ -141,10 +142,12 @@ class EnrollmentResource extends Resource
                     ->label('الكورس')
                     ->searchable()
                     ->sortable()
+                    ->url(fn (Enrollment $record): ?string => RecordLink::to(CourseResource::class, $record->course))
                     ->wrap(),
                 TextColumn::make('course.workspace.name')
                     ->label('المدرّس')
                     ->placeholder('—')
+                    ->url(fn (Enrollment $record): ?string => RecordLink::to(WorkspaceResource::class, $record->course->workspace))
                     ->toggleable(),
                 // ⚠️ بلا بحثٍ ولا ترتيب: `name` سِمةٌ محسوبةٌ لا عمود. {@see CourseResource}
                 TextColumn::make('student.name')
@@ -153,8 +156,7 @@ class EnrollmentResource extends Resource
                 TextColumn::make('student.email')
                     ->label('بريد الطالب')
                     ->searchable()
-                    ->copyable()
-                    ->copyMessage('نُسخ البريد'),
+                    ->url(fn (Enrollment $record): ?string => RecordLink::to(UserResource::class, $record->student)),
                 TextColumn::make('status')->label('الحالة')->badge()
                     ->formatStateUsing(fn (string $state): string => EnrollmentStatus::labelFor($state))
                     ->color(fn (string $state): string => match ($state) {
@@ -249,6 +251,38 @@ class EnrollmentResource extends Resource
             'course' => fn ($relation) => $relation->withoutGlobalScope(WorkspaceScope::class),
             'course.workspace',
             'student',
+        ]);
+    }
+
+    /**
+     * البحثُ العامّ ببريدِ الطالبِ أو بعنوانِ الكورس.
+     *
+     * ⚠️ `course.title` بحثٌ بـ`whereHas('course')`، ونطاقُ `Course` كانَ سيعودُ
+     * عليه فلا يجدُ إلّا كورساتِ مكانِ القارئ. لا يعود: `Enrollment::course()`
+     * تُسقِطُ النطاقَ على العلاقةِ نفسِها، و`whereHas` يحملُ النطاقاتِ المُسقَطةَ
+     * من العلاقة (`mergeConstraintsFrom`) — والاختبارُ يقيسُه بمكانَين.
+     * والاستعلامُ هو {@see self::getEloquentQuery()} بتجاوزِه وتحميلِه المسبق.
+     *
+     * @return array<int, string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['student.email', 'course.title'];
+    }
+
+    public static function getGlobalSearchResultTitle(Model $record): string
+    {
+        /** @var Enrollment $record */
+        return $record->course->title.' — '.$record->student->email;
+    }
+
+    /** @return array<string, string> */
+    public static function getGlobalSearchResultDetails(Model $record): array
+    {
+        /** @var Enrollment $record */
+        return array_filter([
+            'المدرّس' => $record->course->workspace?->name,
+            'الحالة' => EnrollmentStatus::labelFor($record->status),
         ]);
     }
 

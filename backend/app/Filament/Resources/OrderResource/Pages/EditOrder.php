@@ -4,10 +4,19 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\OrderResource\Pages;
 
+use App\Filament\Resources\CourseResource;
 use App\Filament\Resources\OrderResource;
+use App\Filament\Resources\UserResource;
+use App\Filament\Resources\WorkspaceResource;
+use App\Filament\Support\RecordLinkAction;
+use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Payments\Actions\ApproveOrder;
+use App\Modules\Payments\Models\Order;
+use App\Modules\Tenancy\Models\Workspace;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Icons\Heroicon;
 
 class EditOrder extends EditRecord
 {
@@ -34,6 +43,17 @@ class EditOrder extends EditRecord
             OrderResource::rejectAction(),
             OrderResource::reverseAction(),
             OrderResource::settleRefundAction(),
+            // روابطُ لا قرارات — كلٌّ يظهرُ لمن يفتحُ هدفَه وحدَه.
+            RecordLinkAction::make('openUser', 'حساب المشتري', UserResource::class, fn (): ?User => $this->order()?->user, Heroicon::OutlinedUser),
+            RecordLinkAction::make('openWorkspace', 'مكان العمل', WorkspaceResource::class, fn (): ?Workspace => $this->order()?->workspace, Heroicon::OutlinedBuildingLibrary),
+            RecordLinkAction::make('openCourse', 'الكورس', CourseResource::class, fn (): ?Course => $this->order()?->course, Heroicon::OutlinedAcademicCap),
         ];
+    }
+
+    private function order(): ?Order
+    {
+        $record = $this->getRecord();
+
+        return $record instanceof Order ? $record : null;
     }
 }

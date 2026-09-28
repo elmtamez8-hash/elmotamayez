@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\NavigationGroups;
 use App\Filament\Resources\CourseResource\Pages;
 use App\Filament\Support\MoneyInput;
+use App\Filament\Support\RecordLink;
 use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
@@ -222,6 +223,7 @@ class CourseResource extends Resource
                 TextColumn::make('workspace.name')
                     ->label('المدرّس / الأكاديميّة')
                     ->placeholder('—')
+                    ->url(fn (Course $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace))
                     ->toggleable(),
                 TextColumn::make('subject.name')
                     ->label('المادّة')
@@ -406,6 +408,7 @@ class CourseResource extends Resource
     {
         return [
             CourseResource\RelationManagers\EnrollmentsRelationManager::class,
+            CourseResource\RelationManagers\ExamsRelationManager::class,
         ];
     }
 

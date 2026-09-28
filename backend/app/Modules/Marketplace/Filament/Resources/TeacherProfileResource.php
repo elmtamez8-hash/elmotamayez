@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Filament\Resources;
 
 use App\Filament\NavigationGroups;
+use App\Filament\Resources\WorkspaceResource;
+use App\Filament\Support\RecordLink;
 use App\Models\User;
 use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
 use App\Modules\Marketplace\Actions\ReinstateTeacher;
@@ -403,9 +405,11 @@ class TeacherProfileResource extends Resource
                     ->copyable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                // رابطٌ لمديرِ المنصّةِ وحدَه؛ مسؤولُ الامتثالِ يرى الاسمَ نصّاً.
                 TextColumn::make('workspace.name')
                     ->label('مساحة العمل')
                     ->searchable()
+                    ->url(fn (TeacherProfile $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace))
                     ->toggleable(),
 
                 TextColumn::make('approval_status')
@@ -495,7 +499,9 @@ class TeacherProfileResource extends Resource
                 ->schema([
                     TextEntry::make('search_name')->label('الاسم')->placeholder('—'),
                     TextEntry::make('user.email')->label('البريد')->copyable(),
-                    TextEntry::make('workspace.name')->label('مساحة العمل'),
+                    TextEntry::make('workspace.name')
+                        ->label('مساحة العمل')
+                        ->url(fn (TeacherProfile $record): ?string => RecordLink::to(WorkspaceResource::class, $record->workspace)),
                     TextEntry::make('slug')->label('عنوانه في السوق')->placeholder('—'),
                     TextEntry::make('headline')->label('السطر التعريفيّ')->placeholder('—')->columnSpanFull(),
                 ]),
