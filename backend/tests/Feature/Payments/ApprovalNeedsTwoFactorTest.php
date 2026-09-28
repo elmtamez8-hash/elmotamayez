@@ -50,7 +50,10 @@ beforeEach(function (): void {
 
     $student = $this->addWorkspaceMember($workspace, Roles::STUDENT);
 
-    $this->order = app(CreateOrder::class)->handle($course, $student);
+    // ⚠️ `under_review`, so every refusal below is the SECOND FACTOR's: on a
+    // `pending` order approval is refused for having no receipt, and a denial
+    // test would be green for the wrong reason.
+    $this->order = receiptUploaded(app(CreateOrder::class)->handle($course, $student));
     $this->officer = makePlatformStaff(Roles::FINANCE_ADMIN);
     $this->owner = $owner;
 });

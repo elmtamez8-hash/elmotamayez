@@ -111,7 +111,7 @@ it('mints exactly once when the platform approves', function (): void {
         'package' => $this->package->uuid,
     ])->assertCreated();
 
-    $order = Order::query()->withoutWorkspaceScope()->firstOrFail();
+    $order = receiptUploaded(Order::query()->withoutWorkspaceScope()->firstOrFail());
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($this->workspace->getKey());
 

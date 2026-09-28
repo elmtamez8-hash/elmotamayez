@@ -62,6 +62,8 @@ class ApproveOrder extends Action
         ?string $cohortUuid = null,
     ): Order {
         return DB::transaction(function () use ($order, $approver, $ipAddress, $userAgent, $cohortUuid): Order {
+            $this->refuseWithoutReceipt($order);
+
             $cohort = $this->resolveCohortToClaim($order, $cohortUuid);
 
             /*
@@ -83,7 +85,11 @@ class ApproveOrder extends Action
             $claimed = Order::query()
                 ->withoutWorkspaceScope()
                 ->whereKey($order->getKey())
-                ->awaitingDecision()
+                // ⛔ `approvable()`, NOT `awaitingDecision()`: the receipt rule
+                // is part of the claim itself, so a `pending` order that slips
+                // past the read in `refuseWithoutReceipt()` still matches zero
+                // rows. See {@see Order::scopeApprovable()}.
+                ->approvable()
                 ->update([
                     'status' => 'approved',
                     'approved_by' => $approver->getKey(),
@@ -147,6 +153,37 @@ class ApproveOrder extends Action
 
             return $order;
         });
+    }
+
+    /**
+     * ⛔ لا اعتمادَ لطلبٍ لم يُرفَعْ إيصالُه (قرارُ المالك ٢٠٢٦-٠٩-٢٨).
+     *
+     * ⚠️ **يُقرأُ من الصفِّ لا من النسخةِ المحمَّلة**: جدولُ اللوحةِ يُستطلَعُ كلَّ
+     * عشرِ ثوانٍ، فالنسخةُ قد تكونُ أقدمَ من رفعِ الإيصال — والعكسُ أيضاً.
+     *
+     * ⚠️ **وقبلَ سؤالِ المجموعة**: وإلّا قرأَ الموظّفُ «امتلأت المجموعة» عن طلبٍ
+     * لم يُدفَعْ أصلاً. والحارسُ الحقيقيُّ هو شرطُ `approvable()` في المطالبةِ
+     * الذرّيّة؛ هذه القراءةُ لتسميةِ السببِ وحدَها.
+     *
+     * ⚠️ **وطلبٌ سدّدَته بوابةُ الدفعِ يبقى `pending`** (billing.md) — فيُسمّى
+     * سببُه الحقيقيُّ أوّلاً بدلَ «لم يُرفَعْ إيصال».
+     */
+    private function refuseWithoutReceipt(Order $order): void
+    {
+        $fresh = Order::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($order->getKey())
+            ->first(['id', 'status', 'amount_minor']);
+
+        if ($fresh === null || $fresh->status !== 'pending' || $fresh->isApprovable()) {
+            return;
+        }
+
+        if (PaymentTransaction::query()->withoutWorkspaceScope()->where('captured_order_id', $order->getKey())->exists()) {
+            throw new DomainException('هذا الطلب سُدِّد بالفعل عبر بوابة الدفع.');
+        }
+
+        throw new DomainException('لا يمكن اعتماد طلب لم يُرفَع إيصال دفعه بعد.');
     }
 
     /**

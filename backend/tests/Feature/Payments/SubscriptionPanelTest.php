@@ -61,7 +61,7 @@ beforeEach(function (): void {
 function panelSubscription(): Subscription
 {
     $order = app(PurchaseSubscription::class)->handle(test()->buyer, (string) test()->plan->uuid);
-    app(ApproveOrder::class)->handle($order, test()->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), test()->officer);
 
     return Subscription::query()->withoutWorkspaceScope()->latest('id')->firstOrFail();
 }
@@ -109,7 +109,7 @@ it('lists every workspace and not the officer own one', function (): void {
     ]);
     $otherBuyer = User::factory()->create(['last_workspace_id' => null]);
     $order = app(PurchaseSubscription::class)->handle($otherBuyer, (string) $otherPlan->uuid);
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
     $theirs = Subscription::query()->withoutWorkspaceScope()->latest('id')->firstOrFail();
 
     $this->officer->forceFill(['last_workspace_id' => $this->workspace->getKey()])->save();

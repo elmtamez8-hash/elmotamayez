@@ -275,7 +275,7 @@ it('claims the seat exactly once on the subscription door too', function (): voi
         (string) $cohort->uuid,
     );
 
-    app(ApproveOrder::class)->handle($order, $this->owner);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->owner);
 
     expect((int) $cohort->refresh()->members_count)->toBe(1);
 

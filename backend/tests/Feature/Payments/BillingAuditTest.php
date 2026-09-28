@@ -118,7 +118,7 @@ it('exposes the terminal as a named field rather than buried in properties', fun
     $order = auditableOrder();
 
     $this->actingAs($this->owner);
-    app(ApproveOrder::class)->handle($order, $this->owner, '198.51.100.4', 'Firefox/Test');
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->owner, '198.51.100.4', 'Firefox/Test');
 
     $entry = ActivityEntry::query()->where('description', 'approved')->firstOrFail();
 

@@ -85,7 +85,7 @@ it('writes the hours into the snapshot and no window beside them', function (): 
 it('does not activate an hours order into a subscription that expired at birth', function (): void {
     $order = buyIt(shapedPlan(bySessions: true));
 
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     expect(Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->count())->toBe(0);
 });
@@ -95,7 +95,7 @@ it('still writes a real window for a plan sold by the month', function (): void 
     // where approval does nothing at all.
     $order = buyIt(shapedPlan(bySessions: false));
 
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     $subscription = Subscription::query()
         ->withoutWorkspaceScope()
@@ -121,7 +121,7 @@ it('reads a truncated snapshot as no window rather than as a window of zero', fu
     $metadata['duration_days'] = 0;
     $order->forceFill(['metadata' => $metadata])->save();
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer);
 
     expect(Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->count())->toBe(0);
 });

@@ -127,6 +127,7 @@ it('still lets that teacher approve an ordinary course order', function (): void
     // The positive control. Without it every assertion above is satisfied by a
     // branch that refuses everything — including the path that has shipped since
     // spec 001 and which this change must not touch.
+    receiptUploaded($this->courseOrder);
     $this->postJson("/api/v1/orders/{$this->courseOrder->uuid}/approve")->assertOk();
 });
 
@@ -184,6 +185,7 @@ it('shows the platform all three kinds and lets it approve them', function (): v
         ->and($uuids)->toContain($this->subscriptionOrder->uuid)
         ->and($uuids)->toContain($this->courseOrder->uuid);
 
+    receiptUploaded($this->storeOrder);
     $this->postJson("/api/v1/orders/{$this->storeOrder->uuid}/approve")->assertOk();
 });
 

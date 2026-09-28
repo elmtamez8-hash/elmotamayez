@@ -84,7 +84,7 @@ it('approves a paid subscription order after its plan is switched off', function
     // may join this group of their own accord.
     $this->plan->forceFill(['is_active' => false])->save();
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer);
 
     $membership = CohortMembership::query()
         ->withoutWorkspaceScope()
@@ -139,7 +139,7 @@ it('approves a paid subscription order after the teacher CLOSES the group', func
 
     $this->cohort->forceFill(['status' => Cohort::CLOSED])->save();
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer);
 
     $membership = CohortMembership::query()
         ->withoutWorkspaceScope()
@@ -162,7 +162,7 @@ it('still refuses the approval when the group was archived', function (): void {
 
     $this->cohort->forceFill(['status' => Cohort::ARCHIVED])->save();
 
-    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->officer))
+    expect(fn () => app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer))
         ->toThrow(DomainException::class, 'لم تعد هذه المجموعة متاحة');
 
     expect($order->refresh()->status)->not->toBe('approved');
@@ -183,7 +183,7 @@ it('still refuses the approval when the group filled up', function (): void {
         'members_count' => 1,
     ])->save();
 
-    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->officer))
+    expect(fn () => app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer))
         ->toThrow(DomainException::class, 'لم تعد هذه المجموعة متاحة');
 
     expect($order->refresh()->status)->not->toBe('approved');

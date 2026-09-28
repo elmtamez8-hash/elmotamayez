@@ -243,6 +243,10 @@ final class ScenarioSeeder extends Seeder
 
         // Approved order → the PaymentApproved listener creates the enrollment (source=order).
         $approved = app(CreateOrder::class)->handle($paid, $buyer);
+        // ⚠️ `under_review` first: `ApproveOrder` refuses an order with no
+        // receipt (owner decision 2026-09-28). A demo row has no image to
+        // upload, so the status the upload would have written is set directly.
+        $approved->forceFill(['status' => 'under_review'])->save();
         app(ApproveOrder::class)->handle($approved, $owner);
 
         // Pending order awaiting review, with the matching pending transaction.

@@ -169,7 +169,7 @@ it('refuses the page to somebody without the purchase-approval permission', func
 });
 
 it('approves from this screen and the order becomes approved exactly once', function (): void {
-    $order = pendingSubscriptionOrder();
+    $order = receiptUploaded(pendingSubscriptionOrder());
 
     queueAs($this->officer)->callTableAction('approve', $order->getKey());
 
@@ -183,12 +183,38 @@ it('tells the officer who lost the race, in Arabic', function (): void {
     | no surface exercised the losing branch. Two officers on one queue press
     | «اعتمد» at the same instant as a matter of course.
     */
+    $order = receiptUploaded(pendingSubscriptionOrder());
+
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
+
+    expect(fn () => app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer))
+        ->toThrow(DomainException::class, 'اتُّخِذ القرار على هذا الطلب بالفعل.');
+});
+
+/*
+| ⛔ NO RECEIPT, NO «اعتمد» (owner decision 2026-09-28). The row reads «لا إيصال»
+| and used to carry the button anyway; «ارفض» stays so an abandoned order can
+| still be closed.
+*/
+it('offers no approval on a row whose receipt was never uploaded', function (): void {
     $order = pendingSubscriptionOrder();
 
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    queueAs($this->officer)
+        ->assertTableActionHidden('approve', $order)
+        ->assertTableActionVisible('reject', $order);
+});
 
-    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->officer))
-        ->toThrow(DomainException::class, 'اتُّخِذ القرار على هذا الطلب بالفعل.');
+it('approves nothing when the hidden button is called directly on a pending row', function (): void {
+    $order = pendingSubscriptionOrder();
+
+    // The raw Livewire calls, not `callTableAction()`, which refuses to press a
+    // hidden action before the component is ever asked.
+    queueAs($this->officer)
+        ->call('mountAction', 'approve', [], ['table' => true, 'recordKey' => (string) $order->getKey()])
+        ->call('callMountedAction');
+
+    expect($order->refresh()->status)->toBe('pending')
+        ->and($order->approved_by)->toBeNull();
 });
 
 it('does not put an order the officer created on the queue they approve from', function (): void {
@@ -288,9 +314,9 @@ it('says «ناقص» once the window has passed with no subscription written', 
 | «مكتمل» حتّى داخلَ المهلة، فالمهلةُ تُؤجِّلُ الحكمَ ولا تُؤجِّلُ الخبرَ السارّ.
 */
 it('says «مكتمل» inside the window when the subscription is already there', function (): void {
-    $order = pendingSubscriptionOrder();
+    $order = receiptUploaded(pendingSubscriptionOrder());
 
-    app(ApproveOrder::class)->handle($order, $this->officer, '127.0.0.1', 'pest');
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer, '127.0.0.1', 'pest');
 
     queueAs($this->officer)
         ->assertSee('مكتمل')

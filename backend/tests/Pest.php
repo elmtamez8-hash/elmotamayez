@@ -52,6 +52,7 @@ use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Enums\PaymentStatus;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\CreditBalance;
+use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Support\CreditAccounts;
 use App\Modules\Payments\Support\CreditLedger;
@@ -1861,4 +1862,22 @@ function codeWithoutComments(string $source): string
     }
 
     return implode('', $kept);
+}
+
+/**
+ * The order as it stands once its payer uploaded a receipt: `under_review`.
+ *
+ * ⚠️ `ApproveOrder` refuses a `pending` order (owner decision 2026-09-28): no
+ * receipt, no approval. Most tests that approve are about what the approval
+ * DOES, not about the receipt, so this writes the status the upload writes and
+ * nothing else — no media, no activity row. A test about the receipt itself
+ * goes through `UploadPaymentReceipt`, as `ReceiptLifecycleTest` does.
+ */
+function receiptUploaded(Order $order): Order
+{
+    Order::query()->withoutWorkspaceScope()->whereKey($order->getKey())
+        ->where('status', 'pending')
+        ->update(['status' => 'under_review']);
+
+    return $order->refresh();
 }

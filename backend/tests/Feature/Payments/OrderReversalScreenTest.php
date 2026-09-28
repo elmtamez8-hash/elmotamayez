@@ -60,7 +60,7 @@ beforeEach(function (): void {
     [$decoy] = $this->createWorkspaceWithOwner();
     $this->officer->forceFill(['last_workspace_id' => $decoy->getKey()])->save();
 
-    app(ApproveOrder::class)->handle($this->order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($this->order), $this->officer);
 
     $this->actingAs($this->officer);
 
@@ -211,7 +211,7 @@ it('reopens the cancelled enrolment when the student buys the course again', fun
 
     $course = Course::query()->withoutWorkspaceScope()->findOrFail($this->order->course_id);
     $again = app(CreateOrder::class)->handle($course, $this->student);
-    app(ApproveOrder::class)->handle($again, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($again), $this->officer);
 
     $enrollment = reversalScreenEnrollment($again);
 

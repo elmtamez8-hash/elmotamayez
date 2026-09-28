@@ -47,7 +47,7 @@ beforeEach(function (): void {
     ]);
 
     $this->actingAs($this->owner);
-    app(ApproveOrder::class)->handle($order, $this->owner, '198.51.100.4', 'Firefox');
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->owner, '198.51.100.4', 'Firefox');
 
     // A settlement decision in the same table, written the way 014 writes one.
     $rate = SettlementRate::factory()->create(['workspace_id' => $this->workspace->getKey()]);

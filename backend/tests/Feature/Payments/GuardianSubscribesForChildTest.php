@@ -128,7 +128,7 @@ it('puts the subscription, the enrolment and the seat on the CHILD, never on the
     expect((int) $order->user_id)->toBe($this->child->getKey())
         ->and((int) $order->granted_by)->toBe($this->guardian->getKey());
 
-    app(ApproveOrder::class)->handle($order, $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), $this->officer);
 
     /*
     | ⚠️ THE THREE THAT MATTER. Each one was written in the guardian's name

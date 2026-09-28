@@ -42,7 +42,7 @@ beforeEach(function (): void {
 function handOverBuy(): Subscription
 {
     $order = app(PurchaseSubscription::class)->handle(test()->buyer, (string) test()->plan->uuid);
-    app(ApproveOrder::class)->handle($order, test()->approver);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), test()->approver);
 
     return Subscription::query()->withoutWorkspaceScope()->where('order_id', $order->getKey())->firstOrFail();
 }

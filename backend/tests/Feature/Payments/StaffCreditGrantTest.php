@@ -247,7 +247,7 @@ it('lets an officer who owns a workspace read and approve an order in another on
     | workspace at all, where a null context raises no objection.
     */
     $purchase = grant();
-    $order = Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id);
+    $order = receiptUploaded(Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id));
 
     // The officer is standing in workspace B; the order lives in A.
     $this->setCurrentWorkspace($this->workspaceB, $this->officer);
@@ -264,7 +264,7 @@ it('lets an officer with no workspace of their own do the same', function (): vo
     // The case every existing fixture already covered — kept so the pair reads
     // as "both, always" rather than as the one that happened to be written.
     $purchase = grant();
-    $order = Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id);
+    $order = receiptUploaded(Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id));
 
     app(WorkspaceContext::class)->forget();
     Sanctum::actingAs($this->officer);

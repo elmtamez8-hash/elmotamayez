@@ -53,7 +53,7 @@ function boughtAndPaid(): StoreOrder
     // was never paid, and `FulfilStorePurchase` alone leaves it `pending`.
     // Approval fulfils through `FulfilOnPaymentApproved` like production does.
     app(ApproveOrder::class)->handle(
-        Order::query()->whereKey($purchase->order_id)->firstOrFail(),
+        receiptUploaded(Order::query()->whereKey($purchase->order_id)->firstOrFail()),
         test()->owner,
     );
 
@@ -147,7 +147,7 @@ function printedAndFulfilled(): array
     // was never paid, and `FulfilStorePurchase` alone leaves it `pending`.
     // Approval fulfils through `FulfilOnPaymentApproved` like production does.
     app(ApproveOrder::class)->handle(
-        Order::query()->whereKey($purchase->order_id)->firstOrFail(),
+        receiptUploaded(Order::query()->whereKey($purchase->order_id)->firstOrFail()),
         test()->owner,
     );
 

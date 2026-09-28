@@ -51,7 +51,7 @@ beforeEach(function (): void {
 function buyAndApprove(): Subscription
 {
     $order = app(PurchaseSubscription::class)->handle(test()->buyer, (string) test()->plan->uuid);
-    app(ApproveOrder::class)->handle($order, test()->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), test()->officer);
 
     return Subscription::query()->withoutWorkspaceScope()->firstOrFail();
 }

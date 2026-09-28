@@ -46,7 +46,7 @@ beforeEach(function (): void {
 function activeSubscription(): Subscription
 {
     $order = app(PurchaseSubscription::class)->handle(test()->buyer, (string) test()->plan->uuid);
-    app(ApproveOrder::class)->handle($order, test()->approver);
+    app(ApproveOrder::class)->handle(receiptUploaded($order), test()->approver);
 
     return Subscription::query()->withoutWorkspaceScope()->firstOrFail();
 }
@@ -176,7 +176,7 @@ it('does not revive a subscription that has already finished', function (): void
 it('moves a renewal already bought when a later freeze extends the month before it', function (): void {
     $first = activeSubscription();
     app(ApproveOrder::class)->handle(
-        app(PurchaseSubscription::class)->handle($this->buyer, (string) $this->plan->uuid),
+        receiptUploaded(app(PurchaseSubscription::class)->handle($this->buyer, (string) $this->plan->uuid)),
         $this->approver,
     );
 
@@ -224,7 +224,7 @@ it('leaves a renewal of ANOTHER plan where it is', function (): void {
         'duration_days' => 30,
     ]);
     app(ApproveOrder::class)->handle(
-        app(PurchaseSubscription::class)->handle($this->buyer, (string) $other->uuid),
+        receiptUploaded(app(PurchaseSubscription::class)->handle($this->buyer, (string) $other->uuid)),
         $this->approver,
     );
 

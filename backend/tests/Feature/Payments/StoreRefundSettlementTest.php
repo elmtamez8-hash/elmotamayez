@@ -54,7 +54,7 @@ beforeEach(function (): void {
     [$decoy] = $this->createWorkspaceWithOwner();
     $this->officer->forceFill(['last_workspace_id' => $decoy->getKey()])->save();
 
-    app(ApproveOrder::class)->handle(Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded(Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id)), $this->officer);
     app(RefundStorePurchase::class)->handle($purchase->uuid, $this->buyer);
 
     $this->order = Order::query()->withoutWorkspaceScope()->findOrFail($purchase->order_id);

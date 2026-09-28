@@ -74,7 +74,7 @@ it('enrols the buyer in the group course alone', function (): void {
         (string) $this->cohort->uuid,
     );
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer);
 
     $courseIds = Enrollment::query()
         ->withoutWorkspaceScope()
@@ -142,7 +142,7 @@ it('opens every published course for a teacher-wide plan', function (): void {
         (string) $plain->uuid,
     );
 
-    app(ApproveOrder::class)->handle($order->refresh(), $this->officer);
+    app(ApproveOrder::class)->handle(receiptUploaded($order->refresh()), $this->officer);
 
     $courseIds = Enrollment::query()
         ->withoutWorkspaceScope()
