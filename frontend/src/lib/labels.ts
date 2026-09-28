@@ -614,6 +614,7 @@ export const NOUNS = {
   /** A mark out of N. After «من» spread it and override `two` with «درجتين». */
   points: { one: "درجة واحدة", two: "درجتان", few: "درجات", many: "درجة", other: "درجة" },
   students: { one: "طالب واحد", two: "طالبان", few: "طلاب", many: "طالباً", other: "طالب" },
+  assistants: { one: "مساعد واحد", two: "مساعدان", few: "مساعدين", many: "مساعداً", other: "مساعد" },
   seatsAvailable: {
     one: "مقعد واحد متاح",
     two: "مقعدان متاحان",
