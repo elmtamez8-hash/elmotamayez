@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Exceptions\PrivateSessionConflictException;
 use App\Modules\LiveSessions\Http\Requests\RequestPrivateSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\PrivateSessionRequestResource;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -106,11 +107,21 @@ class PrivateSessionRequestController extends Controller
     }
 
     /** The teacher's queue (FR-018). */
-    public function queue(Request $request): AnonymousResourceCollection
+    public function queue(Request $request, AssistantScopeDirectory $assistants): AnonymousResourceCollection
     {
         $this->authorize('viewAny', PrivateSessionRequest::class);
 
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        // ⛔ A confined assistant's queue is their own courses' requests — the
+        // ones `PrivateSessionRequestPolicy::decide()` lets them answer (spec 010
+        // · FR-005). `null` is «not confined».
+        $scoped = $workspaceId === null
+            ? null
+            : $assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
         $requests = PrivateSessionRequest::query()
+            ->when($scoped !== null, fn ($query) => $query->whereIn('course_id', $scoped ?? []))
             /*
             | ⚠️ THE WORKSPACE IS NAMED, NOT LEFT TO THE SCOPE — AND IT IS NEVER
             | TAKEN FROM THE REQUEST. `WorkspaceScope` would answer correctly

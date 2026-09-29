@@ -10,6 +10,7 @@ use App\Modules\LiveSessions\Actions\RequestSessionReschedule;
 use App\Modules\LiveSessions\Http\Resources\SessionRescheduleRequestResource;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
@@ -92,11 +93,24 @@ class SessionRescheduleRequestController extends Controller
     }
 
     /** The teacher's queue. */
-    public function queue(Request $request): AnonymousResourceCollection
+    public function queue(Request $request, AssistantScopeDirectory $assistants): AnonymousResourceCollection
     {
         $this->authorize('viewAny', SessionRescheduleRequest::class);
 
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        // ⛔ A confined assistant's queue is their own courses' sessions — the
+        // ones `SessionRescheduleRequestPolicy::decide()` lets them answer (spec
+        // 010 · FR-005). A course-less session drops out, as it is refused there.
+        $scoped = $workspaceId === null
+            ? null
+            : $assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
         $requests = SessionRescheduleRequest::query()
+            ->when($scoped !== null, fn ($query) => $query->whereIn(
+                'class_session_id',
+                ClassSession::query()->withoutWorkspaceScope()->select('id')->whereIn('course_id', $scoped ?? []),
+            ))
             /*
             | ⚠️ THE WORKSPACE IS NAMED, NOT LEFT TO THE SCOPE, and never taken
             | from the client. The scope would answer correctly here; relying on

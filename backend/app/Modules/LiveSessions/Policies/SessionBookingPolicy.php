@@ -6,12 +6,15 @@ namespace App\Modules\LiveSessions\Policies;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\LiveSessions\Policies\Concerns\AsksAssistantScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use Illuminate\Auth\Access\Response;
 
 class SessionBookingPolicy extends BasePolicy
 {
+    use AsksAssistantScope;
+
     public function view(User $user, SessionBooking $booking): Response
     {
         if ((int) $booking->student_user_id === (int) $user->getKey()) {
@@ -22,9 +25,15 @@ class SessionBookingPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_VIEW)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::SESSIONS_VIEW)) {
+            return Response::deny();
+        }
+
+        return $this->withinAssistantScope(
+            $user,
+            (int) $booking->workspace_id,
+            $this->courseOfSession((int) $booking->class_session_id),
+        );
     }
 
     /**
@@ -44,8 +53,16 @@ class SessionBookingPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_MANAGE)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::SESSIONS_MANAGE)) {
+            return Response::deny();
+        }
+
+        // ⛔ Spec 010 · FR-005: a confined assistant releases the seats of their
+        // own courses' sessions only.
+        return $this->withinAssistantScope(
+            $user,
+            (int) $booking->workspace_id,
+            $this->courseOfSession((int) $booking->class_session_id),
+        );
     }
 }

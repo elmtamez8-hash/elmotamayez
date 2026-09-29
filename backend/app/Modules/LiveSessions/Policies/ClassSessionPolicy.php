@@ -5,12 +5,33 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Policies;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Auth\Access\Response;
 
+/**
+ * ⛔ EVERY STAFF DOOR ON A SESSION ALSO ASKS THE ASSISTANT SCOPE (spec 010 ·
+ * FR-005). Until 2026-09-29 `view`, `update`/`cancel`, `host` and `create` asked
+ * the permission and the workspace alone, so an assistant confined to one course
+ * who held `sessions.host` / `sessions.manage` opened, moved, cancelled, hosted
+ * and scheduled the sessions of every course in the workspace — while
+ * `CoursePolicy` refused them those courses. The scope is asked AFTER the
+ * permission and after every student branch: a student's seat, enrolment and
+ * heartbeat never reach it, and a teacher, an owner or an unconfined assistant
+ * pass it as a no-op.
+ *
+ * A session with NO course is outside every confinement — the answer
+ * `AttendancePolicy::override()` and `MediaAssetPolicy` already give, decided
+ * once in `AssistantScopeDirectory::mayActOnCourse()`. Only historic rows carry
+ * one: `ScheduleClassSession::requireCourse()` refuses a course-less session at
+ * the door every scheduler (the form, availability generation, an accepted
+ * private request) comes through.
+ */
 class ClassSessionPolicy extends BasePolicy
 {
     public function __construct(private readonly EnrollmentDirectory $enrollments) {}
@@ -85,16 +106,50 @@ class ClassSessionPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_VIEW)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::SESSIONS_VIEW)) {
+            return Response::deny();
+        }
+
+        /*
+        | ⚠️ A READ, SCOPED ON PURPOSE: the staff list (`ClassSessionController::
+        | index`) names a confined assistant's own courses only, and a list that
+        | hides a row while its uuid still opens is the draft-course hole #281
+        | closed. This also takes the far session's register (`GET …/attendance`
+        | authorises on this ability) — `ATTENDANCE_VIEW` stays workspace-wide
+        | for a session the assistant may open.
+        */
+        return $this->withinAssistantScope($user, $session);
     }
 
-    public function create(User $user): Response
+    /**
+     * Scheduling. `$course` is the course the new session(s) will belong to,
+     * and every caller passes it (`store`, `generate`, and the two
+     * group-assignment doors). Without one a confined assistant is refused — a
+     * session is never scheduled outside a course.
+     */
+    public function create(User $user, ?Course $course = null): Response
     {
-        return $user->can(Permissions::SESSIONS_MANAGE)
+        if (! $user->can(Permissions::SESSIONS_MANAGE)) {
+            return Response::deny();
+        }
+
+        $workspaceId = $course === null
+            ? app(WorkspaceContext::class)->id()
+            : (int) $course->workspace_id;
+
+        // No course and no context: a super admin operating globally, whom no
+        // assignment confines.
+        if ($workspaceId === null) {
+            return Response::allow();
+        }
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            $workspaceId,
+            $course === null ? null : (int) $course->getKey(),
+        )
             ? Response::allow()
-            : Response::deny();
+            : Response::deny('هذا الكورس خارج نطاق عملك.');
     }
 
     public function update(User $user, ClassSession $session): Response
@@ -103,9 +158,11 @@ class ClassSessionPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_MANAGE)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::SESSIONS_MANAGE)) {
+            return Response::deny();
+        }
+
+        return $this->withinAssistantScope($user, $session);
     }
 
     public function cancel(User $user, ClassSession $session): Response
@@ -126,8 +183,34 @@ class ClassSessionPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_HOST)
+        /*
+        | ⚠️ THE PERMISSION FIRST, THE SCOPE SECOND — AND THE ORDER IS A COST.
+        | `RoomRevocation::isHost()` asks this on every heartbeat of every
+        | participant; a student stops at the permission before the scope
+        | directory is consulted at all.
+        */
+        if (! $user->can(Permissions::SESSIONS_HOST)) {
+            return Response::deny();
+        }
+
+        return $this->withinAssistantScope($user, $session);
+    }
+
+    /**
+     * Spec 010 · FR-005 — asked BESIDE the permission, never instead of it. A
+     * `null` course stays `null`, which the directory refuses for a confined
+     * assistant and passes for everybody else.
+     */
+    private function withinAssistantScope(User $user, ClassSession $session): Response
+    {
+        $courseId = $session->course_id;
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $session->workspace_id,
+            $courseId === null ? null : (int) $courseId,
+        )
             ? Response::allow()
-            : Response::deny();
+            : Response::deny('هذه الحصّة خارج نطاق عملك.');
     }
 }

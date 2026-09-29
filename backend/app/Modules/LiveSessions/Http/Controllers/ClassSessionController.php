@@ -22,9 +22,11 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\CohortNames;
 use App\Modules\LiveSessions\Support\CohortSessionVisibility;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\UnlockDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +35,7 @@ use Illuminate\Support\Facades\Gate;
 
 class ClassSessionController extends Controller
 {
-    public function index(Request $request, UnlockDirectory $unlock): JsonResponse
+    public function index(Request $request, UnlockDirectory $unlock, AssistantScopeDirectory $assistants): JsonResponse
     {
         $this->authorize('viewAny', ClassSession::class);
 
@@ -57,7 +59,21 @@ class ClassSessionController extends Controller
         // side: page one would be the teacher's first ever week.
         $descending = $request->query('order') === 'desc';
 
+        /*
+        | ⛔ A CONFINED ASSISTANT LISTS THE SESSIONS OF THEIR OWN COURSES (spec
+        | 010 · FR-005) — the manage calendar, the dashboard's workspace card and
+        | a group's page all read this route. `null` is «not confined» (a
+        | teacher, an owner, a student, an unconfined assistant), and the method
+        | never answers `[]`. `whereIn` also drops a course-less session, which
+        | `ClassSessionPolicy` refuses a confined assistant anyway.
+        */
+        $contextId = app(WorkspaceContext::class)->id();
+        $scoped = $contextId === null
+            ? null
+            : $assistants->scopedCourseIdsFor($this->currentUser($request), $contextId);
+
         $sessions = ClassSession::query()
+            ->when($scoped !== null, fn ($query) => $query->whereIn('course_id', $scoped ?? []))
             ->when($request->query('from'), fn ($query, $from) => $query->where('starts_at', '>=', $from))
             ->when($to, fn ($query) => $toIsBareDate
                 ? $query->where('starts_at', '<', CarbonImmutable::parse($to)->addDay()->toDateString())
@@ -162,7 +178,13 @@ class ClassSessionController extends Controller
 
     public function store(StoreClassSessionRequest $request, ScheduleClassSession $action): JsonResponse
     {
-        $this->authorize('create', ClassSession::class);
+        // The course is asked BEFORE the Action: a confined assistant schedules
+        // in their own courses only (spec 010 · FR-005). The rule on
+        // `course_uuid` already proved it exists in this workspace.
+        $this->authorize('create', [
+            ClassSession::class,
+            Course::query()->where('uuid', $request->validated('course_uuid'))->firstOrFail(),
+        ]);
 
         try {
             $session = $action->handle(
@@ -180,11 +202,13 @@ class ClassSessionController extends Controller
 
     public function generate(GenerateSessionsRequest $request, GenerateSessionsFromAvailability $action): JsonResponse
     {
-        $this->authorize('create', ClassSession::class);
+        $course = $request->course();
+
+        $this->authorize('create', [ClassSession::class, $course]);
 
         $result = $action->handle(
             $request->teacherProfile(),
-            $request->course(),
+            $course,
             CarbonImmutable::parse((string) $request->validated('from')),
             CarbonImmutable::parse((string) $request->validated('to')),
             $this->currentUser($request),
@@ -290,7 +314,7 @@ class ClassSessionController extends Controller
      */
     public function unassignedSessions(Request $request, Course $course): JsonResponse
     {
-        $this->authorize('create', ClassSession::class);
+        $this->authorize('create', [ClassSession::class, $course]);
 
         $sessions = ClassSession::query()
             ->where('course_id', $course->getKey())
@@ -316,7 +340,7 @@ class ClassSessionController extends Controller
     /** One request for the whole batch — never a loop at the client. */
     public function assignSessions(Request $request, Course $course, AssignSessionsToCohort $action): JsonResponse
     {
-        $this->authorize('create', ClassSession::class);
+        $this->authorize('create', [ClassSession::class, $course]);
 
         $validated = $request->validate([
             'cohort_uuid' => ['required', 'string'],
