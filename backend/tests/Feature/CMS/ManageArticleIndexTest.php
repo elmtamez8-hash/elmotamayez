@@ -138,6 +138,8 @@ it('pages on the server and reaches the rest of the blog', function (): void {
         ->and($first->json('meta.last_page'))->toBe(2)
         ->and($first->json('data'))->toHaveCount(15)
         ->and($first->json('links.next'))->toContain('page=2')
+        // Over the whole blog, not the fifteen on this page.
+        ->and($first->json('meta.counts'))->toBe(['draft' => 17, 'published' => 0])
         ->and($second->json('data'))->toHaveCount(2);
 });
 

@@ -163,7 +163,7 @@ export default function ManageAssignmentsPage() {
           bar stays mounted once anything has loaded, so a search that empties
           the list can still be cleared.
         */}
-        {list.settled && (items.length > 0 || filtering) && (
+        {list.settled && (list.everFilled || filtering) && (
           <FilterBar
             search={{
               id: "assignment-search",

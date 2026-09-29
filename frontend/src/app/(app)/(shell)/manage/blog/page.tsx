@@ -376,7 +376,7 @@ export default function ManageBlogPage() {
           blog. The bar stays mounted once anything has loaded — a search that
           empties the list must still be clearable.
         */}
-        {list.settled && (rows.length > 0 || filtering) && (
+        {list.settled && (list.everFilled || filtering) && (
           <FilterBar
             search={{
               id: "article-search",

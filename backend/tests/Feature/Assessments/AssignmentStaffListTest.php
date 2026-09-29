@@ -87,12 +87,9 @@ it('pages the list on the server and says how many pages there are', function ()
         ->and($pageOne['uuids'])->toHaveCount(5)
         ->and($pageTwo['uuids'])->toHaveCount(3)
         ->and(array_intersect($pageOne['uuids'], $pageTwo['uuids']))->toBe([]);
-});
 
-it('counts each status over the whole list, not the page', function (): void {
-    Sanctum::actingAs($this->owner);
-
-    expect(staffListRead('per_page=5')['meta']['counts'])->toBe(['draft' => 2, 'published' => 2]);
+    // The counts span the whole list, not the five rows on this page.
+    expect($pageOne['meta']['counts'])->toBe(['draft' => 6, 'published' => 2]);
 });
 
 it('narrows by status on the server while the counts keep both chips', function (): void {

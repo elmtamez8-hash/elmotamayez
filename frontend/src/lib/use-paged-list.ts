@@ -32,6 +32,9 @@ export function usePagedList<T extends { uuid: string }, C = undefined>(
   // True once any answer has arrived: the filter bar stays mounted from then on,
   // so a search that empties the list can still be cleared.
   const [settled, setSettled] = useState(false);
+  // True once any page carried a row. Sticky, so a chip that empties the list
+  // and the press that widens it again do not unmount the bar under the cursor.
+  const [everFilled, setEverFilled] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -59,6 +62,8 @@ export function usePagedList<T extends { uuid: string }, C = undefined>(
         if (ticket !== latest.current) return;
 
         const incoming = response.data ?? [];
+
+        if (incoming.length > 0) setEverFilled(true);
 
         setRows((current) => {
           if (target === 1) return incoming;
@@ -98,6 +103,7 @@ export function usePagedList<T extends { uuid: string }, C = undefined>(
     rows,
     state,
     settled,
+    everFilled,
     refreshing,
     total,
     counts,
