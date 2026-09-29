@@ -91,8 +91,110 @@ describe("AssistantScopeForm", () => {
     // teacher is told what they are about to do rather than after.
     expect(screen.getByText("بلا تقييد")).toBeDefined();
 
-    await userEvent.click(screen.getByRole("button", { name: "حفظ النطاق" }));
+    // Lifting a live confinement widens access to every course, so it arms
+    // first: one press is a question, not a save.
+    await userEvent.click(screen.getByRole("button", { name: "رفع التقييد" }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "اضغط مجدداً ليعمل على كلّ الكورسات" }));
 
     expect(onSave).toHaveBeenCalledWith([]);
+  });
+
+  it("never tells an assistant confined to deleted courses that they work on everything", async () => {
+    const onSave = vi.fn();
+
+    render(
+      <AssistantScopeForm
+        assignment={assignment({ is_confined: true, courses: [], unavailable_courses_count: 1 })}
+        courses={COURSES}
+        onSave={onSave}
+      />,
+    );
+
+    expect(screen.getByText("مقصور على كورسات حُذفت")).toBeDefined();
+    expect(screen.queryByText("بلا تقييد")).toBeNull();
+    // No plain save exists here: nothing ticked over a live confinement is the
+    // widening write, and it takes two presses.
+    expect(screen.queryByRole("button", { name: "حفظ النطاق" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "رفع التقييد" }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    // Ticking a course turns it back into an ordinary re-confining save.
+    await userEvent.click(screen.getByRole("checkbox", { name: "الفيزياء" }));
+    await userEvent.click(screen.getByRole("button", { name: "حفظ النطاق" }));
+
+    expect(onSave).toHaveBeenCalledWith(["course-b"]);
+  });
+
+  it("names each checkbox by its title and describes it by status and teacher", () => {
+    render(
+      <AssistantScopeForm
+        assignment={assignment()}
+        courses={[{ uuid: "c1", title: "الرياضيات", status: "draft", teacher: { name: "هدى" } }]}
+        onSave={vi.fn()}
+        showTeacher
+      />,
+    );
+
+    const box = screen.getByRole("checkbox", { name: "الرياضيات" });
+    const details = document.getElementById(box.getAttribute("aria-describedby") ?? "");
+
+    expect(details?.textContent).toContain("مسودّة");
+    expect(details?.textContent).toContain("هدى");
+  });
+
+  describe("with many courses", () => {
+    const MANY: AssistantCourse[] = Array.from({ length: 8 }, (_, index) => ({
+      uuid: `c${index}`,
+      title: index === 3 ? "الكيمياء العضوية" : `كورس رقم ${index}`,
+    }));
+
+    it("offers no search box while the list fits at a glance", () => {
+      render(<AssistantScopeForm assignment={assignment()} courses={COURSES} onSave={vi.fn()} />);
+
+      expect(screen.queryByRole("searchbox")).toBeNull();
+    });
+
+    it("filters by title, and keeps a hidden tick in the set that is saved", async () => {
+      const onSave = vi.fn();
+
+      render(
+        <AssistantScopeForm
+          assignment={assignment({ is_confined: true, courses: [MANY[0]] })}
+          courses={MANY}
+          onSave={onSave}
+        />,
+      );
+
+      await userEvent.type(screen.getByRole("searchbox", { name: "ابحث في الكورسات" }), "الكيمياء");
+
+      expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+
+      await userEvent.click(screen.getByRole("checkbox", { name: "الكيمياء العضوية" }));
+      await userEvent.click(screen.getByRole("button", { name: "حفظ النطاق" }));
+
+      // c0 is filtered out of view and still in the set.
+      expect(onSave).toHaveBeenCalledWith(["c0", "c3"]);
+    });
+
+    it("never saves on Enter in the search box", async () => {
+      const onSave = vi.fn();
+
+      render(<AssistantScopeForm assignment={assignment()} courses={MANY} onSave={onSave} />);
+
+      await userEvent.type(screen.getByRole("searchbox"), "كورس{Enter}");
+
+      expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it("says so when nothing matches", async () => {
+      render(<AssistantScopeForm assignment={assignment()} courses={MANY} onSave={vi.fn()} />);
+
+      await userEvent.type(screen.getByRole("searchbox"), "تاريخ");
+
+      expect(screen.getByText("لا كورس يطابق «تاريخ».")).toBeDefined();
+    });
   });
 });

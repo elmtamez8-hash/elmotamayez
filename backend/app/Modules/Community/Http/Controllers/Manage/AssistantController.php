@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Community\Actions\ListAssignableCourses;
 use App\Modules\Community\Actions\ListAssistants;
 use App\Modules\Community\Actions\RevokeAssistant;
 use App\Modules\Community\Actions\SetAssistantScope;
 use App\Modules\Community\Data\AssistantScopeData;
 use App\Modules\Community\Http\Requests\SetAssistantScopeRequest;
 use App\Modules\Community\Http\Resources\AssistantAssignmentResource;
+use App\Modules\Community\Http\Resources\AssistantCourseResource;
 use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Support\WorkspaceTeachers;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,7 +47,28 @@ class AssistantController extends Controller
 
         abort_if($workspaceId === null, 403);
 
-        return AssistantAssignmentResource::collection($action->handle($workspaceId));
+        return AssistantAssignmentResource::collection($action->handle($workspaceId))
+            ->additional(['meta' => ['teachers_count' => WorkspaceTeachers::count($workspaceId)]]);
+    }
+
+    /**
+     * The picker's courses: this workspace's, live, drafts included.
+     *
+     * ⚠️ ITS OWN READ, NOT `GET /courses`. The authoring index pages at 200,
+     * carries price and cohort reads per page, and answers «what may I edit»;
+     * this answers «what can an assistant be confined to», which is every live
+     * course here and nothing else — the same set the Form Request accepts.
+     */
+    public function courses(ListAssignableCourses $action): AnonymousResourceCollection
+    {
+        $this->authorize('viewAny', AssistantAssignment::class);
+
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        abort_if($workspaceId === null, 403);
+
+        return AssistantCourseResource::collection($action->handle($workspaceId))
+            ->additional(['meta' => ['teachers_count' => WorkspaceTeachers::count($workspaceId)]]);
     }
 
     public function scope(
@@ -57,7 +81,7 @@ class AssistantController extends Controller
         $updated = $action->handle($assignment, AssistantScopeData::fromArray($request->validated()));
 
         return response()->json(
-            AssistantAssignmentResource::make($updated->load('assistant:id,uuid,first_name,last_name', 'scopes.course:id,uuid,title'))
+            AssistantAssignmentResource::make($updated->load(ListAssistants::RELATIONS))
         );
     }
 

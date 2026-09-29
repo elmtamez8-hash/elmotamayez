@@ -21,13 +21,27 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ListAssistants extends Action
 {
+    /**
+     * What every reader of an assignment's Resource eager-loads — one list,
+     * because the index and the scope write each spelled it, and a second
+     * spelling is how one of them drops `creator` and turns the course chips
+     * into an N+1.
+     *
+     * @var list<string>
+     */
+    public const RELATIONS = [
+        'assistant:id,uuid,first_name,last_name',
+        'scopes.course:id,uuid,workspace_id,title,cover_path,status,created_by',
+        'scopes.course.creator:id,first_name,last_name',
+    ];
+
     /** @return Collection<int, AssistantAssignment> */
     public function handle(int $workspaceId): Collection
     {
         return AssistantAssignment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
-            ->with(['assistant:id,uuid,first_name,last_name', 'scopes.course:id,uuid,title'])
+            ->with(self::RELATIONS)
             ->orderBy('id')
             ->get();
     }

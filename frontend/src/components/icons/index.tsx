@@ -92,6 +92,7 @@ import {
   IconExternalLink,
   IconPrinter,
   IconSchool,
+  IconSearch,
   IconSettings,
   IconShieldCheck,
   IconRosetteDiscountCheckFilled,
@@ -172,6 +173,7 @@ export const UploadIcon = wrap(IconUpload, "h-4 w-4");
 export const UsersIcon = wrap(IconUsers, "h-4 w-4");
 export const BookIcon = wrap(IconBook2, "h-4 w-4");
 export const TagIcon = wrap(IconTag, "h-4 w-4");
+export const SearchIcon = wrap(IconSearch, "h-4 w-4");
 export const InfoIcon = wrap(IconInfoCircle, "h-4 w-4");
 export const UserPlusIcon = wrap(IconUserPlus, "h-4 w-4");
 export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");

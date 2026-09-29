@@ -50,13 +50,18 @@ class AssistantAssignmentResource extends JsonResource
             // everything on the day they were invited.
             'is_confined' => $this->scopes->isNotEmpty(),
             'courses' => $this->scopes
-                ->map(fn ($scope): ?array => $scope->course === null ? null : [
-                    'uuid' => $scope->course->uuid,
-                    'title' => $scope->course->title,
-                ])
+                ->map(fn ($scope): ?array => $scope->course === null
+                    ? null
+                    : AssistantCourseResource::make($scope->course)->resolve($request))
                 ->filter()
                 ->values()
                 ->all(),
+            // ⚠️ THE ABSENCE IS SAID, NOT SWALLOWED. A scope row whose course was
+            // deleted still confines (the directory reads `course_id`), so an
+            // assistant confined to one deleted course is confined to NOTHING
+            // usable — and a card that listed no courses beside `is_confined`
+            // would be silent about why.
+            'unavailable_courses_count' => $this->scopes->filter(fn ($scope): bool => $scope->course === null)->count(),
             'revoked_at' => $this->revoked_at,
         ];
     }
