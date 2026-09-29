@@ -60,7 +60,7 @@ export const ANNOUNCEMENT_SCOPES: { key: AnnouncementScope; label: string; hint:
  */
 export interface AnnouncementPage {
   data: Announcement[];
-  meta?: { current_page?: number; last_page?: number };
+  meta?: { current_page?: number; last_page?: number; total?: number };
   links?: { next?: string | null };
 }
 

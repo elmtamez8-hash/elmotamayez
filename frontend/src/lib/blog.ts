@@ -43,7 +43,7 @@ export const blog = {
    * الصفحةَ بـ`->response()->getData(true)`، وأيُّ قارئٍ يفهرسُ المستوى الأعلى
    * ينكسر.
    */
-  list: () => api.get<{ data: ManagedArticle[] }>("/manage/articles"),
+  list: () => api.get<{ data: ManagedArticle[]; meta?: { total?: number } }>("/manage/articles"),
 
   create: (input: ArticleInput) => api.post<{ data: ManagedArticle }>("/manage/articles", input),
 

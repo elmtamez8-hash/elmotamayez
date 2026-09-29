@@ -3,11 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
+import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { AssignmentIcon } from "@/components/icons";
+import { RecordList, RecordRow } from "@/components/ui/RecordList";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import {
+  AssignmentIcon,
+  ChevronDownIcon,
+  ClockIcon,
+  DownloadIcon,
+  EditIcon,
+  GradingIcon,
+  ListIcon,
+  PublishIcon,
+  ScheduleIcon,
+  SparkIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { ExtensionForm } from "@/components/assignments/ExtensionForm";
 import { NumberField, TextareaField } from "@/components/ui/Field";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -22,6 +37,8 @@ import type { Course } from "@/lib/types";
 import { AssignmentForm } from "./AssignmentForm";
 import { arabicNumber } from "@/lib/numerals";
 
+type StatusFilter = "all" | "published" | "draft";
+
 /**
  * The teacher's homework: what is set, and what is waiting to be marked.
  *
@@ -29,10 +46,20 @@ import { arabicNumber } from "@/lib/numerals";
  * legitimately contains one. A draft blocks nothing (FR-042) — US7's gate
  * ignores it — so the badge is not decoration: a teacher who thinks unfinished
  * homework is holding their class back will publish it half-written.
+ *
+ * Laid out on the staff kit (`docs/design/manage-pages.md`): one `RecordRow` per
+ * assignment, its marking panel as the row's own children.
+ *
+ * ⚠️ NO `StatStrip` AND NO COUNTS ON THE CHIPS. The list is paginated (30 a page)
+ * and the server sends no per-status totals, so any figure summed here would be
+ * «page one», presented as the whole. The heading's count is `meta.total` — the
+ * one number the server does know — and the chips narrow what is on screen.
  */
 export default function ManageAssignmentsPage() {
   const [items, setItems] = useState<Assignment[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  const [total, setTotal] = useState<number | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [open, setOpen] = useState<string | null>(null);
   // `"new"`, the assignment being edited, or nothing — one form on the page.
   const [editing, setEditing] = useState<Assignment | "new" | null>(null);
@@ -48,9 +75,9 @@ export default function ManageAssignmentsPage() {
     assignments
       .list()
       .then((response) => {
-        const data = response.data ?? [];
-        setItems(data);
-        setState(data.length === 0 ? "empty" : "ready");
+        setItems(response.data ?? []);
+        setTotal(typeof response.meta?.total === "number" ? response.meta.total : null);
+        setState("ready");
       })
       .catch(() => setState("error"));
   }, []);
@@ -80,17 +107,30 @@ export default function ManageAssignmentsPage() {
     load();
   };
 
+  const shown = items.filter((assignment) =>
+    status === "all"
+      ? true
+      : status === "published"
+        ? assignment.status === "published"
+        : assignment.status !== "published",
+  );
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={AssignmentIcon}
         title="الواجبات"
         description="ما نشرته لطلابك، وكم سلّم منهم، وما ينتظر تصحيحك."
+        actions={
+          editing === null ? (
+            <Button iconStart={<SparkIcon />} onClick={() => setEditing("new")}>
+              واجب جديد
+            </Button>
+          ) : undefined
+        }
       />
 
-      {editing === null ? (
-        <Button onClick={() => setEditing("new")}>واجب جديد</Button>
-      ) : (
+      {editing !== null && (
         <AssignmentForm
           key={editing === "new" ? "new" : editing.uuid}
           editing={editing === "new" ? null : editing}
@@ -100,70 +140,165 @@ export default function ManageAssignmentsPage() {
         />
       )}
 
-      {state === "loading" && <RowsSkeleton count={3} />}
-      {state === "error" && <ErrorState onRetry={load} />}
-      {state === "empty" && (
-        <EmptyState
-          title="لا واجبات بعد"
-          description="اضغط «واجب جديد» لتكتب أوّل واجب. يُحفَظ مسوّدةً لا يراها الطلاب حتى تنشره."
+      <section aria-labelledby="assignment-list" className="space-y-4">
+        <SectionHeading
+          id="assignment-list"
+          Icon={ListIcon}
+          title="واجباتك"
+          description={
+            state === "ready" && total !== null && total > 0
+              ? counted(total, NOUNS.assignments)
+              : undefined
+          }
         />
-      )}
 
-      {state === "ready" &&
-        items.map((assignment) => (
-          <Card key={assignment.uuid} as="section" interactive>
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="font-medium text-ink">{assignment.title}</h3>
-                <p className="mt-1 text-sm text-ink-muted">
-                  {/* After «من» the dual is «درجتين», and 3–10 is «درجات» — «من 10 درجة» shipped. */}
-                  من {counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}
-                  {assignment.due_at !== null && (
-                    <> · الموعد {formatDateTime(assignment.due_at)}</>
-                  )}
-                </p>
-              </div>
-              <Badge tone={assignment.status === "published" ? "success" : "neutral"}>
-                {assignment.status === "published" ? "منشور" : "مسوّدة"}
-              </Badge>
-            </div>
+        {state === "loading" && <RowsSkeleton count={3} />}
 
-            <p className="mb-3 text-sm text-ink-muted">
-              سلّم <bdi>{arabicNumber(assignment.submitted_count ?? 0)}</bdi> · ينتظر التصحيح{" "}
-              <bdi>{arabicNumber(assignment.pending_count ?? 0)}</bdi>
-            </p>
+        {state === "error" && <ErrorState onRetry={load} />}
 
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant="secondary"
-                onClick={() => setOpen(open === assignment.uuid ? null : assignment.uuid)}
-              >
-                {open === assignment.uuid ? "أخفِ التسليمات" : "التسليمات"}
-              </Button>
-              {assignment.status !== "published" && (
-                <Button
-                  variant="ghost"
-                  onClick={() => publish(assignment.uuid)}
-                >
-                  انشره
-                </Button>
-              )}
-              <Button variant="ghost" onClick={() => setEditing(assignment)}>
-                عدّل
-              </Button>
-            </div>
+        {state === "ready" && items.length === 0 && (
+          <EmptyState
+            Icon={AssignmentIcon}
+            title="لا واجبات بعد"
+            description="اضغط «واجب جديد» لتكتب أوّل واجب. يُحفَظ مسوّدةً لا يراها الطلاب حتى تنشره."
+          />
+        )}
 
-            {publishError !== null && publishError.uuid === assignment.uuid && (
-              <div className="mt-3">
-                <Alert tone="danger" title={publishError.message} />
-              </div>
+        {state === "ready" && items.length > 0 && (
+          <>
+            <FilterBar
+              filters={{
+                label: "حالة الواجب",
+                value: status,
+                onChange: (key) => setStatus(key as StatusFilter),
+                options: [
+                  { key: "all", label: "الكل" },
+                  { key: "published", label: "المنشورة" },
+                  { key: "draft", label: "المسوّدات" },
+                ],
+              }}
+            />
+
+            {shown.length === 0 ? (
+              <EmptyState
+                title={status === "draft" ? "لا مسوّدات هنا" : "لا واجبات منشورة هنا"}
+                description="لا واجب بهذه الحالة بين المعروض الآن."
+                action={
+                  <Button variant="secondary" onClick={() => setStatus("all")}>
+                    عرض الكل
+                  </Button>
+                }
+              />
+            ) : (
+              <RecordList labelledBy="assignment-list">
+                {shown.map((assignment) => {
+                  const isOpen = open === assignment.uuid;
+                  const regionId = `submissions-${assignment.uuid}`;
+                  const refusal =
+                    publishError !== null && publishError.uuid === assignment.uuid
+                      ? publishError.message
+                      : null;
+                  const published = assignment.status === "published";
+
+                  return (
+                    <RecordRow
+                      key={assignment.uuid}
+                      level={4}
+                      Icon={AssignmentIcon}
+                      tone={published ? "info" : "neutral"}
+                      title={assignment.title}
+                      status={
+                        <Badge tone={published ? "success" : "neutral"}>
+                          {published ? "منشور" : "مسوّدة"}
+                        </Badge>
+                      }
+                      /* After «من» the dual is «درجتين», and 3–10 is «درجات» — «من 10 درجة» shipped. */
+                      description={`من ${counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}`}
+                      meta={[
+                        ...(assignment.due_at !== null
+                          ? [
+                              {
+                                key: "due",
+                                label: "الموعد",
+                                Icon: ScheduleIcon,
+                                value: formatDateTime(assignment.due_at),
+                              },
+                            ]
+                          : []),
+                        {
+                          key: "submitted",
+                          label: "سلّم",
+                          Icon: UsersIcon,
+                          value: arabicNumber(assignment.submitted_count ?? 0),
+                        },
+                        {
+                          key: "pending",
+                          label: "ينتظر التصحيح",
+                          Icon: ClockIcon,
+                          value: arabicNumber(assignment.pending_count ?? 0),
+                        },
+                      ]}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setOpen(isOpen ? null : assignment.uuid)}
+                            expanded={isOpen}
+                            controls={regionId}
+                            iconStart={<GradingIcon className="h-4 w-4" />}
+                            iconEnd={
+                              <span
+                                className={`inline-flex transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                              >
+                                <ChevronDownIcon className="h-4 w-4" />
+                              </span>
+                            }
+                          >
+                            {isOpen ? "أخفِ التسليمات" : "التسليمات"}
+                          </Button>
+                          {!published && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              iconStart={<PublishIcon />}
+                              onClick={() => publish(assignment.uuid)}
+                            >
+                              انشره
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            iconStart={<EditIcon />}
+                            onClick={() => setEditing(assignment)}
+                          >
+                            عدّل
+                          </Button>
+                        </>
+                      }
+                    >
+                      {refusal !== null || isOpen ? (
+                        <div className="space-y-3">
+                          {refusal !== null && <Alert tone="danger" title={refusal} />}
+                          {isOpen && (
+                            <div id={regionId} className="banner-rise">
+                              <SubmissionList
+                                assignmentUuid={assignment.uuid}
+                                points={assignment.points}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ) : undefined}
+                    </RecordRow>
+                  );
+                })}
+              </RecordList>
             )}
-
-            {open === assignment.uuid && (
-              <SubmissionList assignmentUuid={assignment.uuid} points={assignment.points} />
-            )}
-          </Card>
-        ))}
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -193,21 +328,24 @@ function SubmissionList({ assignmentUuid, points }: { assignmentUuid: string; po
    | creates it, which is why the list reloads afterwards.
    */
   return (
-    <div className="mt-4 space-y-4 border-t border-line pt-4">
+    <div className="space-y-4 border-t border-line pt-4">
       <ExtensionForm assignmentUuid={assignmentUuid} onGranted={load} />
 
       {rows.length === 0 ? (
         <p className="text-sm text-ink-muted">لم يسلّم أحدٌ بعد.</p>
       ) : (
-        rows.map((row) => (
-          <SubmissionRow
-            key={row.uuid}
-            assignmentUuid={assignmentUuid}
-            row={row}
-            points={points}
-            onGraded={load}
-          />
-        ))
+        <ul className="space-y-3" aria-label="التسليمات">
+          {rows.map((row) => (
+            <li key={row.uuid} className="rounded-2xl bg-surface p-4">
+              <SubmissionRow
+                assignmentUuid={assignmentUuid}
+                row={row}
+                points={points}
+                onGraded={load}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -293,30 +431,49 @@ function SubmissionRow({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium text-ink">{row.student?.name ?? "—"}</p>
-        <Badge tone={badgeTone(row.state)}>
-          {stateLabel(row.state)}
-        </Badge>
+      <div className="flex items-start gap-3">
+        <Avatar url={null} name={row.student?.name ?? "—"} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="min-w-0 break-words font-bold text-ink">{row.student?.name ?? "—"}</p>
+            <Badge tone={badgeTone(row.state)}>
+              {stateLabel(row.state)}
+            </Badge>
+          </div>
+
+          {row.submitted_at != null && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
+              <ScheduleIcon className="h-4 w-4 shrink-0" />
+              سُلّم {formatDateTime(row.submitted_at)}
+            </p>
+          )}
+
+          {row.extension_until != null && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
+              <ClockIcon className="h-4 w-4 shrink-0" />
+              مُنح مهلةً حتى {formatDateTime(row.extension_until)}
+            </p>
+          )}
+        </div>
       </div>
 
-      {row.submitted_at != null && (
-        <p className="text-xs text-ink-muted">سُلّم {formatDateTime(row.submitted_at)}</p>
-      )}
-
-      {row.extension_until != null && (
-        <p className="text-xs text-ink-muted">مُنح مهلةً حتى {formatDateTime(row.extension_until)}</p>
-      )}
-
+      {/* A plain inset, never a coloured side border (the contract's don't list). */}
       {row.answer_text !== null && row.answer_text !== "" && (
-        <blockquote className="whitespace-pre-wrap rounded-lg border-s-4 border-primary-soft bg-surface p-3 text-sm text-ink">
+        <blockquote className="whitespace-pre-wrap rounded-2xl border border-line bg-surface-raised p-3 text-sm leading-relaxed text-ink">
           {row.answer_text}
         </blockquote>
       )}
 
       {row.has_file && (
         <div>
-          <Button variant="secondary" onClick={openFile} loading={opening} loadingLabel="جارٍ التنزيل…">
+          <Button
+            size="sm"
+            variant="secondary"
+            iconStart={<DownloadIcon />}
+            onClick={openFile}
+            loading={opening}
+            loadingLabel="جارٍ التنزيل…"
+          >
             نزّل الملف المرفق
           </Button>
         </div>

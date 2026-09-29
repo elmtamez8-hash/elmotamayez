@@ -180,3 +180,25 @@ describe("the assignment row", () => {
     expect(screen.queryByText(/10/)).toBeNull();
   });
 });
+
+describe("the status chips", () => {
+  it("narrow the list, and a chip with no match offers the way back", async () => {
+    await act(async () => {
+      render(<ManageAssignmentsPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "المسوّدات" }));
+    });
+
+    // The one assignment is published: the draft chip empties the list …
+    expect(screen.queryByText("واجب الفصل الثالث")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "عرض الكل" }));
+    });
+
+    // … and «عرض الكل» brings it back.
+    expect(screen.getByText("واجب الفصل الثالث")).toBeTruthy();
+  });
+});
