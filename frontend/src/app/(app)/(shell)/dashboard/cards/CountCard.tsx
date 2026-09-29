@@ -8,6 +8,7 @@ import type { ComponentType } from "react";
 
 import type { IconProps } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
+import { isRefusal } from "./shared-read";
 
 /**
  * بطاقةُ رقمٍ واحدٍ خلفَ صلاحيّةٍ واحدة — ثلاثُ بطاقاتٍ في لوحةِ المدرّسِ تُبنى
@@ -51,6 +52,7 @@ export function CountCard({
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState(false);
 
   const load = useCallback(() => {
     if (!granted) return;
@@ -60,13 +62,13 @@ export function CountCard({
 
     fetchCount()
       .then(setCount)
-      .catch((err) => setError(userMessage(err)))
+      .catch((err) => (isRefusal(err) ? setRefused(true) : setError(userMessage(err))))
       .finally(() => setLoading(false));
   }, [granted, fetchCount]);
 
   useEffect(load, [load]);
 
-  if (!granted) return null;
+  if (!granted || refused) return null;
 
   return (
     <DashboardCard

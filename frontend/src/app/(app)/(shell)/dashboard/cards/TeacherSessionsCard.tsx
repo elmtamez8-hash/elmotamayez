@@ -11,7 +11,7 @@ import { can, P } from "@/lib/permissions";
 import type { User } from "@/lib/types";
 import { SessionsIcon } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
-import { sharedRead } from "./shared-read";
+import { isRefusal, sharedRead } from "./shared-read";
 import { SessionRow, useSessionTick } from "./UpcomingSessionsCard";
 
 /** «اليوم» بتقويمِ الجهاز، بالشكلِ الذي تُرسِلُه شاشةُ «حصصي» نفسُها. */
@@ -27,14 +27,14 @@ function today(): string {
  *
  * ⚠️ **العنوانُ يتبعُ المُرشِّح، والاثنانِ من `teacher_profile_uuid` وحدَه.** من
  * يستضيفُ حصصاً يُقرَأُ له `?teacher={uuid}` تحتَ «حصصي»؛ ومن لا يستضيفُ شيئاً
- * ويملكُ إدارةَ الحصصِ — المساعدُ نموذجاً — يُقرَأُ له بلا مُرشِّحٍ تحتَ عنوانٍ
+ * ويقرأُ حصصَ مكانِ العملِ (`sessions.view`) — المساعدُ نموذجاً — يُقرَأُ له بلا مُرشِّحٍ تحتَ عنوانٍ
  * يقولُ إنّها حصصُ مكانِ العمل — بمفردةِ المنتَجِ نفسِها، فـ`SC-002` في مواصفةِ
  * ٠٢٥ يمنعُ «مساحةَ العمل» في أيِّ نصٍّ يقرؤُه مستخدِمٌ ويحرسُها
  * `workspace-vocabulary.test.ts`. وخلطُ الاثنَينِ عطلانِ في اتّجاهَين: جدولٌ **فارغٌ**
  * تحتَ «حصصي» لمن لا حصّةَ له أصلاً، وحصّةُ **زميلٍ** تحتَ «حصصي» لو سقطَ
  * المُرشِّح — والثاني لا يُخطئ، فلا أحدَ يراه.
  *
- * ⚠️ ولا بطاقةَ إطلاقاً لمن لا يستضيفُ ولا يُديرُ: `null` تحتَ عنوانٍ ثالثٍ
+ * ⚠️ ولا بطاقةَ إطلاقاً لمن لا يستضيفُ ولا يقرأُ: `null` تحتَ عنوانٍ ثالثٍ
  * مخترَعٍ هو نفسُ الكذبةِ بصياغةٍ أخرى، و`FR-015` يمنعُ بطاقةً بلا شاشةٍ تصلُ
  * إليها.
  *
@@ -52,11 +52,27 @@ function today(): string {
  */
 export function teacherSessionsAudience(user: User | null): {
   hostUuid: string | null;
-  managesWorkspace: boolean;
+  readsWorkspace: boolean;
+  canManage: boolean;
 } {
   const hostUuid = user?.teacher_profile_uuid ?? null;
+  const canManage = can(user, P.sessionsManage);
 
-  return { hostUuid, managesWorkspace: hostUuid === null && can(user, P.sessionsManage) };
+  /*
+   * ⚠️ **القراءةُ `sessions.view`، والكتابةُ `sessions.manage` — سؤالانِ لا
+   * واحد.** `ClassSessionPolicy::viewAny()` يسألُ الأولى، فالمساعدُ بصلاحيّاتِه
+   * الافتراضيّةِ يقرأُ تقويمَ مكانِ العمل؛ وكانت البطاقةُ تسألُ الثانيةَ فتُخفيه
+   * عنه، ويفتحُ اللوحةَ على إشعاراتٍ وروابطَ وحدَها (٢٠٢٦-٠٩-٢٨).
+   *
+   * و`canManage` هو ما يُعطي **الرابطَ** إلى `‎/manage/sessions` و«أنشئ حصّة»:
+   * تلك الشاشةُ محروسةٌ بـ`sessions.manage` في `panel-nav.tsx`، ورابطٌ إليها
+   * لقارئٍ فقط هو بابٌ مغلقٌ على أوّلِ شاشةٍ بعدَ الدخول.
+   */
+  return {
+    hostUuid,
+    readsWorkspace: hostUuid === null && (canManage || can(user, P.sessionsView)),
+    canManage,
+  };
 }
 
 /**
@@ -78,48 +94,52 @@ export function readTeacherSessions(hostUuid: string | null): Promise<{ data: Cl
 
 export function TeacherSessionsCard() {
   const { user } = useAuth();
-  const { hostUuid, managesWorkspace } = teacherSessionsAudience(user);
+  const { hostUuid, readsWorkspace, canManage } = teacherSessionsAudience(user);
 
   const [rows, setRows] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refused, setRefused] = useState(false);
 
   const load = useCallback(() => {
-    if (hostUuid === null && !managesWorkspace) return;
+    if (hostUuid === null && !readsWorkspace) return;
 
     setLoading(true);
     setError(null);
 
     readTeacherSessions(hostUuid)
       .then((result) => setRows((result.data ?? []).slice(0, 5)))
-      .catch((err) => setError(userMessage(err)))
+      .catch((err) => (isRefusal(err) ? setRefused(true) : setError(userMessage(err))))
       .finally(() => setLoading(false));
-  }, [hostUuid, managesWorkspace]);
+  }, [hostUuid, readsWorkspace]);
 
   useEffect(load, [load]);
 
   const tick = useSessionTick(rows);
 
-  if (hostUuid === null && !managesWorkspace) return null;
+  if ((hostUuid === null && !readsWorkspace) || refused) return null;
 
   return (
     <DashboardCard
       title={hostUuid === null ? "حصص مكان العمل القادمة" : "حصصي القادمة"}
       Icon={SessionsIcon}
-      href="/manage/sessions"
+      href={canManage ? "/manage/sessions" : undefined}
       loading={loading}
       error={error}
       onRetry={load}
       empty={
         !loading && error === null && rows.length === 0 ? (
           <p className="text-sm text-ink-muted">
-            لا حصص قادمة.{" "}
+            لا حصص قادمة.
+            {canManage && " "}
+            {canManage && (
             <Link
               href="/manage/sessions"
               className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               أنشئ حصّة
             </Link>
+            )}
           </p>
         ) : null
       }

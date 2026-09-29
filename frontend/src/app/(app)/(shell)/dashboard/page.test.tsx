@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import DashboardPage from "./page";
 import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 import { UNKNOWN_MESSAGE } from "@/lib/errors";
+import { ApiError } from "@/lib/api";
 
 /*
 | «لوحة التحكم» — أوّلُ شاشةٍ بعدَ تسجيلِ الدخول، **ولا صلاحيةَ عليها في القائمة**:
@@ -653,6 +654,15 @@ function teacherAnswer(path: string) {
     });
   }
   if (path.startsWith("/notifications")) return Promise.resolve({ data: [] });
+  if (path.startsWith("/courses?")) {
+    return Promise.resolve({
+      data: [
+        { uuid: "c-1", title: "الفيزياء", status: "published" },
+        { uuid: "c-2", title: "الكيمياء", status: "draft" },
+      ],
+      meta: { total: 2 },
+    });
+  }
   /*
   | ⚠️ بلا غلافِ `data`: `profileApi.teacher()` يقرأُ الملفَّ من جذرِ الردِّ لا من
   | مفتاحٍ بداخلِه — وتركيبةٌ تُغلِّفُه تصفُ ردّاً لا يُرسِلُه هذا المسار، فتمرُّ
@@ -688,6 +698,22 @@ const HOST = {
 };
 
 describe("DashboardPage · المدرّس", () => {
+  it("hides a card the server refuses, even when the loaded permissions still grant it", async () => {
+    // صلاحيّةٌ سُحِبَت والصفحةُ مفتوحة: `can()` يقولُ نعم والخادمُ ٤٠٣.
+    asTeacher(HOST);
+    get.mockImplementation((path: string) =>
+      path.startsWith("/manage/grading/queue")
+        ? Promise.reject(new ApiError("forbidden", 403, {}))
+        : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصصي القادمة")).toBeDefined();
+    await waitFor(() => expect(screen.queryByText("بانتظار التصحيح")).toBeNull());
+    expect(screen.queryByText("لا تملك صلاحية لهذا الإجراء.")).toBeNull();
+  });
+
   it("asks for its host's own calendar and for the three counts", async () => {
     asTeacher(HOST);
 
@@ -826,6 +852,91 @@ describe("DashboardPage · المدرّس", () => {
     expect(paths.some((p) => p.startsWith("/manage/billing/students"))).toBe(false);
     expect(paths.some((p) => p.startsWith("/manage/grading/queue"))).toBe(false);
     expect(paths.some((p) => p.startsWith("/manage/private-session-requests"))).toBe(false);
+  });
+
+  /*
+  | ⚠️ **قارئُ الحصصِ يرى تقويمَ مكانِ العمل، ولا يرى بابَ الإدارة.** كانت
+  | البطاقةُ تسألُ `sessions.manage` فتُخفي الجدولَ عن مساعدٍ يُجيزُ له
+  | `ClassSessionPolicy::viewAny()` قراءتَه؛ والنصفُ الثاني هو ما يجعلُ التوسيعَ
+  | آمناً: «عرض الكل» و«أنشئ حصّة» إلى `‎/manage/sessions` — شاشةٌ محروسةٌ
+  | بـ`sessions.manage` — لا يُعرَضانِ له.
+  */
+  it("shows a sessions reader the workspace calendar without any door into managing it", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["sessions.view"] });
+    get.mockImplementation((path: string) =>
+      path.startsWith("/class-sessions") ? Promise.resolve({ data: [] }) : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    const title = await screen.findByText("حصص مكان العمل القادمة");
+    const card = within(title.closest("section") as HTMLElement);
+
+    await waitFor(() => expect(card.getByText("لا حصص قادمة.")).toBeDefined());
+    expect(card.queryByText("عرض الكل")).toBeNull();
+    expect(card.queryByText("أنشئ حصّة")).toBeNull();
+
+    const week = within(screen.getByText("حصص الأسبوع القادم").closest("section") as HTMLElement);
+    expect(week.queryByText("عرض الكل")).toBeNull();
+    expect(week.queryByText("أنشئ حصّة")).toBeNull();
+
+    expect(calledPaths().some((p) => p.startsWith("/class-sessions"))).toBe(true);
+    expect(calledPaths().some((p) => p.includes("teacher="))).toBe(false);
+    expect(document.querySelector('a[href^="/manage/sessions"]')).toBeNull();
+  });
+
+  it("keeps the doors into managing sessions for whoever manages them", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["sessions.manage"] });
+    get.mockImplementation((path: string) =>
+      path.startsWith("/class-sessions") ? Promise.resolve({ data: [] }) : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    const title = await screen.findByText("حصص مكان العمل القادمة");
+    const card = within(title.closest("section") as HTMLElement);
+
+    expect(await card.findByText("أنشئ حصّة")).toBeDefined();
+    expect(card.getByText("عرض الكل").getAttribute("href")).toBe("/manage/sessions");
+  });
+
+  it("lists the latest courses with their status, each opening its editor", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["courses.update"] });
+
+    render(<DashboardPage />);
+
+    // بالعنوانِ لا بالنصّ: «الكورسات» اسمُ بندٍ في «روابط سريعة» أيضاً.
+    const title = await screen.findByRole("heading", { name: "الكورسات" });
+    const card = within(title.closest("section") as HTMLElement);
+
+    expect(await card.findByText("الفيزياء")).toBeDefined();
+    expect(card.getByText("منشور")).toBeDefined();
+    expect(card.getByText("مسودّة")).toBeDefined();
+    expect(card.getByText("الكيمياء").closest("a")?.getAttribute("href")).toBe("/manage/courses/c-2");
+    expect(card.getByText("عرض الكل").getAttribute("href")).toBe("/manage/courses");
+    expect(calledPaths().some((p) => p.startsWith("/courses?per_page=5"))).toBe(true);
+  });
+
+  it("draws no courses card and asks nothing without the editor's permission", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["sessions.view"] });
+
+    render(<DashboardPage />);
+
+    // «آخر الإشعارات» لا «روابط سريعة»: قارئُ الحصصِ وحدَها لا بندَ له في الشريط.
+    expect(await screen.findByText("حصص مكان العمل القادمة")).toBeDefined();
+    expect(screen.getByText("آخر الإشعارات")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "الكورسات" })).toBeNull();
+    expect(calledPaths().some((p) => p.startsWith("/courses"))).toBe(false);
+  });
+
+  it("asks no courses of a platform owner with no workspace", async () => {
+    // سياقٌ عدمٌ يُسقِطُ `WorkspaceScope`: القراءةُ كانت ستُعيدُ كورساتِ المنصّةِ كلِّها.
+    asTeacher({ workspaces: [], teacher_profile_uuid: null, permissions: ["courses.update"] });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("روابط سريعة")).toBeDefined();
+    expect(calledPaths().some((p) => p.startsWith("/courses"))).toBe(false);
   });
 
   it("drops the teacher filter and says so in the heading when nobody hosts", async () => {

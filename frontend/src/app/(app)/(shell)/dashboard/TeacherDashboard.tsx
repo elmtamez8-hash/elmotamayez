@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { LatestCoursesCard } from "./cards/LatestCoursesCard";
 import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
 import { PendingGradingCard } from "./cards/PendingGradingCard";
 import { PrivateRequestsCard } from "./cards/PrivateRequestsCard";
@@ -64,15 +65,20 @@ export function TeacherDashboard() {
         {/* الرسمُ بجوارِ الجدولِ ومن ردِّه نفسِه: الجدولُ أقربُ خمسٍ والرسمُ شكلُ
             الأسبوعِ كلِّه — عيّنةٌ وإجماليٌّ من طلبٍ واحد. */}
         <WeekSessionsChartCard />
+        {/* الكورساتُ بجوارِ الحصص: المساعدُ يُحرِّرُ الدروسَ ولا يستضيفُ حصّة، وبدونِ
+            هذه البطاقةِ كانت لوحتُه إشعاراتٍ وروابطَ وحدَها (٢٠٢٦-٠٩-٢٨). */}
+        <LatestCoursesCard />
         <LatestNotificationsCard />
         {/* ⚠️ **بابُ كتابةٍ لا عرضٌ فقط** (طلبُ ٢٠٢٦-٠٩-٠٨): الأسئلةُ الشائعةُ
             حقلٌ كانَ الخادمُ يُرسِلُه `[]` حرفيّاً، فلم يكنْ للمدرّسِ موضعٌ يكتبُه
             فيه أصلاً. والبطاقةُ تُخفي نفسَها لحسابٍ بلا ملفٍّ عامّ — مساعدٌ
             جمهورُه `teacher` ولا صفحةَ له. */}
         <TeacherFaqCard />
+        {/* ⚠️ داخلَ الأعمدةِ لا تحتَها: هامشُ آخرِ بطاقةٍ في عمودٍ يُقَصُّ عندَ
+            نهايتِه، فبطاقةٌ تحتَ الأعمدةِ كانت تلتصقُ بها، ومساعدٌ لا يرى إلّا
+            الإشعاراتِ كانَ يراها في نصفِ عرضٍ ونصفُ الشاشةِ فارغ. */}
+        <QuickLinksCard />
       </div>
-
-      <QuickLinksCard />
     </div>
   );
 }

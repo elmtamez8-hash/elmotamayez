@@ -35,6 +35,14 @@ export const P = {
   certificatesViewAll: "certificates.view.all",
   sessionsManage: "sessions.manage",
   /*
+   * ⚠️ THE READ HALF OF THE LINE ABOVE, AND AN ASSISTANT HOLDS ONLY THIS ONE.
+   * `ClassSessionPolicy::viewAny()` asks `sessions.view`, so the workspace
+   * calendar is theirs to READ on the dashboard — while `/manage/sessions`, the
+   * screen that writes, stays behind `sessions.manage` in the sidebar. A card
+   * shown on this name carries no link into that screen.
+   */
+  sessionsView: "sessions.view",
+  /*
    * ⚠️ NOT `sessions.manage`, AND THE DIFFERENCE WAS A BUTTON INTO A 403. The
    * calendar offered «فترات التجميد» to everyone who could manage sessions,
    * while `POST /freeze-periods` asks `freeze.manage` — a teacher's permission
