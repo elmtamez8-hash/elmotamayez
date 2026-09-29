@@ -16,6 +16,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
@@ -23,12 +24,20 @@ use Illuminate\Http\Request;
 
 class ExamController extends Controller
 {
-    public function index(Request $request, EnrollmentDirectory $enrollments): JsonResponse
+    public function index(Request $request, EnrollmentDirectory $enrollments, AssistantScopeDirectory $assistants): JsonResponse
     {
         $this->authorize('viewAny', Exam::class);
 
         $user = $this->currentUser($request);
         $manages = $user->can(Permissions::EXAMS_VIEW);
+
+        // Spec 010 · FR-005 — the courses a confined assistant works on, or
+        // `null` for everybody who is not confined (the `GradingController::queue`
+        // idiom). Only the managing branch asks: a student's slice is below.
+        $contextId = app(WorkspaceContext::class)->id();
+        $scoped = $manages && $contextId !== null
+            ? $assistants->scopedCourseIdsFor($user, $contextId)
+            : null;
 
         $exams = Exam::query()
             /*
@@ -56,6 +65,22 @@ class ExamController extends Controller
              */
             ->when(! $manages, fn ($q) => StudentScope::forReader($q, $user, $enrollments)
                 ->whereNotIn('id', $this->hiddenExamIds($user, $enrollments)))
+            /*
+             | ⛔ A CONFINED ASSISTANT'S LIST IS THEIR OWN COURSES — every status,
+             | the ground `ExamPolicy`'s staff abilities answer — PLUS the
+             | published papers of courses they are actively ENROLLED in, the
+             | student door `ExamPolicy::view()` falls through to (so a course's
+             | exam tab is not empty for an assistant who studies there). A
+             | course-less exam matches neither arm: the directory refuses it.
+             |
+             | Grouped, and applied before the status disjunction below, for the
+             | reason written there.
+             */
+            ->when($scoped !== null, fn ($q) => $q->where(fn ($own) => $own
+                ->whereIn('course_id', $scoped ?? [])
+                ->orWhere(fn ($studied) => $studied
+                    ->where('status', 'published')
+                    ->whereIn('course_id', $enrollments->activeCourseIdsFor($user)))))
             /*
              | ⚠️ THE STATUS DISJUNCTION IS GROUPED, AND IT HAS TO BE.
              |
@@ -190,18 +215,51 @@ class ExamController extends Controller
 
     public function store(StoreExamRequest $request): JsonResponse
     {
-        $exam = Exam::create(array_merge($request->validated(), [
-            'workspace_id' => app(WorkspaceContext::class)->id(),
-        ]));
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        if ($workspaceId === null) {
+            return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
+        }
+
+        $validated = $request->validated();
+
+        // Spec 010 · FR-005 — a confined assistant sets exams for their own
+        // courses only, never for none (see `ExamPolicy::placeInCourse()`).
+        $this->authorize('placeInCourse', [Exam::class, $workspaceId, self::courseIdOf($validated['course_id'] ?? null)]);
+
+        $exam = Exam::create(array_merge($validated, ['workspace_id' => $workspaceId]));
 
         return response()->json(ExamResource::make($exam), 201);
     }
 
     public function update(UpdateExamRequest $request, Exam $exam): JsonResponse
     {
-        $exam->update($request->validated());
+        // ⚠️ `UpdateExamRequest::authorize()` asks the permission and nothing
+        // else, so without this line the policy's workspace and assistant-scope
+        // checks were never asked on an edit.
+        $this->authorize('update', $exam);
+
+        $validated = $request->validated();
+
+        /*
+        | The course the edit leaves it in, asked as well as the one it is in:
+        | otherwise a confined assistant moves their own exam to a far course, or
+        | to none, by naming it. ⚠️ An ABSENT `course_id` leaves the exam where it
+        | is and an explicit null moves it to none — `validated()` drops an absent
+        | key, so `?? null` would read every title-only edit as a move to no
+        | course and refuse it.
+        */
+        $target = array_key_exists('course_id', $validated) ? $validated['course_id'] : $exam->course_id;
+        $this->authorize('placeInCourse', [Exam::class, (int) $exam->workspace_id, self::courseIdOf($target)]);
+
+        $exam->update($validated);
 
         return response()->json(ExamResource::make($exam->fresh()));
+    }
+
+    private static function courseIdOf(mixed $courseId): ?int
+    {
+        return is_numeric($courseId) ? (int) $courseId : null;
     }
 
     public function publish(Exam $exam, PublishExam $action): JsonResponse

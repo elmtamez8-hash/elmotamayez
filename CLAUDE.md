@@ -160,6 +160,7 @@ _Read before touching `Modules/Assessments/`, exams, the question bank, practice
 - Starting an exam asks the course's sequence, and the attempt allowance is a claim.
 - Any code that deletes `exam_answers` (or an attempt that has them) must call `QuestionStatRollupState::requestFullRecompute()` — `AssessmentsPersonalData::answersDeleted()` is the door — or the incremental rollup keeps counting deleted answers for ever.
 - A confined assistant manages the homework of their OWN courses only — `AssignmentPolicy` (`view` above the student branch, `manage`, and `placeInCourse` for create and move) and both `SubmissionPolicy` staff branches ask `mayActOnCourse()`; a course-less assignment is refused to them, and a `view` refusal falls through to an ACTIVE ENROLMENT in the course (student powers only).
+- A confined assistant manages the EXAMS of their own courses only — `ExamPolicy` (`view` above the student branch, `update`/`delete`/`publish`/`manageQuestions`, and `placeInCourse` for create and move) asks `mayActOnCourse()`, `ExamController::update()` now calls `authorize('update')` (the request asked the permission alone), and the managing `GET /exams` list is narrowed by `scopedCourseIdsFor()`; a course-less exam is refused to them, and a `view` refusal falls through to an ACTIVE ENROLMENT (student powers only).
 
 ### Live sessions, the broadcast room and attendance → [`docs/gotchas/live-sessions.md`](docs/gotchas/live-sessions.md)
 _Read before touching `Modules/LiveSessions/`, LiveKit, join tickets, the room UI, attendance._
