@@ -107,7 +107,11 @@ export default function RichMarkdownEditorSurface({
   });
 
   useEffect(() => {
-    editor?.setEditable(!disabled);
+    // ⚠️ `false`: `setEditable` emits an «update» by default, and on mount that
+    // re-serialised the stored body — any non-canonical spelling (`_x_`, `*`
+    // bullets, a setext heading) reached `onChange` before a keystroke, and a
+    // save of the title alone rewrote the article.
+    editor?.setEditable(!disabled, false);
   }, [editor, disabled]);
 
   openLinkRef.current = () => {

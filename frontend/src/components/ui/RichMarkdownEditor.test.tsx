@@ -103,6 +103,17 @@ describe("RichMarkdownEditor", () => {
     );
   });
 
+  it("does not rewrite a stored body that is not in canonical form when it opens", async () => {
+    // `_x_`, `*` bullets and a setext heading re-serialise differently; opening
+    // the article must not report a change nobody made.
+    const { onChange } = mount({ value: "Title\n===\n\n_مائل_ و __غامق__\n\n* بند" });
+
+    await screen.findByRole("button", { name: "غامق" }, LOADED);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("asks for a link in its own box and refuses a javascript: address", async () => {
     const { onChange } = mount();
 
