@@ -10,6 +10,7 @@ use App\Modules\Assessments\Models\Submission;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -243,4 +244,71 @@ it('leaves the student reading, handing in and opening their own work on every c
 
     $this->get(SubmissionFileController::linkFor($this->farWork, (string) $this->student->uuid))->assertOk();
     $this->get(SubmissionFileController::linkFor($this->looseWork, (string) $this->student->uuid))->assertOk();
+});
+
+/*
+| ⚠️ A SCOPE REFUSAL FALLS THROUGH TO THE STUDENT'S OWN ENTITLEMENT (the chat
+| rule). A confined assistant ALSO actively enrolled in the far course reads and
+| hands in its homework as a student — and gains nothing a student lacks.
+*/
+it('lets a confined assistant enrolled in the far course read and hand in its homework, and nothing more', function (): void {
+    hwConfineTo($this->nearCourse);
+
+    Enrollment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->farCourse->getKey(),
+        'student_user_id' => $this->assistant->getKey(),
+    ]);
+    app()->forgetScopedInstances();
+
+    $fresh = Assignment::factory()->published()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->farCourse->getKey(),
+        'created_by' => $this->owner->getKey(),
+    ]);
+
+    Sanctum::actingAs($this->assistant);
+
+    $this->getJson("/api/v1/assignments/{$this->far->uuid}")->assertOk();
+    $this->postJson("/api/v1/assignments/{$fresh->uuid}/submissions", ['answer_text' => 'إجابتي'])
+        ->assertCreated();
+
+    // Their own work is theirs to read, by the ownership branch.
+    $own = Submission::query()->where('assignment_id', $fresh->getKey())->sole();
+    expect($this->assistant->can('view', $own))->toBeTrue();
+
+    // Every staff power on the far course stays refused.
+    $staff = hwDoors($this->far, $this->farWork, $this->assistant, $this->student);
+    unset($staff['show']);
+    $refused = hwEvery(403);
+    unset($refused['show']);
+
+    expect($staff)->toBe($refused);
+
+    // A draft in the far course is not a student's to read either.
+    $draft = Assignment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->farCourse->getKey(),
+        'created_by' => $this->owner->getKey(),
+    ]);
+    $this->getJson("/api/v1/assignments/{$draft->uuid}")->assertForbidden();
+
+    // The course-less assignment has no course to be enrolled in.
+    $this->getJson("/api/v1/assignments/{$this->loose->uuid}")->assertForbidden();
+});
+
+it('keeps the far homework refused to a confined assistant with no enrolment in it', function (): void {
+    hwConfineTo($this->nearCourse);
+
+    $fresh = Assignment::factory()->published()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->farCourse->getKey(),
+        'created_by' => $this->owner->getKey(),
+    ]);
+
+    Sanctum::actingAs($this->assistant);
+
+    $this->getJson("/api/v1/assignments/{$this->far->uuid}")->assertForbidden();
+    $this->postJson("/api/v1/assignments/{$fresh->uuid}/submissions", ['answer_text' => 'إجابتي'])
+        ->assertForbidden();
 });

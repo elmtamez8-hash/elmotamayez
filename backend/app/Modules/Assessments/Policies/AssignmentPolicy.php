@@ -32,9 +32,20 @@ class AssignmentPolicy extends BasePolicy
         | assistant always has — so asked after it, a far course's published
         | homework opened to them through the student door. A no-op for everybody
         | who is not a confined assistant in this workspace, students included.
+        |
+        | ⚠️ A REFUSAL FALLS THROUGH TO THE STUDENT'S OWN ENTITLEMENT, NEVER TO
+        | NOTHING — the rule `ConversationPolicy::withinStaffScope()` follows. A
+        | confined assistant who is ALSO actively enrolled in the far course reads
+        | and hands in that course's published homework as a student (`submit()`
+        | authorises `view`). Only the ENROLMENT arm is asked, never
+        | `StudentScope::permits()`'s «context matches» arm, which is the leak this
+        | check closes; and it grants the student powers only — `manage`, the
+        | marking list, extensions and grading stay refused.
         */
         if (($scopeCheck = $this->withinAssistantScope($user, $assignment))->denied()) {
-            return $scopeCheck;
+            return $assignment->isPublished() && $this->enrolledInItsCourse($user, $assignment)
+                ? Response::allow()
+                : $scopeCheck;
         }
 
         // ⚠️ THIS ABILITY GUARDS A WRITE AS WELL AS A READ. `AssignmentController::submit()`
@@ -113,6 +124,23 @@ class AssignmentPolicy extends BasePolicy
             $user,
             (int) $assignment->workspace_id,
             $assignment->course_id === null ? null : (int) $assignment->course_id,
+        );
+    }
+
+    /**
+     * An active enrolment in the assignment's own course. A course-less
+     * assignment has none to be enrolled in, so it stays refused.
+     */
+    private function enrolledInItsCourse(User $user, Assignment $assignment): bool
+    {
+        if ($assignment->course_id === null) {
+            return false;
+        }
+
+        return in_array(
+            (int) $assignment->course_id,
+            array_map('intval', app(EnrollmentDirectory::class)->activeCourseIdsFor($user)),
+            true,
         );
     }
 
