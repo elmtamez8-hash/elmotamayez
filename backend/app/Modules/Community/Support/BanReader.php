@@ -39,6 +39,24 @@ final class BanReader
 {
     public function isBanned(int $userId, int $workspaceId): bool
     {
+        return $this->liveBan($userId, $workspaceId) !== null;
+    }
+
+    /**
+     * Who placed the ban this person is under now — null when they are not banned.
+     *
+     * The lift asks it: a confined assistant lifts the bans they placed, and only
+     * those (`ModerationActionPolicy::liftBan()`).
+     */
+    public function liveBanActorId(int $userId, int $workspaceId): ?int
+    {
+        $ban = $this->liveBan($userId, $workspaceId);
+
+        return $ban === null ? null : (int) $ban->actor_user_id;
+    }
+
+    private function liveBan(int $userId, int $workspaceId): ?ModerationAction
+    {
         $latest = ModerationAction::query()
             // The reader is asked on a student's write, and a student is a member
             // of no workspace — the global scope adds no condition for them, so
@@ -49,13 +67,13 @@ final class BanReader
             ->where('subject_id', $userId)
             ->whereIn('verdict', [ModerationVerdict::Banned->value, ModerationVerdict::Unbanned->value])
             ->orderByDesc('id')
-            ->first(['verdict', 'expires_at']);
+            ->first(['verdict', 'expires_at', 'actor_user_id']);
 
         if ($latest === null || $latest->verdict !== ModerationVerdict::Banned) {
-            return false;
+            return null;
         }
 
-        return $latest->expires_at === null || $latest->expires_at->isFuture();
+        return $latest->expires_at === null || $latest->expires_at->isFuture() ? $latest : null;
     }
 
     /**

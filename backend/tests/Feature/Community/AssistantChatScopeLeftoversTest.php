@@ -11,6 +11,7 @@ use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
@@ -125,7 +126,7 @@ it('lets a confined assistant ban and lift a student of their own course only', 
         expect(($this->ban)($subject)->status())->toBe(403, $who);
     }
 
-    // The lift is the same door: the owner's ban on a far student stays theirs.
+    // The owner's ban on a far student stays theirs to lift.
     Sanctum::actingAs($this->owner);
     ($this->ban)($this->farStudent)->assertCreated();
     Sanctum::actingAs($this->assistant);
@@ -135,6 +136,38 @@ it('lets a confined assistant ban and lift a student of their own course only', 
         ->where('actor_user_id', $this->assistant->getKey())
         ->where('subject_id', '!=', $this->nearStudent->getKey())
         ->exists())->toBeFalse();
+});
+
+it('lets a confined assistant lift only the bans they placed, even after the enrolment ended', function (): void {
+    ($this->confine)($this->near);
+
+    // The owner's ban on a student of the assistant's own course is the owner's.
+    Sanctum::actingAs($this->owner);
+    ($this->ban)($this->nearStudent)->assertCreated();
+    Sanctum::actingAs($this->assistant);
+    ($this->ban)($this->nearStudent, 'unbanned')->assertForbidden();
+
+    // Their own ban stays theirs to lift once the student left the course.
+    Sanctum::actingAs($this->owner);
+    ($this->ban)($this->nearStudent, 'unbanned')->assertCreated();
+    Sanctum::actingAs($this->assistant);
+    ($this->ban)($this->nearStudent)->assertCreated();
+
+    Enrollment::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $this->nearStudent->getKey())
+        ->update(['status' => 'expired']);
+    app()->forgetScopedInstances();
+
+    ($this->ban)($this->nearStudent)->assertForbidden();
+    ($this->ban)($this->nearStudent, 'unbanned')->assertCreated();
+
+    // And an unconfined assistant still lifts anybody's ban.
+    Sanctum::actingAs($this->owner);
+    ($this->ban)($this->farStudent)->assertCreated();
+    AssistantScope::query()->where('assistant_assignment_id', $this->assignment->getKey())->delete();
+    app()->forgetScopedInstances();
+    Sanctum::actingAs($this->assistant);
+    ($this->ban)($this->farStudent, 'unbanned')->assertCreated();
 });
 
 it('leaves the workspace ban to the owner and to an unconfined assistant as before', function (): void {
