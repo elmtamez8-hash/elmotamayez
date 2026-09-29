@@ -26,15 +26,19 @@ export function Card({
   padding = "md",
   as: Tag = "div",
   interactive = false,
+  labelledBy,
 }: {
   children: ReactNode;
   padding?: keyof typeof PADDING;
   as?: "div" | "article" | "section";
   /** A card the reader scans as one of a set (a rate, a figure, a plan). */
   interactive?: boolean;
+  /** The `SectionHeading` id inside, so a `section` card is a named landmark. */
+  labelledBy?: string;
 }) {
   return (
     <Tag
+      aria-labelledby={labelledBy}
       // rounded-3xl to sit with the pill controls: a card corner tighter than
       // its own buttons reads as two systems in one frame.
       className={`rounded-3xl border border-line bg-surface-raised ${PADDING[padding]} ${

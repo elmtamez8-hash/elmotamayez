@@ -116,15 +116,17 @@ describe("the accommodations screen", () => {
     expect(document.getElementById("reason-error")?.textContent).toBe("السبب قصير جداً.");
   });
 
-  it("asks before revoking, and revokes once on confirmation", async () => {
+  it("asks before revoking, and revokes once on the second press", async () => {
     revoke.mockResolvedValue({ data: { uuid: "acc-1", revoked: true } });
     await openPage();
 
     fireEvent.click(screen.getByRole("button", { name: /^إلغاء الترتيب/ }));
     expect(revoke).not.toHaveBeenCalled();
 
+    // A row action arms in place (`ConfirmButton`); the armed label says what
+    // the second press does.
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "ألغِ الترتيب" }));
+      fireEvent.click(screen.getByRole("button", { name: "اضغط مجدداً لإلغاء الترتيب" }));
     });
 
     expect(revoke).toHaveBeenCalledTimes(1);

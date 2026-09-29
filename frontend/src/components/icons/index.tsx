@@ -115,6 +115,10 @@ import {
   IconX,
   type Icon as TablerIcon,
   IconWriting,
+  IconBulb,
+  IconCalendarPlus,
+  IconClockPlus,
+  IconRobot,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -422,3 +426,13 @@ export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const VerifiedBadgeIcon = wrap(IconRosetteDiscountCheckFilled, "h-4 w-4");
 export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
 export const DownloadIcon = wrap(IconDownload, "h-4 w-4");
+
+// ─── Staff-screen meta (grading · item analysis · accommodations) ─────────────
+/** A concept («فكرة») a question is tagged with. */
+export const ConceptIcon = wrap(IconBulb, "h-4 w-4");
+/** The machine-marked half of a paper — never a final grade. */
+export const AutoGradedIcon = wrap(IconRobot, "h-4 w-4");
+/** Extra time on an exam's timer. */
+export const ExtraTimeIcon = wrap(IconClockPlus, "h-4 w-4");
+/** Extra days before a homework deadline. */
+export const ExtraDaysIcon = wrap(IconCalendarPlus, "h-4 w-4");

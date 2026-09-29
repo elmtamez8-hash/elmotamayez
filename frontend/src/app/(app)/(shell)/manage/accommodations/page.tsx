@@ -2,20 +2,36 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  ClockIcon,
+  ExtraDaysIcon,
+  ExtraTimeIcon,
+  IssuedDateIcon,
+  SparkIcon,
+  UserIcon,
+} from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { NumberField, SelectField, TextareaField } from "@/components/ui/Field";
-import { Modal } from "@/components/ui/Modal";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Table, type Column } from "@/components/ui/Table";
-import { ClockIcon } from "@/components/icons";
+import { RecordList, RecordRow, type RecordMetaItem } from "@/components/ui/RecordList";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { accommodations, type Accommodation } from "@/lib/accommodations";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { counted, formatDate } from "@/lib/labels";
+import { counted, formatDate, NOUNS } from "@/lib/labels";
 import { useTeacherStudents } from "@/lib/use-teacher-students";
 import { arabicNumber } from "@/lib/numerals";
+import { matchesSearch } from "@/lib/search-text";
+
+/** «٣ ترتيبات» — the arrangements in force. */
+const ARRANGEMENTS = { one: "ترتيب واحد", two: "ترتيبان", few: "ترتيبات", many: "ترتيباً", other: "ترتيب" };
 
 /**
  * Extra time and extra days for one student (spec 008 · FR-053 · FR-055).
@@ -27,13 +43,15 @@ import { arabicNumber } from "@/lib/numerals";
  * same predicate the server checks.
  *
  * ⚠️ AND A REVOCATION ASKS FIRST. The student's longer timer disappears on their
- * next attempt with nothing telling them why.
+ * next attempt with nothing telling them why. It is a row action, so it asks in
+ * place — `ConfirmButton`, two presses (`docs/design/manage-pages.md` §8) — and
+ * the consequence the old dialog spelled out is said once, over the list.
  */
 export default function AccommodationsPage() {
   const { canPick: canPickStudents, students, failed: studentsFailed } = useTeacherStudents();
 
   const [rows, setRows] = useState<Accommodation[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   const [studentUuid, setStudentUuid] = useState("");
   const [extraTime, setExtraTime] = useState("");
@@ -44,9 +62,9 @@ export default function AccommodationsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const [revoking, setRevoking] = useState<Accommodation | null>(null);
-  const [revokeBusy, setRevokeBusy] = useState(false);
+  const [revoking, setRevoking] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
     setState("loading");
@@ -54,9 +72,8 @@ export default function AccommodationsPage() {
     accommodations
       .list()
       .then((response) => {
-        const data = response.data ?? [];
-        setRows(data);
-        setState(data.length === 0 ? "empty" : "ready");
+        setRows(response.data ?? []);
+        setState("ready");
       })
       .catch(() => setState("error"));
   }, []);
@@ -96,65 +113,37 @@ export default function AccommodationsPage() {
     }
   };
 
-  const revoke = async () => {
-    if (revoking === null) return;
-
-    setRevokeBusy(true);
+  const revoke = async (row: Accommodation) => {
+    setRevoking(row.uuid);
     setRevokeError("");
 
     try {
-      await accommodations.revoke(revoking.uuid);
-      setRevoking(null);
+      await accommodations.revoke(row.uuid);
       load();
     } catch (err: unknown) {
       setRevokeError(userMessage(err));
-      setRevoking(null);
     } finally {
-      setRevokeBusy(false);
+      setRevoking(null);
     }
   };
 
-  const columns: Column<Accommodation>[] = [
-    { key: "student", header: "الطالب", render: (row) => row.student?.name ?? "—" },
-    {
-      key: "time",
-      header: "وقت إضافي في الاختبارات",
-      render: (row) => (row.extra_time_pct > 0 ? <bdi>{`${arabicNumber(row.extra_time_pct)}٪`}</bdi> : "—"),
-    },
-    {
-      key: "days",
-      header: "مهلة إضافية للواجبات",
-      render: (row) =>
-        row.extended_days > 0
-          ? counted(row.extended_days, { one: "يوم واحد", two: "يومان", few: "أيام", many: "يوماً", other: "يوم" })
-          : "—",
-    },
-    { key: "reason", header: "السبب", render: (row) => row.reason },
-    { key: "granted", header: "منذ", render: (row) => formatDate(row.granted_at) },
-    {
-      key: "actions",
-      header: "الإجراء",
-      render: (row) => (
-        <Button variant="ghost" size="sm" onClick={() => setRevoking(row)}>
-          إلغاء الترتيب <span className="sr-only">{`لـ${row.student?.name ?? "الطالب"}`}</span>
-        </Button>
-      ),
-    },
-  ];
+  const shown = rows.filter((row) => matchesSearch(query, row.student?.name, row.reason));
 
   // Zero in both is a row that grants nothing — an audit entry with no arrangement behind it.
   const nothingToGrant = Number(extraTime || 0) <= 0 && Number(extraDays || 0) <= 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={ClockIcon}
         title="ترتيبات خاصة للطلاب"
         description="وقتٌ إضافيّ في الاختبارات أو أيامٌ إضافية لتسليم الواجبات لطالبٍ بعينه. لا يراها زملاؤه؛ يرى هو مدّةً أطول وموعداً أبعد فقط."
       />
 
-      <Card as="section">
-        <h2 className="mb-4 text-base font-semibold text-ink">ترتيبٌ جديد</h2>
+      <Card as="section" labelledBy="new-accommodation">
+        <div className="mb-4">
+          <SectionHeading id="new-accommodation" Icon={SparkIcon} title="ترتيبٌ جديد" />
+        </div>
 
         {!canPickStudents ? (
           <Alert tone="info" title="اختيار الطالب غير متاح لحسابك">
@@ -227,29 +216,111 @@ export default function AccommodationsPage() {
         )}
       </Card>
 
-      {revokeError !== "" && <Alert tone="danger" title={revokeError} />}
+      <section aria-labelledby="active-accommodations" className="space-y-4">
+        <SectionHeading
+          id="active-accommodations"
+          Icon={ClockIcon}
+          title="الترتيبات السارية"
+          description={
+            state === "ready" && rows.length > 0
+              ? `${counted(rows.length, ARRANGEMENTS)}. إلغاء أيٍّ منها يعيد الطالب إلى المدّة والمواعيد العادية من محاولته التالية.`
+              : undefined
+          }
+        />
 
-      <Table
-        caption="الترتيبات الخاصة السارية"
-        columns={columns}
-        rows={rows}
-        rowKey={(row) => row.uuid}
-        state={state}
-        emptyTitle="لا ترتيبات خاصة"
-        emptyDescription="كلّ طلابك يجلسون الاختبارات ويسلّمون الواجبات بالمواعيد نفسها."
-        onRetry={load}
-      />
+        {revokeError !== "" && <Alert tone="danger" title={revokeError} />}
 
-      <Modal
-        open={revoking !== null}
-        title="إلغاء الترتيب"
-        message={`يعود ${revoking?.student?.name ?? "الطالب"} إلى المدّة والمواعيد العادية من محاولته التالية.`}
-        confirmLabel="ألغِ الترتيب"
-        tone="danger"
-        busy={revokeBusy}
-        onConfirm={() => void revoke()}
-        onCancel={() => setRevoking(null)}
-      />
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && <ErrorState onRetry={load} />}
+
+        {state === "ready" && rows.length === 0 && (
+          <EmptyState
+            Icon={ClockIcon}
+            title="لا ترتيبات خاصة"
+            description="كلّ طلابك يجلسون الاختبارات ويسلّمون الواجبات بالمواعيد نفسها. امنح أوّل ترتيب من النموذج أعلاه."
+          />
+        )}
+
+        {state === "ready" && rows.length > 0 && (
+          <>
+            <FilterBar
+              search={{
+                id: "accommodation-search",
+                label: "ابحث في الترتيبات",
+                value: query,
+                onChange: setQuery,
+                placeholder: "اسم الطالب أو السبب",
+              }}
+              summary={counted(shown.length, ARRANGEMENTS)}
+            />
+
+            {shown.length === 0 ? (
+              <EmptyState
+                title="لا ترتيب يطابق البحث"
+                description="جرّب اسماً آخر أو كلمةً من السبب."
+                action={
+                  <Button variant="secondary" size="sm" onClick={() => setQuery("")}>
+                    مسح البحث
+                  </Button>
+                }
+              />
+            ) : (
+              <RecordList labelledBy="active-accommodations">
+                {shown.map((row) => {
+                  const name = row.student?.name ?? "الطالب";
+                  const meta: RecordMetaItem[] = [];
+
+                  // A zero is an arrangement this row does not make, so it is left
+                  // out rather than printed as «—» beside the one it does.
+                  if (row.extra_time_pct > 0) {
+                    meta.push({
+                      key: "time",
+                      label: "وقت إضافي في الاختبارات",
+                      Icon: ExtraTimeIcon,
+                      value: `${arabicNumber(row.extra_time_pct)}٪`,
+                    });
+                  }
+
+                  if (row.extended_days > 0) {
+                    meta.push({
+                      key: "days",
+                      label: "مهلة إضافية للواجبات",
+                      Icon: ExtraDaysIcon,
+                      value: counted(row.extended_days, NOUNS.days),
+                    });
+                  }
+
+                  meta.push({ key: "granted", label: "منذ", Icon: IssuedDateIcon, value: formatDate(row.granted_at) });
+
+                  return (
+                    <RecordRow
+                      key={row.uuid}
+                      level={4}
+                      Icon={UserIcon}
+                      title={row.student?.name ?? "—"}
+                      description={row.reason}
+                      meta={meta}
+                      actions={
+                        <ConfirmButton
+                          size="sm"
+                          variant="secondary"
+                          loading={revoking === row.uuid}
+                          disabled={revoking !== null && revoking !== row.uuid}
+                          confirmLabel="اضغط مجدداً لإلغاء الترتيب"
+                          onConfirm={() => void revoke(row)}
+                        >
+                          إلغاء الترتيب <span className="sr-only">{`لـ${name}`}</span>
+                        </ConfirmButton>
+                      }
+                    />
+                  );
+                })}
+              </RecordList>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
