@@ -9,6 +9,7 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\SessionCourseDirectory;
 
 /**
  * Managing an asset is managing lesson content, so it rides on LESSONS_MANAGE
@@ -24,9 +25,15 @@ use App\Shared\Contracts\AssistantScopeDirectory;
  * replace, re-caption, flip and (with `lessons.delete`) delete the file of a
  * lesson in any other course of the workspace — while `CoursePolicy::update()`
  * and `manageLessons()` refused them that course. `view` is scoped too because
- * `POST /media/assets/{asset}/complete` — a write — is authorised by it. Any
- * other owner (a chat attachment, an in-flight class recording) never reaches
- * the scope question: it carries no lesson to take a course from.
+ * `POST /media/assets/{asset}/complete` — a write — is authorised by it.
+ *
+ * ⛔ AND SO IS A CLASS RECORDING STILL OWNED BY ITS SESSION. Until
+ * `PublishRecordingAsLesson` hands it to a lesson, the asset's owner is the
+ * `ClassSession`, and the scope asks that session's course through
+ * {@see SessionCourseDirectory} — Media never names LiveSessions' models. A
+ * session with no course is outside every confinement, as an exam set for no
+ * course is: a confined assistant is refused, everybody else untouched. Any
+ * other owner (a chat attachment) never reaches the scope question.
  */
 class MediaAssetPolicy
 {
@@ -74,32 +81,35 @@ class MediaAssetPolicy
     }
 
     /**
-     * The scope question for an existing asset: only a lesson's file has a
-     * course to ask it about.
+     * The scope question for an existing asset: a lesson's file and a recording
+     * still owned by its session have a course to ask it about; nothing else
+     * does, and passes untouched.
      *
-     * The lesson is read with the workspace scope bypassed on purpose — the
+     * Both owners are read with the workspace scope bypassed on purpose — the
      * membership check above already pinned the workspace, and a scoped read
      * that came back empty under a mismatched context would turn into a `null`
-     * course, which refuses a confined assistant their OWN course's file. A
-     * lesson that is gone is exactly that `null`, and there the contract
-     * refuses a confined assistant and passes everybody else.
+     * course, which refuses a confined assistant their OWN course's file. An
+     * owner that is gone is exactly that `null`, and there the contract refuses
+     * a confined assistant and passes everybody else.
      */
     private function assetWithinAssistantScope(User $user, MediaAsset $asset): bool
     {
-        if ($asset->owner_type !== Lesson::class) {
+        $ownerType = (string) $asset->owner_type;
+        $sessions = app(SessionCourseDirectory::class);
+
+        if ($ownerType === Lesson::class) {
+            $courseId = Lesson::query()
+                ->withoutWorkspaceScope()
+                ->whereKey((int) $asset->owner_id)
+                ->value('course_id');
+            $courseId = $courseId === null ? null : (int) $courseId;
+        } elseif ($sessions->isSessionOwner($ownerType)) {
+            $courseId = $sessions->courseIdForSession((int) $asset->owner_id);
+        } else {
             return true;
         }
 
-        $courseId = Lesson::query()
-            ->withoutWorkspaceScope()
-            ->whereKey((int) $asset->owner_id)
-            ->value('course_id');
-
-        return $this->withinAssistantScope(
-            $user,
-            (int) $asset->workspace_id,
-            $courseId === null ? null : (int) $courseId,
-        );
+        return $this->withinAssistantScope($user, (int) $asset->workspace_id, $courseId);
     }
 
     /**

@@ -43,6 +43,7 @@ use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
 use App\Modules\LiveSessions\Support\EloquentCohortScheduleDirectory;
 use App\Modules\LiveSessions\Support\EloquentFreezeDirectory;
 use App\Modules\LiveSessions\Support\EloquentSessionAttendanceDirectory;
+use App\Modules\LiveSessions\Support\EloquentSessionCourseDirectory;
 use App\Modules\LiveSessions\Support\LiveSessionsPersonalData;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use App\Modules\Media\Events\MediaAssetReady;
@@ -52,6 +53,7 @@ use App\Modules\Payments\Events\SubscriptionEnded;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\FreezeDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
+use App\Shared\Contracts\SessionCourseDirectory;
 use App\Shared\Events\CourseAccessEnded;
 use App\Shared\Events\CourseAccessShortened;
 use App\Shared\Events\CourseAccessWithdrawn;
@@ -116,6 +118,10 @@ class LiveSessionsServiceProvider extends Module
         // than reaching into these models. Same binding shape as Learning's
         // EnrollmentDirectory.
         $this->app->bind(SessionAttendanceDirectory::class, EloquentSessionAttendanceDirectory::class);
+
+        // Media's asset policy scopes a recording still owned by its session
+        // (spec 010 · FR-005) and needs the session's course to do it.
+        $this->app->bind(SessionCourseDirectory::class, EloquentSessionCourseDirectory::class);
 
         // The other direction of the same wall: Learning's group picker has to
         // say when each group meets, and the session is ours.
