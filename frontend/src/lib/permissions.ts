@@ -33,6 +33,9 @@ export const P = {
    * depending on the reader, and the page rendered both as the first.
    */
   certificatesViewAll: "certificates.view.all",
+  // Every student's handed-in papers — `GET /manage/attempts`, the dashboard's
+  // «آخر المحاولات». The student role holds only `attempts.view.own`.
+  attemptsViewAll: "attempts.view.all",
   sessionsManage: "sessions.manage",
   /*
    * ⚠️ THE READ HALF OF THE LINE ABOVE, AND AN ASSISTANT HOLDS ONLY THIS ONE.

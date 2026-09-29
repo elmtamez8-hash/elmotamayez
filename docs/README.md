@@ -1948,6 +1948,7 @@ A question used to belong to one exam. It now belongs to the **bank**, and an ex
 | POST | `/practice/from-mistakes` · `/practice/exams` | authenticated | `throttle:practice`, keyed by **user**: students sit in classrooms behind one address |
 | GET | `/practice/attempts/{uuid}/result` | authenticated | |
 | GET | `/manage/grading/queue` · `/attempts/{uuid}` | `grading.perform` | |
+| GET | `/manage/attempts` | `attempts.view.all` | Latest `pending_grading`/`graded` papers, newest first, paginated. A confined assistant sees their courses' papers only; no student key when grading is anonymous; 403 with no workspace context |
 | POST · PATCH | `/manage/grading/answers/{uuid}` | `grading.perform` / `grading.revise` | `throttle:authoring` |
 | PUT | `/manage/bank/questions/{uuid}/rubric` | `questions.manage` | The rubric hangs off the QUESTION |
 | GET | `/assignments[/{uuid}]` | authenticated | One list endpoint with two branches; a second route is a second place to forget the draft filter |

@@ -13,6 +13,20 @@ use Illuminate\Auth\Access\Response;
 
 class AttemptPolicy extends BasePolicy
 {
+    /**
+     * The staff list of handed-in papers (`GET /manage/attempts`).
+     *
+     * The permission alone: which rows a reader sees — their workspace, their
+     * assistant confinement, the enrolment line `view()` draws — is the
+     * `ListStaffAttempts` query's job, and it mirrors this class row for row.
+     */
+    public function viewAny(User $user): Response
+    {
+        return $user->can(Permissions::ATTEMPTS_VIEW_ALL)
+            ? Response::allow()
+            : Response::deny();
+    }
+
     public function view(User $user, Attempt $attempt): Response
     {
         // Ownership first: a student stamped with another teacher's workspace

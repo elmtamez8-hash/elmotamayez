@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { LatestAttemptsCard } from "./cards/LatestAttemptsCard";
 import { LatestCoursesCard } from "./cards/LatestCoursesCard";
 import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
 import { PendingGradingCard } from "./cards/PendingGradingCard";
@@ -68,6 +69,9 @@ export function TeacherDashboard() {
         {/* الكورساتُ بجوارِ الحصص: المساعدُ يُحرِّرُ الدروسَ ولا يستضيفُ حصّة، وبدونِ
             هذه البطاقةِ كانت لوحتُه إشعاراتٍ وروابطَ وحدَها (٢٠٢٦-٠٩-٢٨). */}
         <LatestCoursesCard />
+        {/* نتائجُ الطلابِ بجوارِ كورساتِهم: `attempts.view.all`، والخادمُ يحصرُ
+            المساعدَ المقيَّدَ في أوراقِ كورساتِه. */}
+        <LatestAttemptsCard />
         <LatestNotificationsCard />
         {/* ⚠️ **بابُ كتابةٍ لا عرضٌ فقط** (طلبُ ٢٠٢٦-٠٩-٠٨): الأسئلةُ الشائعةُ
             حقلٌ كانَ الخادمُ يُرسِلُه `[]` حرفيّاً، فلم يكنْ للمدرّسِ موضعٌ يكتبُه

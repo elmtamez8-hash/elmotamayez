@@ -20,6 +20,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\SubjectResolver;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
@@ -39,7 +40,7 @@ class CourseController extends Controller
      * `frontend/src` already reads `res.data ?? []`, which on a bare array is
      * `undefined`, so they were all reading the fix's shape already.
      */
-    public function index(Request $request, CohortDirectory $cohorts): JsonResponse
+    public function index(Request $request, CohortDirectory $cohorts, AssistantScopeDirectory $assistants): JsonResponse
     {
         $this->authorize('viewAny', Course::class);
 
@@ -66,9 +67,30 @@ class CourseController extends Controller
         | cannot edit a course sees the published ones only, the same line
         | `CoursePolicy::view()` draws: the workspace question is about drafts.
         */
-        $publishedOnly = ! $this->currentUser($request)->can(Permissions::COURSES_UPDATE);
+        $user = $this->currentUser($request);
+        $publishedOnly = ! $user->can(Permissions::COURSES_UPDATE);
 
-        if ($searchTerm !== '') {
+        /*
+        | ⛔ A CONFINED ASSISTANT LISTS THE COURSES THEY WERE GIVEN, NOT THE
+        | WORKSPACE'S. `CoursePolicy::update()` refused them the far course while
+        | this list still named it, drafts and all. `null` is «not confined» (not
+        | an assistant, or an empty scope — every course, as before); the method
+        | never answers `[]`.
+        */
+        $contextId = app(WorkspaceContext::class)->id();
+        $scoped = $contextId === null
+            ? null
+            : $assistants->scopedCourseIdsFor($user, $contextId);
+
+        /*
+        | ⚠️ A CONFINED READER NEVER SEARCHES THROUGH SCOUT. `id` is not one of
+        | the Course index's `filterableAttributes` (config/scout.php), so a
+        | `whereIn('id', …)` on the engine is a Meilisearch 400 in production and
+        | green on the suite's null driver; and filtering in `->query()` runs
+        | after the engine paginated, so the counts would lie. A scope is a
+        | handful of courses — the database answers it directly.
+        */
+        if ($searchTerm !== '' && $scoped === null) {
             // Scout queries the search engine directly, outside the WorkspaceScope
             // global scope — constrain it or the page is filled with other tenants'
             // hits that then get filtered out during hydration.
@@ -109,6 +131,11 @@ class CourseController extends Controller
                 // بُولِيّ واحد، لا فصلٌ دراسيٌّ من الحصصِ يُحمَّلُ ليُعَدَّ لا شيء.
                 ->withExists('classSessions')
                 ->when($publishedOnly, fn ($query) => $query->where('status', 'published'))
+                ->when($scoped !== null, fn ($query) => $query->whereIn('id', $scoped ?? []))
+                ->when(
+                    $searchTerm !== '',
+                    fn ($query) => $query->where('title', 'like', '%'.$searchTerm.'%'),
+                )
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
         }

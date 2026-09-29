@@ -60,6 +60,26 @@ export interface GradingPaper {
   answers: GradingAnswer[];
 }
 
+/**
+ * One handed-in paper on the staff list (`GET /manage/attempts`).
+ *
+ * ⚠️ `score`, `percentage` and `passed` are null until the paper is `graded`: a
+ * `pending_grading` paper's score is the machine-marked half alone. And
+ * `student` is ABSENT (not null) when grading is anonymous, as on the queue.
+ */
+export interface StaffAttemptRow {
+  uuid: string;
+  status: "pending_grading" | "graded";
+  student?: { uuid: string; name: string } | null;
+  exam: { uuid: string; title: string } | null;
+  course: { uuid: string; title: string } | null;
+  score: number | null;
+  max_score: number | null;
+  percentage: number | null;
+  passed: boolean | null;
+  submitted_at: string | null;
+}
+
 type Meta = { total: number; current_page: number; last_page: number };
 
 /** The queue's meta carries the workspace setting too — an empty queue has no row to read it off. */
@@ -97,4 +117,12 @@ export const grading = {
    */
   setAnonymous: (anonymous: boolean) =>
     api.patch<{ data: { anonymous: boolean } }>("/manage/grading/settings", { anonymous }),
+
+  /**
+   * The workspace's latest handed-in papers, newest first — `attempts.view.all`,
+   * NOT `grading.perform`: reading results is not marking them. The server
+   * confines an assistant to their own courses.
+   */
+  latestAttempts: (perPage = 5) =>
+    api.get<{ data: StaffAttemptRow[]; meta: QueueMeta }>(`/manage/attempts?per_page=${perPage}`),
 };

@@ -48,6 +48,17 @@ class CoursePolicy extends BasePolicy
         }
 
         /*
+        | ⛔ A CONFINED ASSISTANT OPENS THE DRAFTS OF THEIR OWN COURSES ONLY.
+        | `authors()` below is true for every non-student pivot role, so an
+        | assistant confined to one course opened every draft in the workspace by
+        | uuid while `update()` refused them the edit. Asked here, below the
+        | published branch: a published course stays readable by anybody.
+        */
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
+        /*
         | ⛔ **AN UNPUBLISHED COURSE IS FOR WHOEVER WRITES IT, NOT FOR WHOEVER MAY
         | LOOK.** This branch used to ask `COURSES_VIEW` — and the student role
         | holds it, so a student member of the workspace opened any DRAFT by uuid
