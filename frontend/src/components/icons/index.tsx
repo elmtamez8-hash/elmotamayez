@@ -115,6 +115,20 @@ import {
   IconX,
   type Icon as TablerIcon,
   IconWriting,
+  IconArrowBackUp,
+  IconArrowForwardUp,
+  IconBlockquote,
+  IconBold,
+  IconCode,
+  IconH2,
+  IconH3,
+  IconItalic,
+  IconLink,
+  IconLinkOff,
+  IconList,
+  IconListNumbers,
+  IconSeparatorHorizontal,
+  IconSourceCode,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -422,3 +436,22 @@ export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const VerifiedBadgeIcon = wrap(IconRosetteDiscountCheckFilled, "h-4 w-4");
 export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
 export const DownloadIcon = wrap(IconDownload, "h-4 w-4");
+
+/*
+ * شريطُ أدواتِ المحرّرِ المنسَّق (`RichMarkdownEditor`). كلُّ زرٍّ فيه أيقونةٌ
+ * وحدَها، فاسمُه في `aria-label` و`title` على الزرّ لا هنا.
+ */
+export const BoldIcon = wrap(IconBold, "h-4 w-4");
+export const ItalicIcon = wrap(IconItalic, "h-4 w-4");
+export const Heading2Icon = wrap(IconH2, "h-4 w-4");
+export const Heading3Icon = wrap(IconH3, "h-4 w-4");
+export const BulletListIcon = wrap(IconList, "h-4 w-4");
+export const NumberedListIcon = wrap(IconListNumbers, "h-4 w-4");
+export const QuoteIcon = wrap(IconBlockquote, "h-4 w-4");
+export const LinkIcon = wrap(IconLink, "h-4 w-4");
+export const UnlinkIcon = wrap(IconLinkOff, "h-4 w-4");
+export const InlineCodeIcon = wrap(IconCode, "h-4 w-4");
+export const CodeBlockIcon = wrap(IconSourceCode, "h-4 w-4");
+export const DividerIcon = wrap(IconSeparatorHorizontal, "h-4 w-4");
+export const UndoIcon = wrap(IconArrowBackUp, "h-4 w-4");
+export const RedoIcon = wrap(IconArrowForwardUp, "h-4 w-4");
