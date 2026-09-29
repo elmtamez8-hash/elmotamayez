@@ -67,6 +67,11 @@ class AttendancePolicy extends BasePolicy
      * workspace; changing a mark is the act, and an act outside the assistant's
      * ground is what FR-005 refuses. A session with no course is refused for a
      * confined assistant, in the directory, once for all three surfaces.
+     *
+     * ⚠️ `ATTENDANCE_VIEW` is workspace-wide only for the sessions the assistant
+     * may open at all: the register route (`GET /class-sessions/{s}/attendance`)
+     * authorises on `ClassSessionPolicy::view()`, which since 2026-09-29 refuses
+     * a confined assistant a session outside their courses.
      */
     private function withinAssistantScope(User $user, Attendance $attendance): Response
     {

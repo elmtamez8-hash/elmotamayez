@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Policies;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
+use App\Modules\LiveSessions\Policies\Concerns\AsksAssistantScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use Illuminate\Auth\Access\Response;
@@ -28,6 +29,8 @@ use Illuminate\Auth\Access\Response;
  */
 class PrivateSessionRequestPolicy extends BasePolicy
 {
+    use AsksAssistantScope;
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::SESSIONS_MANAGE)
@@ -50,9 +53,13 @@ class PrivateSessionRequestPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_MANAGE)
-            ? Response::allow()
-            : Response::deny('لا تملك إدارة طلبات الحصص الخاصة.');
+        if (! $user->can(Permissions::SESSIONS_MANAGE)) {
+            return Response::deny('لا تملك إدارة طلبات الحصص الخاصة.');
+        }
+
+        // ⛔ Spec 010 · FR-005: a confined assistant decides the requests of
+        // their own courses only. The request always names one (NOT NULL).
+        return $this->withinAssistantScope($user, (int) $request->workspace_id, (int) $request->course_id);
     }
 
     public function withdraw(User $user, PrivateSessionRequest $request): Response

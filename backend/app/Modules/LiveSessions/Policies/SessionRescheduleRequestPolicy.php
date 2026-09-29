@@ -6,6 +6,7 @@ namespace App\Modules\LiveSessions\Policies;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Models\SessionRescheduleRequest;
+use App\Modules\LiveSessions\Policies\Concerns\AsksAssistantScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use Illuminate\Auth\Access\Response;
@@ -25,6 +26,8 @@ use Illuminate\Auth\Access\Response;
  */
 class SessionRescheduleRequestPolicy extends BasePolicy
 {
+    use AsksAssistantScope;
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::SESSIONS_MANAGE)
@@ -47,8 +50,16 @@ class SessionRescheduleRequestPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::SESSIONS_MANAGE)
-            ? Response::allow()
-            : Response::deny('لا تملك إدارة طلبات التأجيل.');
+        if (! $user->can(Permissions::SESSIONS_MANAGE)) {
+            return Response::deny('لا تملك إدارة طلبات التأجيل.');
+        }
+
+        // ⛔ Spec 010 · FR-005: a confined assistant moves the sessions of their
+        // own courses only — the same answer `ClassSessionPolicy::update()` gives.
+        return $this->withinAssistantScope(
+            $user,
+            (int) $request->workspace_id,
+            $this->courseOfSession((int) $request->class_session_id),
+        );
     }
 }
