@@ -8,8 +8,8 @@ use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Models\MediaAsset;
-use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -201,4 +201,72 @@ it('does not ask the scope about a file that belongs to no lesson', function ():
     expect($verdicts($this->assistant->refresh()))->toBe($unconfined)
         // …and the confinement did take: the far lesson's file is refused now.
         ->and(Gate::forUser($this->assistant)->allows('view', $this->farAsset))->toBeFalse();
+});
+
+/*
+| A class recording is owned by its SESSION until `PublishRecordingAsLesson`
+| hands it to a lesson, and the scope asks the session's course
+| (`SessionCourseDirectory`). A session with no course is outside every
+| confinement, as an exam set for no course is.
+*/
+
+function recordingAssetFor(?Course $course): MediaAsset
+{
+    $session = ClassSession::factory()->create([
+        'workspace_id' => test()->workspace->getKey(),
+        'course_id' => $course?->getKey(),
+    ]);
+
+    return MediaAsset::factory()->processing()->create([
+        'workspace_id' => test()->workspace->getKey(),
+        'owner_type' => ClassSession::class,
+        'owner_id' => $session->getKey(),
+    ]);
+}
+
+/** @return array<string, bool> the verdict of every policy method on the asset */
+function recordingVerdicts(User $user, MediaAsset $asset): array
+{
+    return [
+        'view' => Gate::forUser($user)->allows('view', $asset),
+        'update' => Gate::forUser($user)->allows('update', $asset),
+        'delete' => Gate::forUser($user)->allows('delete', $asset),
+    ];
+}
+
+it('scopes a recording still owned by its session to a confined assistant\'s courses', function (): void {
+    grantMediaAssistantDeletion();
+
+    $near = recordingAssetFor($this->near);
+    $far = recordingAssetFor($this->far);
+    $courseless = recordingAssetFor(null);
+
+    $all = ['view' => true, 'update' => true, 'delete' => true];
+    $none = ['view' => false, 'update' => false, 'delete' => false];
+
+    // Unconfined assistant and owner: every recording, course or not.
+    foreach ([$this->assistant, $this->owner] as $staff) {
+        foreach ([$near, $far, $courseless] as $asset) {
+            expect(recordingVerdicts($staff, $asset))->toBe($all);
+        }
+    }
+
+    confineMediaAssistantTo($this->near);
+    $assistant = $this->assistant->refresh();
+
+    expect(recordingVerdicts($assistant, $near))->toBe($all)
+        ->and(recordingVerdicts($assistant, $far))->toBe($none)
+        ->and(recordingVerdicts($assistant, $courseless))->toBe($none);
+
+    // Over HTTP too: the show and disposition doors answer by the same policy.
+    Sanctum::actingAs($assistant);
+
+    $this->getJson("/api/v1/media/assets/{$near->uuid}")->assertOk();
+    $this->getJson("/api/v1/media/assets/{$far->uuid}")->assertForbidden();
+    $this->putJson("/api/v1/media/assets/{$near->uuid}/disposition", ['is_downloadable' => true])->assertOk();
+    $this->putJson("/api/v1/media/assets/{$far->uuid}/disposition", ['is_downloadable' => true])->assertForbidden();
+
+    // The owner stays untouched by the assistant's confinement.
+    expect(recordingVerdicts($this->owner, $far))->toBe($all)
+        ->and(recordingVerdicts($this->owner, $courseless))->toBe($all);
 });
