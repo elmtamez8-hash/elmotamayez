@@ -1,25 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { DocumentIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
+import { DocumentIcon, EditIcon, ListIcon, ScheduleIcon, SearchIcon, SparkIcon } from "@/components/icons";
 import { TextField, TextareaField, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
-import { blog, type ArticleInput, type ManagedArticle } from "@/lib/blog";
+import { blog, type ArticleInput, type ArticleStatus, type ManagedArticle } from "@/lib/blog";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { usePagedList } from "@/lib/use-paged-list";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/labels";
+import { counted, formatDate } from "@/lib/labels";
 import { P, can } from "@/lib/permissions";
+import { FilterBar } from "@/components/ui/FilterBar";
+import { RecordList, RecordRow } from "@/components/ui/RecordList";
+
+/** «١٢ مقالاً» — the contract's own example form; not in `NOUNS` yet. */
+const POSTS = { one: "مقال واحد", two: "مقالان", few: "مقالات", many: "مقالاً", other: "مقال" };
+
+type StatusFilter = "all" | "published" | "draft";
 
 /**
  * مدوّنةُ المدرّس — قائمةُ مقالاتِه ومحرّرُها.
@@ -82,8 +92,9 @@ export default function ManageBlogPage() {
   const mayDelete = can(user, P.cmsDelete);
   const mayCreate = can(user, P.cmsCreate);
 
-  const [rows, setRows] = useState<ManagedArticle[]>([]);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [query, setQuery] = useState("");
+  const searched = useDebouncedValue(query);
   const [editing, setEditing] = useState<ManagedArticle | "new" | null>(null);
   const [form, setForm] = useState<ArticleInput>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -93,19 +104,19 @@ export default function ManageBlogPage() {
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    try {
-      const res = await blog.list();
-      setRows(res.data);
-      setState("ready");
-    } catch {
-      setState("error");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /*
+   * Paged, searched and filtered on the SERVER (15 a page). The fetcher is
+   * rebuilt when the settled search or the chip changes, and that restarts the
+   * list from page one.
+   */
+  const fetchPage = useCallback(
+    (page: number) =>
+      blog.list({ page, q: searched, status: status === "all" ? undefined : status }),
+    [searched, status],
+  );
+  const list = usePagedList<ManagedArticle, Record<ArticleStatus, number>>(fetchPage);
+  const { rows, state, total, counts } = list;
+  const load = list.reload;
 
   function open(article: ManagedArticle | "new") {
     setEditing(article);
@@ -170,10 +181,19 @@ export default function ManageBlogPage() {
     }
   }
 
-  if (state === "error") return <ErrorState onRetry={load} />;
+  // Every figure here is the server's: `counts` spans the whole search, and
+  // «الكل» is their sum — never `rows.length`, which is only what is loaded.
+  const drafts = counts?.draft;
+  const published = counts?.published;
+  const everything = drafts !== undefined && published !== undefined ? drafts + published : undefined;
+  const filtering = searched.trim() !== "" || status !== "all";
+  const clearFilters = () => {
+    setQuery("");
+    setStatus("all");
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={DocumentIcon}
         title="المدوّنة"
@@ -191,11 +211,11 @@ export default function ManageBlogPage() {
       />
 
       {editing !== null ? (
-        <Card>
+        <Card as="section" labelledBy="article-editor">
           <div className="mb-4">
             <SectionHeading
               id="article-editor"
-              Icon={DocumentIcon}
+              Icon={editing === "new" ? SparkIcon : EditIcon}
               title={editing === "new" ? "مقال جديد" : "تعديل المقال"}
             />
           </div>
@@ -230,67 +250,85 @@ export default function ManageBlogPage() {
               hint="السطران اللذان يظهران في قائمة المدوّنة وفي نتيجة البحث."
             />
 
-            <TextareaField
+            {/*
+              The body is still stored as Markdown — the editor reads and writes
+              it. `key` remounts the editor for each article: it reads `value`
+              once, so switching articles without a remount would keep the last
+              one's text on screen.
+            */}
+            <RichMarkdownEditor
+              key={editing === "new" ? "new" : editing.uuid}
               id="article-body"
               label="النصّ"
-              rows={12}
               value={form.body ?? ""}
-              onChange={(v) => setForm({ ...form, body: v })}
+              onChange={(v) => setForm((current) => ({ ...current, body: v }))}
               error={fields.body}
-              hint="يُكتب بصيغة Markdown. الوسم الخام يُزال عند العرض، فلا تضع HTML."
+              hint="نسّق بأزرار الشريط أو اختصاراتها. العناوين والقوائم والروابط تظهر في المقال المنشور كما تراها هنا."
             />
 
-            <SelectField
-              id="article-status"
-              label="الحالة"
-              value={form.status ?? "draft"}
-              onChange={(v) => setForm({ ...form, status: v as ArticleInput["status"] })}
-              disabled={!mayPublish}
-              options={[
-                { value: "draft", label: "مسوّدة" },
-                { value: "published", label: "منشور" },
-              ]}
-              
-              error={fields.status}
-              hint={mayPublish ? undefined : "النشر والسحب لمن يحمل صلاحية النشر."}
-            />
+            {/* Publishing: the state and its date, side by side from 640px. */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                id="article-status"
+                label="الحالة"
+                value={form.status ?? "draft"}
+                onChange={(v) => setForm({ ...form, status: v as ArticleInput["status"] })}
+                disabled={!mayPublish}
+                options={[
+                  { value: "draft", label: "مسوّدة" },
+                  { value: "published", label: "منشور" },
+                ]}
+                error={fields.status}
+                hint={mayPublish ? undefined : "النشر والسحب لمن يحمل صلاحية النشر."}
+              />
 
-            <TextField
-              id="article-published-at"
-              label="تاريخ النشر"
-              type="datetime-local"
-              value={form.published_at ?? ""}
-              onChange={(v) => setForm({ ...form, published_at: v })}
-              disabled={!mayPublish}
-              
-              error={fields.published_at}
-              hint="تاريخ في المستقبل يُبقي المقال خارج المدوّنة حتّى يحين."
-            />
+              <TextField
+                id="article-published-at"
+                label="تاريخ النشر"
+                type="datetime-local"
+                value={form.published_at ?? ""}
+                onChange={(v) => setForm({ ...form, published_at: v })}
+                disabled={!mayPublish}
+                error={fields.published_at}
+                hint="تاريخ في المستقبل يُبقي المقال خارج المدوّنة حتّى يحين."
+              />
+            </div>
 
-            <TextField
-              id="article-seo-title"
-              label="عنوان محرّكات البحث"
-              value={form.seo_title ?? ""}
-              onChange={(v) => setForm({ ...form, seo_title: v })}
-              error={fields.seo_title}
-            />
+            {/* Search-engine fields are optional and read last: a hairline and
+                their own heading set them apart from what the reader sees. */}
+            <div className="space-y-4 border-t border-line pt-4">
+              <SectionHeading
+                id="article-seo"
+                level={4}
+                Icon={SearchIcon}
+                title="الظهور في محرّكات البحث"
+              />
 
-            <TextareaField
-              id="article-seo-description"
-              label="وصف محرّكات البحث"
-              value={form.seo_description ?? ""}
-              onChange={(v) => setForm({ ...form, seo_description: v })}
-              error={fields.seo_description}
-            />
+              <TextField
+                id="article-seo-title"
+                label="عنوان محرّكات البحث"
+                value={form.seo_title ?? ""}
+                onChange={(v) => setForm({ ...form, seo_title: v })}
+                error={fields.seo_title}
+              />
 
-            <TextField
-              id="article-canonical"
-              label="الرابط الأساسي"
-              value={form.canonical_url ?? ""}
-              onChange={(v) => setForm({ ...form, canonical_url: v })}
-              error={fields.canonical_url}
-              hint="اتركه فارغاً إلّا إن كان المقال منشوراً في مكان آخر أصلاً."
-            />
+              <TextareaField
+                id="article-seo-description"
+                label="وصف محرّكات البحث"
+                value={form.seo_description ?? ""}
+                onChange={(v) => setForm({ ...form, seo_description: v })}
+                error={fields.seo_description}
+              />
+
+              <TextField
+                id="article-canonical"
+                label="الرابط الأساسي"
+                value={form.canonical_url ?? ""}
+                onChange={(v) => setForm({ ...form, canonical_url: v })}
+                error={fields.canonical_url}
+                hint="اتركه فارغاً إلّا إن كان المقال منشوراً في مكان آخر أصلاً."
+              />
+            </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -322,42 +360,139 @@ export default function ManageBlogPage() {
         </Card>
       ) : null}
 
-      {state === "loading" ? (
-        <RowsSkeleton />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title="لا مقالات بعد"
-          description="أوّل مقال تنشره يظهر على صفحتك العامّة، وتُخبَر محرّكات البحث به."
+      <section aria-labelledby="article-list" className="space-y-4">
+        <SectionHeading
+          id="article-list"
+          Icon={ListIcon}
+          title="مقالاتك"
+          description={
+            everything !== undefined && everything > 0 ? counted(everything, POSTS) : undefined
+          }
         />
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((article) => (
-            <li key={article.uuid}>
-              <Card as="article" interactive>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-ink">{article.title}</h3>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
-                      <ScheduleIcon className="h-3.5 w-3.5" />
-                      {article.status === "published" && article.published_at
-                        ? formatDate(article.published_at)
-                        : "لم يُنشر بعد"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone={article.status === "published" ? "success" : "neutral"}>
-                      {article.status === "published" ? "منشور" : "مسوّدة"}
+
+        {/*
+          Search and chips are the SERVER's: the list is paged at 15, so a match
+          or a count computed here would describe page one and read as the whole
+          blog. The bar stays mounted once anything has loaded — a search that
+          empties the list must still be clearable.
+        */}
+        {list.settled && (list.everFilled || filtering) && (
+          <FilterBar
+            search={{
+              id: "article-search",
+              label: "ابحث في مقالاتك",
+              value: query,
+              onChange: setQuery,
+              placeholder: "عنوان المقال",
+            }}
+            filters={{
+              label: "حالة المقال",
+              value: status,
+              onChange: (key) => setStatus(key as StatusFilter),
+              options: [
+                { key: "all", label: "الكل", count: everything },
+                { key: "published", label: "المنشورة", count: published },
+                { key: "draft", label: "المسوّدات", count: drafts },
+              ],
+            }}
+            summary={state === "ready" && total !== null ? counted(total, POSTS) : undefined}
+          />
+        )}
+
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && <ErrorState onRetry={() => void load()} />}
+
+        {state === "ready" && rows.length === 0 && !filtering && (
+          <EmptyState
+            Icon={DocumentIcon}
+            title="لا مقالات بعد"
+            description="أوّل مقال تنشره يظهر على صفحتك العامّة، وتُخبَر محرّكات البحث به."
+            action={
+              editing === null && mayCreate ? (
+                <Button variant="secondary" iconStart={<SparkIcon />} onClick={() => open("new")}>
+                  اكتب أوّل مقال
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {state === "ready" && rows.length === 0 && filtering && (
+          <EmptyState
+            title="لا مقال يطابق"
+            description="لا مقال بهذا البحث أو بهذه الحالة. امسح البحث لترى مقالاتك كلّها."
+            action={
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                مسح البحث
+              </Button>
+            }
+          />
+        )}
+
+        {state === "ready" && rows.length > 0 && (
+          <RecordList labelledBy="article-list">
+            {rows.map((article) => {
+              const isPublished = article.status === "published";
+
+              return (
+                <RecordRow
+                  key={article.uuid}
+                  level={4}
+                  Icon={DocumentIcon}
+                  tone={isPublished ? "info" : "neutral"}
+                  title={article.title}
+                  status={
+                    <Badge tone={isPublished ? "success" : "neutral"}>
+                      {isPublished ? "منشور" : "مسوّدة"}
                     </Badge>
-                    <Button variant="ghost" onClick={() => open(article)}>
+                  }
+                  description={
+                    article.excerpt !== null && article.excerpt !== "" ? article.excerpt : undefined
+                  }
+                  meta={[
+                    {
+                      key: "date",
+                      label: "تاريخ النشر",
+                      labelHidden: true,
+                      Icon: ScheduleIcon,
+                      value:
+                        isPublished && article.published_at
+                          ? formatDate(article.published_at)
+                          : "لم يُنشر بعد",
+                    },
+                  ]}
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      iconStart={<EditIcon />}
+                      onClick={() => open(article)}
+                    >
                       عدّل
                     </Button>
-                  </div>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+                  }
+                />
+              );
+            })}
+          </RecordList>
+        )}
+
+        {list.moreFailed && <Alert tone="danger" title="تعذّر تحميل المزيد. حاول مرّة أخرى." />}
+
+        {state === "ready" && list.hasMore && (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              loading={list.loadingMore}
+              loadingLabel="جارٍ التحميل…"
+              onClick={() => void list.loadMore()}
+            >
+              عرض المزيد
+            </Button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

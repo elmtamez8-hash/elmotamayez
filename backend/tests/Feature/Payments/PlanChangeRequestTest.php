@@ -331,6 +331,21 @@ it('carries the ask over the wire and lists it back', function (): void {
         ->assertJsonPath('data.0.requested_shape', '١٢ حصّة');
 });
 
+it('shows the teacher their own proposed price and never the platform\'s current one', function (): void {
+    // ⛔ Owner decision 2026-09-29: the platform's price stays off the teacher's
+    // screen. The column is still written — the officer's review reads it.
+    askToChange(['requested_price_minor' => 60_000]);
+
+    $this->setCurrentWorkspace($this->workspace, $this->teacher);
+    Sanctum::actingAs($this->teacher);
+
+    $row = $this->getJson('/api/v1/manage/plan-change-requests')->assertOk()->json('data.0');
+
+    expect($row)->not->toHaveKey('current_price_minor')
+        ->and($row['requested_price_minor'])->toBe(60_000)
+        ->and((int) PlanChangeRequest::query()->withoutWorkspaceScope()->sole()->current_price_minor)->toBe(10_000);
+});
+
 /*
 | ٠٣٦ · FR-013, ON THE OFFICER'S DOOR — «الموافقةُ هي الكتابة، فالتحذيرُ هنا».
 |

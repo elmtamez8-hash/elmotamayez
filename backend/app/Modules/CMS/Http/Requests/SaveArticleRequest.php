@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\CMS\Http\Requests;
 
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Support\WorkspaceRules;
@@ -61,7 +62,7 @@ class SaveArticleRequest extends FormRequest
                 Rule::unique('cms_articles', 'slug')
                     ->ignore($current instanceof Article ? $current->getKey() : null),
             ],
-            'status' => ['nullable', 'in:draft,published'],
+            'status' => ['nullable', Rule::enum(ArticleStatus::class)],
             /*
             | ⚠️ VALIDATED HERE, UNLIKE THE DELETED API — AND THAT CHANGES WHAT
             | THE CONTROLLER MUST GUARD. The old `/cms/articles` never accepted

@@ -23,6 +23,7 @@ use App\Modules\Assessments\Support\AssignmentFilterOptions;
 use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
@@ -32,6 +33,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\Rule;
 
 /**
  * Homework: what is set, what came in, and what it scored.
@@ -43,7 +45,7 @@ use Illuminate\Http\UploadedFile;
  */
 class AssignmentController extends Controller
 {
-    public function index(Request $request, EnrollmentDirectory $enrollments): JsonResponse
+    public function index(Request $request, EnrollmentDirectory $enrollments, AssistantScopeDirectory $assistants): JsonResponse
     {
         $user = $this->currentUser($request);
         $manages = $user->can(Permissions::ASSIGNMENTS_MANAGE);
@@ -99,7 +101,52 @@ class AssignmentController extends Controller
             ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
             ->orderByDesc('due_at');
 
+        /** @var array{draft: int, published: int}|null $counts */
+        $counts = null;
+
         if ($manages) {
+            $filters = $request->validate([
+                'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+                'status' => ['sometimes', 'nullable', Rule::in([Assignment::STATUS_DRAFT, Assignment::STATUS_PUBLISHED])],
+            ]);
+
+            $search = trim((string) ($filters['q'] ?? ''));
+            $status = $filters['status'] ?? null;
+
+            /*
+            | ⚠️ A CONFINED ASSISTANT SEES THE HOMEWORK OF THEIR OWN COURSES ONLY
+            | (spec 010 · FR-005) — the grading board's rule, and the reason is the
+            | same: the heading's count is `meta.total`. `null` is «not confined»;
+            | a course-less assignment («كل طلابي») drops out of a confined list,
+            | as a course-less session and exam do.
+            */
+            $contextId = app(WorkspaceContext::class)->id();
+            $scoped = $contextId === null ? null : $assistants->scopedCourseIdsFor($user, $contextId);
+
+            $query
+                ->when($scoped !== null, fn (Builder $q): Builder => $q->whereIn('course_id', $scoped ?? []))
+                ->when($search !== '', fn (Builder $q): Builder => $q->where('title', 'like', '%'.$search.'%'));
+
+            /*
+            | Per-status totals for the chips: the search and the confinement
+            | apply, the chosen status does not — otherwise the other chip reads
+            | zero the moment one is pressed. `reorder()` because a GROUP BY that
+            | keeps the list's ORDER BY is refused by MySQL's ONLY_FULL_GROUP_BY
+            | and passes on SQLite; cloned BEFORE `withCount` for the same reason.
+            */
+            $grouped = (clone $query)
+                ->reorder()
+                ->selectRaw('status, COUNT(*) as aggregate')
+                ->groupBy('status')
+                ->pluck('aggregate', 'status');
+
+            $counts = [
+                Assignment::STATUS_DRAFT => (int) ($grouped[Assignment::STATUS_DRAFT] ?? 0),
+                Assignment::STATUS_PUBLISHED => (int) ($grouped[Assignment::STATUS_PUBLISHED] ?? 0),
+            ];
+
+            $query->when($status !== null, fn (Builder $q): Builder => $q->where('status', $status));
+
             // The course, so the edit form opens with the one it was set for. One
             // eager load, never a lookup per row — the Resource reads it `whenLoaded`.
             $query->with('course:id,uuid,title')->withCount([
@@ -152,13 +199,20 @@ class AssignmentController extends Controller
 
         $page = $query->paginate(min(50, max(5, (int) $request->integer('per_page', 20))));
 
+        $meta = [
+            'total' => $page->total(),
+            'current_page' => $page->currentPage(),
+            'last_page' => $page->lastPage(),
+        ];
+
+        // The staff list only: a student's list has no drafts to count.
+        if ($counts !== null) {
+            $meta['counts'] = $counts;
+        }
+
         return response()->json([
             'data' => AssignmentResource::collection($page->items()),
-            'meta' => [
-                'total' => $page->total(),
-                'current_page' => $page->currentPage(),
-                'last_page' => $page->lastPage(),
-            ],
+            'meta' => $meta,
         ]);
     }
 

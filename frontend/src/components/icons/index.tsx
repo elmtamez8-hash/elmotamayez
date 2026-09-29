@@ -66,6 +66,8 @@ import {
   IconDiscountOff,
   IconFeather,
   IconFileText,
+  IconPencil,
+  IconSend,
   IconFlask,
   IconHome,
   IconHourglass,
@@ -115,6 +117,27 @@ import {
   IconX,
   type Icon as TablerIcon,
   IconWriting,
+  IconBulb,
+  IconCalendarPlus,
+  IconClockPlus,
+  IconRobot,
+  IconRefresh,
+  IconTruck,
+  IconTruckReturn,
+  IconArrowBackUp,
+  IconArrowForwardUp,
+  IconBlockquote,
+  IconBold,
+  IconCode,
+  IconH2,
+  IconH3,
+  IconItalic,
+  IconLink,
+  IconLinkOff,
+  IconList,
+  IconListNumbers,
+  IconSeparatorHorizontal,
+  IconSourceCode,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -178,6 +201,10 @@ export const InfoIcon = wrap(IconInfoCircle, "h-4 w-4");
 export const UserPlusIcon = wrap(IconUserPlus, "h-4 w-4");
 export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");
 export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
+/** Change a record in place — the row action «عدّل». */
+export const EditIcon = wrap(IconPencil, "h-4 w-4");
+/** Send a draft to its readers — «انشره» on homework, a notice, an article. */
+export const PublishIcon = wrap(IconSend, "h-4 w-4");
 
 // ٠٣٥ — أيقونةٌ لكلِّ نوعِ عنصرٍ في المنهج. تُقرأُ مع تسميةِ النوعِ لا بدلاً منها:
 // النوعُ مكتوبٌ بالكلمات في كلِّ صفّ، والأيقونةُ تأكيدٌ يُمسَحُ بالعين.
@@ -422,3 +449,42 @@ export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const VerifiedBadgeIcon = wrap(IconRosetteDiscountCheckFilled, "h-4 w-4");
 export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
 export const DownloadIcon = wrap(IconDownload, "h-4 w-4");
+
+// ─── Staff-screen meta (grading · item analysis · accommodations) ─────────────
+/** A concept («فكرة») a question is tagged with. */
+export const ConceptIcon = wrap(IconBulb, "h-4 w-4");
+/** The machine-marked half of a paper — never a final grade. */
+export const AutoGradedIcon = wrap(IconRobot, "h-4 w-4");
+/** Extra time on an exam's timer. */
+export const ExtraTimeIcon = wrap(IconClockPlus, "h-4 w-4");
+/** Extra days before a homework deadline. */
+export const ExtraDaysIcon = wrap(IconCalendarPlus, "h-4 w-4");
+
+/*
+ * The fulfilment queue's steps (`/manage/store/shipments`): the parcel itself is
+ * `ShipmentIcon`, on the road it is a truck, and a returned one is the truck
+ * turning back — so a next-step button names the step before it is read.
+ */
+export const TruckIcon = wrap(IconTruck, "h-4 w-4");
+export const ReturnIcon = wrap(IconTruckReturn, "h-4 w-4");
+/** «أعِد الإصدار» — the same record drawn again, never a new one. */
+export const RefreshIcon = wrap(IconRefresh, "h-4 w-4");
+
+/*
+ * شريطُ أدواتِ المحرّرِ المنسَّق (`RichMarkdownEditor`). كلُّ زرٍّ فيه أيقونةٌ
+ * وحدَها، فاسمُه في `aria-label` و`title` على الزرّ لا هنا.
+ */
+export const BoldIcon = wrap(IconBold, "h-4 w-4");
+export const ItalicIcon = wrap(IconItalic, "h-4 w-4");
+export const Heading2Icon = wrap(IconH2, "h-4 w-4");
+export const Heading3Icon = wrap(IconH3, "h-4 w-4");
+export const BulletListIcon = wrap(IconList, "h-4 w-4");
+export const NumberedListIcon = wrap(IconListNumbers, "h-4 w-4");
+export const QuoteIcon = wrap(IconBlockquote, "h-4 w-4");
+export const LinkIcon = wrap(IconLink, "h-4 w-4");
+export const UnlinkIcon = wrap(IconLinkOff, "h-4 w-4");
+export const InlineCodeIcon = wrap(IconCode, "h-4 w-4");
+export const CodeBlockIcon = wrap(IconSourceCode, "h-4 w-4");
+export const DividerIcon = wrap(IconSeparatorHorizontal, "h-4 w-4");
+export const UndoIcon = wrap(IconArrowBackUp, "h-4 w-4");
+export const RedoIcon = wrap(IconArrowForwardUp, "h-4 w-4");

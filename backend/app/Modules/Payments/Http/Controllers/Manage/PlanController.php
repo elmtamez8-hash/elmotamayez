@@ -10,8 +10,8 @@ use App\Modules\Payments\Actions\SavePlan;
 use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Http\Requests\RequestPlanChangeRequest;
 use App\Modules\Payments\Http\Requests\SavePlanRequest;
+use App\Modules\Payments\Http\Resources\ManagedPlanResource;
 use App\Modules\Payments\Http\Resources\PlanChangeRequestResource;
-use App\Modules\Payments\Http\Resources\PlanResource;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Shared\Support\WorkspaceContext;
@@ -26,6 +26,10 @@ use Illuminate\Http\Request;
  * `SetPlanPrice` under the platform permission `plans.price`, and the only door
  * onto that Action is `PlanResource` in the panel — the HTTP one was deleted on
  * 2026-09-05 as a twin nothing called.
+ *
+ * ⛔ AND IT IS NOT READ FROM HERE EITHER (owner decision 2026-09-29): every
+ * answer on this controller goes through `ManagedPlanResource`, which carries
+ * `is_priced` and no number. `PlanResource` is the buyer's shape.
  */
 class PlanController extends Controller
 {
@@ -37,7 +41,7 @@ class PlanController extends Controller
         // workspace MEMBER, unlike every student-facing read in this module.
         $plans = Plan::query()->orderedByShape()->get();
 
-        return response()->json(['data' => PlanResource::collection($plans)]);
+        return response()->json(['data' => ManagedPlanResource::collection($plans)]);
     }
 
     public function store(SavePlanRequest $request, SavePlan $action): JsonResponse
@@ -150,6 +154,6 @@ class PlanController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['data' => PlanResource::make($saved)], $status);
+        return response()->json(['data' => ManagedPlanResource::make($saved)], $status);
     }
 }

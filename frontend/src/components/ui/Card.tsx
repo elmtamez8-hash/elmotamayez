@@ -18,7 +18,7 @@ const PADDING = {
  * above. The lift is `motion-safe:` so a reader who asked for reduced motion gets
  * the colour change alone.
  */
-const INTERACTIVE =
+export const CARD_INTERACTIVE =
   "transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5";
 
 export function Card({
@@ -26,19 +26,23 @@ export function Card({
   padding = "md",
   as: Tag = "div",
   interactive = false,
+  labelledBy,
 }: {
   children: ReactNode;
   padding?: keyof typeof PADDING;
   as?: "div" | "article" | "section";
   /** A card the reader scans as one of a set (a rate, a figure, a plan). */
   interactive?: boolean;
+  /** The `SectionHeading` id inside, so a `section` card is a named landmark. */
+  labelledBy?: string;
 }) {
   return (
     <Tag
+      aria-labelledby={labelledBy}
       // rounded-3xl to sit with the pill controls: a card corner tighter than
       // its own buttons reads as two systems in one frame.
       className={`rounded-3xl border border-line bg-surface-raised ${PADDING[padding]} ${
-        interactive ? INTERACTIVE : ""
+        interactive ? CARD_INTERACTIVE : ""
       }`}
     >
       {children}

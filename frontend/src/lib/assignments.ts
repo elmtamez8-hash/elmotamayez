@@ -77,7 +77,17 @@ export interface Assignment {
   my_submission: Submission | null;
 }
 
-type Meta = { total: number; current_page: number; last_page: number };
+/**
+ * `counts` arrives on the STAFF list only — per status over the whole search,
+ * never the page and never narrowed by the chosen status. A student's list has
+ * no drafts to count.
+ */
+type Meta = {
+  total: number;
+  current_page: number;
+  last_page: number;
+  counts?: Record<Assignment["status"], number>;
+};
 
 /**
  * What `POST /manage/assignments` and `PATCH /manage/assignments/{uuid}` take —
@@ -129,12 +139,18 @@ export const assignments = {
       course?: string;
       subject?: string;
       cohort?: string;
+      /** Staff only: the server ignores both for a student, who sees no drafts. */
+      q?: string;
+      status?: Assignment["status"];
     } = {},
   ) => {
     const query = new URLSearchParams({
       page: String(params.page ?? 1),
       per_page: String(params.perPage ?? 30),
     });
+
+    if (params.q !== undefined && params.q.trim() !== "") query.set("q", params.q.trim());
+    if (params.status !== undefined) query.set("status", params.status);
 
     if (params.teacher !== undefined && params.teacher !== "") query.set("teacher", params.teacher);
     if (params.course !== undefined && params.course !== "") query.set("course", params.course);

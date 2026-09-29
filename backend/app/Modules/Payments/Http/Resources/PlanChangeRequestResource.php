@@ -18,7 +18,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * it in TypeScript would be a second spelling of `PlanShape` — the defect this
  * spec spent a whole requirement on.
  *
- * ⚠️ AND THE PRICES TRAVEL IN MINOR UNITS, UNFORMATTED. The API never sends
+ * ⚠️ AND THE ONE PRICE IT CARRIES — THE TEACHER'S OWN PROPOSAL — TRAVELS IN
+ * MINOR UNITS, UNFORMATTED. The API never sends
  * pre-formatted money: a formatted string is a number the client has to parse
  * back before it can add anything up.
  *
@@ -44,7 +45,9 @@ class PlanChangeRequestResource extends JsonResource
             ),
             'current_coverage_label' => $this->resource->current_coverage_type->label(),
             'requested_coverage_label' => $this->resource->requested_coverage_type->label(),
-            'current_price_minor' => $this->resource->current_price_minor,
+            // ⛔ NO `current_price_minor`: that is the PLATFORM's number, and the
+            // teacher's screen does not show it (owner decision 2026-09-29). The
+            // requested one is the teacher's own proposal and stays.
             'requested_price_minor' => $this->resource->requested_price_minor,
             'currency' => (string) ($this->resource->plan->currency ?? app(BillingSettings::class)->currency()),
             'reason' => $this->resource->reason,

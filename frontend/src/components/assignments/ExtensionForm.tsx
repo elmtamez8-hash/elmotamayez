@@ -98,7 +98,7 @@ export function ExtensionForm({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-line p-4">
+    <div className="space-y-3 rounded-2xl border border-line p-4">
       <h4 className="text-sm font-semibold text-ink">مهلة لطالب بعينه</h4>
       <p className="text-xs text-ink-muted">
         موعدٌ أبعد لهذا الواجب وحده، لا يراه زملاؤه. منحُ مهلةٍ ثانية للطالب نفسه يستبدل الأولى.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Factories\Modules\CMS;
 
 use App\Models\User;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class ArticleFactory extends Factory
             'slug' => Str::slug($title),
             'body' => fake()->paragraphs(5, true),
             'excerpt' => fake()->sentence(),
-            'status' => 'draft',
+            'status' => ArticleStatus::Draft,
             'published_at' => null,
             'author_id' => User::factory(),
             'category_id' => null,
@@ -41,7 +42,7 @@ class ArticleFactory extends Factory
     public function published(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'published',
+            'status' => ArticleStatus::Published,
             'published_at' => now()->subDays(fake()->numberBetween(0, 30)),
         ]);
     }

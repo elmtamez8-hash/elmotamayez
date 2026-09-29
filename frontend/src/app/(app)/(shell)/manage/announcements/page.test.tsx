@@ -136,3 +136,36 @@ describe("announcements page — more than one page", () => {
     expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
   });
 });
+
+describe("announcements page — the visibility chips", () => {
+  it("narrow the list to the retracted notices, and back", async () => {
+    await act(async () => {
+      render(<AnnouncementsPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "المسحوبة" }));
+    });
+
+    expect(screen.queryByText("الحصة مؤجلة")).toBeNull();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "عرض الكل" }));
+    });
+
+    expect(screen.getByText("الحصة مؤجلة")).toBeTruthy();
+  });
+
+  it("asks twice before retracting a notice", async () => {
+    await act(async () => {
+      render(<AnnouncementsPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "سحب الإعلان" }));
+    });
+
+    // Armed, not sent: nothing on this screen puts a retracted notice back.
+    expect(screen.getByRole("button", { name: "اضغط مجدداً لسحبه" })).toBeTruthy();
+  });
+});

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages\CreateCmsArticle;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages\EditCmsArticle;
@@ -63,7 +64,7 @@ it('writes the article into the chosen workspace, with the writer as its author'
 
     expect($article->workspace_id)->toBe($this->away->getKey())
         ->and($article->author_id)->toBe($admin->getKey())
-        ->and($article->status)->toBe('published')
+        ->and($article->status)->toBe(ArticleStatus::Published)
         // `publicListingConstraints()` needs a date; a published row without one
         // is invisible to the public.
         ->and($article->published_at)->not->toBeNull();

@@ -128,3 +128,24 @@ describe("regenerating a certificate", () => {
     expect(screen.getByText(/ووصله إشعار بذلك/)).toBeTruthy();
   });
 });
+
+describe("searching the certificates", () => {
+  /*
+    The endpoint takes no `q`, so the search reads the loaded pages — and while a
+    page is left, the bar says so instead of answering for rows it never saw.
+  */
+  it("narrows the loaded rows and says the search covers only what is loaded", async () => {
+    get.mockResolvedValue({ data: [row(1), row(2)], meta: { last_page: 2, total: 20 } });
+
+    await act(async () => {
+      render(<ManageCertificatesPage />);
+    });
+
+    fireEvent.change(screen.getByLabelText("ابحث في الشهادات"), { target: { value: "CERT-2026-0002" } });
+
+    expect(screen.queryByText("طالب 1")).toBeNull();
+    expect(screen.getByText("طالب 2")).toBeDefined();
+    expect(screen.getByText(/فيما حُمِّل حتى الآن/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "عرض المزيد" })).toBeDefined();
+  });
+});

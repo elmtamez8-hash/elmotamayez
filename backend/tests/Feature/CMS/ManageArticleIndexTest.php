@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
@@ -86,6 +87,122 @@ it('sends the paginator envelope rather than a bare page', function (): void {
     $this->getJson('/api/v1/manage/articles')
         ->assertOk()
         ->assertJsonStructure(['data', 'links', 'meta']);
+});
+
+/*
+| Server-side paging, search and status (2026-09-29). The list is 15 a page, so a
+| filter or a count computed in the browser described page one and read as the
+| whole blog.
+*/
+
+/** @return list<string> */
+function manageArticleTitles(string $query = ''): array
+{
+    return collect(test()->getJson('/api/v1/manage/articles'.($query === '' ? '' : '?'.$query))
+        ->assertOk()->json('data'))->pluck('title')->all();
+}
+
+function seedManagedArticles(Workspace $workspace): void
+{
+    app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace): void {
+        foreach ([
+            ['الكسور للمبتدئين', ArticleStatus::Published],
+            ['الكسور العشرية', ArticleStatus::Draft],
+            ['الهندسة المستوية', ArticleStatus::Published],
+        ] as [$title, $status]) {
+            Article::factory()->create([
+                'workspace_id' => $workspace->getKey(),
+                'title' => $title,
+                'status' => $status,
+                'published_at' => $status === ArticleStatus::Published ? now()->subDay() : null,
+            ]);
+        }
+    });
+}
+
+it('pages on the server and reaches the rest of the blog', function (): void {
+    [$workspace, $owner] = test()->createWorkspaceWithOwner();
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, fn () => Article::factory()->count(17)->create([
+        'workspace_id' => $workspace->getKey(),
+        'status' => ArticleStatus::Draft,
+        'published_at' => null,
+    ]));
+
+    Sanctum::actingAs($owner);
+
+    $first = $this->getJson('/api/v1/manage/articles')->assertOk();
+    $second = $this->getJson('/api/v1/manage/articles?page=2')->assertOk();
+
+    expect($first->json('meta.total'))->toBe(17)
+        ->and($first->json('meta.last_page'))->toBe(2)
+        ->and($first->json('data'))->toHaveCount(15)
+        ->and($first->json('links.next'))->toContain('page=2')
+        // Over the whole blog, not the fifteen on this page.
+        ->and($first->json('meta.counts'))->toBe(['draft' => 17, 'published' => 0])
+        ->and($second->json('data'))->toHaveCount(2);
+});
+
+it('searches and filters by status on the server, with counts per status', function (): void {
+    [$workspace, $owner] = test()->createWorkspaceWithOwner();
+    seedManagedArticles($workspace);
+
+    Sanctum::actingAs($owner);
+
+    $all = $this->getJson('/api/v1/manage/articles')->assertOk();
+    expect($all->json('meta.counts'))->toBe(['draft' => 1, 'published' => 2]);
+
+    expect(manageArticleTitles('status=published'))
+        ->toEqualCanonicalizing(['الكسور للمبتدئين', 'الهندسة المستوية']);
+
+    expect(manageArticleTitles('q='.urlencode('الكسور')))
+        ->toEqualCanonicalizing(['الكسور للمبتدئين', 'الكسور العشرية']);
+
+    // The search narrows the counts; the chosen status does not.
+    $searched = $this->getJson('/api/v1/manage/articles?status=draft&q='.urlencode('الكسور'))->assertOk();
+
+    expect(collect($searched->json('data'))->pluck('title')->all())->toBe(['الكسور العشرية'])
+        ->and($searched->json('meta.total'))->toBe(1)
+        ->and($searched->json('meta.counts'))->toBe(['draft' => 1, 'published' => 1]);
+});
+
+it('keeps the query string on the page links, so page two is the same search', function (): void {
+    [$workspace, $owner] = test()->createWorkspaceWithOwner();
+
+    app(WorkspaceContext::class)->forWorkspace($workspace, fn () => Article::factory()->count(16)->create([
+        'workspace_id' => $workspace->getKey(),
+        'title' => 'مقال مسوّدة',
+        'status' => ArticleStatus::Draft,
+        'published_at' => null,
+    ]));
+
+    Sanctum::actingAs($owner);
+
+    $next = (string) $this->getJson('/api/v1/manage/articles?status=draft')->assertOk()->json('links.next');
+
+    expect($next)->toContain('status=draft')->and($next)->toContain('page=2');
+});
+
+it('refuses an unknown status rather than returning the unfiltered list', function (): void {
+    [, $owner] = manageArticleWorkspace('مقال');
+
+    Sanctum::actingAs($owner);
+
+    $this->getJson('/api/v1/manage/articles?status=archived')->assertUnprocessable();
+});
+
+it('never searches or counts another teacher\'s articles', function (): void {
+    [$mine, $owner] = test()->createWorkspaceWithOwner();
+    [$theirs] = test()->createWorkspaceWithOwner();
+    seedManagedArticles($mine);
+    seedManagedArticles($theirs);
+
+    Sanctum::actingAs($owner);
+
+    $response = $this->getJson('/api/v1/manage/articles?q='.urlencode('الكسور'))->assertOk();
+
+    expect($response->json('meta.total'))->toBe(2)
+        ->and($response->json('meta.counts'))->toBe(['draft' => 1, 'published' => 1]);
 });
 
 it('refuses one teacher another teacher\'s article by uuid', function (): void {

@@ -6,6 +6,7 @@ namespace App\Modules\CMS\Models;
 
 use App\Models\BaseModel;
 use App\Models\User;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Jobs\PingSearchEnginesJob;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
@@ -32,7 +33,7 @@ use Spatie\Sluggable\SlugOptions;
  * schema and the reasoning agree; it also gives `publicListingConstraints()` its
  * «غيرُ محذوف» half for nothing, since the global scope carries it.
  *
- * @property string $status
+ * @property ArticleStatus $status
  * @property string|null $cover_path
  * @property string|null $summary
  *                                ⚠️ `array<int, mixed>` لا شكلاً موصوفاً: العمودُ JSON، وما فيه هو ما كُتِبَ
@@ -86,6 +87,8 @@ class Article extends BaseModel
     {
         return [
             'published_at' => 'datetime',
+            // The column still holds 'draft' / 'published'; the API sends `->value`.
+            'status' => ArticleStatus::class,
             // ⚠️ مصبوبٌ إلى مصفوفة: بلا الصبِّ يُقرَأُ العمودُ نصَّ JSON خامّاً،
             // فتُصيَّرُ البياناتُ المنظَّمةُ سلسلةً واحدةً بدلَ قائمةِ أسئلة —
             // ولا خطأَ في أيِّ مكان.
@@ -120,7 +123,7 @@ class Article extends BaseModel
         static::saved(function (self $article): void {
             // The cheap half first: a draft is most of the saves this table sees,
             // and it must not cost a query to say no to.
-            if ($article->status !== 'published') {
+            if ($article->status !== ArticleStatus::Published) {
                 return;
             }
 
@@ -221,7 +224,7 @@ class Article extends BaseModel
     protected function publicListingConstraints(Builder $query): Builder
     {
         return $query
-            ->where('cms_articles.status', 'published')
+            ->where('cms_articles.status', ArticleStatus::Published->value)
             ->whereNotNull('cms_articles.published_at')
             ->where('cms_articles.published_at', '<=', now());
     }
