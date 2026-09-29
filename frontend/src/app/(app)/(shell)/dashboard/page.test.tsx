@@ -5,6 +5,7 @@ import DashboardPage from "./page";
 import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
 import { UNKNOWN_MESSAGE } from "@/lib/errors";
 import { ApiError } from "@/lib/api";
+import { formatDateTime } from "@/lib/labels";
 
 /*
 | «لوحة التحكم» — أوّلُ شاشةٍ بعدَ تسجيلِ الدخول، **ولا صلاحيةَ عليها في القائمة**:
@@ -654,6 +655,37 @@ function teacherAnswer(path: string) {
     });
   }
   if (path.startsWith("/notifications")) return Promise.resolve({ data: [] });
+  if (path.startsWith("/manage/attempts")) {
+    return Promise.resolve({
+      data: [
+        {
+          uuid: "a-1",
+          status: "pending_grading",
+          student: { uuid: "st-1", name: "منى سالم" },
+          exam: { uuid: "e-1", title: "اختبار المتجهات" },
+          course: { uuid: "c-1", title: "الفيزياء" },
+          score: null,
+          max_score: null,
+          percentage: null,
+          passed: null,
+          submitted_at: "2026-09-28T10:00:00Z",
+        },
+        {
+          uuid: "a-2",
+          status: "graded",
+          student: { uuid: "st-2", name: "كريم علي" },
+          exam: { uuid: "e-2", title: "اختبار الكيمياء" },
+          course: { uuid: "c-2", title: "الكيمياء" },
+          score: 8,
+          max_score: 10,
+          percentage: 80,
+          passed: true,
+          submitted_at: "2026-09-27T10:00:00Z",
+        },
+      ],
+      meta: { total: 2, current_page: 1, last_page: 1, anonymous: false },
+    });
+  }
   if (path.startsWith("/courses?")) {
     return Promise.resolve({
       data: [
@@ -937,6 +969,82 @@ describe("DashboardPage · المدرّس", () => {
 
     expect(await screen.findByText("روابط سريعة")).toBeDefined();
     expect(calledPaths().some((p) => p.startsWith("/courses"))).toBe(false);
+  });
+
+  /*
+  | «آخر المحاولات» — `attempts.view.all`، والصفُّ رابطٌ فقط حيثُ يُفتَحُ بابُه:
+  | ورقةٌ بانتظارِ التصحيحِ لقارئٍ يُصحِّح. وتوقيتُ التسليمِ على ساعةِ القارئ.
+  */
+  it("lists the latest handed-in papers to a reader of every attempt", async () => {
+    setStoredViewerTimeZone("Africa/Cairo");
+    onTestFinished(() => setStoredViewerTimeZone(null));
+    asTeacher({ teacher_profile_uuid: null, permissions: ["attempts.view.all", "grading.perform"] });
+
+    render(<DashboardPage />);
+
+    const title = await screen.findByRole("heading", { name: "آخر المحاولات" });
+    const card = within(title.closest("section") as HTMLElement);
+
+    expect(await card.findByText("منى سالم · اختبار المتجهات")).toBeDefined();
+    expect(card.getByText("بانتظار التصحيح")).toBeDefined();
+    expect(card.getByText("٨٠٪")).toBeDefined();
+    expect(card.getByText("ناجح")).toBeDefined();
+    // ١٠:٠٠ UTC هي ١:٠٠ م في القاهرة (توقيتُ الصيف) — ساعةُ القارئِ لا ساعةُ الجهاز
+    // (الاختبارُ يجري على `TZ=UTC`، فالنصّانِ مختلفانِ وتوكيدةُ القاهرةِ تعضّ).
+    const cairo = formatDateTime("2026-09-28T10:00:00Z", "Africa/Cairo");
+    expect(cairo).not.toBe(formatDateTime("2026-09-28T10:00:00Z", "UTC"));
+    expect(card.getByText(cairo, { exact: false })).toBeDefined();
+
+    // ورقةٌ تنتظرُ التصحيحَ تفتحُ لوحتَه؛ والمُصحَّحةُ لا شاشةَ لها بعد.
+    expect(card.getByText("منى سالم · اختبار المتجهات").closest("a")?.getAttribute("href")).toBe(
+      "/manage/grading/a-1",
+    );
+    expect(card.getByText("كريم علي · اختبار الكيمياء").closest("a")).toBeNull();
+    expect(card.queryByText("عرض الكل")).toBeNull();
+    expect(calledPaths().some((p) => p.startsWith("/manage/attempts?per_page=5"))).toBe(true);
+  });
+
+  it("links no paper for a reader who does not grade", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["attempts.view.all"] });
+
+    render(<DashboardPage />);
+
+    const title = await screen.findByRole("heading", { name: "آخر المحاولات" });
+    const card = within(title.closest("section") as HTMLElement);
+
+    expect(await card.findByText("منى سالم · اختبار المتجهات")).toBeDefined();
+    expect(title.closest("section")?.querySelector("a")).toBeNull();
+  });
+
+  it("draws no attempts card and asks nothing without attempts.view.all", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["courses.update"] });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "الكورسات" })).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "آخر المحاولات" })).toBeNull();
+    expect(calledPaths().some((p) => p.startsWith("/manage/attempts"))).toBe(false);
+  });
+
+  it("hides the attempts card when the server refuses it", async () => {
+    asTeacher({ teacher_profile_uuid: null, permissions: ["attempts.view.all", "courses.update"] });
+    get.mockImplementation((path: string) =>
+      path.startsWith("/manage/attempts")
+        ? Promise.reject(new ApiError("forbidden", 403, {}))
+        : teacherAnswer(path),
+    );
+
+    render(<DashboardPage />);
+
+    // الكورساتُ ترسمُ صفوفَها، فالطلباتُ كلُّها استقرّت حينَها.
+    const courses = within(
+      (await screen.findByRole("heading", { name: "الكورسات" })).closest("section") as HTMLElement,
+    );
+    expect(await courses.findByText("الفيزياء")).toBeDefined();
+
+    await waitFor(() => expect(calledPaths().some((p) => p.startsWith("/manage/attempts"))).toBe(true));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "آخر المحاولات" })).toBeNull());
+    expect(screen.queryByText("لا تملك صلاحية لهذا الإجراء.")).toBeNull();
   });
 
   it("drops the teacher filter and says so in the heading when nobody hosts", async () => {

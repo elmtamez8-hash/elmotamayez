@@ -15,6 +15,7 @@ use App\Modules\Assessments\Http\Controllers\GradingController;
 use App\Modules\Assessments\Http\Controllers\ImportController;
 use App\Modules\Assessments\Http\Controllers\MistakeController;
 use App\Modules\Assessments\Http\Controllers\PracticeController;
+use App\Modules\Assessments\Http\Controllers\StaffAttemptController;
 use App\Modules\Assessments\Http\Controllers\StudyRoomController;
 use App\Modules\Assessments\Http\Controllers\SubmissionFileController;
 use App\Modules\Assessments\Http\Controllers\UnlockRuleController;
@@ -298,6 +299,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/manage/unlock-rules', [UnlockRuleController::class, 'store']);
         Route::post('/manage/class-sessions/{session}/unlock-exemptions', [UnlockRuleController::class, 'exempt']);
     });
+
+    // Handed-in papers, for staff holding `attempts.view.all` (the dashboard card).
+    Route::get('/manage/attempts', [StaffAttemptController::class, 'index']);
 
     // Attempts (student-facing).
     Route::post('/exams/{examUuid}/attempts', [AttemptController::class, 'start']);
