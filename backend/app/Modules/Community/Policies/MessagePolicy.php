@@ -60,11 +60,15 @@ class MessagePolicy
         }
 
         /*
-        | ⛔ AND THE THREAD'S OWN READ, which carries the assistant scope (spec
-        | 010 · FR-005): an endorsement pays points to a student, and a confined
-        | assistant is not the one to pay the students of a course they do not
-        | work on. `view()` is asked rather than restated — for a member holding
-        | `chat.reply` its answer IS the teaching side's, scope included.
+        | ⛔ AND THE THREAD'S TEACHING SIDE, which carries the assistant scope
+        | (spec 010 · FR-005): an endorsement pays points to a student, and a
+        | confined assistant is not the one to pay the students of a course they
+        | do not work on.
+        |
+        | ⚠️ `staffSide`, NEVER `view`. A confined assistant may READ a far room
+        | through a seat or an enrolment of their own — as a student — so «may
+        | read» is no longer «reads as staff», and asking `view()` here would
+        | hand them «مفيدة» in exactly the room the scope refuses them.
         */
         $conversation = Conversation::query()
             ->withoutWorkspaceScope()
@@ -72,7 +76,7 @@ class MessagePolicy
             ->first();
 
         return $conversation instanceof Conversation
-            ? Gate::forUser($user)->inspect('view', $conversation)
+            ? Gate::forUser($user)->inspect('staffSide', $conversation)
             : Response::deny('لم نجد هذه الرسالة.');
     }
 }

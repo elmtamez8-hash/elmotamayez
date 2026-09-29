@@ -310,7 +310,7 @@ _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo
 - Chat media reused the lesson-media `complete` endpoint, and its policy answered a TEACHER's question — a chat upload completes through `/conversations/{c}/attachments/{a}/complete` (post + uploader).
 - `join()` read `room.members`, which Echo's channel does not have, so «يكتب…» never sent a whisper — the member list is on `room.subscription`.
 - «Online on the platform» is an OCCUPIED `private-user.{uuid}` channel asked of Reverb by the server, filtered to the other end of the reader's own threads — never a presence channel counterparts join (its member list leaks).
-- A confined assistant reads and moderates the ROOMS of their own courses only (`ConversationPolicy::withinStaffScope()` — session, lesson and group rooms by course, a course-less session's room refused; lock, write-bans, the moderator's hide and «مفيدة» included); the student branches are untouched, and the unlock rules/exemptions ask the same scope.
+- A confined assistant reads and moderates the ROOMS of their own courses only (`ConversationPolicy::withinStaffScope()` — session, lesson and group rooms by course, a course-less session's room refused; lock, write-bans, the moderator's hide and «مفيدة» included); a scope refusal falls through to the student branches, so a far room they hold a seat/enrolment/group in is read as a STUDENT — no staff power there asks `view()` (`staffSide()` · `moderate()` · `$moderatesHere`); the unlock rules/exemptions ask the same scope.
 
 ### Privacy, retention, erasure and offboarding → [`docs/gotchas/compliance.md`](docs/gotchas/compliance.md)
 _Read before touching `Modules/Compliance/`, retention sweeps, data requests, legal holds, teacher exit._

@@ -11,6 +11,7 @@ use App\Modules\Community\Models\Message;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Models\Cohort;
+use App\Modules\Learning\Models\CohortMembership;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
@@ -254,4 +255,127 @@ it('asks the lesson\'s and the group\'s course for their rooms too', function ()
                 ->and(Gate::forUser($this->owner)->allows($ability, $far))->toBeTrue("{$kind} owner {$ability}");
         }
     }
+});
+
+/*
+| ⛔ A SCOPE REFUSAL FALLS THROUGH TO THE STUDENT'S DOORS (owner decision
+| 2026-09-29). A confined assistant who ALSO holds a student's entitlement in a
+| room outside their courses — a seat, an enrolment, a group — gets exactly a
+| student's access there: the read, the pen on a student's terms, and no staff
+| power at all. Somebody with no such entitlement stays refused.
+*/
+
+it('gives a confined assistant with a seat in a far session a student\'s access to its room and nothing more', function (): void {
+    confineRoomAssistantTo($this->near);
+
+    SessionBooking::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'class_session_id' => $this->farSession->getKey(),
+        'student_user_id' => $this->assistant->getKey(),
+        'status' => BookingStatus::Booked,
+    ]);
+
+    Sanctum::actingAs($this->assistant);
+
+    expect(roomStaffStatuses($this->farSession->uuid, $this->rooms['far'], $this->studentLines['far'], $this->seated))
+        ->toBe([
+            'resolve' => 200, 'read' => 200, 'write' => 201, 'channel' => 200, 'helpful' => 403,
+            'lock' => 403, 'unlock' => 403, 'ban' => 403, 'lift' => 403, 'hide' => 403,
+        ]);
+
+    // Nothing was written through a refused door.
+    $farLine = Message::query()->withoutWorkspaceScope()->where('uuid', $this->studentLines['far'])->firstOrFail();
+    expect($farLine->hidden_at)->toBeNull()
+        ->and(Gate::forUser($this->assistant)->allows('markHelpful', $farLine))->toBeFalse()
+        ->and(Conversation::query()->withoutWorkspaceScope()->where('uuid', $this->rooms['far'])->value('locked_at'))->toBeNull();
+
+    // The lock binds them as it binds any student — `chat.moderate` does not
+    // exempt them in a room outside their scope. They keep the archive.
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/conversations/{$this->rooms['far']}/lock", ['locked' => true])->assertOk();
+
+    Sanctum::actingAs($this->assistant);
+    $this->postJson("/api/v1/conversations/{$this->rooms['far']}/messages", ['body' => 'سؤال'])->assertForbidden();
+    $this->getJson("/api/v1/conversations/{$this->rooms['far']}/messages")->assertOk();
+
+    // And so does a per-thread write-ban the teacher puts on them.
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/conversations/{$this->rooms['far']}/lock", ['locked' => false])->assertOk();
+    $this->postJson("/api/v1/conversations/{$this->rooms['far']}/write-bans", [
+        'user_uuid' => (string) $this->assistant->uuid,
+        'reason' => 'مقاطعة متكرّرة',
+        'minutes' => 10,
+    ])->assertCreated();
+
+    Sanctum::actingAs($this->assistant);
+    $this->postJson("/api/v1/conversations/{$this->rooms['far']}/messages", ['body' => 'سؤال'])->assertForbidden();
+
+    // Their own course's room is still theirs to run.
+    expect(roomStaffStatuses($this->nearSession->uuid, $this->rooms['near'], $this->studentLines['near'], $this->seated))
+        ->toBe(ROOM_ALLOWED);
+});
+
+it('still refuses a confined assistant with no seat — an enrolment in the course is not one', function (): void {
+    confineRoomAssistantTo($this->near);
+    $this->createEnrollment($this->workspace, $this->far, $this->assistant);
+    Sanctum::actingAs($this->assistant);
+
+    foreach (roomStaffStatuses($this->farSession->uuid, $this->rooms['far'], $this->studentLines['far'], $this->seated) as $door => $status) {
+        expect($status)->toBe(403, "far {$door}");
+    }
+});
+
+it('gives a confined assistant a student\'s access to a far lesson room and group room they are entitled to', function (): void {
+    confineRoomAssistantTo($this->near);
+
+    $lesson = Lesson::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->far->getKey(),
+    ]);
+    $lessonRoom = new Conversation([
+        'workspace_id' => $this->workspace->getKey(),
+        'kind' => ConversationKind::Lesson,
+        'lesson_id' => $lesson->getKey(),
+    ]);
+
+    $cohort = Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->far->getKey(),
+    ]);
+    $cohortRoom = new Conversation([
+        'workspace_id' => $this->workspace->getKey(),
+        'kind' => ConversationKind::Cohort,
+        'cohort_id' => $cohort->getKey(),
+    ]);
+
+    // No entitlement yet: refused, as before.
+    foreach (['lesson' => $lessonRoom, 'cohort' => $cohortRoom] as $kind => $room) {
+        expect(Gate::forUser($this->assistant)->allows('view', $room))->toBeFalse("{$kind} view without entitlement");
+    }
+
+    $this->createEnrollment($this->workspace, $this->far, $this->assistant);
+    $membership = CohortMembership::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'cohort_id' => $cohort->getKey(),
+        'course_id' => $this->far->getKey(),
+        'student_user_id' => $this->assistant->getKey(),
+    ]);
+    app()->forgetScopedInstances();
+
+    foreach (['lesson' => $lessonRoom, 'cohort' => $cohortRoom] as $kind => $room) {
+        $gate = Gate::forUser($this->assistant);
+
+        expect($gate->allows('view', $room))->toBeTrue("{$kind} view")
+            ->and($gate->allows('post', $room))->toBeTrue("{$kind} post")
+            ->and($gate->allows('moderate', $room))->toBeFalse("{$kind} moderate")
+            ->and($gate->allows('staffSide', $room))->toBeFalse("{$kind} staffSide");
+    }
+
+    // Left the group: reads the archive and — like any former member, unlike a
+    // moderator — no longer writes there.
+    $membership->forceFill(['closed_at' => now(), 'closed_slot' => $membership->getKey()])->save();
+    app()->forgetScopedInstances();
+
+    expect(Gate::forUser($this->assistant)->allows('view', $cohortRoom))->toBeTrue()
+        ->and(Gate::forUser($this->assistant)->allows('post', $cohortRoom))->toBeFalse();
 });
