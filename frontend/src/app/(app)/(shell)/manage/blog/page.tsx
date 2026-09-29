@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { DocumentIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
 import { TextField, TextareaField, SelectField } from "@/components/ui/Field";
@@ -242,14 +243,20 @@ export default function ManageBlogPage() {
               hint="السطران اللذان يظهران في قائمة المدوّنة وفي نتيجة البحث."
             />
 
-            <TextareaField
+            {/*
+              The body is still stored as Markdown — the editor reads and writes
+              it. `key` remounts the editor for each article: it reads `value`
+              once, so switching articles without a remount would keep the last
+              one's text on screen.
+            */}
+            <RichMarkdownEditor
+              key={editing === "new" ? "new" : editing.uuid}
               id="article-body"
               label="النصّ"
-              rows={12}
               value={form.body ?? ""}
-              onChange={(v) => setForm({ ...form, body: v })}
+              onChange={(v) => setForm((current) => ({ ...current, body: v }))}
               error={fields.body}
-              hint="يُكتب بصيغة Markdown. الوسم الخام يُزال عند العرض، فلا تضع HTML."
+              hint="نسّق بأزرار الشريط أو اختصاراتها. العناوين والقوائم والروابط تظهر في المقال المنشور كما تراها هنا."
             />
 
             {/* Publishing: the state and its date, side by side from 640px. */}

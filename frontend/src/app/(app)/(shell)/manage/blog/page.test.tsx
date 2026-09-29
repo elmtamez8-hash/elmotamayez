@@ -32,6 +32,40 @@ const auth = vi.hoisted(() => ({
 vi.mock("@/lib/blog", () => ({ blog }));
 vi.mock("@/lib/auth-context", () => ({ useAuth: () => auth }));
 
+/*
+ * The real editor is ProseMirror behind `next/dynamic`; its Markdown behaviour is
+ * tested in `components/ui/rich-markdown/`. Here it is a textarea that honours the
+ * same contract — Markdown in through `value`, Markdown out through `onChange`,
+ * the field's id and label — so these tests measure the FORM's wiring: that the
+ * article's stored body reaches the editor and the editor's output reaches the
+ * save.
+ */
+vi.mock("@/components/ui/RichMarkdownEditor", () => ({
+  RichMarkdownEditor: ({
+    id,
+    label,
+    value,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (markdown: string) => void;
+  }) => (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <textarea
+        id={id}
+        data-testid="rich-markdown-editor"
+        defaultValue={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  ),
+}));
+
+const STORED_BODY = "## مقدّمة\n\nنصّ **غامق**.";
+
 function article(overrides: Partial<ManagedArticle> = {}): ManagedArticle {
   return {
     uuid: "a-1",
@@ -191,5 +225,43 @@ describe("ManageBlogPage", () => {
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/status 403/)).toBeNull();
+  });
+
+  it("loads the stored Markdown into the rich editor and saves what it hands back", async () => {
+    blog.list.mockResolvedValue({ data: [article({ body: STORED_BODY })] });
+    blog.update.mockResolvedValue({ data: article() });
+
+    render(<ManageBlogPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "عدّل" }));
+
+    const body = screen.getByTestId("rich-markdown-editor") as HTMLTextAreaElement;
+    // The editor receives the SOURCE, not a render of it.
+    expect(body.value).toBe(STORED_BODY);
+    expect(body.id).toBe("article-body");
+
+    await userEvent.clear(body);
+    await userEvent.type(body, "- أوّلاً");
+    await userEvent.click(screen.getByRole("button", { name: "احفظ" }));
+
+    await waitFor(() =>
+      expect(blog.update).toHaveBeenCalledWith("a-1", expect.objectContaining({ body: "- أوّلاً" })),
+    );
+  });
+
+  it("gives a new article an empty editor, and sends null for an empty body", async () => {
+    blog.create.mockResolvedValue({ data: article({ uuid: "a-2" }) });
+
+    render(<ManageBlogPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "مقال جديد" }));
+    expect((screen.getByTestId("rich-markdown-editor") as HTMLTextAreaElement).value).toBe("");
+
+    await userEvent.type(screen.getByLabelText(/العنوان/), "مقال");
+    await userEvent.click(screen.getByRole("button", { name: "احفظ" }));
+
+    await waitFor(() =>
+      expect(blog.create).toHaveBeenCalledWith(expect.objectContaining({ body: null })),
+    );
   });
 });
