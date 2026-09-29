@@ -110,6 +110,7 @@ _Read before touching `Modules/Tenancy/`, any policy, `WorkspaceScope`/`Workspac
 - A FILAMENT CREATE PAGE'S DEFAULT `handleRecordCreation()` IS `new Model($data)` — SO IT STAMPS THE *OFFICER'S* WORKSPACE AND DROPS EVERY NON-FILLABLE COLUMN, SILENTLY.
 - A student or parent account never becomes staff, and the refusal stands at THREE doors (invite · accept · role change) through `StaffAccounts` — a null `platform_role` passes.
 - A platform-wide panel list is gated by the super admin (or a platform permission), NEVER a tenant one — an officer who owns a workspace holds every tenant permission there — and in Filament v5 a missing policy method is ALLOW, `DeleteBulkAction` asks `deleteAny` alone, and actions are authorised by `get*AuthorizationResponse()`, not `can*()`.
+- The current workspace is per ACCOUNT, never per tab — `lib/api.ts` sends `X-Workspace` (from `/auth/me`'s `current_workspace`) and `RefuseStaleWorkspace` answers a mismatch 409 `workspace_changed` before binding; switch and logout are exempt.
 
 ### Identity and sign-in → [`docs/gotchas/identity.md`](docs/gotchas/identity.md)
 _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessions._

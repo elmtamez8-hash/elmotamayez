@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { roleLabel } from "@/lib/labels";
+import { announceWorkspaceSwitch, markWorkspaceSwitched } from "@/lib/workspace-guard";
 import type { Workspace } from "@/lib/types";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
@@ -57,6 +58,12 @@ export default function WorkplacesPage() {
       await api.post(`/workspaces/${uuid}/switch`);
       // إعادةُ تحميلٍ كاملة، لا تحديثَ موجِّه: المكانُ حالةٌ على الخادم، وكلُّ
       // قائمةٍ مخزَّنةٍ على العميل تخصُّ المكانَ السابق.
+      //
+      // ⚠️ والمكانُ للحسابِ كلِّه لا لهذا التبويب: التبويباتُ الأخرى في هذا
+      // المتصفّحِ تُنبَّهُ لتُعيدَ التحميلَ هي أيضاً، وما لا يصلُه التنبيهُ (جهازٌ
+      // آخر) يردُّه الخادمُ بـ409 — انظر `lib/workspace-guard.ts`.
+      announceWorkspaceSwitch();
+      markWorkspaceSwitched();
       window.location.reload();
     } catch (err: unknown) {
       setError(userMessage(err));

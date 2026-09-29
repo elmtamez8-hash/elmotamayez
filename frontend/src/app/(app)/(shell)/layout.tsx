@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { IncomingMessageSound } from "@/components/community/IncomingMessageSound";
 import { ServiceWorkerRegistrar } from "@/components/app/ServiceWorkerRegistrar";
+import { WorkspaceSwitchedNotice } from "@/components/app/WorkspaceSwitchedNotice";
 import { P, can, refusedBy } from "@/lib/permissions";
 import {
   adminNav,
@@ -573,6 +574,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           | a 360px viewport is 13% of it spent on nothing.
         */}
         <main id="main" className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+          <WorkspaceSwitchedNotice />
           {refused ? (
             // No heading of the screen's own above it: «أرصدة الطلاب» over a
             // refusal still tells the reader whose money this page is about.

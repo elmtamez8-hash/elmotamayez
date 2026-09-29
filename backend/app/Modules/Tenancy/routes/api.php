@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Tenancy\Http\Controllers\PlatformIdentityController;
 use App\Modules\Tenancy\Http\Controllers\WorkspaceController;
+use App\Shared\Middleware\RefuseStaleWorkspace;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,7 +36,10 @@ Route::get('/workspaces/invitations/{token}', [WorkspaceController::class, 'show
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/workspaces', [WorkspaceController::class, 'index']);
     Route::post('/workspaces', [WorkspaceController::class, 'store']);
-    Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch']);
+    // The target is named in the URL, so the page's stale belief is not what it
+    // acts on — a stale tab pressing «انتقل إليه» is doing the right thing.
+    Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch'])
+        ->withoutMiddleware(RefuseStaleWorkspace::class);
     // Workspace settings and membership: who gets in, and what the tenant is.
     Route::patch('/workspaces/{workspace}', [WorkspaceController::class, 'update'])->middleware('2fa.required');
     Route::get('/workspaces/{workspace}/members', [WorkspaceController::class, 'members']);

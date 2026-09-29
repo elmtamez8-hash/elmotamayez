@@ -6,6 +6,11 @@ import { twoFactor } from "@/lib/two-factor";
 import { isLearner } from "@/lib/dashboard-audience";
 import { browserTimeZone, isValidTimeZone } from "@/lib/timezone";
 import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
+import {
+  onWorkspaceSwitchElsewhere,
+  reloadForWorkspaceChange,
+  setExpectedWorkspace,
+} from "@/lib/workspace-guard";
 import type { User } from "@/lib/types";
 
 /**
@@ -104,8 +109,22 @@ export function panelPathFor(user: User): string {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /*
+   * ⚠️ EVERY ADOPTED PROFILE ALSO SETS THE WORKSPACE THE PAGE CLAIMS
+   * (`X-Workspace`, see `workspace-guard.ts`) — here, in the same tick, and not
+   * in an effect on `user`: a child's effects run BEFORE its parent's, so the
+   * shell's first reads would leave without the header.
+   */
+  const setUser = (next: User | null) => {
+    setExpectedWorkspace(next?.current_workspace?.uuid ?? null);
+    setUserState(next);
+  };
+
+  // Another tab of this browser switched workspace: this one is now stale.
+  useEffect(() => onWorkspaceSwitchElsewhere(() => void reloadForWorkspaceChange()), []);
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
@@ -177,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .setTimezone(zone, "browser")
       // Only the one field: the rest of `/auth/me` (permissions, workspaces) stays as loaded.
       .then((updated) =>
-        setUser((current) =>
+        setUserState((current) =>
           current?.uuid === updated.uuid
             ? { ...current, timezone: updated.timezone, timezone_source: updated.timezone_source }
             : current,
