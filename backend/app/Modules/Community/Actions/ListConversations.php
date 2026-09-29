@@ -10,6 +10,7 @@ use App\Modules\Community\Http\Resources\ConversationResource;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
+use App\Modules\Community\Support\RoomCourses;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -18,6 +19,7 @@ use App\Shared\Support\GuardianPermission;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Every conversation this person is in, newest activity first.
@@ -44,6 +46,7 @@ class ListConversations extends Action
         private readonly AssistantScopeDirectory $assistants,
         private readonly BanReader $bans,
         private readonly GuardianDirectory $guardians,
+        private readonly RoomCourses $roomCourses,
     ) {}
 
     /**
@@ -140,31 +143,126 @@ class ListConversations extends Action
                 && ! in_array($conversation->getKey(), $participantIds, true);
         }
 
-        if (! $teacherSide) {
-            return $rows;
-        }
+        /*
+        | ⛔ SPEC 010 · FR-005 — THE CONFINEMENT, READ ONCE FOR THE WHOLE SCREEN.
+        | `null` is «not confined» (a teacher, an owner, an unconfined assistant,
+        | a student), and then nothing below costs a query or changes a row.
+        | Asked only of somebody who could be staff here, so a student's list
+        | pays nothing for it.
+        */
+        $confinedTo = $workspaceId !== null && ($teacherSide || $user->hasPermissionTo(Permissions::CHAT_MODERATE))
+            ? $this->assistants->scopedCourseIdsFor($user, $workspaceId)
+            : null;
 
         /*
         | ponytail: filtered in memory, and the ceiling is one page. For a teacher
         | or an owner — anyone not confined — `mayActOnStudent()` answers from a
         | per-request memo and costs nothing per row. A CONFINED assistant pays one
-        | enrolment read per conversation on this screen; if that ever matters, the
+        | enrolment read per STUDENT on this screen (memoised below, so the filter
+        | and the `can_moderate` stamp share it); if that ever matters, the
         | upgrade is a directory method returning the student ids inside a scope,
         | not a second predicate written here.
         */
-        $mine = $rows->filter(function (Conversation $conversation) use ($user, $participantIds): bool {
-            if (in_array($conversation->getKey(), $participantIds, true) || $conversation->readByGuardian) {
-                return true;
-            }
+        $studentInScope = [];
+        $mayActOnStudent = function (Conversation $conversation) use ($user, &$studentInScope): bool {
+            $key = (int) $conversation->workspace_id.':'.(int) $conversation->student_user_id;
 
-            return $this->assistants->mayActOnStudent(
+            return $studentInScope[$key] ??= $this->assistants->mayActOnStudent(
                 $user,
                 (int) $conversation->workspace_id,
                 (int) $conversation->student_user_id,
             );
+        };
+
+        $roomCourses = $confinedTo === null
+            ? []
+            : $this->roomCourses->forMany($rows->filter(
+                fn (Conversation $conversation): bool => $conversation->kind->isPublic()
+                    && (int) $conversation->workspace_id === $workspaceId,
+            ));
+
+        $mine = $rows->filter(function (Conversation $conversation) use ($user, $participantIds, $teacherSide, $confinedTo, $roomCourses, $mayActOnStudent): bool {
+            if ($conversation->kind->isPublic()) {
+                /*
+                | ⛔ A ROOM OUTSIDE A CONFINED ASSISTANT'S COURSES IS LISTED ONLY
+                | IF THEY MAY READ IT — as a student, through #287's fall-through
+                | (a seat, an enrolment, a group). A room reaches this list only
+                | through a participant row, which nothing in the product writes
+                | for a room today, so the policy call is paid for a set that is
+                | empty in production; a room of their own courses is decided from
+                | the batched course map, with no query at all.
+                */
+                if ($confinedTo === null || ! array_key_exists((int) $conversation->getKey(), $roomCourses)) {
+                    return true;
+                }
+
+                $courseId = $roomCourses[(int) $conversation->getKey()];
+
+                return ($courseId !== null && in_array($courseId, $confinedTo, true))
+                    || Gate::forUser($user)->allows('view', $conversation);
+            }
+
+            if (! $teacherSide || in_array($conversation->getKey(), $participantIds, true) || $conversation->readByGuardian) {
+                return true;
+            }
+
+            return $mayActOnStudent($conversation);
         })->values();
 
-        return $this->stampBans($mine, $workspaceId);
+        $this->stampStaffScope($mine, $user, $workspaceId, $confinedTo, $roomCourses, $mayActOnStudent);
+
+        if (! $teacherSide) {
+            return $mine;
+        }
+
+        return $this->stampBans($mine, (int) $workspaceId);
+    }
+
+    /**
+     * Whether the reader's staff scope covers each thread — for `can_moderate`,
+     * never for the door (`ModerateMessage` and `ConversationPolicy::moderate()`
+     * ask the scope themselves on the request that acts).
+     *
+     * ⚠️ STAMPED ONLY FOR A CONFINED READER, AND ONLY FROM MEMORY: a room from
+     * the batched course map, a private thread from the `mayActOnStudent()`
+     * answer the filter already paid for. Everyone else is left unstamped and the
+     * Resource answers from the directory's per-request memo — a teacher's list
+     * costs exactly what it did.
+     *
+     * @param  Collection<int, Conversation>  $rows
+     * @param  list<int>|null  $confinedTo
+     * @param  array<int, int|null>  $roomCourses
+     * @param  callable(Conversation): bool  $mayActOnStudent
+     */
+    private function stampStaffScope(
+        Collection $rows,
+        User $user,
+        ?int $workspaceId,
+        ?array $confinedTo,
+        array $roomCourses,
+        callable $mayActOnStudent,
+    ): void {
+        if ($confinedTo === null) {
+            return;
+        }
+
+        foreach ($rows as $conversation) {
+            // Another workspace's thread, or the reader's own as its student: the
+            // Resource answers those without the scope, as it always has.
+            if ((int) $conversation->workspace_id !== $workspaceId
+                || (int) $conversation->student_user_id === (int) $user->getKey()) {
+                continue;
+            }
+
+            if ($conversation->kind->isPublic()) {
+                $courseId = $roomCourses[(int) $conversation->getKey()] ?? null;
+                $conversation->readerInStaffScope = $courseId !== null && in_array($courseId, $confinedTo, true);
+
+                continue;
+            }
+
+            $conversation->readerInStaffScope = $mayActOnStudent($conversation);
+        }
     }
 
     /**

@@ -9,13 +9,12 @@ use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\ConversationParticipant;
 use App\Modules\Community\Support\BanReader;
 use App\Modules\Community\Support\ConversationSides;
+use App\Modules\Community\Support\RoomCourses;
 use App\Modules\Community\Support\TeacherInboxSettings;
 use App\Modules\Community\Support\TeacherStanding;
 use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
-use App\Modules\Learning\Models\Cohort;
-use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
@@ -58,6 +57,7 @@ class ConversationPolicy
         private readonly ConversationSides $sides,
         private readonly TeacherInboxSettings $inbox,
         private readonly TeacherStanding $standing,
+        private readonly RoomCourses $roomCourses,
     ) {}
 
     /** May this person read the thread at all? */
@@ -395,29 +395,12 @@ class ConversationPolicy
     }
 
     /**
-     * The course a room hangs off, read with the workspace scope bypassed — a
-     * scoped read that came back empty would be a `null` course and refuse a
-     * confined assistant their OWN course's room.
+     * The course a room hangs off — `RoomCourses`, the one spelling the list and
+     * the list's `can_moderate` read too.
      */
     private function courseOfRoom(Conversation $conversation): ?int
     {
-        $courseId = match (true) {
-            $conversation->class_session_id !== null => ClassSession::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($conversation->class_session_id)
-                ->value('course_id'),
-            $conversation->lesson_id !== null => Lesson::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($conversation->lesson_id)
-                ->value('course_id'),
-            $conversation->cohort_id !== null => Cohort::query()
-                ->withoutWorkspaceScope()
-                ->whereKey($conversation->cohort_id)
-                ->value('course_id'),
-            default => null,
-        };
-
-        return $courseId === null ? null : (int) $courseId;
+        return $this->roomCourses->of($conversation);
     }
 
     /**

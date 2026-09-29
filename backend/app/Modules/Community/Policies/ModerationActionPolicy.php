@@ -6,6 +6,7 @@ namespace App\Modules\Community\Policies;
 
 use App\Models\User;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -29,6 +30,8 @@ use Illuminate\Auth\Access\Response;
  */
 class ModerationActionPolicy
 {
+    public function __construct(private readonly AssistantScopeDirectory $assistants) {}
+
     public function moderate(User $user, int $workspaceId): Response
     {
         $isMember = $user->workspaces()
@@ -43,5 +46,35 @@ class ModerationActionPolicy
         return $user->hasPermissionTo(Permissions::CHAT_MODERATE)
             ? Response::allow()
             : Response::deny('لا تملك صلاحيّة الإشراف على الشات.');
+    }
+
+    /**
+     * Banning a PERSON across the workspace, and lifting it (`subject_type = user`).
+     *
+     * ⛔ SPEC 010 · FR-005 — A CONFINED ASSISTANT BANS ONLY A STUDENT OF THEIR OWN
+     * COURSES. The ban has no room to ask about: it silences the person in every
+     * thread of the workspace, so until 2026-09-29 an assistant confined to one
+     * course could silence a student of any other course (or another member of
+     * staff) with `moderate()` alone. `mayActOnStudent()` is the question
+     * `teacherSide()` asks of a private thread — «is this person enrolled in a
+     * course inside my scope» — and it is the right one here for the same
+     * reason: a person names no course.
+     *
+     * Anyone who is not a student of the scope is refused, which is deliberate:
+     * a colleague, a prospect with no enrolment and a student of a far course are
+     * the teacher's call. A teacher, an owner and an unconfined assistant pass the
+     * scope as a no-op, and the lift asks the same door as the ban.
+     */
+    public function banPerson(User $user, int $workspaceId, int $subjectUserId): Response
+    {
+        $moderate = $this->moderate($user, $workspaceId);
+
+        if ($moderate->denied()) {
+            return $moderate;
+        }
+
+        return $this->assistants->mayActOnStudent($user, $workspaceId, $subjectUserId)
+            ? Response::allow()
+            : Response::deny('هذا الطالب خارج نطاق عملك.');
     }
 }
