@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Policies;
 
 use App\Models\User;
+use App\Modules\Community\Support\BanReader;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
@@ -30,7 +31,10 @@ use Illuminate\Auth\Access\Response;
  */
 class ModerationActionPolicy
 {
-    public function __construct(private readonly AssistantScopeDirectory $assistants) {}
+    public function __construct(
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly BanReader $bans,
+    ) {}
 
     public function moderate(User $user, int $workspaceId): Response
     {
@@ -63,7 +67,7 @@ class ModerationActionPolicy
      * Anyone who is not a student of the scope is refused, which is deliberate:
      * a colleague, a prospect with no enrolment and a student of a far course are
      * the teacher's call. A teacher, an owner and an unconfined assistant pass the
-     * scope as a no-op, and the lift asks the same door as the ban.
+     * scope as a no-op. The lift has its own door, `liftBan()`.
      */
     public function banPerson(User $user, int $workspaceId, int $subjectUserId): Response
     {
@@ -76,5 +80,40 @@ class ModerationActionPolicy
         return $this->assistants->mayActOnStudent($user, $workspaceId, $subjectUserId)
             ? Response::allow()
             : Response::deny('هذا الطالب خارج نطاق عملك.');
+    }
+
+    /**
+     * Lifting a person's workspace ban (owner decision 2026-09-29).
+     *
+     * ⚠️ A CONFINED ASSISTANT LIFTS THE BANS THEY PLACED — ALL OF THEM, AND NO
+     * OTHERS. Asking `banPerson()` here had two faults: an assistant could undo a
+     * ban the teacher placed on a student of their course, and could NOT undo
+     * their own ban once that student's enrolment ended (they are then no student
+     * of the scope, so `mayActOnStudent()` refuses). Authorship answers both, and
+     * it needs no scope question at all. With no live ban there is nothing to
+     * undo, and the ban's own door is asked, so a lift never reaches further than
+     * a ban. A teacher, an owner and an unconfined assistant lift any ban.
+     */
+    public function liftBan(User $user, int $workspaceId, int $subjectUserId): Response
+    {
+        $moderate = $this->moderate($user, $workspaceId);
+
+        if ($moderate->denied()) {
+            return $moderate;
+        }
+
+        if ($this->assistants->scopedCourseIdsFor($user, $workspaceId) === null) {
+            return Response::allow();
+        }
+
+        $placedBy = $this->bans->liveBanActorId($subjectUserId, $workspaceId);
+
+        if ($placedBy === null) {
+            return $this->banPerson($user, $workspaceId, $subjectUserId);
+        }
+
+        return $placedBy === (int) $user->getKey()
+            ? Response::allow()
+            : Response::deny('لا يرفع هذا المنع إلا من وضعه أو المعلّم.');
     }
 }

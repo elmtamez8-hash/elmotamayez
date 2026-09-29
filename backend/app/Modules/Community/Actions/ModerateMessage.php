@@ -46,11 +46,15 @@ class ModerateMessage extends Action
         | lock and the write-bans ask it too.
         |
         | ⛔ AND A PERSON IS ASKED ABOUT THEMSELVES. The workspace ban has no thread
-        | to ask, so a confined assistant bans (and lifts) only a student of their
-        | own courses — `ModerationActionPolicy::banPerson()`.
+        | to ask, so a confined assistant bans only a student of their own courses
+        | — `ModerationActionPolicy::banPerson()` — and lifts only the bans they
+        | placed — `liftBan()`.
         */
         if ($data->subjectType === ModerationAction::SUBJECT_USER) {
-            Gate::forUser($actor)->authorize('banPerson', [ModerationAction::class, $workspaceId, $subjectId]);
+            Gate::forUser($actor)->authorize(
+                $data->verdict === ModerationVerdict::Unbanned ? 'liftBan' : 'banPerson',
+                [ModerationAction::class, $workspaceId, $subjectId],
+            );
         }
 
         if ($data->subjectType === ModerationAction::SUBJECT_MESSAGE) {
