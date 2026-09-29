@@ -115,6 +115,9 @@ import {
   IconX,
   type Icon as TablerIcon,
   IconWriting,
+  IconRefresh,
+  IconTruck,
+  IconTruckReturn,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -422,3 +425,13 @@ export const VerifiedIcon = wrap(IconShieldCheck, "h-4 w-4");
 export const VerifiedBadgeIcon = wrap(IconRosetteDiscountCheckFilled, "h-4 w-4");
 export const PrintIcon = wrap(IconPrinter, "h-4 w-4");
 export const DownloadIcon = wrap(IconDownload, "h-4 w-4");
+
+/*
+ * The fulfilment queue's steps (`/manage/store/shipments`): the parcel itself is
+ * `ShipmentIcon`, on the road it is a truck, and a returned one is the truck
+ * turning back — so a next-step button names the step before it is read.
+ */
+export const TruckIcon = wrap(IconTruck, "h-4 w-4");
+export const ReturnIcon = wrap(IconTruckReturn, "h-4 w-4");
+/** «أعِد الإصدار» — the same record drawn again, never a new one. */
+export const RefreshIcon = wrap(IconRefresh, "h-4 w-4");

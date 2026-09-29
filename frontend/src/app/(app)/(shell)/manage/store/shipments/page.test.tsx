@@ -52,3 +52,44 @@ describe("the shipment queue", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("narrowing the queue", () => {
+  const delivered = {
+    ...pending,
+    uuid: "sh-2",
+    status: "delivered",
+    status_label: "وصل",
+    next_statuses: [],
+    recipient_name: "خالد",
+  };
+
+  it("filters by state with the chips, and by the recipient with the search", async () => {
+    get.mockResolvedValue({ data: [pending, delivered] });
+
+    render(<ShipmentQueuePage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "وصل ١" }));
+    expect(screen.queryByText("مريم")).toBeNull();
+    expect(screen.getByText("خالد")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "الكل ٢" }));
+    fireEvent.change(screen.getByLabelText("ابحث في الشحنات"), { target: { value: "مريم" } });
+    expect(screen.getByText("مريم")).toBeTruthy();
+    expect(screen.queryByText("خالد")).toBeNull();
+  });
+
+  /*
+  | ⚠️ THE ENDPOINT PAGES AT TWENTY. Per-state figures counted over a first page
+  | would print a number the server never said; past one page only its total shows.
+  */
+  it("shows only the server's total when the queue runs past one page", async () => {
+    get.mockResolvedValue({ data: [pending, delivered], meta: { total: 45, current_page: 1, last_page: 3 } });
+
+    render(<ShipmentQueuePage />);
+
+    const strip = await screen.findByRole("group", { name: "ملخّص الشحنات" });
+
+    expect(strip.textContent).toContain("كلّ الشحنات");
+    expect(strip.textContent).not.toContain("وصل");
+  });
+});

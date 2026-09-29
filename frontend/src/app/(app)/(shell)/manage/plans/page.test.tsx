@@ -255,6 +255,25 @@ describe("stopping a plan that a group depends on (036 · FR-013)", () => {
   });
 });
 
+describe("a long list of plans", () => {
+  it("grows chips past six plans, and narrows to the ones awaiting a price", async () => {
+    const priced = Array.from({ length: 6 }, (_, i) => ({ ...SESSIONS_PLAN, uuid: `p${i}`, title: `مسعّرة ${i}` }));
+
+    await open([...priced, UNPRICED_PLAN]);
+
+    fireEvent.click(screen.getByRole("button", { name: "تنتظر التسعير ١" }));
+
+    expect(screen.getByText("الشهري")).toBeTruthy();
+    expect(screen.queryByText("مسعّرة 0")).toBeNull();
+  });
+
+  it("shows no chips for a short list", async () => {
+    await open([UNPRICED_PLAN]);
+
+    expect(screen.queryByRole("group", { name: "حالة الباقة" })).toBeNull();
+  });
+});
+
 describe("editing a plan that is not on sale", () => {
   it("keeps it off, rather than switching it back on", async () => {
     /*
