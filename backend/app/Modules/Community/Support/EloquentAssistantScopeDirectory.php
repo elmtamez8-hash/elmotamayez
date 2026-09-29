@@ -126,6 +126,20 @@ final class EloquentAssistantScopeDirectory implements AssistantScopeDirectory
         return $this->scopes[$key] = $courseIds === [] ? null : $courseIds;
     }
 
+    /**
+     * Drop the memoised scope of one person in one workspace.
+     *
+     * ⚠️ FOR A WRITER INSIDE THE SAME REQUEST, and only one exists:
+     * `AddCreatedCourseToAssistantScope`. The memo lives for the whole request
+     * (`scoped()`), so a scope row written after it was read would stay invisible
+     * to every later policy check of the same request. Off the Shared contract on
+     * purpose — no other module writes a scope.
+     */
+    public function forgetScopeOf(int $userId, int $workspaceId): void
+    {
+        unset($this->scopes[$userId.':'.$workspaceId]);
+    }
+
     private function assignmentId(User $user, int $workspaceId): ?int
     {
         $key = $this->key($user, $workspaceId);

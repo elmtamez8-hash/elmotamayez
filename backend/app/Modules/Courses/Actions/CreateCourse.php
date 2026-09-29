@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Actions;
 use App\Models\User;
 use App\Modules\Courses\DTOs\CreateCourseDTO;
 use App\Modules\Courses\Enums\CourseVisibility;
+use App\Modules\Courses\Events\CourseCreated;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Support\CourseSlug;
 use App\Modules\Courses\Support\CourseTeacherProfile;
@@ -16,6 +17,7 @@ use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 class CreateCourse extends Action
@@ -72,6 +74,19 @@ class CreateCourse extends Action
             Gate::forUser($creator)->authorize('chooseVisibility', Course::class);
         }
 
+        /*
+        | ⚠️ ONE TRANSACTION FOR THE ROW AND ITS ANNOUNCEMENT. {@see CourseCreated}'s
+        | first listener puts the course into a confined assistant's scope; were the
+        | two written apart, a failure between them would leave the assistant holding
+        | a course that every later edit refuses as «خارج نطاق عملك».
+        */
+        return DB::transaction(function () use ($dto, $creator, $subjectId): Course {
+            return $this->persist($dto, $creator, $subjectId);
+        });
+    }
+
+    private function persist(CreateCourseDTO $dto, User $creator, int $subjectId): Course
+    {
         $workspaceId = (int) app(WorkspaceContext::class)->id();
 
         $course = Course::create([
@@ -106,6 +121,8 @@ class CreateCourse extends Action
         ]);
 
         $this->logActivity('created', $course, ['title' => $course->title]);
+
+        CourseCreated::dispatch((int) $course->getKey(), $workspaceId, (int) $creator->getKey());
 
         return $course;
     }
