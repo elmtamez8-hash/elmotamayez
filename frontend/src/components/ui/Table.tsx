@@ -43,8 +43,9 @@ type TableProps<T> = {
   emptyDescription?: string;
   emptyAction?: ReactNode;
   /**
-   * The screen's own icon, for a list that is genuinely empty (FR-078). Leave it
-   * out for a FILTERED empty: the default magnifier is what «no match» means.
+   * The screen's own icon for the TRUE empty state («no shipments yet»). Left
+   * out, `EmptyState` keeps its magnifier, which means «no match» — right for a
+   * filtered list, wrong for a list that is simply empty (`manage-pages.md` §2).
    */
   emptyIcon?: ComponentType<IconProps>;
   onRetry?: () => void;
@@ -100,7 +101,14 @@ export function Table<T>({
       width is zero and the whole suite was green over it for thirty screens. It
       was found by looking at a page, then measured in the browser.
     */
-    <div className="[contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised">
+    /*
+      ⚠️ AND `relative` IS PART OF THAT PROMISE. An `sr-only` label inside a cell
+      is `position: absolute`; with no positioned ancestor its containing block is
+      the page, so it is laid out at its static spot far off-screen and the
+      wrapper's overflow does NOT clip it — measured on `/manage/certificates` at
+      375px: `scrollWidth` 766 against 360, from «أعِد الإصدار»'s hidden label.
+    */
+    <div className="relative [contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised">
       <table className="w-full min-w-max text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="border-b border-line">

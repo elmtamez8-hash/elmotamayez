@@ -6,14 +6,26 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, SelectField, TextField } from "@/components/ui/Field";
+import { FilterBar } from "@/components/ui/FilterBar";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { RecordList, RecordRow } from "@/components/ui/RecordList";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { CreditsIcon, ListIcon, SparkIcon } from "@/components/icons";
-import { Table, type Column } from "@/components/ui/Table";
+import { EmptyState } from "@/components/ui/states/EmptyState";
+import { ErrorState } from "@/components/ui/states/ErrorState";
+import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
+import {
+  CreditsIcon,
+  DurationIcon,
+  HistoryIcon,
+  ListIcon,
+  SparkIcon,
+  TagIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { api, ApiError, fieldErrors } from "@/lib/api";
 import { manageCohorts } from "@/lib/cohorts";
 import { errorCode, userMessage } from "@/lib/errors";
-import { formatMinorMoney } from "@/lib/labels";
+import { counted, formatMinorMoney, type StatusTone } from "@/lib/labels";
 import {
   plans as plansApi,
   planShape,
@@ -74,6 +86,32 @@ const EMPTY: Draft = {
   reason: "",
 };
 
+/** «٤ باقات» — built with `counted()`, never a template literal. */
+const PLANS = { one: "باقة واحدة", two: "باقتان", few: "باقات", many: "باقةً", other: "باقة" };
+
+/** The list grows chips only past this many plans — below it the rows ARE the overview. */
+const CHIPS_FROM = 7;
+
+/** Which chip a plan answers to. Read from the row's own server fields, never re-derived. */
+function planFilter(row: Plan): "sellable" | "unpriced" | "off" {
+  if (row.price_minor === null) return "unpriced";
+
+  return row.is_sellable ? "sellable" : "off";
+}
+
+/** The row chip's tone: on sale is the brand tint, awaiting a price asks for attention, stopped is neutral. */
+function planTone(row: Plan): StatusTone {
+  if (!row.is_active) return "neutral";
+
+  return row.price_minor === null ? "warning" : "info";
+}
+
+function requestTone(ask: PlanChangeRequest): StatusTone {
+  if (ask.status === "approved") return "success";
+
+  return ask.status === "rejected" ? "danger" : "warning";
+}
+
 export default function ManagePlansPage() {
   const [rows, setRows] = useState<Plan[]>([]);
   const [courseOptions, setCourseOptions] = useState<
@@ -87,6 +125,7 @@ export default function ManagePlansPage() {
   const [saving, setSaving] = useState(false);
   const [cohortOptions, setCohortOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [requests, setRequests] = useState<PlanChangeRequest[]>([]);
+  const [filter, setFilter] = useState("all");
 
   /*
    * ⛔ 036 · FR-013 — «المدرّسُ يُخبَرُ … قبلَ التنفيذِ لا بعدَه». The server
@@ -360,105 +399,98 @@ export default function ManagePlansPage() {
     }
   }
 
-  const columns: Column<Plan>[] = [
-    { key: "title", header: "الباقة", render: (row) => row.title },
-    {
-      key: "duration",
-      header: "المدّة",
-      // خانةٌ تحتَ عنوانِ «المدّة» تحتاجُ علامةً مرئيّة: الفراغُ يُقرأُ عموداً لم
-      // يُحمَّل، بينما «—» تقولُ «لا مدّةَ لهذه الباقة».
-      render: (row) => planShape(row) ?? "—",
-    },
-    {
-      key: "type",
-      header: "نوع الحصص",
-      render: (row) => SESSION_TYPE_LABELS[row.session_type],
-    },
-    { key: "coverage", header: "التغطية", render: (row) => row.coverage_label },
-    {
-      key: "price",
-      header: "السعر",
-      numeric: true,
-      render: (row) =>
-        row.price_minor === null ? (
-          <Badge tone="warning">تنتظر تسعير المنصّة</Badge>
-        ) : (
-          formatMinorMoney(row.price_minor, row.currency)
-        ),
-    },
-    {
-      key: "state",
-      header: "الحالة",
-      render: (row) =>
-        row.is_sellable ? (
-          <Badge tone="success">معروضة للبيع</Badge>
-        ) : (
-          <Badge tone="neutral">غير معروضة</Badge>
-        ),
-    },
-    {
-      key: "selling",
-      header: "",
-      /*
-       * ⛔ 036 · FR-013 — THE SWITCH THE WARNING GUARDS, AND IT WAS MISSING.
-       * `is_active` had a badge and a payload field and no control anywhere in
-       * `frontend/src`, so «أوقِف باقة عن البيع» was a thing the API could do and
-       * the product could not — the endpoint-with-no-caller family. The warning
-       * has nothing to warn about until this button exists.
-       */
-      render: (row) => (
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={saving}
-          onClick={() => void submit(payloadFor(row, !row.is_active), row.uuid)}
-        >
-          {row.is_active ? "أوقِف عن البيع" : "أعِدْ للبيع"}
-        </Button>
-      ),
-    },
-    {
-      key: "edit",
-      header: "",
-      render: (row) => (
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setEditing(row);
-            setErrors({});
-            setProblem(null);
-            /*
-             * ⛔ `String(row.duration_days)` PUT THE TEXT «null» IN A NUMBER
-             * FIELD, and that is how a 12-session plan became a 30-day one. The
-             * browser sanitises the invalid value, the required field renders
-             * EMPTY, the teacher fills it in, and the count is gone — saved, with
-             * no error anywhere, at the price the platform set for twelve
-             * lessons.
-             */
-            const bySessions = row.session_count !== null;
+  /*
+   | ⛔ `String(row.duration_days)` PUT THE TEXT «null» IN A NUMBER FIELD, and that
+   | is how a 12-session plan became a 30-day one. The browser sanitises the
+   | invalid value, the required field renders EMPTY, the teacher fills it in, and
+   | the count is gone — saved, with no error anywhere, at the price the platform
+   | set for twelve lessons.
+   |
+   | The form sits ABOVE the list, so on a phone the press that fills it would
+   | change nothing the teacher can see; it is brought into view.
+   */
+  function startEditing(row: Plan) {
+    setEditing(row);
+    setErrors({});
+    setProblem(null);
 
-            setDraft({
-              ...EMPTY,
-              title: row.title,
-              shape: bySessions ? "sessions" : "duration",
-              duration_days: row.duration_days === null ? "" : String(row.duration_days),
-              session_count: row.session_count === null ? "" : String(row.session_count),
-              session_type: row.session_type,
-              coverage_type: row.coverage_type,
-              course_uuid: row.coverage_type === "course" ? (row.coverage_uuid ?? "") : "",
-              cohort_uuid: row.coverage_type === "cohort" ? (row.coverage_uuid ?? "") : "",
-            });
-          }}
-        >
-          {row.price_minor === null ? "تعديل" : "اطلب تعديلاً"}
-        </Button>
-      ),
-    },
-  ];
+    const bySessions = row.session_count !== null;
+
+    setDraft({
+      ...EMPTY,
+      title: row.title,
+      shape: bySessions ? "sessions" : "duration",
+      duration_days: row.duration_days === null ? "" : String(row.duration_days),
+      session_count: row.session_count === null ? "" : String(row.session_count),
+      session_type: row.session_type,
+      coverage_type: row.coverage_type,
+      course_uuid: row.coverage_type === "course" ? (row.coverage_uuid ?? "") : "",
+      cohort_uuid: row.coverage_type === "cohort" ? (row.coverage_uuid ?? "") : "",
+    });
+
+    document.getElementById("plan-form")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
+
+  const chips = rows.length >= CHIPS_FROM;
+  const shown = chips && filter !== "all" ? rows.filter((row) => planFilter(row) === filter) : rows;
+  const countWhere = (key: ReturnType<typeof planFilter>) =>
+    rows.filter((row) => planFilter(row) === key).length;
+
+  const planRow = (row: Plan) => (
+    <RecordRow
+      key={row.uuid}
+      level={4}
+      Icon={CreditsIcon}
+      tone={planTone(row)}
+      title={row.title}
+      status={
+        <>
+          {row.is_sellable ? (
+            <Badge tone="success">معروضة للبيع</Badge>
+          ) : (
+            <Badge tone="neutral">غير معروضة</Badge>
+          )}
+          {row.price_minor === null && <Badge tone="warning">تنتظر تسعير المنصّة</Badge>}
+        </>
+      }
+      description={row.coverage_label}
+      meta={[
+        // «—» rather than a blank: an empty value reads as a field that did not
+        // load, while the dash says «this plan has no duration».
+        { key: "shape", label: "المدّة", Icon: DurationIcon, value: planShape(row) ?? "—" },
+        { key: "type", label: "نوع الحصص", Icon: UsersIcon, value: SESSION_TYPE_LABELS[row.session_type] },
+        ...(row.price_minor === null
+          ? []
+          : [{ key: "price", label: "السعر", Icon: TagIcon, value: formatMinorMoney(row.price_minor, row.currency) }]),
+      ]}
+      actions={
+        <>
+          {/*
+            ⛔ 036 · FR-013 — THE SWITCH THE WARNING GUARDS, AND IT WAS MISSING.
+            `is_active` had a badge and a payload field and no control anywhere in
+            `frontend/src`, so «أوقِف باقة عن البيع» was a thing the API could do
+            and the product could not — the endpoint-with-no-caller family. The
+            warning has nothing to warn about until this button exists.
+          */}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={saving}
+            onClick={() => void submit(payloadFor(row, !row.is_active), row.uuid)}
+          >
+            {row.is_active ? "أوقِف عن البيع" : "أعِدْ للبيع"}
+          </Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => startEditing(row)}>
+            {row.price_minor === null ? "تعديل" : "اطلب تعديلاً"}
+          </Button>
+        </>
+      }
+    />
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={CreditsIcon}
         title="باقات الاشتراك"
@@ -697,16 +729,56 @@ export default function ManagePlansPage() {
         </div>
       </Card>
 
-      <Table
-        caption="باقات الاشتراك التي أعرضها"
-        columns={columns}
-        rows={rows}
-        rowKey={(row) => row.uuid}
-        state={state === "ready" ? (rows.length === 0 ? "empty" : "ready") : state}
-        emptyTitle="لا باقات بعد"
-        emptyDescription="أضِف باقةً بالمدّة أعلاه، ثمّ تحدّد المنصّة سعرها قبل عرضها للطلاب."
-        onRetry={() => void load()}
-      />
+      <section aria-labelledby="plan-list" className="space-y-4">
+        <SectionHeading
+          id="plan-list"
+          Icon={CreditsIcon}
+          title="باقاتك"
+          description={state === "ready" && rows.length > 0 ? counted(rows.length, PLANS) : undefined}
+        />
+
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && <ErrorState onRetry={() => void load()} />}
+
+        {state === "ready" && chips && (
+          <FilterBar
+            filters={{
+              label: "حالة الباقة",
+              value: filter,
+              onChange: setFilter,
+              options: [
+                { key: "all", label: "الكل", count: rows.length },
+                { key: "sellable", label: "معروضة للبيع", count: countWhere("sellable") },
+                { key: "unpriced", label: "تنتظر التسعير", count: countWhere("unpriced") },
+                { key: "off", label: "غير معروضة", count: countWhere("off") },
+              ],
+            }}
+            summary={counted(shown.length, PLANS)}
+          />
+        )}
+
+        {state === "ready" &&
+          (rows.length === 0 ? (
+            <EmptyState
+              Icon={CreditsIcon}
+              title="لا باقات بعد"
+              description="أضِف باقةً بالمدّة أعلاه، ثمّ تحدّد المنصّة سعرها قبل عرضها للطلاب."
+            />
+          ) : shown.length === 0 ? (
+            <EmptyState
+              title="لا باقة في هذه الحالة"
+              description="لا باقة من باقاتك في هذه الحالة الآن. اختر حالة أخرى أو اعرض الكل."
+              action={
+                <Button variant="secondary" onClick={() => setFilter("all")}>
+                  اعرض الكل
+                </Button>
+              }
+            />
+          ) : (
+            <RecordList labelledBy="plan-list">{shown.map(planRow)}</RecordList>
+          ))}
+      </section>
 
       {/*
         ⛔ **طلباتُه هو، معروضةً بقرارِها.** المدرّسُ الذي لا يرى إلّا المعلَّقَ
@@ -715,47 +787,38 @@ export default function ManagePlansPage() {
         المحسومةُ هنا أيضاً، وسببُ الرفضِ معها.
       */}
       {requests.length > 0 && (
-        <Card as="section">
-          <div className="space-y-3">
-            <SectionHeading id="plan-requests" Icon={ListIcon} title="طلبات التعديل" />
+        <section aria-labelledby="plan-requests" className="space-y-4">
+          <SectionHeading id="plan-requests" Icon={HistoryIcon} title="طلبات التعديل" />
 
-            <ul className="space-y-3">
-              {requests.map((ask) => (
-                <li key={ask.uuid} className="border-b border-line pb-3 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-ink">{ask.plan_title}</span>
-                    <Badge
-                      tone={
-                        ask.status === "approved"
-                          ? "success"
-                          : ask.status === "rejected"
-                            ? "danger"
-                            : "warning"
-                      }
-                    >
-                      {ask.status_label}
-                    </Badge>
-                  </div>
+          <RecordList labelledBy="plan-requests">
+            {requests.map((ask) => (
+              <RecordRow
+                key={ask.uuid}
+                level={4}
+                Icon={ListIcon}
+                tone={requestTone(ask)}
+                title={ask.plan_title}
+                status={<Badge tone={requestTone(ask)}>{ask.status_label}</Badge>}
+                description={
+                  <>
+                    {/*
+                      الجملتانِ من الخادم: اشتقاقُهما هنا تهجئةٌ ثانيةٌ لِـ`planShape`.
+                    */}
+                    <p>
+                      من {ask.current_shape ?? "—"} · {ask.current_coverage_label} إلى{" "}
+                      {ask.requested_shape ?? "—"} · {ask.requested_coverage_label}
+                      {ask.requested_price_minor !== null && (
+                        <> · بسعر مقترح {formatMinorMoney(ask.requested_price_minor, ask.currency)}</>
+                      )}
+                    </p>
 
-                  {/*
-                    الجملتانِ من الخادم: اشتقاقُهما هنا تهجئةٌ ثانيةٌ لِـ`planShape`.
-                  */}
-                  <p className="mt-1 text-sm text-ink-muted">
-                    من {ask.current_shape ?? "—"} · {ask.current_coverage_label} إلى{" "}
-                    {ask.requested_shape ?? "—"} · {ask.requested_coverage_label}
-                    {ask.requested_price_minor !== null && (
-                      <> · بسعر مقترح {formatMinorMoney(ask.requested_price_minor, ask.currency)}</>
-                    )}
-                  </p>
-
-                  {ask.decision_reason !== null && (
-                    <p className="mt-1 text-sm text-ink-muted">ردّ الإدارة: {ask.decision_reason}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Card>
+                    {ask.decision_reason !== null && <p className="mt-1">ردّ الإدارة: {ask.decision_reason}</p>}
+                  </>
+                }
+              />
+            ))}
+          </RecordList>
+        </section>
       )}
     </div>
   );

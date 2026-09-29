@@ -121,6 +121,9 @@ import {
   IconCalendarPlus,
   IconClockPlus,
   IconRobot,
+  IconRefresh,
+  IconTruck,
+  IconTruckReturn,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -442,3 +445,13 @@ export const AutoGradedIcon = wrap(IconRobot, "h-4 w-4");
 export const ExtraTimeIcon = wrap(IconClockPlus, "h-4 w-4");
 /** Extra days before a homework deadline. */
 export const ExtraDaysIcon = wrap(IconCalendarPlus, "h-4 w-4");
+
+/*
+ * The fulfilment queue's steps (`/manage/store/shipments`): the parcel itself is
+ * `ShipmentIcon`, on the road it is a truck, and a returned one is the truck
+ * turning back — so a next-step button names the step before it is read.
+ */
+export const TruckIcon = wrap(IconTruck, "h-4 w-4");
+export const ReturnIcon = wrap(IconTruckReturn, "h-4 w-4");
+/** «أعِد الإصدار» — the same record drawn again, never a new one. */
+export const RefreshIcon = wrap(IconRefresh, "h-4 w-4");
