@@ -71,6 +71,16 @@ class Conversation extends BaseModel
      */
     public bool $readByGuardian = false;
 
+    /**
+     * Whether THIS reader's staff scope covers the thread (spec 010 · FR-005) —
+     * stamped by `ListConversations` for a confined assistant so
+     * `ConversationResource::can_moderate` answers a whole screen from memory.
+     * `null` means «not stamped»: the Resource then asks the scope itself, which
+     * is free for anyone not confined and one policy call on a single-row answer.
+     * Same declared-property rule as above.
+     */
+    public ?bool $readerInStaffScope = null;
+
     /** @return array<string, mixed> */
     protected function casts(): array
     {

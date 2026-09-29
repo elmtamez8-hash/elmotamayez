@@ -9,8 +9,10 @@ use App\Modules\Community\Models\Message;
 use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * One thread on the list screen.
@@ -27,6 +29,10 @@ class ConversationResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        // Asked once per row: it feeds two keys, and on a single-row answer for a
+        // confined assistant it is a policy call.
+        $mayModerate = $this->readerMayModerate($request);
+
         return [
             'uuid' => $this->uuid,
             'kind' => $this->kind->value,
@@ -64,14 +70,15 @@ class ConversationResource extends JsonResource
             'counterparty_avatar_url' => $this->counterpartyAvatarUrl($request),
 
             /*
-            | Whether THIS reader may hide a message or ban the sender here.
-            | Viewer-level rather than row-level on purpose: it is a permission
-            | inside one workspace, so it costs no query per row — spatie has the
-            | permission set cached for the request by the time the first row is
-            | serialised, and a policy call per conversation would be an N+1 by
-            | construction on a list of two hundred.
+            | Whether THIS reader may hide a message or ban the sender here: the
+            | permission AND the assistant scope (spec 010 · FR-005), so a confined
+            | assistant is not shown buttons that answer 403 in a room outside
+            | their courses. Neither costs a query per row — spatie caches the
+            | permission set, the list stamps the scope in bulk
+            | (`ListConversations::stampStaffScope()`), and anyone not confined is
+            | answered from the directory's per-request memo.
             */
-            'can_moderate' => $this->readerMayModerate($request),
+            'can_moderate' => $mayModerate,
 
             /*
             | Whether the student is banned right now, so the control can offer
@@ -80,7 +87,7 @@ class ConversationResource extends JsonResource
             | student's own payload carries — one person's standing is not
             | another's business.
             */
-            'student_banned' => $this->readerMayModerate($request) && $this->studentBanned,
+            'student_banned' => $mayModerate && $this->studentBanned,
             'last_message' => $this->whenLoaded(
                 'lastMessage',
                 fn () => $this->lastMessage === null
@@ -243,6 +250,26 @@ class ConversationResource extends JsonResource
             return false;
         }
 
-        return $reader->hasPermissionTo(Permissions::CHAT_MODERATE);
+        if (! $reader->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+            return false;
+        }
+
+        // Stamped in bulk by the list — a whole screen answered from memory.
+        if ($this->readerInStaffScope !== null) {
+            return $this->readerInStaffScope;
+        }
+
+        // Not confined here: the permission is the whole answer, as it was.
+        if (app(AssistantScopeDirectory::class)->scopedCourseIdsFor($reader, (int) $this->workspace_id) === null) {
+            return true;
+        }
+
+        /*
+        | A confined assistant on a SINGLE-ROW answer (the room they opened, the
+        | lock they toggled, the thread they started): the door itself, once.
+        | Never reached per row of a list — `ListConversations` stamps every row
+        | a confined reader can see.
+        */
+        return Gate::forUser($reader)->allows('moderate', $this->resource);
     }
 }

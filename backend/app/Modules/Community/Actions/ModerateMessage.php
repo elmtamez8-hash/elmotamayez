@@ -43,9 +43,16 @@ class ModerateMessage extends Action
         | workspace-shaped check above let a confined assistant hide a line in the
         | room of any session, lesson or group in the workspace. `moderate` on the
         | conversation is the one spelling of «may you moderate this room» — the
-        | lock and the write-bans ask it too. A PERSON (the workspace ban) has no
-        | thread and stays workspace-shaped.
+        | lock and the write-bans ask it too.
+        |
+        | ⛔ AND A PERSON IS ASKED ABOUT THEMSELVES. The workspace ban has no thread
+        | to ask, so a confined assistant bans (and lifts) only a student of their
+        | own courses — `ModerationActionPolicy::banPerson()`.
         */
+        if ($data->subjectType === ModerationAction::SUBJECT_USER) {
+            Gate::forUser($actor)->authorize('banPerson', [ModerationAction::class, $workspaceId, $subjectId]);
+        }
+
         if ($data->subjectType === ModerationAction::SUBJECT_MESSAGE) {
             $conversation = Conversation::query()
                 ->withoutWorkspaceScope()
