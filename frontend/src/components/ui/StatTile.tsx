@@ -2,6 +2,8 @@ import type { ComponentType, ReactNode } from "react";
 
 import type { IconProps } from "@/components/icons";
 
+import { AnimatedNumber } from "./AnimatedNumber";
+
 /**
  * One headline number: its label, the value, an optional hint — and an icon so a
  * row of four numbers can be told apart at a glance rather than read label by
@@ -10,6 +12,10 @@ import type { IconProps } from "@/components/icons";
  * ⚠️ `<bdi>` around the value so a Latin-digit amount cannot reorder the Arabic
  * around it. The hover is the shared card hover (`Card interactive`), spelled
  * here once because a tile is not a `Card` child.
+ *
+ * A `number` value counts up once through `AnimatedNumber` (Arabic digits,
+ * reduced motion respected); a `string` is shown as given — use it for money,
+ * percentages and anything already formatted.
  *
  * `emphasis` gives the headline figure of a row (the net owed, the balance) the
  * brand fill — one per row, or none of them stands out.
@@ -22,7 +28,7 @@ export function StatTile({
   emphasis = false,
 }: {
   label: string;
-  value: string;
+  value: string | number;
   hint?: ReactNode;
   Icon?: ComponentType<IconProps>;
   emphasis?: boolean;
@@ -47,7 +53,9 @@ export function StatTile({
           </span>
         )}
       </div>
-      <bdi className="mt-1 block text-2xl font-bold text-ink">{value}</bdi>
+      <bdi className="mt-1 block text-2xl font-bold text-ink">
+        {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+      </bdi>
       {hint !== undefined && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
     </div>
   );

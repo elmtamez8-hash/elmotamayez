@@ -373,6 +373,21 @@ dialog[open] {
   animation: banner-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* One item of a staggered set — a row of `RecordList`, a tile of `StatStrip`,
+   or anything given `staggerStyle(index)` from `components/ui/stagger.ts`.
+   The same rise as the banner, shorter: a staff screen loads into a task, so
+   the whole set has landed inside ~0.7s even at the cap (8 × 40ms + 0.36s).
+   ⚠️ ONLY `animation-*` IS WRITTEN HERE. This rule is unlayered and beats every
+   utility (see the dialog note above), so it may name no property a utility
+   could also set — no opacity, no transform outside the keyframes.
+   ⚠️ `both`, for the reason `banner-rise` gives. The reduced-motion block below
+   zeroes duration AND delay, so a reader who asked for stillness gets the list
+   at once, not late. */
+.stagger-item {
+  animation: banner-rise 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(min(var(--stagger-i, 0), 8) * 40ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

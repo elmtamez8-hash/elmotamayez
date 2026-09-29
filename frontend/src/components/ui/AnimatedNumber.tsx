@@ -39,7 +39,11 @@ export function AnimatedNumber({
 
     // FR-086. The global reduced-motion rule zeroes CSS durations; it cannot
     // reach a requestAnimationFrame loop, so the query is asked here too.
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // `typeof` first: jsdom (every vitest run) ships no `matchMedia`, and a
+    // StatTile given a number must still render its figure there.
+    const still =
+      typeof window.matchMedia !== "function" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (still || !("IntersectionObserver" in window)) {
       done.current = true;

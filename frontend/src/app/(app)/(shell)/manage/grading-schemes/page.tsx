@@ -5,14 +5,25 @@ import { useCallback, useEffect, useState } from "react";
 import { GradingSchemeForm } from "@/components/community/GradingSchemeForm";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { RecordList, RecordRow } from "@/components/ui/RecordList";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { ProgressIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
+import { HistoryIcon, ProgressIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { userMessage } from "@/lib/errors";
+import { counted } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
-import { gradingSchemes, GRADE_COMPONENTS, type GradingScheme } from "@/lib/reviews";
+import { cardPeriodLabel, gradingSchemes, GRADE_COMPONENTS, type GradingScheme } from "@/lib/reviews";
+
+/** «٣ تركيبات محفوظة» — the scheme is feminine, and its adjective agrees with it. */
+const SCHEMES = {
+  one: "تركيبة واحدة محفوظة",
+  two: "تركيبتان محفوظتان",
+  few: "تركيبات محفوظة",
+  many: "تركيبةً محفوظةً",
+  other: "تركيبة محفوظة",
+};
 
 /**
  * The teacher's grade weightings (spec 010 · US5 · FR-049).
@@ -23,6 +34,10 @@ import { gradingSchemes, GRADE_COMPONENTS, type GradingScheme } from "@/lib/revi
  * document displayed as the student's whole record. It is built by a scheduled
  * platform job at the start of each month; this screen decides what that job
  * will weigh, and the teacher reads their own segment on the student's page.
+ *
+ * The worked example of the staff design kit (`docs/design/manage-pages.md`):
+ * `PageHeader` → the form in a `Card` → a `SectionHeading` → `RecordList` of
+ * `RecordRow`s, with the three list states from `states/`.
  */
 export default function GradingSchemesPage() {
   const [rows, setRows] = useState<GradingScheme[]>([]);
@@ -62,56 +77,58 @@ export default function GradingSchemesPage() {
     }
   }
 
-  if (state === "error") return <ErrorState onRetry={load} />;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={ProgressIcon}
         title="أوزان التقدير"
         description="كيف تتركّب درجة الطالب في كشف التقديرات. يصدر الكشف في مطلع كلّ شهر عن الشهر الذي سبقه، ويستعمل الأوزان السارية على تلك الفترة."
       />
 
-      <Card>
+      <Card as="section">
         <div className="mb-4">
           <SectionHeading id="new-grading-scheme" Icon={SparkIcon} title="تركيبة جديدة" />
         </div>
         <GradingSchemeForm onSave={save} busy={busy} error={error} />
       </Card>
 
-      {state === "loading" ? (
-        <RowsSkeleton />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title="لا توجد تركيبة محفوظة"
-          description="بلا تركيبة تُوزَن المكوّنات الأربعة بالتساوي."
+      <section aria-labelledby="saved-grading-schemes" className="space-y-4">
+        <SectionHeading
+          id="saved-grading-schemes"
+          Icon={HistoryIcon}
+          title="التركيبات المحفوظة"
+          description={state === "ready" && rows.length > 0 ? counted(rows.length, SCHEMES) : undefined}
         />
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((scheme) => (
-            <li key={scheme.uuid}>
-              <Card as="article" interactive>
-                <p className="flex items-center gap-2 font-semibold text-ink">
-                  <ScheduleIcon className="h-4 w-4 shrink-0 text-ink-muted" />
-                  <span>
-                    {scheme.period_start} – {scheme.period_end}
-                  </span>
-                </p>
-                <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                  {GRADE_COMPONENTS.map((component) => (
-                    <div key={component.key} className="flex gap-1">
-                      <dt className="text-ink-muted">{component.label}</dt>
-                      <dd className="font-semibold text-ink">
-                        {arabicNumber(scheme.weights[component.key] ?? 0)}٪
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </Card>
-            </li>
+
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && <ErrorState onRetry={load} />}
+
+        {state === "ready" &&
+          (rows.length === 0 ? (
+            <EmptyState
+              Icon={ProgressIcon}
+              title="لا توجد تركيبة محفوظة"
+              description="بلا تركيبة تُوزَن المكوّنات الأربعة بالتساوي. احفظ أوّل تركيبة من النموذج أعلاه."
+            />
+          ) : (
+            <RecordList labelledBy="saved-grading-schemes">
+              {rows.map((scheme) => (
+                <RecordRow
+                  key={scheme.uuid}
+                  level={4}
+                  Icon={ScheduleIcon}
+                  title={cardPeriodLabel(scheme)}
+                  meta={GRADE_COMPONENTS.map((component) => ({
+                    key: component.key,
+                    label: component.label,
+                    value: `${arabicNumber(scheme.weights[component.key] ?? 0)}٪`,
+                  }))}
+                />
+              ))}
+            </RecordList>
           ))}
-        </ul>
-      )}
+      </section>
     </div>
   );
 }
