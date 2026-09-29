@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { arabicDecimal } from "./numerals";
 
 /**
  * Item analysis: which questions students get wrong, and which ideas.
@@ -47,9 +48,14 @@ export const analytics = {
   concepts: () => api.get<{ data: ConceptStat[]; meta: { scope: string } }>("/manage/analytics/concepts"),
 };
 
-/** A rate as text, or the reason there is no rate. */
+/**
+ * A rate as text, or the reason there is no rate.
+ *
+ * `arabicDecimal`, never `toFixed`: `(12.5).toFixed(1)` is «12.5» — Latin digits
+ * beside the Arabic-Indic counts in the same table row.
+ */
 export function ratioLabel(stat: { wrong_pct: number | null; has_enough_data: boolean }): string {
   return stat.has_enough_data && stat.wrong_pct !== null
-    ? `${stat.wrong_pct.toFixed(1)}٪`
+    ? `${arabicDecimal(stat.wrong_pct, 1)}٪`
     : "بيانات غير كافية";
 }

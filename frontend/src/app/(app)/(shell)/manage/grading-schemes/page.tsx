@@ -85,7 +85,7 @@ export default function GradingSchemesPage() {
         description="كيف تتركّب درجة الطالب في كشف التقديرات. يصدر الكشف في مطلع كلّ شهر عن الشهر الذي سبقه، ويستعمل الأوزان السارية على تلك الفترة."
       />
 
-      <Card as="section">
+      <Card as="section" labelledBy="new-grading-scheme">
         <div className="mb-4">
           <SectionHeading id="new-grading-scheme" Icon={SparkIcon} title="تركيبة جديدة" />
         </div>

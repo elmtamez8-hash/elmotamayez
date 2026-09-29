@@ -205,7 +205,7 @@ export default function AnnouncementsPage() {
         description="إعلان واحد يصل من اخترتهم وحدهم. يقرأه الطالب في مركز الإشعارات، ويردّ عليك في محادثته الخاصة إن أراد."
       />
 
-      <Card as="section">
+      <Card as="section" labelledBy="new-announcement">
         <div className="mb-4">
           <SectionHeading id="new-announcement" Icon={SparkIcon} title="إعلان جديد" />
         </div>
@@ -264,7 +264,7 @@ export default function AnnouncementsPage() {
                 title={visibility === "hidden" ? "لا إعلانات مسحوبة هنا" : "لا إعلانات ظاهرة هنا"}
                 description="لا إعلان بهذه الحالة بين المعروض الآن."
                 action={
-                  <Button variant="secondary" onClick={() => setVisibility("all")}>
+                  <Button variant="secondary" size="sm" onClick={() => setVisibility("all")}>
                     عرض الكل
                   </Button>
                 }

@@ -183,8 +183,9 @@ export default function ManagePlansPage() {
         })),
       );
       setState("ready");
-    } catch (error) {
-      setProblem(userMessage(error));
+    } catch {
+      // The section's `ErrorState` says it, with a retry. `problem` is for a
+      // WRITE that failed — titled «تعذّر الحفظ», it would misname a failed read.
       setState("error");
     }
   }, []);
@@ -542,7 +543,7 @@ export default function ManagePlansPage() {
         </Alert>
       )}
 
-      <Card as="section">
+      <Card as="section" labelledBy="plan-form">
         <div className="space-y-4">
           <SectionHeading
             id="plan-form"
@@ -770,8 +771,8 @@ export default function ManagePlansPage() {
               title="لا باقة في هذه الحالة"
               description="لا باقة من باقاتك في هذه الحالة الآن. اختر حالة أخرى أو اعرض الكل."
               action={
-                <Button variant="secondary" onClick={() => setFilter("all")}>
-                  اعرض الكل
+                <Button variant="secondary" size="sm" onClick={() => setFilter("all")}>
+                  عرض الكل
                 </Button>
               }
             />

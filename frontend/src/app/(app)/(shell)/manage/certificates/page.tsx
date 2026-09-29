@@ -195,7 +195,7 @@ export default function ManageCertificatesPage() {
         title="شهادات الطلاب"
         description="كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها."
         actions={
-          <Button variant="ghost" size="sm" href="/manage/certificates/design" iconStart={<PrintIcon />}>
+          <Button variant="secondary" href="/manage/certificates/design" iconStart={<PrintIcon />}>
             تصميم الشهادة
           </Button>
         }
@@ -250,7 +250,7 @@ export default function ManageCertificatesPage() {
                 : "لا شهادة تطابق ما كتبته. جرّب اسماً أو رقماً آخر."
             }
             action={
-              <Button variant="secondary" onClick={() => setQuery("")}>
+              <Button variant="secondary" size="sm" onClick={() => setQuery("")}>
                 مسح البحث
               </Button>
             }
@@ -264,7 +264,9 @@ export default function ManageCertificatesPage() {
             state={tableState}
             emptyIcon={CertificateIcon}
             emptyTitle="لا شهادات بعد"
-            emptyDescription="تصدر الشهادة تلقائياً حين يُكمل طالبٌ كورساً أو ينجح في اختباره."
+            /* Course completion alone issues it (owner decision 2026-09-25); a
+               passed exam counts only by completing its item in the course. */
+            emptyDescription="تصدر الشهادة تلقائياً حين يُكمل طالبٌ كلّ عناصر كورسه. جهّز شكلها من «تصميم الشهادة» أعلاه."
             onRetry={() => load(1)}
           />
         )}
@@ -272,7 +274,7 @@ export default function ManageCertificatesPage() {
         {more && (
           <div className="flex justify-center">
             <Button
-              variant="ghost"
+              variant="secondary"
               loading={loading}
               loadingLabel="جارٍ التحميل…"
               onClick={() => load(page + 1)}

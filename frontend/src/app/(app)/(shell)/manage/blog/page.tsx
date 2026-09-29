@@ -9,7 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { DocumentIcon, ScheduleIcon, SparkIcon } from "@/components/icons";
+import { DocumentIcon, EditIcon, ListIcon, ScheduleIcon, SearchIcon, SparkIcon } from "@/components/icons";
 import { TextField, TextareaField, SelectField } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/states/EmptyState";
@@ -19,12 +19,10 @@ import { useAuth } from "@/lib/auth-context";
 import { blog, type ArticleInput, type ManagedArticle } from "@/lib/blog";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatDate } from "@/lib/labels";
+import { counted, formatDate } from "@/lib/labels";
 import { P, can } from "@/lib/permissions";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { RecordList, RecordRow } from "@/components/ui/RecordList";
-import { EditIcon, ListIcon, SearchIcon } from "@/components/icons";
-import { counted } from "@/lib/labels";
 
 /** «١٢ مقالاً» — the contract's own example form; not in `NOUNS` yet. */
 const POSTS = { one: "مقال واحد", two: "مقالان", few: "مقالات", many: "مقالاً", other: "مقال" };
@@ -204,7 +202,7 @@ export default function ManageBlogPage() {
       />
 
       {editing !== null ? (
-        <Card as="section">
+        <Card as="section" labelledBy="article-editor">
           <div className="mb-4">
             <SectionHeading
               id="article-editor"
@@ -261,68 +259,66 @@ export default function ManageBlogPage() {
 
             {/* Publishing: the state and its date, side by side from 640px. */}
             <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              id="article-status"
-              label="الحالة"
-              value={form.status ?? "draft"}
-              onChange={(v) => setForm({ ...form, status: v as ArticleInput["status"] })}
-              disabled={!mayPublish}
-              options={[
-                { value: "draft", label: "مسوّدة" },
-                { value: "published", label: "منشور" },
-              ]}
-              
-              error={fields.status}
-              hint={mayPublish ? undefined : "النشر والسحب لمن يحمل صلاحية النشر."}
-            />
+              <SelectField
+                id="article-status"
+                label="الحالة"
+                value={form.status ?? "draft"}
+                onChange={(v) => setForm({ ...form, status: v as ArticleInput["status"] })}
+                disabled={!mayPublish}
+                options={[
+                  { value: "draft", label: "مسوّدة" },
+                  { value: "published", label: "منشور" },
+                ]}
+                error={fields.status}
+                hint={mayPublish ? undefined : "النشر والسحب لمن يحمل صلاحية النشر."}
+              />
 
-            <TextField
-              id="article-published-at"
-              label="تاريخ النشر"
-              type="datetime-local"
-              value={form.published_at ?? ""}
-              onChange={(v) => setForm({ ...form, published_at: v })}
-              disabled={!mayPublish}
-              
-              error={fields.published_at}
-              hint="تاريخ في المستقبل يُبقي المقال خارج المدوّنة حتّى يحين."
-            />
+              <TextField
+                id="article-published-at"
+                label="تاريخ النشر"
+                type="datetime-local"
+                value={form.published_at ?? ""}
+                onChange={(v) => setForm({ ...form, published_at: v })}
+                disabled={!mayPublish}
+                error={fields.published_at}
+                hint="تاريخ في المستقبل يُبقي المقال خارج المدوّنة حتّى يحين."
+              />
             </div>
 
             {/* Search-engine fields are optional and read last: a hairline and
                 their own heading set them apart from what the reader sees. */}
             <div className="space-y-4 border-t border-line pt-4">
-            <SectionHeading
-              id="article-seo"
-              level={4}
-              Icon={SearchIcon}
-              title="الظهور في محرّكات البحث"
-            />
+              <SectionHeading
+                id="article-seo"
+                level={4}
+                Icon={SearchIcon}
+                title="الظهور في محرّكات البحث"
+              />
 
-            <TextField
-              id="article-seo-title"
-              label="عنوان محرّكات البحث"
-              value={form.seo_title ?? ""}
-              onChange={(v) => setForm({ ...form, seo_title: v })}
-              error={fields.seo_title}
-            />
+              <TextField
+                id="article-seo-title"
+                label="عنوان محرّكات البحث"
+                value={form.seo_title ?? ""}
+                onChange={(v) => setForm({ ...form, seo_title: v })}
+                error={fields.seo_title}
+              />
 
-            <TextareaField
-              id="article-seo-description"
-              label="وصف محرّكات البحث"
-              value={form.seo_description ?? ""}
-              onChange={(v) => setForm({ ...form, seo_description: v })}
-              error={fields.seo_description}
-            />
+              <TextareaField
+                id="article-seo-description"
+                label="وصف محرّكات البحث"
+                value={form.seo_description ?? ""}
+                onChange={(v) => setForm({ ...form, seo_description: v })}
+                error={fields.seo_description}
+              />
 
-            <TextField
-              id="article-canonical"
-              label="الرابط الأساسي"
-              value={form.canonical_url ?? ""}
-              onChange={(v) => setForm({ ...form, canonical_url: v })}
-              error={fields.canonical_url}
-              hint="اتركه فارغاً إلّا إن كان المقال منشوراً في مكان آخر أصلاً."
-            />
+              <TextField
+                id="article-canonical"
+                label="الرابط الأساسي"
+                value={form.canonical_url ?? ""}
+                onChange={(v) => setForm({ ...form, canonical_url: v })}
+                error={fields.canonical_url}
+                hint="اتركه فارغاً إلّا إن كان المقال منشوراً في مكان آخر أصلاً."
+              />
             </div>
           </div>
 
@@ -416,7 +412,7 @@ export default function ManageBlogPage() {
                 title={status === "draft" ? "لا مسوّدات هنا" : "لا مقالات منشورة هنا"}
                 description="لا مقال بهذه الحالة بين المعروض الآن."
                 action={
-                  <Button variant="secondary" onClick={() => setStatus("all")}>
+                  <Button variant="secondary" size="sm" onClick={() => setStatus("all")}>
                     عرض الكل
                   </Button>
                 }

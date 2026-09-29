@@ -184,7 +184,7 @@ export default function ManageAssignmentsPage() {
                 title={status === "draft" ? "لا مسوّدات هنا" : "لا واجبات منشورة هنا"}
                 description="لا واجب بهذه الحالة بين المعروض الآن."
                 action={
-                  <Button variant="secondary" onClick={() => setStatus("all")}>
+                  <Button variant="secondary" size="sm" onClick={() => setStatus("all")}>
                     عرض الكل
                   </Button>
                 }

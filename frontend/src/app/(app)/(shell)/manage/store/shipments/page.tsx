@@ -227,7 +227,7 @@ export default function ShipmentQueuePage() {
             title="لا شحنة تطابق البحث"
             description="لا شحنة في الطابور تطابق ما اخترته. جرّب كلمة أخرى أو حالة أخرى."
             action={
-              <Button variant="secondary" onClick={clear}>
+              <Button variant="secondary" size="sm" onClick={clear}>
                 مسح البحث
               </Button>
             }
