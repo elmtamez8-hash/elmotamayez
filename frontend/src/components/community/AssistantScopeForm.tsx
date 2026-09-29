@@ -142,7 +142,7 @@ export function AssistantScopeForm({
 
           {courses.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted">
-              لا كورسات في مساحتك بعد، فيعمل المساعد على كلّ ما تنشئه.
+              لا كورسات لديك بعد، فيعمل المساعد على كلّ ما تنشئه.
             </p>
           ) : visible.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-muted" role="status">
