@@ -1,6 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
+
+import type { IconProps } from "@/components/icons";
 import { RowsSkeleton } from "./states/LoadingSkeleton";
 import { EmptyState } from "./states/EmptyState";
 import { ErrorState } from "./states/ErrorState";
@@ -40,6 +42,11 @@ type TableProps<T> = {
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
+  /**
+   * The screen's own icon, for a list that is genuinely empty (FR-078). Leave it
+   * out for a FILTERED empty: the default magnifier is what «no match» means.
+   */
+  emptyIcon?: ComponentType<IconProps>;
   onRetry?: () => void;
 };
 
@@ -52,6 +59,7 @@ export function Table<T>({
   emptyTitle = "لا بيانات لعرضها",
   emptyDescription = "لم يُسجَّل شيء هنا بعد.",
   emptyAction,
+  emptyIcon,
   onRetry,
 }: TableProps<T>) {
   if (state === "loading") return <RowsSkeleton />;
@@ -62,6 +70,7 @@ export function Table<T>({
         title={emptyTitle}
         description={emptyDescription}
         action={emptyAction}
+        Icon={emptyIcon}
       />
     );
   }
