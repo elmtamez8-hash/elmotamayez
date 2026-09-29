@@ -9,6 +9,7 @@ use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 class AttemptPolicy extends BasePolicy
@@ -17,8 +18,9 @@ class AttemptPolicy extends BasePolicy
      * The staff list of handed-in papers (`GET /manage/attempts`).
      *
      * The permission alone: which rows a reader sees — their workspace, their
-     * assistant confinement, the enrolment line `view()` draws — is the
-     * `ListStaffAttempts` query's job, and it mirrors this class row for row.
+     * assistant confinement, the enrolment line — is the `ListStaffAttempts`
+     * query's job, and it mirrors `view()` row for row: the confinement line
+     * included, which `view()` did not carry until the grading board showed it.
      */
     public function viewAny(User $user): Response
     {
@@ -37,6 +39,20 @@ class AttemptPolicy extends BasePolicy
 
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($attempt))->denied()) {
             return $workspaceCheck;
+        }
+
+        /*
+        | ⛔ A CONFINED ASSISTANT OPENS THE PAPERS OF THEIR OWN COURSES ONLY.
+        | This policy is the whole guard of two staff doors — the grading board's
+        | `GET /manage/grading/attempts/{attempt}` and `GET /attempts/{uuid}` —
+        | and without this line an assistant confined to one course read every
+        | essay in the workspace by uuid while `GradingPolicy` refused them the
+        | mark. Below the ownership branch, so a student's own paper is untouched;
+        | an exam set for no course is refused to a confined assistant by the
+        | directory's null branch.
+        */
+        if (($scopeCheck = $this->withinAssistantScope($user, $attempt))->denied()) {
+            return $scopeCheck;
         }
 
         if (! $user->can(Permissions::ATTEMPTS_VIEW_ALL)) {
@@ -61,6 +77,20 @@ class AttemptPolicy extends BasePolicy
         }
 
         return $this->teaches($attempt) ? Response::allow() : Response::deny();
+    }
+
+    /** Spec 010 · FR-005 — the same question `GradingPolicy` asks of an answer. */
+    private function withinAssistantScope(User $user, Attempt $attempt): Response
+    {
+        $courseId = $attempt->exam?->course_id;
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $attempt->workspace_id,
+            $courseId === null ? null : (int) $courseId,
+        )
+            ? Response::allow()
+            : Response::deny('هذه الورقة خارج نطاق عملك.');
     }
 
     /** Does this workspace still teach that student — `completed` keeps full access, so it counts. */

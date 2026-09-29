@@ -16,6 +16,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AccountStanding;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Support\CountedNoun;
@@ -40,6 +41,7 @@ class IssuePlaybackGrant extends Action
         private readonly SessionContentAccess $sessionContent,
         private readonly AccountStanding $standing,
         private readonly MintPlaybackGrant $mint,
+        private readonly AssistantScopeDirectory $assistants,
     ) {}
 
     /**
@@ -177,9 +179,12 @@ class IssuePlaybackGrant extends Action
              * The administrative arm is untouched: only somebody who can run the
              * workspace's sessions gets in without having received the hour.
              */
+            // ⛔ The administrative arm is a staff branch, so a confined
+            // assistant runs it for their own courses only — or the lesson page
+            // (which asks the scope) refuses what this video still serves.
             return $this->sessionContent
                 ->mayOpenSessionContent($viewer, (int) $lesson->class_session_id)
-                || $viewer->can(Permissions::SESSIONS_MANAGE);
+                || ($viewer->can(Permissions::SESSIONS_MANAGE) && $this->inAssistantScope($viewer, $lesson));
         }
 
         /*
@@ -223,10 +228,18 @@ class IssuePlaybackGrant extends Action
         | `User::teachesOnPlatform()`، فدورٌ مخصَّصٌ مجهولٌ يسقطُ نحوَ المنعِ لا
         | نحوَ الفتح.
         */
+        /*
+        | ⛔ **And a confined assistant authors their own courses only.** The
+        | pivot role says «staff of this workspace», not «of this course», so an
+        | assistant confined to one course was granted the DRAFT videos of every
+        | other course here. Outside the scope they fall through to the student's
+        | route below. `EnrollmentController::showLessonForViewer()` asks the same.
+        */
         if ($viewer->workspaces()
             ->wherePivot('role', '!=', Roles::STUDENT)
             ->where('workspaces.id', $lesson->workspace_id)
-            ->exists()) {
+            ->exists()
+            && $this->inAssistantScope($viewer, $lesson)) {
             return true;
         }
 
@@ -347,8 +360,8 @@ class IssuePlaybackGrant extends Action
                 $mayManageSessions ??= $viewer->can(Permissions::SESSIONS_MANAGE);
 
                 $allowed[$lessonId] = isset($openSessionIds[(int) $lesson->class_session_id])
-                    || $mayManageSessions;
-            } elseif (isset($workspaceIds[$lesson->workspace_id])) {
+                    || ($mayManageSessions && $this->inAssistantScope($viewer, $lesson));
+            } elseif (isset($workspaceIds[$lesson->workspace_id]) && $this->inAssistantScope($viewer, $lesson)) {
                 // The author, who may watch their own unfinished work.
                 $allowed[$lessonId] = true;
             } else {
@@ -380,5 +393,21 @@ class IssuePlaybackGrant extends Action
         }
 
         return $allowed;
+    }
+
+    /**
+     * Spec 010 · FR-005 — whether an assistant confinement leaves this lesson's
+     * course to the viewer. True for everybody who is not a confined assistant,
+     * so it narrows the staff branches and never opens anything. Memoised per
+     * request by the directory, so the bulk form pays one read per workspace.
+     */
+    private function inAssistantScope(User $viewer, Lesson $lesson): bool
+    {
+        // `lessons.course_id` is NOT NULL (spec 006's backfill).
+        return $this->assistants->mayActOnCourse(
+            $viewer,
+            (int) $lesson->workspace_id,
+            (int) $lesson->course_id,
+        );
     }
 }

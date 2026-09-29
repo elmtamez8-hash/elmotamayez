@@ -16,9 +16,11 @@ use App\Modules\Assessments\Http\Resources\GradingQueueResource;
 use App\Modules\Assessments\Models\Answer;
 use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\AttemptItem;
+use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Support\GradingSettings;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -40,7 +42,7 @@ class GradingController extends Controller
 {
     use LogsActivity;
 
-    public function queue(Request $request, GradingSettings $settings): JsonResponse
+    public function queue(Request $request, GradingSettings $settings, AssistantScopeDirectory $assistants): JsonResponse
     {
         $this->authorizeGrading($request);
 
@@ -68,6 +70,24 @@ class GradingController extends Controller
         // dropped in the Resource is a name that travelled anyway.
         if (! $anonymous) {
             $query->with('student:id,uuid,first_name,last_name');
+        }
+
+        /*
+        | ⛔ A CONFINED ASSISTANT'S QUEUE HOLDS THEIR OWN COURSES' PAPERS ONLY —
+        | and `meta.total` with it, because that number IS the dashboard's
+        | «بانتظار التصحيح». `GradingPolicy` already refused them the mark on
+        | anything else, so an unfiltered queue was a list of papers they could
+        | open and not grade, counted into a number that never reached zero.
+        | Same subquery as `ListStaffAttempts`: an exam set for no course is
+        | outside every confinement (`mayActOnCourse()`'s null branch).
+        */
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $scoped = $workspaceId === null
+            ? null
+            : $assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
+        if ($scoped !== null) {
+            $query->whereIn('exam_id', Exam::query()->select('id')->whereIn('course_id', $scoped));
         }
 
         $examUuid = $request->string('exam')->toString();

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Support\LessonGate;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use Illuminate\Database\Eloquent\Builder;
@@ -118,6 +119,8 @@ final class LessonAudience
         $candidates = self::couldBeHidden($lessons)->get([
             'lessons.id',
             'lessons.workspace_id',
+            // Read by `exemptAuthor()`'s assistant-scope line.
+            'lessons.course_id',
             'lessons.release_session_id',
             'lessons.reference_id',
         ]);
@@ -293,8 +296,16 @@ final class LessonAudience
             return $out;
         }
 
+        // ⛔ A confined assistant is the author of their own courses only — the
+        // same line the lesson page and the playback grant ask, kept here so the
+        // exemption stays one place rather than four. Memoised per request.
+        $assistants = app(AssistantScopeDirectory::class);
+
         foreach (array_keys($hidden) as $id) {
-            if (isset($teaches[(int) $items[$id]->workspace_id])) {
+            $item = $items[$id];
+
+            if (isset($teaches[(int) $item->workspace_id])
+                && $assistants->mayActOnCourse($viewer, (int) $item->workspace_id, (int) $item->course_id)) {
                 $out[$id] = null;
             }
         }
