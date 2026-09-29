@@ -8,6 +8,7 @@ use App\Modules\Community\Contracts\OnlineDirectory;
 use App\Modules\Community\Events\AnnouncementPublished;
 use App\Modules\Community\Events\MessagePosted;
 use App\Modules\Community\Events\PeriodicReviewPublished;
+use App\Modules\Community\Listeners\AddCreatedCourseToAssistantScope;
 use App\Modules\Community\Listeners\CreateAssistantAssignment;
 use App\Modules\Community\Listeners\FanOutAnnouncement;
 use App\Modules\Community\Listeners\NotifyOfflineRecipient;
@@ -32,6 +33,7 @@ use App\Modules\Community\Policies\ReportCardPolicy;
 use App\Modules\Community\Support\CommunityPersonalData;
 use App\Modules\Community\Support\EloquentAssistantScopeDirectory;
 use App\Modules\Community\Support\ReverbOnlineDirectory;
+use App\Modules\Courses\Events\CourseCreated;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -128,6 +130,13 @@ class CommunityServiceProvider extends Module
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
         Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);
+
+        /*
+        | A confined assistant keeps the course they create — synchronous, inside
+        | `CreateCourse`'s transaction, so the next request can edit it.
+        */
+        Event::listen(CourseCreated::class, AddCreatedCourseToAssistantScope::class);
+
         Event::listen(PeriodicReviewPublished::class, NotifyPeriodicReviewPublished::class);
 
         /*
