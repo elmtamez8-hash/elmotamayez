@@ -14,6 +14,8 @@ use App\Modules\Community\Support\TeacherStanding;
 use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
@@ -136,6 +138,18 @@ class ConversationPolicy
 
         if ($conversation->kind->isPublic()) {
             /*
+            | ⛔ EVERY MODERATOR EXEMPTION BELOW ASKS THIS, NEVER THE PERMISSION
+            | ALONE (spec 010 · FR-005). A confined assistant may read a room
+            | outside their courses AS A STUDENT — `publicRoom()` falls through to
+            | the seat when the staff branch refuses on scope — and there they are
+            | a student at every door below: stopped by the lock, by the ejection
+            | and by the per-thread ban, bound by the group membership. The
+            | permission is asked first so a student never pays for the scope read.
+            */
+            $moderatesHere = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && $this->withinStaffScope($user, $conversation)->allowed();
+
+            /*
             | ⚠️ THE LOCK IS READ FOR THE ROOM AND FOR NOBODY ELSE, and the person
             | who set it is exempt. A teacher closes the discussion during an
             | explanation and reopens it for questions; locking themselves out of
@@ -148,8 +162,7 @@ class ConversationPolicy
             | departure above: a lock is a decision somebody made about one room at
             | one moment, and there is nothing else to derive it from.
             */
-            if ($conversation->locked_at !== null
-                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+            if ($conversation->locked_at !== null && ! $moderatesHere) {
                 return Response::deny('أغلق المدرّس النقاش مؤقّتاً. يمكنك القراءة.');
             }
 
@@ -168,7 +181,7 @@ class ConversationPolicy
             | exempt for exactly the reason the lock exempts them.
             */
             if ($conversation->class_session_id !== null
-                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && ! $moderatesHere
                 && $this->seats->wasRemovedFromSession($user, (int) $conversation->class_session_id)) {
                 return Response::deny('أخرجك المدرّس من هذه الحصة، فلا يمكنك الكتابة في نقاشها.');
             }
@@ -185,7 +198,7 @@ class ConversationPolicy
             | be locked out of every group thread they run.
             */
             if ($conversation->cohort_id !== null
-                && ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && ! $moderatesHere
                 && ! $this->cohorts->isCurrentMember($user, (int) $conversation->cohort_id)) {
                 return Response::deny('انتقلت إلى مجموعة أخرى، وهذا النقاش صار للقراءة فقط.');
             }
@@ -201,7 +214,7 @@ class ConversationPolicy
             | The sentence carries the reason AND the time, because a refusal with
             | neither is read as a fault and retried until the ban lapses.
             */
-            if (! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+            if (! $moderatesHere) {
                 $ban = $this->writeBans->activeBan((int) $user->getKey(), (int) $conversation->getKey());
 
                 if ($ban !== null) {
@@ -348,7 +361,63 @@ class ConversationPolicy
             return Response::deny('إدارة النقاش من صلاحيّة المدرّس ومن فوّضه.');
         }
 
-        return Response::allow();
+        // The lock and both write-ban doors, and the moderator's hide of one
+        // message (`ModerateMessage`) — a confined assistant moderates the
+        // rooms of their own courses only.
+        return $this->withinStaffScope($user, $conversation);
+    }
+
+    /**
+     * Spec 010 · FR-005 for the teaching side of a thread: asked BESIDE the
+     * permission, never instead of it, and never on a student's branch.
+     *
+     * A room is asked about the course it hangs off — the session's, the
+     * lesson's or the group's. ⚠️ A ROOM WITH NO COURSE (a course-less session)
+     * IS REFUSED TO A CONFINED ASSISTANT, the answer `ClassSessionPolicy` gives
+     * the session itself. A private thread names no course, so it is asked about
+     * its student — `teacherSide()`'s question.
+     *
+     * A teacher, an owner and an unconfined assistant pass it as a no-op.
+     */
+    private function withinStaffScope(User $user, Conversation $conversation): Response
+    {
+        $workspaceId = (int) $conversation->workspace_id;
+
+        if (! $conversation->kind->isPublic()) {
+            return $this->assistants->mayActOnStudent($user, $workspaceId, (int) $conversation->student_user_id)
+                ? Response::allow()
+                : Response::deny('هذا الطالب خارج نطاق عملك.');
+        }
+
+        return $this->assistants->mayActOnCourse($user, $workspaceId, $this->courseOfRoom($conversation))
+            ? Response::allow()
+            : Response::deny('هذا النقاش خارج نطاق عملك.');
+    }
+
+    /**
+     * The course a room hangs off, read with the workspace scope bypassed — a
+     * scoped read that came back empty would be a `null` course and refuse a
+     * confined assistant their OWN course's room.
+     */
+    private function courseOfRoom(Conversation $conversation): ?int
+    {
+        $courseId = match (true) {
+            $conversation->class_session_id !== null => ClassSession::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->class_session_id)
+                ->value('course_id'),
+            $conversation->lesson_id !== null => Lesson::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->lesson_id)
+                ->value('course_id'),
+            $conversation->cohort_id !== null => Cohort::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->cohort_id)
+                ->value('course_id'),
+            default => null,
+        };
+
+        return $courseId === null ? null : (int) $courseId;
     }
 
     /**
@@ -373,38 +442,101 @@ class ConversationPolicy
      * refusal silenced the ASSISTANT — who holds `chat.reply`, holds no seat of
      * their own, and is exactly the person watching the room while the teacher
      * talks.
+     *
+     * ⛔ AND THE ASSISTANT SCOPE (spec 010 · FR-005): a confined assistant who
+     * reads a far room through a seat of their own is a student there, and a
+     * student writes into a session room only from a seat.
      */
     private function runsTheRoom(User $user, Conversation $conversation): bool
     {
-        if ($user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
-            return true;
-        }
+        $staff = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+            || ($user->workspaces()->withoutGlobalScopes()
+                ->whereKey((int) $conversation->workspace_id)->exists()
+                && $user->hasPermissionTo(Permissions::CHAT_REPLY));
 
-        return $user->workspaces()->withoutGlobalScopes()
-            ->whereKey((int) $conversation->workspace_id)->exists()
-            && $user->hasPermissionTo(Permissions::CHAT_REPLY);
+        return $staff && $this->withinStaffScope($user, $conversation)->allowed();
     }
 
-    private function publicRoom(User $user, Conversation $conversation): Response
+    /**
+     * Is this person on the TEACHING side of this thread — not merely a reader?
+     *
+     * ⚠️ NOT `view()`. Since a confined assistant may read a room outside their
+     * courses through a student entitlement of their own (a seat, an enrolment,
+     * a group), «may read» no longer implies «reads as staff». A staff power —
+     * `MessagePolicy::markHelpful`, which pays a student points — asks THIS.
+     *
+     * A room: membership, `chat.reply` and the scope. A private thread:
+     * `teacherSide()`, the same three.
+     */
+    public function staffSide(User $user, Conversation $conversation): Response
     {
-        $workspaceId = (int) $conversation->workspace_id;
+        if (! $conversation->kind->isPublic()) {
+            return $this->teacherSide($user, $conversation);
+        }
 
+        return $this->roomStaffSide($user, $conversation)
+            ?? Response::deny('لا تملك صلاحيّة الردّ في هذا النقاش.');
+    }
+
+    /**
+     * The room's teaching side: `null` when the person is not staff of this
+     * workspace at all, otherwise the scope's verdict.
+     */
+    private function roomStaffSide(User $user, Conversation $conversation): ?Response
+    {
         /*
-        | The teacher's side — membership AND `chat.reply`, both.
+        | Membership AND `chat.reply`, both.
         |
         | ⚠️ MEMBERSHIP ALONE IS NOT THE TEACHER'S SIDE, and reading it that way
         | opens every room to every student. A student is a member of no workspace
         | in production — which is exactly what makes the mistake invisible there
         | and visible in a fixture, where `addWorkspaceMember()` attaches one. The
         | permission is what actually separates the two sides, here as in the
-        | private branch below.
+        | private branch.
         */
-        if ($user->workspaces()->withoutGlobalScopes()->whereKey($workspaceId)->exists()
-            && $user->hasPermissionTo(Permissions::CHAT_REPLY)
+        if (! $user->workspaces()->withoutGlobalScopes()->whereKey((int) $conversation->workspace_id)->exists()
+            || ! $user->hasPermissionTo(Permissions::CHAT_REPLY)
         ) {
-            return Response::allow();
+            return null;
         }
 
+        return $this->withinStaffScope($user, $conversation);
+    }
+
+    private function publicRoom(User $user, Conversation $conversation): Response
+    {
+        $staff = $this->roomStaffSide($user, $conversation);
+
+        if ($staff?->allowed()) {
+            return $staff;
+        }
+
+        /*
+        | ⛔ THE ASSISTANT SCOPE (spec 010 · FR-005), AND A SCOPE REFUSAL FALLS
+        | THROUGH TO THE STUDENT'S DOORS (owner decision 2026-09-29). Until that
+        | day a confined assistant holding `chat.reply` read, and wrote into, the
+        | room of every session, lesson and group in the workspace — while
+        | `ClassSessionPolicy` refused them the far session itself. The first fix
+        | RETURNED the refusal, which also took away a room they had a STUDENT'S
+        | right to: an assistant who booked a seat in another teacher's-course
+        | session, or is enrolled in that course, or sits in that group.
+        |
+        | Falling through is safe because the branches below grant a STUDENT'S
+        | read and nothing more. Every staff power asks the scope on its own and
+        | never asks `view()`: `moderate()` (lock · write-bans · the moderator's
+        | hide) ends in `withinStaffScope()`, «مفيدة» asks `staffSide()`, and
+        | `post()`'s moderator exemptions and seat rule ask `$moderatesHere` /
+        | `runsTheRoom()`, both scoped. Somebody with no student entitlement is
+        | still refused — told the staff reason, which is the true one.
+        */
+        $student = $this->studentRoom($user, $conversation);
+
+        return $student->denied() && $staff !== null ? $staff : $student;
+    }
+
+    /** A student's entitlement to read a room: the seat, the enrolment, the group. */
+    private function studentRoom(User $user, Conversation $conversation): Response
+    {
         if ($conversation->class_session_id !== null) {
             /*
             | ٠٣٥ · FR-008 · R10 — THE SEAT **OR** THE OPENED HOUR, AND READING

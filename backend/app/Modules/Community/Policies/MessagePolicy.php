@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Community\Policies;
 
 use App\Models\User;
+use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * What may be done to one message.
@@ -57,6 +59,24 @@ class MessagePolicy
             return Response::deny('اعتماد الإجابات من صلاحيّة المدرّس ومن فوّضه.');
         }
 
-        return Response::allow();
+        /*
+        | ⛔ AND THE THREAD'S TEACHING SIDE, which carries the assistant scope
+        | (spec 010 · FR-005): an endorsement pays points to a student, and a
+        | confined assistant is not the one to pay the students of a course they
+        | do not work on.
+        |
+        | ⚠️ `staffSide`, NEVER `view`. A confined assistant may READ a far room
+        | through a seat or an enrolment of their own — as a student — so «may
+        | read» is no longer «reads as staff», and asking `view()` here would
+        | hand them «مفيدة» in exactly the room the scope refuses them.
+        */
+        $conversation = Conversation::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($message->conversation_id)
+            ->first();
+
+        return $conversation instanceof Conversation
+            ? Gate::forUser($user)->inspect('staffSide', $conversation)
+            : Response::deny('لم نجد هذه الرسالة.');
     }
 }
