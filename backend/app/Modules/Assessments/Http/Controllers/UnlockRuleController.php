@@ -10,6 +10,7 @@ use App\Modules\Assessments\Actions\GrantUnlockExemption;
 use App\Modules\Assessments\Models\UnlockExemption;
 use App\Modules\Assessments\Models\UnlockRule;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Support\WorkspaceRules;
 use DomainException;
@@ -31,9 +32,28 @@ class UnlockRuleController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        abort_unless($this->currentUser($request)->can(Permissions::UNLOCK_RULES_MANAGE), 403);
+        $user = $this->currentUser($request);
 
-        $rules = UnlockRule::query()->orderBy('course_id')->get();
+        abort_unless($user->can(Permissions::UNLOCK_RULES_MANAGE), 403);
+
+        /*
+        | ⛔ A CONFINED ASSISTANT READS THE OVERRIDES OF THEIR OWN COURSES (spec
+        | 010 · FR-005) — and the default beside them, because the screen exists
+        | to show which default an override replaces. `null` is «not confined»;
+        | the directory never answers `[]`.
+        */
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $scoped = $workspaceId === null
+            ? null
+            : app(AssistantScopeDirectory::class)->scopedCourseIdsFor($user, $workspaceId);
+
+        $rules = UnlockRule::query()
+            ->when($scoped !== null, fn ($query) => $query->whereIn(
+                'course_id',
+                [...($scoped ?? []), UnlockRule::DEFAULT_SCOPE],
+            ))
+            ->orderBy('course_id')
+            ->get();
 
         // ⚠️ ONE LOOKUP FOR THE WHOLE LIST. Resolving the course inside the
         // presenter is two queries per row — small here and the same shape that
@@ -92,6 +112,19 @@ class UnlockRuleController extends Controller
         */
         abort_if($courseId === UnlockRule::DEFAULT_SCOPE && ($validated['course_uuid'] ?? null) !== null, 404);
 
+        /*
+        | ⛔ THE ASSISTANT SCOPE, BESIDE THE PERMISSION (spec 010 · FR-005). A
+        | course rule is asked about its course; the DEFAULT governs every course
+        | in the workspace, so it is asked as «no course» — which a confined
+        | assistant is refused and everybody else passes.
+        */
+        $this->abortOutsideAssistantScope(
+            $request,
+            $workspaceId,
+            $courseId === UnlockRule::DEFAULT_SCOPE ? null : $courseId,
+            'هذا الكورس خارج نطاق عملك.',
+        );
+
         $rule = UnlockRule::updateOrCreate(
             [
                 'workspace_id' => $workspaceId,
@@ -138,12 +171,7 @@ class UnlockRuleController extends Controller
             return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
         }
 
-        $sessionId = DB::table('class_sessions')
-            ->where('workspace_id', $workspaceId)
-            ->where('uuid', $sessionUuid)
-            ->value('id');
-
-        abort_if($sessionId === null, 404);
+        $sessionId = $this->sessionInScope($request, $workspaceId, $sessionUuid);
 
         $rows = UnlockExemption::query()
             ->where('workspace_id', $workspaceId)
@@ -196,15 +224,7 @@ class UnlockRuleController extends Controller
             'reason' => ['required', 'string', 'min:3', 'max:500'],
         ]);
 
-        // Read without importing a LiveSessions model: Assessments owns the
-        // exemption, not the session, and Constitution III forbids reaching into
-        // another module's models.
-        $sessionId = DB::table('class_sessions')
-            ->where('workspace_id', $workspaceId)
-            ->where('uuid', $sessionUuid)
-            ->value('id');
-
-        abort_if($sessionId === null, 404);
+        $sessionId = $this->sessionInScope($request, $workspaceId, $sessionUuid);
 
         $student = User::query()->where('uuid', $validated['student_uuid'])->first();
 
@@ -213,7 +233,7 @@ class UnlockRuleController extends Controller
         try {
             $exemption = $action->handle(
                 $workspaceId,
-                (int) $sessionId,
+                $sessionId,
                 $this->currentUser($request),
                 $student,
                 $validated['reason'],
@@ -223,6 +243,46 @@ class UnlockRuleController extends Controller
         }
 
         return response()->json(['data' => ['uuid' => $exemption->uuid]], 201);
+    }
+
+    /**
+     * The session's id — 404 when this workspace has no such session, 403 when
+     * it lies outside a confined assistant's courses (spec 010 · FR-005).
+     *
+     * Read without importing a LiveSessions model: Assessments owns the
+     * exemption, not the session, and Constitution III forbids reaching into
+     * another module's models.
+     *
+     * ⚠️ A SESSION WITH NO COURSE IS REFUSED TO A CONFINED ASSISTANT — the answer
+     * `ClassSessionPolicy` gives the same row. A null course is never «inside».
+     */
+    private function sessionInScope(Request $request, int $workspaceId, string $sessionUuid): int
+    {
+        $session = DB::table('class_sessions')
+            ->where('workspace_id', $workspaceId)
+            ->where('uuid', $sessionUuid)
+            ->first(['id', 'course_id']);
+
+        abort_if($session === null, 404);
+
+        $this->abortOutsideAssistantScope(
+            $request,
+            $workspaceId,
+            $session->course_id === null ? null : (int) $session->course_id,
+            'هذه الحصّة خارج نطاق عملك.',
+        );
+
+        return (int) $session->id;
+    }
+
+    /** Asked BESIDE `unlock.rules.manage`, never instead of it. */
+    private function abortOutsideAssistantScope(Request $request, int $workspaceId, ?int $courseId, string $message): void
+    {
+        abort_unless(
+            app(AssistantScopeDirectory::class)->mayActOnCourse($this->currentUser($request), $workspaceId, $courseId),
+            403,
+            $message,
+        );
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Modules\Community\Actions;
 use App\Models\User;
 use App\Modules\Community\Data\ModerationActionData;
 use App\Modules\Community\Enums\ModerationVerdict;
+use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Community\Models\ModerationAction;
 use App\Shared\Actions\Action;
@@ -36,6 +37,27 @@ class ModerateMessage extends Action
         // the SUBJECT lives in — never about whichever one the moderator's
         // context happens to be pointing at.
         Gate::forUser($actor)->authorize('moderate', [ModerationAction::class, $workspaceId]);
+
+        /*
+        | ⛔ A MESSAGE IS ALSO ASKED ABOUT ITS THREAD (spec 010 · FR-005): the
+        | workspace-shaped check above let a confined assistant hide a line in the
+        | room of any session, lesson or group in the workspace. `moderate` on the
+        | conversation is the one spelling of «may you moderate this room» — the
+        | lock and the write-bans ask it too. A PERSON (the workspace ban) has no
+        | thread and stays workspace-shaped.
+        */
+        if ($data->subjectType === ModerationAction::SUBJECT_MESSAGE) {
+            $conversation = Conversation::query()
+                ->withoutWorkspaceScope()
+                ->whereKey(Message::query()->withoutWorkspaceScope()->whereKey($subjectId)->value('conversation_id'))
+                ->first();
+
+            if (! $conversation instanceof Conversation) {
+                throw new ModelNotFoundException('لم نجد هذه الرسالة.');
+            }
+
+            Gate::forUser($actor)->authorize('moderate', $conversation);
+        }
 
         $action = ModerationAction::query()->create([
             'workspace_id' => $workspaceId,

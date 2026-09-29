@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Community\Policies;
 
 use App\Models\User;
+use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * What may be done to one message.
@@ -57,6 +59,20 @@ class MessagePolicy
             return Response::deny('اعتماد الإجابات من صلاحيّة المدرّس ومن فوّضه.');
         }
 
-        return Response::allow();
+        /*
+        | ⛔ AND THE THREAD'S OWN READ, which carries the assistant scope (spec
+        | 010 · FR-005): an endorsement pays points to a student, and a confined
+        | assistant is not the one to pay the students of a course they do not
+        | work on. `view()` is asked rather than restated — for a member holding
+        | `chat.reply` its answer IS the teaching side's, scope included.
+        */
+        $conversation = Conversation::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($message->conversation_id)
+            ->first();
+
+        return $conversation instanceof Conversation
+            ? Gate::forUser($user)->inspect('view', $conversation)
+            : Response::deny('لم نجد هذه الرسالة.');
     }
 }

@@ -14,6 +14,8 @@ use App\Modules\Community\Support\TeacherStanding;
 use App\Modules\Community\Support\WriteBanReader;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Identity\Support\PlatformRole;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
@@ -348,7 +350,63 @@ class ConversationPolicy
             return Response::deny('إدارة النقاش من صلاحيّة المدرّس ومن فوّضه.');
         }
 
-        return Response::allow();
+        // The lock and both write-ban doors, and the moderator's hide of one
+        // message (`ModerateMessage`) — a confined assistant moderates the
+        // rooms of their own courses only.
+        return $this->withinStaffScope($user, $conversation);
+    }
+
+    /**
+     * Spec 010 · FR-005 for the teaching side of a thread: asked BESIDE the
+     * permission, never instead of it, and never on a student's branch.
+     *
+     * A room is asked about the course it hangs off — the session's, the
+     * lesson's or the group's. ⚠️ A ROOM WITH NO COURSE (a course-less session)
+     * IS REFUSED TO A CONFINED ASSISTANT, the answer `ClassSessionPolicy` gives
+     * the session itself. A private thread names no course, so it is asked about
+     * its student — `teacherSide()`'s question.
+     *
+     * A teacher, an owner and an unconfined assistant pass it as a no-op.
+     */
+    private function withinStaffScope(User $user, Conversation $conversation): Response
+    {
+        $workspaceId = (int) $conversation->workspace_id;
+
+        if (! $conversation->kind->isPublic()) {
+            return $this->assistants->mayActOnStudent($user, $workspaceId, (int) $conversation->student_user_id)
+                ? Response::allow()
+                : Response::deny('هذا الطالب خارج نطاق عملك.');
+        }
+
+        return $this->assistants->mayActOnCourse($user, $workspaceId, $this->courseOfRoom($conversation))
+            ? Response::allow()
+            : Response::deny('هذا النقاش خارج نطاق عملك.');
+    }
+
+    /**
+     * The course a room hangs off, read with the workspace scope bypassed — a
+     * scoped read that came back empty would be a `null` course and refuse a
+     * confined assistant their OWN course's room.
+     */
+    private function courseOfRoom(Conversation $conversation): ?int
+    {
+        $courseId = match (true) {
+            $conversation->class_session_id !== null => ClassSession::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->class_session_id)
+                ->value('course_id'),
+            $conversation->lesson_id !== null => Lesson::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->lesson_id)
+                ->value('course_id'),
+            $conversation->cohort_id !== null => Cohort::query()
+                ->withoutWorkspaceScope()
+                ->whereKey($conversation->cohort_id)
+                ->value('course_id'),
+            default => null,
+        };
+
+        return $courseId === null ? null : (int) $courseId;
     }
 
     /**
@@ -402,7 +460,15 @@ class ConversationPolicy
         if ($user->workspaces()->withoutGlobalScopes()->whereKey($workspaceId)->exists()
             && $user->hasPermissionTo(Permissions::CHAT_REPLY)
         ) {
-            return Response::allow();
+            /*
+            | ⛔ AND THE ASSISTANT SCOPE (spec 010 · FR-005). Until 2026-09-29 a
+            | confined assistant holding `chat.reply` read, and wrote into, the
+            | room of every session, lesson and group in the workspace — while
+            | `ClassSessionPolicy` refused them the far session itself. The
+            | refusal is RETURNED, never fallen through: the student branch below
+            | is not a door staff reach by losing this one.
+            */
+            return $this->withinStaffScope($user, $conversation);
         }
 
         if ($conversation->class_session_id !== null) {
