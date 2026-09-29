@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Tenancy\Support\Permissions;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -48,7 +48,15 @@ class WorkspaceTeacherController extends Controller
         | other route in every module authorises inside its controller. That was
         | not a style preference; it is the only thing that works.
         */
-        $this->authorize('create', ClassSession::class);
+        /*
+        | ⚠️ THE PERMISSION, NOT THE `create` ABILITY. `create` became a course
+        | question (a confined assistant may schedule only for their own courses,
+        | and «no course» is outside every confinement), so asking it with no
+        | course refused a confined assistant this list — the calendar's teacher
+        | filter vanished for them. Who may read the academy's teachers never
+        | depended on a course.
+        */
+        abort_unless(request()->user()?->can(Permissions::SESSIONS_MANAGE) === true, 403);
 
         $teachers = TeacherProfile::query()
             ->with('user:id,first_name,last_name')

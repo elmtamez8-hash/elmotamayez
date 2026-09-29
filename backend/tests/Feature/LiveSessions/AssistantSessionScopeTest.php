@@ -325,3 +325,18 @@ it('leaves a student\'s seat, join and heartbeat in a far course untouched by th
     $this->postJson("/api/v1/class-sessions/{$this->farSession->uuid}/presence")->assertOk();
     $this->getJson("/api/v1/class-sessions/{$this->farSession->uuid}")->assertOk();
 });
+
+it('still reads the academy teachers for the calendar filter when confined', function (): void {
+    confineSessionAssistantTo($this->near);
+    Sanctum::actingAs($this->assistant);
+
+    // `create` with no course is refused to a confined assistant; this list
+    // never depended on a course, so it must not ride on that ability.
+    $this->getJson('/api/v1/manage/teachers')->assertOk();
+
+    $this->assistant->revokePermissionTo(Permissions::SESSIONS_MANAGE);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $this->assistant->unsetRelation('permissions');
+
+    $this->getJson('/api/v1/manage/teachers')->assertForbidden();
+});
