@@ -66,6 +66,8 @@ import {
   IconDiscountOff,
   IconFeather,
   IconFileText,
+  IconPencil,
+  IconSend,
   IconFlask,
   IconHome,
   IconHourglass,
@@ -182,6 +184,10 @@ export const InfoIcon = wrap(IconInfoCircle, "h-4 w-4");
 export const UserPlusIcon = wrap(IconUserPlus, "h-4 w-4");
 export const AcademicCapIcon = wrap(IconSchool, "h-4 w-4");
 export const DocumentIcon = wrap(IconFileText, "h-4 w-4");
+/** Change a record in place — the row action «عدّل». */
+export const EditIcon = wrap(IconPencil, "h-4 w-4");
+/** Send a draft to its readers — «انشره» on homework, a notice, an article. */
+export const PublishIcon = wrap(IconSend, "h-4 w-4");
 
 // ٠٣٥ — أيقونةٌ لكلِّ نوعِ عنصرٍ في المنهج. تُقرأُ مع تسميةِ النوعِ لا بدلاً منها:
 // النوعُ مكتوبٌ بالكلمات في كلِّ صفّ، والأيقونةُ تأكيدٌ يُمسَحُ بالعين.

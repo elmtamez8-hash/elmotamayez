@@ -6,6 +6,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
+import { SectionHeading } from "@/components/ui/SectionHeading";
+import { EditIcon, SparkIcon } from "@/components/icons";
 import { fieldErrors } from "@/lib/api";
 import { assignments, type Assignment, type AssignmentInput } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
@@ -129,7 +131,13 @@ export function AssignmentForm({
 
   return (
     <Card as="section">
-      <h2 className="mb-4 font-medium text-ink">{editing === null ? "واجب جديد" : "تعديل الواجب"}</h2>
+      <div className="mb-4">
+        <SectionHeading
+          id="assignment-editor"
+          Icon={editing === null ? SparkIcon : EditIcon}
+          title={editing === null ? "واجب جديد" : "تعديل الواجب"}
+        />
+      </div>
 
       <div className="space-y-4">
         <TextField

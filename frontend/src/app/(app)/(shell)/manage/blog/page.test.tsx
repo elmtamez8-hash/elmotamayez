@@ -68,6 +68,29 @@ describe("ManageBlogPage", () => {
     expect(screen.getByRole("button", { name: "مقال جديد" })).toBeTruthy();
   });
 
+  it("narrows the list by status", async () => {
+    blog.list.mockResolvedValue({
+      data: [article(), article({ uuid: "a-2", title: "مسوّدة الأسبوع", status: "draft", published_at: null })],
+    });
+
+    render(<ManageBlogPage />);
+
+    await screen.findByText("خطة المراجعة");
+    await userEvent.click(screen.getByRole("button", { name: "المسوّدات" }));
+
+    expect(screen.queryByText("خطة المراجعة")).toBeNull();
+    expect(screen.getByText("مسوّدة الأسبوع")).toBeTruthy();
+  });
+
+  it("keeps the header and says so in place when the list cannot be read", async () => {
+    blog.list.mockRejectedValue(new Error("Failed to fetch"));
+
+    render(<ManageBlogPage />);
+
+    expect(await screen.findByRole("button", { name: "مقال جديد" })).toBeTruthy();
+    expect(screen.queryByText("Failed to fetch")).toBeNull();
+  });
+
   it("leaves the publishing fields open for a teacher who holds cms.publish", async () => {
     render(<ManageBlogPage />);
 

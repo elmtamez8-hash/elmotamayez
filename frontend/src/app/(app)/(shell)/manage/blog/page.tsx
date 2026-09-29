@@ -20,6 +20,15 @@ import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatDate } from "@/lib/labels";
 import { P, can } from "@/lib/permissions";
+import { FilterBar } from "@/components/ui/FilterBar";
+import { RecordList, RecordRow } from "@/components/ui/RecordList";
+import { EditIcon, ListIcon, SearchIcon } from "@/components/icons";
+import { counted } from "@/lib/labels";
+
+/** «١٢ مقالاً» — the contract's own example form; not in `NOUNS` yet. */
+const POSTS = { one: "مقال واحد", two: "مقالان", few: "مقالات", many: "مقالاً", other: "مقال" };
+
+type StatusFilter = "all" | "published" | "draft";
 
 /**
  * مدوّنةُ المدرّس — قائمةُ مقالاتِه ومحرّرُها.
@@ -83,7 +92,9 @@ export default function ManageBlogPage() {
   const mayCreate = can(user, P.cmsCreate);
 
   const [rows, setRows] = useState<ManagedArticle[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [editing, setEditing] = useState<ManagedArticle | "new" | null>(null);
   const [form, setForm] = useState<ArticleInput>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -97,6 +108,7 @@ export default function ManageBlogPage() {
     try {
       const res = await blog.list();
       setRows(res.data);
+      setTotal(typeof res.meta?.total === "number" ? res.meta.total : null);
       setState("ready");
     } catch {
       setState("error");
@@ -170,10 +182,10 @@ export default function ManageBlogPage() {
     }
   }
 
-  if (state === "error") return <ErrorState onRetry={load} />;
+  const shown = rows.filter((article) => status === "all" || article.status === status);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         Icon={DocumentIcon}
         title="المدوّنة"
@@ -191,11 +203,11 @@ export default function ManageBlogPage() {
       />
 
       {editing !== null ? (
-        <Card>
+        <Card as="section">
           <div className="mb-4">
             <SectionHeading
               id="article-editor"
-              Icon={DocumentIcon}
+              Icon={editing === "new" ? SparkIcon : EditIcon}
               title={editing === "new" ? "مقال جديد" : "تعديل المقال"}
             />
           </div>
@@ -240,6 +252,8 @@ export default function ManageBlogPage() {
               hint="يُكتب بصيغة Markdown. الوسم الخام يُزال عند العرض، فلا تضع HTML."
             />
 
+            {/* Publishing: the state and its date, side by side from 640px. */}
+            <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
               id="article-status"
               label="الحالة"
@@ -266,6 +280,17 @@ export default function ManageBlogPage() {
               error={fields.published_at}
               hint="تاريخ في المستقبل يُبقي المقال خارج المدوّنة حتّى يحين."
             />
+            </div>
+
+            {/* Search-engine fields are optional and read last: a hairline and
+                their own heading set them apart from what the reader sees. */}
+            <div className="space-y-4 border-t border-line pt-4">
+            <SectionHeading
+              id="article-seo"
+              level={4}
+              Icon={SearchIcon}
+              title="الظهور في محرّكات البحث"
+            />
 
             <TextField
               id="article-seo-title"
@@ -291,6 +316,7 @@ export default function ManageBlogPage() {
               error={fields.canonical_url}
               hint="اتركه فارغاً إلّا إن كان المقال منشوراً في مكان آخر أصلاً."
             />
+            </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -322,42 +348,122 @@ export default function ManageBlogPage() {
         </Card>
       ) : null}
 
-      {state === "loading" ? (
-        <RowsSkeleton />
-      ) : rows.length === 0 ? (
-        <EmptyState
-          title="لا مقالات بعد"
-          description="أوّل مقال تنشره يظهر على صفحتك العامّة، وتُخبَر محرّكات البحث به."
+      <section aria-labelledby="article-list" className="space-y-4">
+        <SectionHeading
+          id="article-list"
+          Icon={ListIcon}
+          title="مقالاتك"
+          description={
+            state === "ready" && total !== null && total > 0 ? counted(total, POSTS) : undefined
+          }
         />
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((article) => (
-            <li key={article.uuid}>
-              <Card as="article" interactive>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-ink">{article.title}</h3>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-ink-muted">
-                      <ScheduleIcon className="h-3.5 w-3.5" />
-                      {article.status === "published" && article.published_at
-                        ? formatDate(article.published_at)
-                        : "لم يُنشر بعد"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge tone={article.status === "published" ? "success" : "neutral"}>
-                      {article.status === "published" ? "منشور" : "مسوّدة"}
-                    </Badge>
-                    <Button variant="ghost" onClick={() => open(article)}>
-                      عدّل
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && (
+          <ErrorState
+            onRetry={() => {
+              setState("loading");
+              void load();
+            }}
+          />
+        )}
+
+        {state === "ready" && rows.length === 0 && (
+          <EmptyState
+            Icon={DocumentIcon}
+            title="لا مقالات بعد"
+            description="أوّل مقال تنشره يظهر على صفحتك العامّة، وتُخبَر محرّكات البحث به."
+            action={
+              editing === null && mayCreate ? (
+                <Button variant="secondary" iconStart={<SparkIcon />} onClick={() => open("new")}>
+                  اكتب أوّل مقال
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {state === "ready" && rows.length > 0 && (
+          <>
+            {/*
+              Chips without counts, and no search box: the list is paginated
+              (15 a page) and the server takes no filter, so a count or a match
+              computed here would describe page one and read as the whole blog.
+            */}
+            <FilterBar
+              filters={{
+                label: "حالة المقال",
+                value: status,
+                onChange: (key) => setStatus(key as StatusFilter),
+                options: [
+                  { key: "all", label: "الكل" },
+                  { key: "published", label: "المنشورة" },
+                  { key: "draft", label: "المسوّدات" },
+                ],
+              }}
+            />
+
+            {shown.length === 0 ? (
+              <EmptyState
+                title={status === "draft" ? "لا مسوّدات هنا" : "لا مقالات منشورة هنا"}
+                description="لا مقال بهذه الحالة بين المعروض الآن."
+                action={
+                  <Button variant="secondary" onClick={() => setStatus("all")}>
+                    عرض الكل
+                  </Button>
+                }
+              />
+            ) : (
+              <RecordList labelledBy="article-list">
+                {shown.map((article) => {
+                  const published = article.status === "published";
+
+                  return (
+                    <RecordRow
+                      key={article.uuid}
+                      level={4}
+                      Icon={DocumentIcon}
+                      tone={published ? "info" : "neutral"}
+                      title={article.title}
+                      status={
+                        <Badge tone={published ? "success" : "neutral"}>
+                          {published ? "منشور" : "مسوّدة"}
+                        </Badge>
+                      }
+                      description={
+                        article.excerpt !== null && article.excerpt !== "" ? article.excerpt : undefined
+                      }
+                      meta={[
+                        {
+                          key: "date",
+                          label: "تاريخ النشر",
+                          labelHidden: true,
+                          Icon: ScheduleIcon,
+                          value:
+                            published && article.published_at
+                              ? formatDate(article.published_at)
+                              : "لم يُنشر بعد",
+                        },
+                      ]}
+                      actions={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          iconStart={<EditIcon />}
+                          onClick={() => open(article)}
+                        >
+                          عدّل
+                        </Button>
+                      }
+                    />
+                  );
+                })}
+              </RecordList>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }
