@@ -305,7 +305,11 @@ function AssistantCard({
             {!row.is_confined
               ? scopeSummary(row)
               : row.courses.length === 0
-                ? "مقصور على كورسات حُذفت، فلا يصل الآن إلى أيّ كورس"
+                ? `مقصور على ${counted(row.unavailable_courses_count ?? 0, {
+                    ...DELETED_COURSES,
+                    zero: "كورسات حُذفت",
+                    two: "كورسين حُذفا",
+                  })}، فلا يصل الآن إلى أيّ كورس`
                 : `مقصور على ${counted(row.courses.length, { ...NOUNS.courses, two: "كورسين" })}`}
           </p>
 

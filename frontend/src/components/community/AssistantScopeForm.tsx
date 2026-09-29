@@ -7,6 +7,7 @@ import { SearchIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import type { AssistantAssignment, AssistantCourse } from "@/lib/assistants";
 import { counted, NOUNS } from "@/lib/labels";
 
@@ -75,13 +76,29 @@ export function AssistantScopeForm({
 
   const searchId = `${baseId}-search`;
 
+  const confinedToDeletedOnly = assignment.is_confined && assignment.courses.length === 0;
+  // Saving nothing over a live confinement lifts it to EVERY course — the one
+  // save on this form that widens access, so it asks twice rather than once.
+  const widens = assignment.is_confined && selected.length === 0;
+
   return (
     <div className="space-y-3">
-      {selected.length === 0 && (
-        <Alert tone="info" title="بلا تقييد">
-          لم تختر أيّ كورس، فيعمل هذا المساعد على <strong>كلّ</strong> كورساتك. اختر كورساً أو
-          أكثر لتقصره عليها.
+      {/* ⚠️ «بلا تقييد» is what an EMPTY SET MEANS, which is not always what the
+          assistant HAS. Confined only to courses since deleted, nothing is ticked
+          while the assistant reaches nothing at all — saying «every course» there
+          invited the one save that widens them to the whole workspace. */}
+      {selected.length === 0 && confinedToDeletedOnly ? (
+        <Alert tone="warning" title="مقصور على كورسات حُذفت">
+          لا يصل هذا المساعد الآن إلى أيّ كورس. اختر كورساً أو أكثر لتقصره عليها، أو احفظ بلا
+          كورس لترفع التقييد فيعمل على <strong>كلّ</strong> كورساتك.
         </Alert>
+      ) : (
+        selected.length === 0 && (
+          <Alert tone="info" title="بلا تقييد">
+            لم تختر أيّ كورس، فيعمل هذا المساعد على <strong>كلّ</strong> كورساتك. اختر كورساً أو
+            أكثر لتقصره عليها.
+          </Alert>
+        )
       )}
 
       {courses.length >= SEARCH_FROM && (
@@ -106,6 +123,9 @@ export function AssistantScopeForm({
       <form
         onSubmit={(event) => {
           event.preventDefault();
+          // The widening save goes through the two-press control only; an
+          // implicit submit must never reach it in one step.
+          if (widens) return;
           onSave(selected);
         }}
         className="space-y-3"
@@ -180,9 +200,20 @@ export function AssistantScopeForm({
           )}
         </fieldset>
 
-        <Button type="submit" disabled={busy}>
-          حفظ النطاق
-        </Button>
+        {widens ? (
+          <ConfirmButton
+            variant="secondary"
+            disabled={busy}
+            confirmLabel="اضغط مجدداً ليعمل على كلّ الكورسات"
+            onConfirm={() => onSave([])}
+          >
+            رفع التقييد
+          </ConfirmButton>
+        ) : (
+          <Button type="submit" disabled={busy}>
+            حفظ النطاق
+          </Button>
+        )}
       </form>
     </div>
   );

@@ -195,7 +195,7 @@ describe("AssistantsPage", () => {
 
     await open();
 
-    expect(screen.getByText("مقصور على كورسات حُذفت، فلا يصل الآن إلى أيّ كورس")).toBeDefined();
+    expect(screen.getByText("مقصور على كورس واحد حُذف، فلا يصل الآن إلى أيّ كورس")).toBeDefined();
     expect(screen.queryByText("كل الكورسات")).toBeNull();
   });
 });

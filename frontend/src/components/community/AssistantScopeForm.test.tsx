@@ -91,9 +91,41 @@ describe("AssistantScopeForm", () => {
     // teacher is told what they are about to do rather than after.
     expect(screen.getByText("بلا تقييد")).toBeDefined();
 
-    await userEvent.click(screen.getByRole("button", { name: "حفظ النطاق" }));
+    // Lifting a live confinement widens access to every course, so it arms
+    // first: one press is a question, not a save.
+    await userEvent.click(screen.getByRole("button", { name: "رفع التقييد" }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "اضغط مجدداً ليعمل على كلّ الكورسات" }));
 
     expect(onSave).toHaveBeenCalledWith([]);
+  });
+
+  it("never tells an assistant confined to deleted courses that they work on everything", async () => {
+    const onSave = vi.fn();
+
+    render(
+      <AssistantScopeForm
+        assignment={assignment({ is_confined: true, courses: [], unavailable_courses_count: 1 })}
+        courses={COURSES}
+        onSave={onSave}
+      />,
+    );
+
+    expect(screen.getByText("مقصور على كورسات حُذفت")).toBeDefined();
+    expect(screen.queryByText("بلا تقييد")).toBeNull();
+    // No plain save exists here: nothing ticked over a live confinement is the
+    // widening write, and it takes two presses.
+    expect(screen.queryByRole("button", { name: "حفظ النطاق" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "رفع التقييد" }));
+    expect(onSave).not.toHaveBeenCalled();
+
+    // Ticking a course turns it back into an ordinary re-confining save.
+    await userEvent.click(screen.getByRole("checkbox", { name: "الفيزياء" }));
+    await userEvent.click(screen.getByRole("button", { name: "حفظ النطاق" }));
+
+    expect(onSave).toHaveBeenCalledWith(["course-b"]);
   });
 
   it("names each checkbox by its title and describes it by status and teacher", () => {
