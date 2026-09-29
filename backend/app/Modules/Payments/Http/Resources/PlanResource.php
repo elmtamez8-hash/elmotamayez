@@ -9,7 +9,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One plan, on the buyer's screen and on the teacher's.
+ * One plan, on the BUYER's screen (`/billing/plans`).
+ *
+ * ⛔ NOT THE TEACHER'S. `/manage/plans` answers with `ManagedPlanResource`,
+ * which drops the price (owner decision 2026-09-29) — do not point the teacher's
+ * controller back at this class.
  *
  * ⚠️ THE PRICE IS SENT, AND THAT IS NOT A BREACH OF THE RULE THAT KEEPS MONEY
  * OFF BOTH SCREENS. That rule exists because a credit package's total is
@@ -19,8 +23,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * nothing, and the buyer plainly has to see what they are being asked for.
  *
  * ⚠️ `null` MEANS UNPRICED AND NEVER ZERO. The catalogue filters those out
- * before they reach a student; the teacher's own list keeps them, because «هذه
- * الباقة تنتظر تسعير المنصّة» is the whole reason nobody can buy it.
+ * before they reach a student.
  *
  * `workspace_id` is deliberately absent — the raw tenant key never travels.
  *

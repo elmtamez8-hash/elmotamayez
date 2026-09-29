@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\CMS\Filament\Resources;
 
 use App\Filament\NavigationGroups;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Filament\Resources\CmsArticleResource\Pages;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Models\Workspace;
@@ -217,8 +218,8 @@ class CmsArticleResource extends Resource
                     */
                     Select::make('status')
                         ->label('الحالة')
-                        ->options(['draft' => 'مسوّدة', 'published' => 'منشور'])
-                        ->default('draft')
+                        ->options(ArticleStatus::options())
+                        ->default(ArticleStatus::Draft->value)
                         ->required()
                         ->disabled(fn (): bool => ! self::canPublish())
                         ->helperText(fn (): ?string => self::canPublish()
@@ -362,8 +363,9 @@ class CmsArticleResource extends Resource
                 TextColumn::make('status')
                     ->label('الحالة')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => $state === 'published' ? 'منشور' : 'مسوّدة')
-                    ->color(fn (string $state): string => $state === 'published' ? 'success' : 'gray'),
+                    // The cast hands the column an `ArticleStatus`, never a string.
+                    ->formatStateUsing(fn (ArticleStatus $state): string => $state->label())
+                    ->color(fn (ArticleStatus $state): string => $state === ArticleStatus::Published ? 'success' : 'gray'),
                 TextColumn::make('published_at')->label('تاريخ النشر')->dateTime()->sortable()
                     ->placeholder('—'),
                 TextColumn::make('category.name')->label('التصنيف')->placeholder('—')->toggleable(),
@@ -371,7 +373,7 @@ class CmsArticleResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('الحالة')
-                    ->options(['draft' => 'مسوّدة', 'published' => 'منشور']),
+                    ->options(ArticleStatus::options()),
             ])
             ->recordActions([EditAction::make()]);
     }

@@ -72,8 +72,9 @@ const SESSIONS_PLAN = {
   coverage_type: "course" as const,
   coverage_label: "كورس واحد",
   coverage_uuid: "course-1",
-  price_minor: 60_000,
-  currency: "QAR",
+  // ⛔ No `price_minor` / `currency`: `/manage/plans` does not send them to a
+  // teacher (owner decision 2026-09-29) — only whether a price is set.
+  is_priced: true,
   is_active: true,
   is_sellable: true,
 };
@@ -85,7 +86,7 @@ const UNPRICED_PLAN = {
   title: "الشهري",
   duration_days: 30,
   session_count: null,
-  price_minor: null,
+  is_priced: false,
   is_sellable: false,
 };
 
@@ -271,6 +272,22 @@ describe("a long list of plans", () => {
     await open([UNPRICED_PLAN]);
 
     expect(screen.queryByRole("group", { name: "حالة الباقة" })).toBeNull();
+  });
+});
+
+describe("the platform's price", () => {
+  it("is not shown on a priced plan's row, which still says it is priced", async () => {
+    await open([SESSIONS_PLAN, UNPRICED_PLAN]);
+
+    // No «السعر» meta on any row, and no money on the screen.
+    expect(screen.queryByText("السعر")).toBeNull();
+    expect(screen.queryByText(/QAR|ر\.ق|ريال/)).toBeNull();
+
+    // `is_priced` still drives the two things the price used to: the badge on
+    // the unpriced row only, and «edit» versus «ask for a change».
+    expect(screen.getAllByText("تنتظر تسعير المنصّة")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "اطلب تعديلاً" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "تعديل" })).toBeTruthy();
   });
 });
 

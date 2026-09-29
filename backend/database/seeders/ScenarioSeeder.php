@@ -17,6 +17,7 @@ use App\Modules\Assessments\Models\ExamItem;
 use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Models\UnlockRule;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use App\Modules\CMS\Models\Category;
 use App\Modules\CMS\Models\Tag;
@@ -884,7 +885,7 @@ final class ScenarioSeeder extends Seeder
             'workspace_id' => $workspace->id,
             'title' => 'Autumn schedule', 'slug' => 'autumn-schedule',
             'body' => 'New slots open on Sundays and Wednesdays.',
-            'status' => 'published', 'published_at' => now()->subDay(),
+            'status' => ArticleStatus::Published, 'published_at' => now()->subDay(),
             'author_id' => $owner->id,
         ]);
     }
@@ -1316,7 +1317,7 @@ final class ScenarioSeeder extends Seeder
             'slug' => 'laravel-mastery-open',
             'body' => 'Our flagship backend track is live, with six lessons and a final exam.',
             'excerpt' => 'The flagship backend track is live.',
-            'status' => 'published', 'published_at' => now()->subDays(2),
+            'status' => ArticleStatus::Published, 'published_at' => now()->subDays(2),
             'author_id' => $author->id, 'category_id' => $news->id,
             'seo_title' => 'Laravel Mastery — enroll today',
             'seo_description' => 'A production-focused Laravel course with a graded final exam and certificate.',
@@ -1329,7 +1330,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'How to study for the final exam',
             'slug' => 'how-to-study',
             'body' => 'Draft — outline only.',
-            'status' => 'draft',
+            'status' => ArticleStatus::Draft,
             'author_id' => $author->id, 'category_id' => $news->id,
         ]);
 
@@ -1338,7 +1339,7 @@ final class ScenarioSeeder extends Seeder
             'title' => 'Winter cohort dates',
             'slug' => 'winter-cohort-dates',
             'body' => 'Registration opens next month.',
-            'status' => 'published', 'published_at' => now()->addWeek(),
+            'status' => ArticleStatus::Published, 'published_at' => now()->addWeek(),
             'author_id' => $author->id,
         ]);
         $scheduled->tags()->sync([$tags->reverse()->firstOrFail()->id]);

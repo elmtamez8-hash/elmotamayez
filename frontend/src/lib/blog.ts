@@ -37,13 +37,36 @@ export interface ArticleInput {
   canonical_url?: string | null;
 }
 
+/**
+ * One page of the teacher's articles. `meta.counts` is per status over the whole
+ * search — not the page and not the chosen status — so both chips keep a number.
+ */
+export interface ManagedArticlePage {
+  data: ManagedArticle[];
+  meta?: {
+    total?: number;
+    current_page?: number;
+    last_page?: number;
+    counts?: Record<ArticleStatus, number>;
+  };
+}
+
 export const blog = {
   /**
    * ⚠️ الردُّ مغلَّفٌ بـ`{data, links, meta}` لا مصفوفةً عارية. الخلفيّةُ تُصيِّرُ
    * الصفحةَ بـ`->response()->getData(true)`، وأيُّ قارئٍ يفهرسُ المستوى الأعلى
    * ينكسر.
    */
-  list: () => api.get<{ data: ManagedArticle[]; meta?: { total?: number } }>("/manage/articles"),
+  list: (params: { page?: number; q?: string; status?: ArticleStatus } = {}) => {
+    const query = new URLSearchParams({ page: String(params.page ?? 1) });
+
+    // Search and status are applied on the SERVER, 15 a page: a filter run here
+    // would only ever see the page already loaded.
+    if (params.q !== undefined && params.q.trim() !== "") query.set("q", params.q.trim());
+    if (params.status !== undefined) query.set("status", params.status);
+
+    return api.get<ManagedArticlePage>(`/manage/articles?${query.toString()}`);
+  },
 
   create: (input: ArticleInput) => api.post<{ data: ManagedArticle }>("/manage/articles", input),
 

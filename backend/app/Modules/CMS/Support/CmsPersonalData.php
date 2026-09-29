@@ -66,7 +66,7 @@ class CmsPersonalData implements PersonalDataOwner
                 // Their own words. An export of authorship that omitted what was
                 // authored would be a list of titles, not a copy of the content.
                 'body' => $article->body,
-                'status' => $article->status,
+                'status' => $article->status->value,
                 'published_at' => ExportWalk::at($article->published_at),
             ],
             size: 200,

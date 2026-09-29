@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +16,9 @@ import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { useAuth } from "@/lib/auth-context";
-import { blog, type ArticleInput, type ManagedArticle } from "@/lib/blog";
+import { blog, type ArticleInput, type ArticleStatus, type ManagedArticle } from "@/lib/blog";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { usePagedList } from "@/lib/use-paged-list";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDate } from "@/lib/labels";
@@ -90,10 +92,9 @@ export default function ManageBlogPage() {
   const mayDelete = can(user, P.cmsDelete);
   const mayCreate = can(user, P.cmsCreate);
 
-  const [rows, setRows] = useState<ManagedArticle[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [query, setQuery] = useState("");
+  const searched = useDebouncedValue(query);
   const [editing, setEditing] = useState<ManagedArticle | "new" | null>(null);
   const [form, setForm] = useState<ArticleInput>(EMPTY);
   const [busy, setBusy] = useState(false);
@@ -103,20 +104,19 @@ export default function ManageBlogPage() {
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    try {
-      const res = await blog.list();
-      setRows(res.data);
-      setTotal(typeof res.meta?.total === "number" ? res.meta.total : null);
-      setState("ready");
-    } catch {
-      setState("error");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  /*
+   * Paged, searched and filtered on the SERVER (15 a page). The fetcher is
+   * rebuilt when the settled search or the chip changes, and that restarts the
+   * list from page one.
+   */
+  const fetchPage = useCallback(
+    (page: number) =>
+      blog.list({ page, q: searched, status: status === "all" ? undefined : status }),
+    [searched, status],
+  );
+  const list = usePagedList<ManagedArticle, Record<ArticleStatus, number>>(fetchPage);
+  const { rows, state, total, counts } = list;
+  const load = list.reload;
 
   function open(article: ManagedArticle | "new") {
     setEditing(article);
@@ -181,7 +181,16 @@ export default function ManageBlogPage() {
     }
   }
 
-  const shown = rows.filter((article) => status === "all" || article.status === status);
+  // Every figure here is the server's: `counts` spans the whole search, and
+  // «الكل» is their sum — never `rows.length`, which is only what is loaded.
+  const drafts = counts?.draft;
+  const published = counts?.published;
+  const everything = drafts !== undefined && published !== undefined ? drafts + published : undefined;
+  const filtering = searched.trim() !== "" || status !== "all";
+  const clearFilters = () => {
+    setQuery("");
+    setStatus("all");
+  };
 
   return (
     <div className="space-y-8">
@@ -357,22 +366,44 @@ export default function ManageBlogPage() {
           Icon={ListIcon}
           title="مقالاتك"
           description={
-            state === "ready" && total !== null && total > 0 ? counted(total, POSTS) : undefined
+            everything !== undefined && everything > 0 ? counted(everything, POSTS) : undefined
           }
         />
 
-        {state === "loading" && <RowsSkeleton count={3} />}
-
-        {state === "error" && (
-          <ErrorState
-            onRetry={() => {
-              setState("loading");
-              void load();
+        {/*
+          Search and chips are the SERVER's: the list is paged at 15, so a match
+          or a count computed here would describe page one and read as the whole
+          blog. The bar stays mounted once anything has loaded — a search that
+          empties the list must still be clearable.
+        */}
+        {list.settled && (rows.length > 0 || filtering) && (
+          <FilterBar
+            search={{
+              id: "article-search",
+              label: "ابحث في مقالاتك",
+              value: query,
+              onChange: setQuery,
+              placeholder: "عنوان المقال",
             }}
+            filters={{
+              label: "حالة المقال",
+              value: status,
+              onChange: (key) => setStatus(key as StatusFilter),
+              options: [
+                { key: "all", label: "الكل", count: everything },
+                { key: "published", label: "المنشورة", count: published },
+                { key: "draft", label: "المسوّدات", count: drafts },
+              ],
+            }}
+            summary={state === "ready" && total !== null ? counted(total, POSTS) : undefined}
           />
         )}
 
-        {state === "ready" && rows.length === 0 && (
+        {state === "loading" && <RowsSkeleton count={3} />}
+
+        {state === "error" && <ErrorState onRetry={() => void load()} />}
+
+        {state === "ready" && rows.length === 0 && !filtering && (
           <EmptyState
             Icon={DocumentIcon}
             title="لا مقالات بعد"
@@ -387,84 +418,79 @@ export default function ManageBlogPage() {
           />
         )}
 
+        {state === "ready" && rows.length === 0 && filtering && (
+          <EmptyState
+            title="لا مقال يطابق"
+            description="لا مقال بهذا البحث أو بهذه الحالة. امسح البحث لترى مقالاتك كلّها."
+            action={
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                مسح البحث
+              </Button>
+            }
+          />
+        )}
+
         {state === "ready" && rows.length > 0 && (
-          <>
-            {/*
-              Chips without counts, and no search box: the list is paginated
-              (15 a page) and the server takes no filter, so a count or a match
-              computed here would describe page one and read as the whole blog.
-            */}
-            <FilterBar
-              filters={{
-                label: "حالة المقال",
-                value: status,
-                onChange: (key) => setStatus(key as StatusFilter),
-                options: [
-                  { key: "all", label: "الكل" },
-                  { key: "published", label: "المنشورة" },
-                  { key: "draft", label: "المسوّدات" },
-                ],
-              }}
-            />
+          <RecordList labelledBy="article-list">
+            {rows.map((article) => {
+              const isPublished = article.status === "published";
 
-            {shown.length === 0 ? (
-              <EmptyState
-                title={status === "draft" ? "لا مسوّدات هنا" : "لا مقالات منشورة هنا"}
-                description="لا مقال بهذه الحالة بين المعروض الآن."
-                action={
-                  <Button variant="secondary" size="sm" onClick={() => setStatus("all")}>
-                    عرض الكل
-                  </Button>
-                }
-              />
-            ) : (
-              <RecordList labelledBy="article-list">
-                {shown.map((article) => {
-                  const published = article.status === "published";
+              return (
+                <RecordRow
+                  key={article.uuid}
+                  level={4}
+                  Icon={DocumentIcon}
+                  tone={isPublished ? "info" : "neutral"}
+                  title={article.title}
+                  status={
+                    <Badge tone={isPublished ? "success" : "neutral"}>
+                      {isPublished ? "منشور" : "مسوّدة"}
+                    </Badge>
+                  }
+                  description={
+                    article.excerpt !== null && article.excerpt !== "" ? article.excerpt : undefined
+                  }
+                  meta={[
+                    {
+                      key: "date",
+                      label: "تاريخ النشر",
+                      labelHidden: true,
+                      Icon: ScheduleIcon,
+                      value:
+                        isPublished && article.published_at
+                          ? formatDate(article.published_at)
+                          : "لم يُنشر بعد",
+                    },
+                  ]}
+                  actions={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      iconStart={<EditIcon />}
+                      onClick={() => open(article)}
+                    >
+                      عدّل
+                    </Button>
+                  }
+                />
+              );
+            })}
+          </RecordList>
+        )}
 
-                  return (
-                    <RecordRow
-                      key={article.uuid}
-                      level={4}
-                      Icon={DocumentIcon}
-                      tone={published ? "info" : "neutral"}
-                      title={article.title}
-                      status={
-                        <Badge tone={published ? "success" : "neutral"}>
-                          {published ? "منشور" : "مسوّدة"}
-                        </Badge>
-                      }
-                      description={
-                        article.excerpt !== null && article.excerpt !== "" ? article.excerpt : undefined
-                      }
-                      meta={[
-                        {
-                          key: "date",
-                          label: "تاريخ النشر",
-                          labelHidden: true,
-                          Icon: ScheduleIcon,
-                          value:
-                            published && article.published_at
-                              ? formatDate(article.published_at)
-                              : "لم يُنشر بعد",
-                        },
-                      ]}
-                      actions={
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          iconStart={<EditIcon />}
-                          onClick={() => open(article)}
-                        >
-                          عدّل
-                        </Button>
-                      }
-                    />
-                  );
-                })}
-              </RecordList>
-            )}
-          </>
+        {list.moreFailed && <Alert tone="danger" title="تعذّر تحميل المزيد. حاول مرّة أخرى." />}
+
+        {state === "ready" && list.hasMore && (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              loading={list.loadingMore}
+              loadingLabel="جارٍ التحميل…"
+              onClick={() => void list.loadMore()}
+            >
+              عرض المزيد
+            </Button>
+          </div>
         )}
       </section>
     </div>

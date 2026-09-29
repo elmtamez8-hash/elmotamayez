@@ -32,6 +32,8 @@ import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { assignments, stateLabel, type Assignment, type Submission } from "@/lib/assignments";
 import { counted, formatDateTime, NOUNS } from "@/lib/labels";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { usePagedList } from "@/lib/use-paged-list";
 import type { Course } from "@/lib/types";
 
 import { AssignmentForm } from "./AssignmentForm";
@@ -50,16 +52,16 @@ type StatusFilter = "all" | "published" | "draft";
  * Laid out on the staff kit (`docs/design/manage-pages.md`): one `RecordRow` per
  * assignment, its marking panel as the row's own children.
  *
- * ⚠️ NO `StatStrip` AND NO COUNTS ON THE CHIPS. The list is paginated (30 a page)
- * and the server sends no per-status totals, so any figure summed here would be
- * «page one», presented as the whole. The heading's count is `meta.total` — the
- * one number the server does know — and the chips narrow what is on screen.
+ * ⚠️ EVERY NUMBER AND EVERY FILTER IS THE SERVER'S. The list is paginated (30 a
+ * page), so the search and the chips are sent as `q` and `status`, the chip
+ * counts are `meta.counts` and the summary is `meta.total` — a figure summed or
+ * a match run here would be «page one», presented as the whole. «عرض المزيد»
+ * reaches the rest.
  */
 export default function ManageAssignmentsPage() {
-  const [items, setItems] = useState<Assignment[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [query, setQuery] = useState("");
+  const searched = useDebouncedValue(query);
   const [open, setOpen] = useState<string | null>(null);
   // `"new"`, the assignment being edited, or nothing — one form on the page.
   const [editing, setEditing] = useState<Assignment | "new" | null>(null);
@@ -69,20 +71,19 @@ export default function ManageAssignmentsPage() {
   // away and the teacher watched the button do nothing.
   const [publishError, setPublishError] = useState<{ uuid: string; message: string } | null>(null);
 
-  const load = useCallback(() => {
-    setState("loading");
-
-    assignments
-      .list()
-      .then((response) => {
-        setItems(response.data ?? []);
-        setTotal(typeof response.meta?.total === "number" ? response.meta.total : null);
-        setState("ready");
-      })
-      .catch(() => setState("error"));
-  }, []);
-
-  useEffect(load, [load]);
+  /*
+   * Paged, searched and filtered on the SERVER (30 a page). A confined
+   * assistant's list is already narrowed to their own courses there, and so are
+   * the counts.
+   */
+  const fetchPage = useCallback(
+    (page: number) =>
+      assignments.list({ page, q: searched, status: status === "all" ? undefined : status }),
+    [searched, status],
+  );
+  const list = usePagedList<Assignment, Record<Assignment["status"], number>>(fetchPage);
+  const { rows: items, state, total, counts } = list;
+  const load = () => void list.reload();
 
   // The course picker. A failure leaves it empty, which still offers «كل طلابي»
   // — the form stays usable rather than blocked on a list.
@@ -107,13 +108,17 @@ export default function ManageAssignmentsPage() {
     load();
   };
 
-  const shown = items.filter((assignment) =>
-    status === "all"
-      ? true
-      : status === "published"
-        ? assignment.status === "published"
-        : assignment.status !== "published",
-  );
+  // Every figure is the server's: `counts` spans the whole search, «الكل» is
+  // their sum — never `items.length`, which is only what is loaded so far.
+  const drafts = counts?.draft;
+  const publishedCount = counts?.published;
+  const everything =
+    drafts !== undefined && publishedCount !== undefined ? drafts + publishedCount : undefined;
+  const filtering = searched.trim() !== "" || status !== "all";
+  const clearFilters = () => {
+    setQuery("");
+    setStatus("all");
+  };
 
   return (
     <div className="space-y-8">
@@ -146,17 +151,48 @@ export default function ManageAssignmentsPage() {
           Icon={ListIcon}
           title="واجباتك"
           description={
-            state === "ready" && total !== null && total > 0
-              ? counted(total, NOUNS.assignments)
+            everything !== undefined && everything > 0
+              ? counted(everything, NOUNS.assignments)
               : undefined
           }
         />
+
+        {/*
+          Search and chips are the SERVER's (30 a page): a match or a count
+          computed here would describe page one and read as the whole list. The
+          bar stays mounted once anything has loaded, so a search that empties
+          the list can still be cleared.
+        */}
+        {list.settled && (items.length > 0 || filtering) && (
+          <FilterBar
+            search={{
+              id: "assignment-search",
+              label: "ابحث في واجباتك",
+              value: query,
+              onChange: setQuery,
+              placeholder: "عنوان الواجب",
+            }}
+            filters={{
+              label: "حالة الواجب",
+              value: status,
+              onChange: (key) => setStatus(key as StatusFilter),
+              options: [
+                { key: "all", label: "الكل", count: everything },
+                { key: "published", label: "المنشورة", count: publishedCount },
+                { key: "draft", label: "المسوّدات", count: drafts },
+              ],
+            }}
+            summary={
+              state === "ready" && total !== null ? counted(total, NOUNS.assignments) : undefined
+            }
+          />
+        )}
 
         {state === "loading" && <RowsSkeleton count={3} />}
 
         {state === "error" && <ErrorState onRetry={load} />}
 
-        {state === "ready" && items.length === 0 && (
+        {state === "ready" && items.length === 0 && !filtering && (
           <EmptyState
             Icon={AssignmentIcon}
             title="لا واجبات بعد"
@@ -164,139 +200,139 @@ export default function ManageAssignmentsPage() {
           />
         )}
 
+        {state === "ready" && items.length === 0 && filtering && (
+          <EmptyState
+            title="لا واجب يطابق"
+            description="لا واجب بهذا البحث أو بهذه الحالة. امسح البحث لترى واجباتك كلّها."
+            action={
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                مسح البحث
+              </Button>
+            }
+          />
+        )}
+
         {state === "ready" && items.length > 0 && (
-          <>
-            <FilterBar
-              filters={{
-                label: "حالة الواجب",
-                value: status,
-                onChange: (key) => setStatus(key as StatusFilter),
-                options: [
-                  { key: "all", label: "الكل" },
-                  { key: "published", label: "المنشورة" },
-                  { key: "draft", label: "المسوّدات" },
-                ],
-              }}
-            />
+          <RecordList labelledBy="assignment-list">
+            {items.map((assignment) => {
+              const isOpen = open === assignment.uuid;
+              const regionId = `submissions-${assignment.uuid}`;
+              const refusal =
+                publishError !== null && publishError.uuid === assignment.uuid
+                  ? publishError.message
+                  : null;
+              const published = assignment.status === "published";
 
-            {shown.length === 0 ? (
-              <EmptyState
-                title={status === "draft" ? "لا مسوّدات هنا" : "لا واجبات منشورة هنا"}
-                description="لا واجب بهذه الحالة بين المعروض الآن."
-                action={
-                  <Button variant="secondary" size="sm" onClick={() => setStatus("all")}>
-                    عرض الكل
-                  </Button>
-                }
-              />
-            ) : (
-              <RecordList labelledBy="assignment-list">
-                {shown.map((assignment) => {
-                  const isOpen = open === assignment.uuid;
-                  const regionId = `submissions-${assignment.uuid}`;
-                  const refusal =
-                    publishError !== null && publishError.uuid === assignment.uuid
-                      ? publishError.message
-                      : null;
-                  const published = assignment.status === "published";
-
-                  return (
-                    <RecordRow
-                      key={assignment.uuid}
-                      level={4}
-                      Icon={AssignmentIcon}
-                      tone={published ? "info" : "neutral"}
-                      title={assignment.title}
-                      status={
-                        <Badge tone={published ? "success" : "neutral"}>
-                          {published ? "منشور" : "مسوّدة"}
-                        </Badge>
-                      }
-                      /* After «من» the dual is «درجتين», and 3–10 is «درجات» — «من 10 درجة» shipped. */
-                      description={`من ${counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}`}
-                      meta={[
-                        ...(assignment.due_at !== null
-                          ? [
-                              {
-                                key: "due",
-                                label: "الموعد",
-                                Icon: ScheduleIcon,
-                                value: formatDateTime(assignment.due_at),
-                              },
-                            ]
-                          : []),
-                        {
-                          key: "submitted",
-                          label: "سلّم",
-                          Icon: UsersIcon,
-                          value: arabicNumber(assignment.submitted_count ?? 0),
-                        },
-                        {
-                          key: "pending",
-                          label: "ينتظر التصحيح",
-                          Icon: ClockIcon,
-                          value: arabicNumber(assignment.pending_count ?? 0),
-                        },
-                      ]}
-                      actions={
-                        <>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setOpen(isOpen ? null : assignment.uuid)}
-                            expanded={isOpen}
-                            controls={regionId}
-                            iconStart={<GradingIcon className="h-4 w-4" />}
-                            iconEnd={
-                              <span
-                                className={`inline-flex transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                              >
-                                <ChevronDownIcon className="h-4 w-4" />
-                              </span>
-                            }
+              return (
+                <RecordRow
+                  key={assignment.uuid}
+                  level={4}
+                  Icon={AssignmentIcon}
+                  tone={published ? "info" : "neutral"}
+                  title={assignment.title}
+                  status={
+                    <Badge tone={published ? "success" : "neutral"}>
+                      {published ? "منشور" : "مسوّدة"}
+                    </Badge>
+                  }
+                  /* After «من» the dual is «درجتين», and 3–10 is «درجات» — «من 10 درجة» shipped. */
+                  description={`من ${counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}`}
+                  meta={[
+                    ...(assignment.due_at !== null
+                      ? [
+                          {
+                            key: "due",
+                            label: "الموعد",
+                            Icon: ScheduleIcon,
+                            value: formatDateTime(assignment.due_at),
+                          },
+                        ]
+                      : []),
+                    {
+                      key: "submitted",
+                      label: "سلّم",
+                      Icon: UsersIcon,
+                      value: arabicNumber(assignment.submitted_count ?? 0),
+                    },
+                    {
+                      key: "pending",
+                      label: "ينتظر التصحيح",
+                      Icon: ClockIcon,
+                      value: arabicNumber(assignment.pending_count ?? 0),
+                    },
+                  ]}
+                  actions={
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setOpen(isOpen ? null : assignment.uuid)}
+                        expanded={isOpen}
+                        controls={regionId}
+                        iconStart={<GradingIcon className="h-4 w-4" />}
+                        iconEnd={
+                          <span
+                            className={`inline-flex transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                           >
-                            {isOpen ? "أخفِ التسليمات" : "التسليمات"}
-                          </Button>
-                          {!published && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              iconStart={<PublishIcon />}
-                              onClick={() => publish(assignment.uuid)}
-                            >
-                              انشره
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            iconStart={<EditIcon />}
-                            onClick={() => setEditing(assignment)}
-                          >
-                            عدّل
-                          </Button>
-                        </>
-                      }
-                    >
-                      {refusal !== null || isOpen ? (
-                        <div className="space-y-3">
-                          {refusal !== null && <Alert tone="danger" title={refusal} />}
-                          {isOpen && (
-                            <div id={regionId} className="banner-rise">
-                              <SubmissionList
-                                assignmentUuid={assignment.uuid}
-                                points={assignment.points}
-                              />
-                            </div>
-                          )}
+                            <ChevronDownIcon className="h-4 w-4" />
+                          </span>
+                        }
+                      >
+                        {isOpen ? "أخفِ التسليمات" : "التسليمات"}
+                      </Button>
+                      {!published && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          iconStart={<PublishIcon />}
+                          onClick={() => publish(assignment.uuid)}
+                        >
+                          انشره
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        iconStart={<EditIcon />}
+                        onClick={() => setEditing(assignment)}
+                      >
+                        عدّل
+                      </Button>
+                    </>
+                  }
+                >
+                  {refusal !== null || isOpen ? (
+                    <div className="space-y-3">
+                      {refusal !== null && <Alert tone="danger" title={refusal} />}
+                      {isOpen && (
+                        <div id={regionId} className="banner-rise">
+                          <SubmissionList
+                            assignmentUuid={assignment.uuid}
+                            points={assignment.points}
+                          />
                         </div>
-                      ) : undefined}
-                    </RecordRow>
-                  );
-                })}
-              </RecordList>
-            )}
-          </>
+                      )}
+                    </div>
+                  ) : undefined}
+                </RecordRow>
+              );
+            })}
+          </RecordList>
+        )}
+
+        {list.moreFailed && <Alert tone="danger" title="تعذّر تحميل المزيد. حاول مرّة أخرى." />}
+
+        {state === "ready" && list.hasMore && (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              loading={list.loadingMore}
+              loadingLabel="جارٍ التحميل…"
+              onClick={() => void list.loadMore()}
+            >
+              عرض المزيد
+            </Button>
+          </div>
         )}
       </section>
     </div>

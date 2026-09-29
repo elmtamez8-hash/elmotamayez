@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
@@ -104,7 +105,7 @@ it('refuses an assistant who takes a published article back down', function (): 
         'status' => 'draft',
     ])->assertForbidden();
 
-    expect($article->fresh()->status)->toBe('published');
+    expect($article->fresh()->status)->toBe(ArticleStatus::Published);
 });
 
 it('refuses an assistant who moves the date of a live article', function (): void {
@@ -143,7 +144,7 @@ it('lets an assistant edit the text of a published article', function (): void {
     ])->assertOk();
 
     expect($article->fresh()->title)->toBe('خطة المراجعة النهائية')
-        ->and($article->fresh()->status)->toBe('published');
+        ->and($article->fresh()->status)->toBe(ArticleStatus::Published);
 });
 
 it('lets an assistant edit a published article while echoing its status and date back', function (): void {

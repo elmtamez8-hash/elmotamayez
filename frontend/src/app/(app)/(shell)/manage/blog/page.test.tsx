@@ -102,18 +102,76 @@ describe("ManageBlogPage", () => {
     expect(screen.getByRole("button", { name: "مقال جديد" })).toBeTruthy();
   });
 
-  it("narrows the list by status", async () => {
-    blog.list.mockResolvedValue({
-      data: [article(), article({ uuid: "a-2", title: "مسوّدة الأسبوع", status: "draft", published_at: null })],
+  /*
+   * ⛔ THE LIST IS PAGED AT 15, SO THE CHIPS AND THE SEARCH ASK THE SERVER. They
+   * used to narrow page one in the browser — the sixteenth article could not be
+   * reached, and a chip said «no drafts» about a blog full of them.
+   */
+  function serveBlog() {
+    const all = [
+      article(),
+      article({ uuid: "a-2", title: "مسوّدة الأسبوع", status: "draft", published_at: null }),
+    ];
+
+    blog.list.mockImplementation(async (params: { page?: number; q?: string; status?: string } = {}) => {
+      const matching = all.filter(
+        (row) => (!params.status || row.status === params.status) && (!params.q || row.title.includes(params.q)),
+      );
+      const page = params.page ?? 1;
+      const perPage = !params.status && !params.q ? 1 : 15;
+
+      return {
+        data: matching.slice((page - 1) * perPage, page * perPage),
+        meta: {
+          total: matching.length,
+          current_page: page,
+          last_page: Math.max(1, Math.ceil(matching.length / perPage)),
+          counts: { draft: 1, published: 1 },
+        },
+      };
     });
+  }
+
+  it("narrows the list by status on the server, with the server's counts on the chips", async () => {
+    serveBlog();
 
     render(<ManageBlogPage />);
 
     await screen.findByText("خطة المراجعة");
-    await userEvent.click(screen.getByRole("button", { name: "المسوّدات" }));
+    expect(screen.getByRole("button", { name: "الكل ٢" })).toBeTruthy();
 
+    await userEvent.click(screen.getByRole("button", { name: "المسوّدات ١" }));
+
+    expect(blog.list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, status: "draft" }));
+    expect(await screen.findByText("مسوّدة الأسبوع")).toBeTruthy();
     expect(screen.queryByText("خطة المراجعة")).toBeNull();
-    expect(screen.getByText("مسوّدة الأسبوع")).toBeTruthy();
+  });
+
+  it("searches on the server once the typing stops", async () => {
+    serveBlog();
+
+    render(<ManageBlogPage />);
+
+    await userEvent.type(await screen.findByLabelText("ابحث في مقالاتك"), "مسوّدة");
+
+    await waitFor(() =>
+      expect(blog.list).toHaveBeenLastCalledWith(expect.objectContaining({ q: "مسوّدة" })),
+    );
+    expect(await screen.findByText("مسوّدة الأسبوع")).toBeTruthy();
+    // One request for the settled text, not one per keystroke.
+    expect(blog.list.mock.calls.filter(([params]) => (params?.q ?? "") !== "")).toHaveLength(1);
+  });
+
+  it("reaches the rest of the blog with «عرض المزيد»", async () => {
+    serveBlog();
+
+    render(<ManageBlogPage />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "عرض المزيد" }));
+
+    expect(blog.list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+    expect(await screen.findByText("مسوّدة الأسبوع")).toBeTruthy();
+    expect(screen.getByText("خطة المراجعة")).toBeTruthy();
   });
 
   it("keeps the header and says so in place when the list cannot be read", async () => {

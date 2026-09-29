@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\CMS\Actions;
 
 use App\Models\User;
+use App\Modules\CMS\Enums\ArticleStatus;
 use App\Modules\CMS\Models\Article;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
@@ -61,9 +62,9 @@ class SaveArticle extends Action
         | to its author and invisible to the public blog, with nothing on any
         | screen to say so.
         */
-        $status = $data['status'] ?? ($article === null ? 'draft' : $article->status);
+        $status = self::statusIn($data) ?? ($article === null ? ArticleStatus::Draft : $article->status);
 
-        if ($status === 'published') {
+        if ($status === ArticleStatus::Published) {
             $data['published_at'] ??= $article === null ? now() : ($article->published_at ?? now());
         }
 
@@ -120,11 +121,10 @@ class SaveArticle extends Action
      */
     private function guardPublishFields(User $actor, array $data, ?Article $article): void
     {
-        $current = $article === null ? 'draft' : $article->status;
+        $current = $article === null ? ArticleStatus::Draft : $article->status;
+        $requested = self::statusIn($data);
 
-        $movesStatus = array_key_exists('status', $data)
-            && $data['status'] !== null
-            && $data['status'] !== $current;
+        $movesStatus = $requested !== null && $requested !== $current;
 
         $movesDate = array_key_exists('published_at', $data) && $data['published_at'] !== null;
 
@@ -137,5 +137,25 @@ class SaveArticle extends Action
         if (($movesStatus || $movesDate) && ! $actor->can(Permissions::CMS_PUBLISH)) {
             throw new AuthorizationException('ليست لديك صلاحيةُ نشرِ المقالات.');
         }
+    }
+
+    /**
+     * The status this write asks for, or null when it asks for none.
+     *
+     * ⚠️ BOTH SPELLINGS ARRIVE: the API's validated string and, from a panel page,
+     * whatever the form hands over. Compared as a string, a case would never equal
+     * the stored status and every save would read as a publish.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function statusIn(array $data): ?ArticleStatus
+    {
+        $value = $data['status'] ?? null;
+
+        if ($value instanceof ArticleStatus) {
+            return $value;
+        }
+
+        return is_string($value) ? ArticleStatus::tryFrom($value) : null;
     }
 }

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ManageAssignmentsPage from "./page";
@@ -18,7 +18,7 @@ const openFile = vi.fn();
 vi.mock("@/lib/assignments", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/assignments")>()),
   assignments: {
-    list: () => list(),
+    list: (params?: unknown) => list(params),
     submissions: (uuid: string) => submissions(uuid),
     grade: (...args: unknown[]) => grade(...args),
     openFile: (...args: unknown[]) => openFile(...args),
@@ -181,24 +181,104 @@ describe("the assignment row", () => {
   });
 });
 
-describe("the status chips", () => {
-  it("narrow the list, and a chip with no match offers the way back", async () => {
+/*
+| ⛔ THE LIST IS PAGED AT 30, SO EVERY FILTER AND EVERY COUNT IS THE SERVER'S.
+| The chips used to narrow page one in the browser and the search did not exist;
+| a teacher with a term of homework could not reach assignment thirty-one.
+*/
+const ROW = {
+  uuid: "as-1",
+  title: "واجب الفصل الثالث",
+  points: 10,
+  due_at: null,
+  status: "published",
+  submitted_count: 1,
+  pending_count: 1,
+};
+
+type ListParams = { page?: number; q?: string; status?: string };
+
+/** A fake server: one published row on page one, one draft on page two. */
+function serveTwoPages() {
+  list.mockImplementation(async (params: ListParams = {}) => {
+    const all = [ROW, { ...ROW, uuid: "as-2", title: "واجب المسوّدة", status: "draft" }];
+    const matching = all.filter(
+      (row) =>
+        (!params.status || row.status === params.status) && (!params.q || row.title.includes(params.q)),
+    );
+    const page = params.page ?? 1;
+    const perPage = !params.status && !params.q ? 1 : 30;
+
+    return {
+      data: matching.slice((page - 1) * perPage, page * perPage),
+      meta: {
+        total: matching.length,
+        current_page: page,
+        last_page: Math.max(1, Math.ceil(matching.length / perPage)),
+        counts: { draft: 1, published: 1 },
+      },
+    };
+  });
+}
+
+describe("the staff list, paged and filtered on the server", () => {
+  it("sends the chip to the server and shows the server's counts", async () => {
+    serveTwoPages();
+
+    await act(async () => {
+      render(<ManageAssignmentsPage />);
+    });
+
+    // «الكل ٢» is the sum of the server's counts, not the one row on screen.
+    expect(await screen.findByRole("button", { name: "الكل ٢" })).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "المسوّدات ١" }));
+    });
+
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, status: "draft" }));
+    expect(await screen.findByText("واجب المسوّدة")).toBeTruthy();
+    expect(screen.queryByText("واجب الفصل الثالث")).toBeNull();
+  });
+
+  it("searches on the server after the typing stops, and a search with no match can be cleared", async () => {
+    serveTwoPages();
+
+    await act(async () => {
+      render(<ManageAssignmentsPage />);
+    });
+
+    fireEvent.change(await screen.findByLabelText("ابحث في واجباتك"), { target: { value: "غير موجود" } });
+
+    await waitFor(() =>
+      expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ q: "غير موجود" })),
+    );
+    expect(await screen.findByText("لا واجب يطابق")).toBeTruthy();
+
+    await act(async () => {
+      // The empty state's action (by its visible text): the search box's own ✕
+      // shares the accessible name but clears the text alone.
+      fireEvent.click(screen.getByText("مسح البحث", { selector: "button" }));
+    });
+
+    expect(await screen.findByText("واجب الفصل الثالث")).toBeTruthy();
+    expect((screen.getByLabelText("ابحث في واجباتك") as HTMLInputElement).value).toBe("");
+  });
+
+  it("reaches the next page with «عرض المزيد», appended under the first", async () => {
+    serveTwoPages();
+
     await act(async () => {
       render(<ManageAssignmentsPage />);
     });
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "المسوّدات" }));
+      fireEvent.click(await screen.findByRole("button", { name: "عرض المزيد" }));
     });
 
-    // The one assignment is published: the draft chip empties the list …
-    expect(screen.queryByText("واجب الفصل الثالث")).toBeNull();
-
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "عرض الكل" }));
-    });
-
-    // … and «عرض الكل» brings it back.
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+    expect(await screen.findByText("واجب المسوّدة")).toBeTruthy();
     expect(screen.getByText("واجب الفصل الثالث")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "عرض المزيد" })).toBeNull();
   });
 });

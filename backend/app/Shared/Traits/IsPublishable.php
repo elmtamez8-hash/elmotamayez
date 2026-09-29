@@ -16,7 +16,10 @@ trait IsPublishable
 {
     public function isPublished(): bool
     {
-        if ($this->status !== 'published') {
+        // The RAW attribute, never the cast one: a model may cast `status` to a
+        // backed enum (`Article` does), and an enum never equals the string. The
+        // raw value is the column's own spelling for every model using this.
+        if (($this->getAttributes()['status'] ?? null) !== 'published') {
             return false;
         }
 

@@ -19,7 +19,6 @@ import {
   HistoryIcon,
   ListIcon,
   SparkIcon,
-  TagIcon,
   UsersIcon,
 } from "@/components/icons";
 import { api, ApiError, fieldErrors } from "@/lib/api";
@@ -31,7 +30,7 @@ import {
   planShape,
   type PlanChangeRequest,
   SESSION_TYPE_LABELS,
-  type Plan,
+  type ManagedPlan,
   type PlanCoverage,
   type SavePlanPayload,
   type SessionType,
@@ -93,17 +92,17 @@ const PLANS = { one: "باقة واحدة", two: "باقتان", few: "باقا�
 const CHIPS_FROM = 7;
 
 /** Which chip a plan answers to. Read from the row's own server fields, never re-derived. */
-function planFilter(row: Plan): "sellable" | "unpriced" | "off" {
-  if (row.price_minor === null) return "unpriced";
+function planFilter(row: ManagedPlan): "sellable" | "unpriced" | "off" {
+  if (!row.is_priced) return "unpriced";
 
   return row.is_sellable ? "sellable" : "off";
 }
 
 /** The row chip's tone: on sale is the brand tint, awaiting a price asks for attention, stopped is neutral. */
-function planTone(row: Plan): StatusTone {
+function planTone(row: ManagedPlan): StatusTone {
   if (!row.is_active) return "neutral";
 
-  return row.price_minor === null ? "warning" : "info";
+  return row.is_priced ? "info" : "warning";
 }
 
 function requestTone(ask: PlanChangeRequest): StatusTone {
@@ -113,7 +112,7 @@ function requestTone(ask: PlanChangeRequest): StatusTone {
 }
 
 export default function ManagePlansPage() {
-  const [rows, setRows] = useState<Plan[]>([]);
+  const [rows, setRows] = useState<ManagedPlan[]>([]);
   const [courseOptions, setCourseOptions] = useState<
     Array<{ value: string; label: string; archived: boolean }>
   >([]);
@@ -121,7 +120,7 @@ export default function ManagePlansPage() {
   const [problem, setProblem] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [editing, setEditing] = useState<Plan | null>(null);
+  const [editing, setEditing] = useState<ManagedPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [cohortOptions, setCohortOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [requests, setRequests] = useState<PlanChangeRequest[]>([]);
@@ -145,10 +144,10 @@ export default function ManagePlansPage() {
    * ⚠️ 036 — EDITING A PRICED PLAN IS A REQUEST, NOT A SAVE, and this one boolean
    * is what the whole form reads. The server refuses to move the shape or the
    * coverage of a plan the platform has put a number on; the way through is to
-   * ask. Deriving that from anything other than the row's own price would be a
-   * second spelling of the server's rule.
+   * ask. Deriving that from anything other than the row's own `is_priced` would
+   * be a second spelling of the server's rule.
    */
-  const asking = editing !== null && editing.price_minor !== null;
+  const asking = editing !== null && editing.is_priced;
 
   const load = useCallback(async () => {
     setState("loading");
@@ -299,7 +298,7 @@ export default function ManagePlansPage() {
    * form, which never sent the field, silently switched a stopped plan back ON
    * at every edit, because the Action defaults an absent `is_active` to true.
    */
-  function payloadFor(row: Plan, isActive: boolean): SavePlanPayload {
+  function payloadFor(row: ManagedPlan, isActive: boolean): SavePlanPayload {
     return {
       title: row.title,
       duration_days: row.duration_days,
@@ -410,7 +409,7 @@ export default function ManagePlansPage() {
    | The form sits ABOVE the list, so on a phone the press that fills it would
    | change nothing the teacher can see; it is brought into view.
    */
-  function startEditing(row: Plan) {
+  function startEditing(row: ManagedPlan) {
     setEditing(row);
     setErrors({});
     setProblem(null);
@@ -437,7 +436,7 @@ export default function ManagePlansPage() {
   const countWhere = (key: ReturnType<typeof planFilter>) =>
     rows.filter((row) => planFilter(row) === key).length;
 
-  const planRow = (row: Plan) => (
+  const planRow = (row: ManagedPlan) => (
     <RecordRow
       key={row.uuid}
       level={4}
@@ -451,7 +450,7 @@ export default function ManagePlansPage() {
           ) : (
             <Badge tone="neutral">غير معروضة</Badge>
           )}
-          {row.price_minor === null && <Badge tone="warning">تنتظر تسعير المنصّة</Badge>}
+          {!row.is_priced && <Badge tone="warning">تنتظر تسعير المنصّة</Badge>}
         </>
       }
       description={row.coverage_label}
@@ -460,9 +459,8 @@ export default function ManagePlansPage() {
         // load, while the dash says «this plan has no duration».
         { key: "shape", label: "المدّة", Icon: DurationIcon, value: planShape(row) ?? "—" },
         { key: "type", label: "نوع الحصص", Icon: UsersIcon, value: SESSION_TYPE_LABELS[row.session_type] },
-        ...(row.price_minor === null
-          ? []
-          : [{ key: "price", label: "السعر", Icon: TagIcon, value: formatMinorMoney(row.price_minor, row.currency) }]),
+        // ⛔ No price: the platform sets it and the teacher's screen does not show
+        // it (owner decision 2026-09-29). The server no longer sends it here.
       ]}
       actions={
         <>
@@ -483,7 +481,7 @@ export default function ManagePlansPage() {
             {row.is_active ? "أوقِف عن البيع" : "أعِدْ للبيع"}
           </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => startEditing(row)}>
-            {row.price_minor === null ? "تعديل" : "اطلب تعديلاً"}
+            {row.is_priced ? "اطلب تعديلاً" : "تعديل"}
           </Button>
         </>
       }

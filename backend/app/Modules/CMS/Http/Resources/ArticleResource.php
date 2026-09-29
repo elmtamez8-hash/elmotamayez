@@ -20,7 +20,8 @@ class ArticleResource extends JsonResource
             'slug' => $this->slug,
             'excerpt' => $this->excerpt,
             'body' => $this->body,
-            'status' => $this->status,
+            // `->value`: the payload stays the two strings it always was.
+            'status' => $this->status->value,
             'published_at' => $this->published_at,
             'seo_title' => $this->seo_title,
             'seo_description' => $this->seo_description,

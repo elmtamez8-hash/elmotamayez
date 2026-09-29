@@ -52,14 +52,24 @@ export interface Plan {
    * (FR-025 · Q4), so between a teacher creating a plan and an officer pricing it
    * this is null — and `(int) null === 0` on the server, which is why the
    * catalogue filters those out rather than letting one be bought for nothing.
-   * The teacher's own list keeps them, because «تنتظر تسعير المنصّة» is the whole
-   * reason nobody can buy it.
+   * The teacher never receives this field at all — see `ManagedPlan`.
    */
   price_minor: number | null;
   currency: string;
   is_active: boolean;
   is_sellable: boolean;
 }
+
+/**
+ * A plan on the TEACHER's own screen (`/manage/plans`).
+ *
+ * ⛔ NO PRICE AND NO CURRENCY (owner decision 2026-09-29): the platform sets the
+ * price and the teacher's screen does not show it. `is_priced` is all the screen
+ * needs from it — «تنتظر تسعير المنصّة», and whether an edit is a save or a
+ * request. Typed apart from `Plan` so a teacher screen that reaches for
+ * `price_minor` fails `tsc` instead of printing `undefined`.
+ */
+export type ManagedPlan = Omit<Plan, "price_minor" | "currency"> & { is_priced: boolean };
 
 export interface Subscription {
   uuid: string;
@@ -131,7 +141,7 @@ export interface PlanChangeRequest {
   requested_shape: string | null;
   current_coverage_label: string;
   requested_coverage_label: string;
-  current_price_minor: number | null;
+  /** The teacher's OWN proposal. The platform's current price is not sent. */
   requested_price_minor: number | null;
   currency: string;
   reason: string | null;
@@ -158,10 +168,10 @@ export const plans = {
 
   /** The teacher's own plans — including the ones awaiting a price. */
   manage: {
-    list: () => api.get<{ data: Plan[] }>("/manage/plans"),
-    create: (payload: SavePlanPayload) => api.post<{ data: Plan }>("/manage/plans", payload),
+    list: () => api.get<{ data: ManagedPlan[] }>("/manage/plans"),
+    create: (payload: SavePlanPayload) => api.post<{ data: ManagedPlan }>("/manage/plans", payload),
     update: (uuid: string, payload: SavePlanPayload) =>
-      api.patch<{ data: Plan }>(`/manage/plans/${uuid}`, payload),
+      api.patch<{ data: ManagedPlan }>(`/manage/plans/${uuid}`, payload),
 
     /**
      * ⛔ 036 — THE WAY THROUGH ONCE THE PLATFORM HAS PRICED A PLAN. `update`
