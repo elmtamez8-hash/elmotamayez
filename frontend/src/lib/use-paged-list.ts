@@ -107,10 +107,15 @@ export function usePagedList<T extends { uuid: string }, C = undefined>(
     refreshing,
     total,
     counts,
-    hasMore: page < lastPage,
+    // ⚠️ Not while a new filter's page one is in flight: `page`/`lastPage` still
+    // describe the OLD filter, so «عرض المزيد» would fetch a middle page of the
+    // new one, drop its page one and append to the old rows.
+    hasMore: !refreshing && page < lastPage,
     loadingMore,
     moreFailed,
     reload: useCallback(() => load(1), [load]),
-    loadMore: () => load(page + 1),
+    loadMore: () => {
+      if (!refreshing) void load(page + 1);
+    },
   };
 }
