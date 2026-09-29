@@ -203,8 +203,14 @@ class AssignmentController extends Controller
             return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
         }
 
+        $data = $request->actionData();
+
+        // Spec 010 · FR-005 — a confined assistant sets homework for their own
+        // courses only, never for none (see `AssignmentPolicy::placeInCourse()`).
+        $this->authorize('placeInCourse', [Assignment::class, $workspaceId, self::courseIdOf($data)]);
+
         try {
-            $assignment = $action->handle($workspaceId, $this->currentUser($request), $request->actionData());
+            $assignment = $action->handle($workspaceId, $this->currentUser($request), $data);
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }
@@ -216,11 +222,18 @@ class AssignmentController extends Controller
     {
         $this->authorize('update', $assignment);
 
+        $data = $request->actionData($assignment);
+
+        // The course the edit leaves it in, asked as well as the one it is in:
+        // otherwise a confined assistant moves their own homework to a far
+        // course, or to none, by naming it.
+        $this->authorize('placeInCourse', [Assignment::class, (int) $assignment->workspace_id, self::courseIdOf($data)]);
+
         try {
             $assignment = $action->handle(
                 (int) $assignment->workspace_id,
                 $this->currentUser($request),
-                $request->actionData($assignment),
+                $data,
                 $assignment,
             );
         } catch (DomainException $exception) {
@@ -228,6 +241,14 @@ class AssignmentController extends Controller
         }
 
         return response()->json(['data' => AssignmentResource::make($assignment->load('course:id,uuid,title'))]);
+    }
+
+    /** @param  array<string, mixed>  $data */
+    private static function courseIdOf(array $data): ?int
+    {
+        $courseId = $data['course_id'] ?? null;
+
+        return is_numeric($courseId) ? (int) $courseId : null;
     }
 
     public function publish(Request $request, Assignment $assignment, SaveAssignment $action): JsonResponse

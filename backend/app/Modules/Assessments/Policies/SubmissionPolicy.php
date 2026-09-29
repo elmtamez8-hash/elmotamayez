@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Policies;
 
 use App\Models\User;
+use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Models\Submission;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -34,6 +36,10 @@ class SubmissionPolicy extends BasePolicy
 
         if (! $user->can(Permissions::SUBMISSIONS_GRADE)) {
             return Response::deny();
+        }
+
+        if (($scopeCheck = $this->withinAssistantScope($user, $submission))->denied()) {
+            return $scopeCheck;
         }
 
         /*
@@ -90,8 +96,40 @@ class SubmissionPolicy extends BasePolicy
             return Response::deny('You cannot grade your own submission.');
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $submission))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::SUBMISSIONS_GRADE)
             ? Response::allow()
             : Response::deny();
+    }
+
+    /**
+     * Spec 010 · FR-005 on the work handed in — the mark and the file
+     * (`SubmissionFileController` re-runs `view()` at open). Asked on the STAFF
+     * branch only: a student's own work is decided by ownership above it.
+     *
+     * ⚠️ THE COURSE IS READ WITH THE WORKSPACE SCOPE BYPASSED — the
+     * `AsksAssistantScope::courseOfSession()` idiom. The workspace is already
+     * pinned above, and a scoped read that came back empty would become a `null`
+     * course and refuse a confined assistant their OWN course's work. An
+     * assignment with no course (or one that is gone) is that `null`, which the
+     * directory refuses to a confined assistant and passes for everybody else.
+     */
+    private function withinAssistantScope(User $user, Submission $submission): Response
+    {
+        $courseId = Assignment::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($submission->assignment_id)
+            ->value('course_id');
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $submission->workspace_id,
+            $courseId === null ? null : (int) $courseId,
+        )
+            ? Response::allow()
+            : Response::deny('هذا التسليم خارج نطاق عملك.');
     }
 }

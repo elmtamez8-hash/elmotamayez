@@ -9,6 +9,7 @@ use App\Modules\Assessments\Models\Assignment;
 use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use Illuminate\Auth\Access\Response;
 
@@ -24,6 +25,29 @@ class AssignmentPolicy extends BasePolicy
 {
     public function view(User $user, Assignment $assignment): Response
     {
+        /*
+        | ⛔ THE ASSISTANT SCOPE IS ASKED FIRST, ABOVE THE STUDENT BRANCH. That
+        | branch is `StudentScope::permits()`, whose first arm allows ANY reader
+        | whose context is the assignment's workspace — which a confined
+        | assistant always has — so asked after it, a far course's published
+        | homework opened to them through the student door. A no-op for everybody
+        | who is not a confined assistant in this workspace, students included.
+        |
+        | ⚠️ A REFUSAL FALLS THROUGH TO THE STUDENT'S OWN ENTITLEMENT, NEVER TO
+        | NOTHING — the rule `ConversationPolicy::withinStaffScope()` follows. A
+        | confined assistant who is ALSO actively enrolled in the far course reads
+        | and hands in that course's published homework as a student (`submit()`
+        | authorises `view`). Only the ENROLMENT arm is asked, never
+        | `StudentScope::permits()`'s «context matches» arm, which is the leak this
+        | check closes; and it grants the student powers only — `manage`, the
+        | marking list, extensions and grading stay refused.
+        */
+        if (($scopeCheck = $this->withinAssistantScope($user, $assignment))->denied()) {
+            return $assignment->isPublished() && $this->enrolledInItsCourse($user, $assignment)
+                ? Response::allow()
+                : $scopeCheck;
+        }
+
         // ⚠️ THIS ABILITY GUARDS A WRITE AS WELL AS A READ. `AssignmentController::submit()`
         // authorises `view`, and `SubmitAssignment` asks for no enrolment — so
         // "published ⇒ allow" put a stranger's uploaded file into a paying
@@ -49,6 +73,10 @@ class AssignmentPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, $assignment))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::ASSIGNMENTS_MANAGE)
             ? Response::allow()
             : Response::deny();
@@ -62,5 +90,64 @@ class AssignmentPolicy extends BasePolicy
     public function delete(User $user, Assignment $assignment): Response
     {
         return $this->manage($user, $assignment);
+    }
+
+    /**
+     * Whether this author may put homework in this course — on create, and on
+     * an edit (a move is a create in the target course).
+     *
+     * ⚠️ `SaveAssignmentRequest::authorize()` asks the permission and nothing
+     * else, so without this a confined assistant set homework for any course of
+     * the workspace, or for none — and a course-less assignment reaches every
+     * student of the workspace, the widest ground there is.
+     */
+    public function placeInCourse(User $user, int $workspaceId, ?int $courseId): Response
+    {
+        if (! $user->can(Permissions::ASSIGNMENTS_MANAGE)) {
+            return Response::deny();
+        }
+
+        return $this->scopeAnswer($user, $workspaceId, $courseId);
+    }
+
+    /**
+     * Spec 010 · FR-005 — a confined assistant manages the homework of their
+     * courses. A course-less assignment is outside every confinement, and the
+     * refusal for it lives in the directory (`mayActOnCourse()`'s null branch) —
+     * the answer an exam set for no course gets on the grading board.
+     *
+     * A no-op for a teacher, an owner, a super admin and a student.
+     */
+    private function withinAssistantScope(User $user, Assignment $assignment): Response
+    {
+        return $this->scopeAnswer(
+            $user,
+            (int) $assignment->workspace_id,
+            $assignment->course_id === null ? null : (int) $assignment->course_id,
+        );
+    }
+
+    /**
+     * An active enrolment in the assignment's own course. A course-less
+     * assignment has none to be enrolled in, so it stays refused.
+     */
+    private function enrolledInItsCourse(User $user, Assignment $assignment): bool
+    {
+        if ($assignment->course_id === null) {
+            return false;
+        }
+
+        return in_array(
+            (int) $assignment->course_id,
+            array_map('intval', app(EnrollmentDirectory::class)->activeCourseIdsFor($user)),
+            true,
+        );
+    }
+
+    private function scopeAnswer(User $user, int $workspaceId, ?int $courseId): Response
+    {
+        return app(AssistantScopeDirectory::class)->mayActOnCourse($user, $workspaceId, $courseId)
+            ? Response::allow()
+            : Response::deny('هذا الواجب خارج نطاق عملك.');
     }
 }
