@@ -26,6 +26,7 @@ use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Learning\Support\LessonAccess;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -392,10 +393,25 @@ class EnrollmentController extends Controller
          | the two must move together: one widened alone opens the page and
          | refuses the video, or the reverse.
          */
+        /*
+         | ⛔ **AND A CONFINED ASSISTANT IS THE AUTHOR OF THEIR OWN COURSES ONLY.**
+         | The pivot role answers «staff of this workspace», not «staff of this
+         | course», so an assistant confined to one course opened the DRAFT
+         | lessons of every other course here by uuid — while `CoursePolicy`
+         | refused them that course's own page. Outside the scope they fall
+         | through to the student's route below, exactly as a stranger does.
+         | `IssuePlaybackGrant::mayWatch()` asks the same, or the page and the
+         | video disagree.
+         */
         if ($viewer->workspaces()
             ->wherePivot('role', '!=', Roles::STUDENT)
             ->where('workspaces.id', $lesson->workspace_id)
-            ->exists()) {
+            ->exists()
+            && app(AssistantScopeDirectory::class)->mayActOnCourse(
+                $viewer,
+                (int) $lesson->workspace_id,
+                (int) $lesson->course_id,
+            )) {
             return response()->json($this->lessonPayload($lesson, LessonAccess::allow()));
         }
 

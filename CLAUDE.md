@@ -141,6 +141,7 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - A FACTORY WHOSE DEFAULTS NAME THE SAME PARENT TWICE BUILDS A NODE THE PRODUCT CANNOT REACH, and the tree walk and the validator disagree about it in silence.
 - A SCOPED RELATION READ ON THE STUDENT'S PATH RETURNS AN EMPTY COURSE, NOT AN ERROR — AND `Enrollment::course()` CARRYING THE BYPASS DOES NOT COVER WHAT HANGS OFF IT.
 - «THE AUTHOR» IS THE PIVOT ROLE, NEVER MERE MEMBERSHIP — AND THE THIRD DOOR OPENED PAID CONTENT.
+- A confined assistant is the author of their OWN courses only — every lesson-door author branch also asks `AssistantScopeDirectory::mayActOnCourse()`.
 - LESSON CONTENT HAS FOUR DOORS, NOT ONE — AND THE ONE THAT ACTUALLY SERVES THE FILE ENDS AT `hasActiveEnrollment`.
 - A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
 - A course's visibility is the TEACHER's call, not `courses.update`'s — an assistant edits content but `changeVisibility`/`chooseVisibility` refuse them, and the screens read the server's boolean.
