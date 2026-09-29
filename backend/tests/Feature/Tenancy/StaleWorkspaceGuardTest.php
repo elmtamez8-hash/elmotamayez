@@ -7,6 +7,8 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Middleware\RefuseStaleWorkspace;
+use App\Shared\Support\WorkspaceContext;
+use Illuminate\Support\Facades\Session;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -144,6 +146,37 @@ it('refuses a claim when the account resolves no workspace at all', function ():
     $this->getJson('/api/v1/courses', [RefuseStaleWorkspace::HEADER => (string) $a->uuid])
         ->assertStatus(409)
         ->assertJsonPath('code', 'workspace_changed');
+});
+
+/*
+| The session is the BROWSER's: a bearer sign-out leaves it alone, so the next
+| person to sign in on the same browser used to inherit the previous one's
+| switched workspace. The key is honoured only for the account that wrote it.
+*/
+it('does not hand one account\'s switched workspace to the next account on the browser', function (): void {
+    [$x, $first] = $this->createWorkspaceWithOwner(['name' => 'مكان الأول']);
+    [$own, $second] = $this->createWorkspaceWithOwner(['name' => 'مكان الثاني']);
+
+    Session::start();
+
+    // The first account switches to X on this browser…
+    $this->actingAs($first);
+    $this->asGuest();
+    app(WorkspaceContext::class)->set($x);
+
+    expect(Session::get('workspace_id'))->toBe($x->getKey());
+
+    // …and the second signs in on the same browser, same session.
+    $this->actingAs($second);
+    $this->asGuest();
+
+    expect(app(WorkspaceContext::class)->id())->toBe($own->getKey());
+
+    // The account that wrote it still reads it.
+    $this->actingAs($first);
+    $this->asGuest();
+
+    expect(app(WorkspaceContext::class)->id())->toBe($x->getKey());
 });
 
 it('sends no current workspace to a student who is a member of nothing', function (): void {
