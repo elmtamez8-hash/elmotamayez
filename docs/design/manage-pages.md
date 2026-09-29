@@ -55,7 +55,7 @@ import { matchesSearch } from "@/lib/search-text";
 |---|---|---|
 | `title` | `ReactNode` | Rendered as a heading. Required. |
 | `level` | `3 \| 4` (default 3) | 3 directly under `PageHeader` (h2); **4 when the list sits under a `SectionHeading`** (h3). |
-| `Icon` | icon component | The screen's own nav icon, or one for the record's kind. |
+| `Icon` | icon component | **Required.** The screen's own nav icon, or one for the record's kind. The chip always takes its column, so leaving the icon out would draw an empty square. |
 | `tone` | `StatusTone` (default `"info"`) | The chip's colour, from `TONE_CLASSES`. Use `"neutral"` for archived or ended records. |
 | `status` | `ReactNode` | A `Badge` or `StatusBadge`, shown beside the title. |
 | `description` | `ReactNode` | One or two lines, muted. |

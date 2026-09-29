@@ -22,9 +22,9 @@ describe("RecordList", () => {
   it("wraps every record in its own list item with the shared stagger index", () => {
     render(
       <RecordList label="الإعلانات">
-        <RecordRow title="الأوّل" />
-        <RecordRow title="الثاني" />
-        <RecordRow title="الثالث" />
+        <RecordRow Icon={BookIcon} title="الأوّل" />
+        <RecordRow Icon={BookIcon} title="الثاني" />
+        <RecordRow Icon={BookIcon} title="الثالث" />
       </RecordList>,
     );
 
@@ -43,7 +43,7 @@ describe("RecordList", () => {
       <>
         <h3 id="saved">المحفوظة</h3>
         <RecordList labelledBy="saved">
-          <RecordRow title="واحد" />
+          <RecordRow Icon={BookIcon} title="واحد" />
         </RecordList>
       </>,
     );
@@ -55,7 +55,7 @@ describe("RecordList", () => {
     render(
       <RecordList label="قائمة">
         {false}
-        <RecordRow title="ظاهر" />
+        <RecordRow Icon={BookIcon} title="ظاهر" />
         {null}
       </RecordList>,
     );
@@ -66,11 +66,11 @@ describe("RecordList", () => {
 
 describe("RecordRow", () => {
   it("titles the record with a heading at the level asked for", () => {
-    const { rerender } = render(<RecordRow title="إعلان الاختبار" />);
+    const { rerender } = render(<RecordRow Icon={BookIcon} title="إعلان الاختبار" />);
 
     expect(screen.getByRole("heading", { level: 3, name: "إعلان الاختبار" })).toBeTruthy();
 
-    rerender(<RecordRow title="إعلان الاختبار" level={4} />);
+    rerender(<RecordRow Icon={BookIcon} title="إعلان الاختبار" level={4} />);
 
     expect(screen.getByRole("heading", { level: 4, name: "إعلان الاختبار" })).toBeTruthy();
   });
@@ -85,7 +85,7 @@ describe("RecordRow", () => {
   });
 
   it("shows the status beside the title", () => {
-    render(<RecordRow title="مسودّة المقال" status={<Badge tone="warning">مسودّة</Badge>} />);
+    render(<RecordRow Icon={BookIcon} title="مسودّة المقال" status={<Badge tone="warning">مسودّة</Badge>} />);
 
     const heading = screen.getByRole("heading", { name: "مسودّة المقال" });
 
@@ -95,6 +95,7 @@ describe("RecordRow", () => {
   it("renders the meta as a definition list whose hidden labels still reach a screen reader", () => {
     render(
       <RecordRow
+        Icon={BookIcon}
         title="إعلان"
         meta={[
           { key: "recipients", label: "المستلمون", value: "٢٤", Icon: UsersIcon },
@@ -113,7 +114,7 @@ describe("RecordRow", () => {
   });
 
   it("renders no meta list when there is nothing in it", () => {
-    render(<RecordRow title="فارغ" meta={[]} />);
+    render(<RecordRow Icon={BookIcon} title="فارغ" meta={[]} />);
 
     expect(screen.queryByRole("term")).toBeNull();
   });
@@ -121,6 +122,7 @@ describe("RecordRow", () => {
   it("renders the actions exactly once — an armed ConfirmButton must not have a twin", () => {
     render(
       <RecordRow
+        Icon={BookIcon}
         title="واجب"
         actions={
           <>
@@ -138,6 +140,7 @@ describe("RecordRow", () => {
   it("with href, makes the title the link and keeps the actions outside it", () => {
     render(
       <RecordRow
+        Icon={BookIcon}
         title="مقال عن الكسور"
         href="/manage/blog/abc"
         actions={<button type="button">أرشفة</button>}
@@ -155,7 +158,7 @@ describe("RecordRow", () => {
 
   it("puts the full-width content after the row", () => {
     render(
-      <RecordRow title="تركيبة">
+      <RecordRow Icon={BookIcon} title="تركيبة">
         <p>المحرّر المفتوح</p>
       </RecordRow>,
     );

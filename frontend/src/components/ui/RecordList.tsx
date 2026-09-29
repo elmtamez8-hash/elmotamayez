@@ -96,8 +96,12 @@ export function RecordRow({
   children,
 }: {
   title: ReactNode;
-  /** The screen's own icon (the one `PageHeader` shows), or one for the record's kind. */
-  Icon?: ComponentType<IconProps>;
+  /**
+   * The screen's own icon (the one `PageHeader` shows), or one for the record's kind.
+   * ⚠️ REQUIRED: the chip always takes its column, so a row without an icon
+   * would show an empty tinted square. Every staff screen has a nav icon.
+   */
+  Icon: ComponentType<IconProps>;
   /**
    * The chip's tone — the same five as `Badge`, from `TONE_CLASSES`, so the chip
    * can never name a colour `@theme` does not define. `info` (the brand tint) for
@@ -129,7 +133,7 @@ export function RecordRow({
           TONE_CLASSES[tone]
         }`}
       >
-        {Icon !== undefined && <Icon className="h-5 w-5" />}
+        <Icon className="h-5 w-5" />
       </span>
 
       <div className="min-w-0 self-center">
