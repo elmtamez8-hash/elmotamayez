@@ -4,11 +4,13 @@ use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\Idempotent;
 use App\Shared\Middleware\RefuseAuthenticated;
+use App\Shared\Middleware\RefuseStaleWorkspace;
 use App\Shared\Middleware\RequireTwoFactor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -114,7 +116,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->appendToGroup('api', [
             EnsureCurrentWorkspace::class,
+            RefuseStaleWorkspace::class,
         ]);
+
+        /*
+        | ⚠️ A stale tab must hear 409 «workspace changed», never a scoped 404
+        | from implicit binding — so the guard runs BEFORE `SubstituteBindings`
+        | (and after `Authenticate`, which sits above it in the list). Group
+        | middleware outside the priority list runs after binding. See the
+        | middleware's own docblock for the exemptions.
+        */
+        $middleware->prependToPriorityList(SubstituteBindings::class, RefuseStaleWorkspace::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

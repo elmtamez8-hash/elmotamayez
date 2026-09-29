@@ -12,6 +12,7 @@ use App\Modules\Identity\Http\Controllers\ReferralController;
 use App\Modules\Identity\Http\Controllers\SessionController;
 use App\Modules\Identity\Http\Controllers\StudentProfileController;
 use App\Modules\Identity\Http\Controllers\TwoFactorController;
+use App\Shared\Middleware\RefuseStaleWorkspace;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -83,7 +84,9 @@ Route::post('/auth/2fa/challenge', [TwoFactorController::class, 'challenge'])
     ->middleware('throttle:two-factor-challenge');
 
 Route::middleware('auth:sanctum')->group(function (): void {
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    // A stale tab must always be able to sign out — see RefuseStaleWorkspace.
+    Route::post('/auth/logout', [AuthController::class, 'logout'])
+        ->withoutMiddleware(RefuseStaleWorkspace::class);
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
     /*

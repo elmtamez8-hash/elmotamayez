@@ -1,4 +1,10 @@
 import { userMessage, UNKNOWN_MESSAGE } from "./errors";
+import {
+  WORKSPACE_HEADER,
+  expectedWorkspace,
+  isWorkspaceChanged,
+  reloadForWorkspaceChange,
+} from "./workspace-guard";
 
 import type {
   ParentRegistration,
@@ -93,6 +99,12 @@ async function request<T>(
     headers["X-Device-Id"] = device;
   }
 
+  // The workspace this page is drawing — see `workspace-guard.ts`.
+  const workspace = expectedWorkspace();
+  if (workspace !== null && token) {
+    headers[WORKSPACE_HEADER] = workspace;
+  }
+
   // Let the browser build the multipart Content-Type, boundary included.
   if (options.body instanceof FormData) {
     delete headers["Content-Type"];
@@ -112,6 +124,14 @@ async function request<T>(
 
   if (!res.ok) {
     const body: unknown = await res.json().catch(() => null);
+
+    // Another tab or device switched this account's workspace: what this page
+    // shows is no longer what the server answers in. Reload — and keep the
+    // caller waiting rather than flash an error the reload is about to replace.
+    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) {
+      return new Promise<T>(() => {});
+    }
+
     throw new ApiError(bodyMessage(body) ?? `Request failed (${res.status})`, res.status, body);
   }
 
@@ -152,9 +172,17 @@ async function download(path: string, filename: string): Promise<void> {
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (device) headers["X-Device-Id"] = device;
 
+  const workspace = expectedWorkspace();
+  if (workspace !== null && token) headers[WORKSPACE_HEADER] = workspace;
+
   const res = await fetch(downloadTarget(path), { headers });
 
   if (!res.ok) {
+    const body: unknown =
+      res.status === 409 ? await res.json().catch(() => null) : null;
+
+    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) return;
+
     throw new ApiError(`Request failed (${res.status})`, res.status, null);
   }
 

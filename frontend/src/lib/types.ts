@@ -139,6 +139,13 @@ export interface User {
   platform_role: PlatformRole | null;
   last_workspace_id: number | null;
   /**
+   * The workspace the server RESOLVED for this answer — what the page then names
+   * in `X-Workspace` on every request (`lib/workspace-guard.ts`). Never derived
+   * from `last_workspace_id`: the session outranks that column on the server.
+   * Null for an account in no workspace; optional only for older fixtures.
+   */
+  current_workspace?: { uuid: string; name: string } | null;
+  /**
    * What this person may do IN THE WORKSPACE THEY ARE IN — names from
    * `lib/permissions.ts`, never spelled inline.
    *

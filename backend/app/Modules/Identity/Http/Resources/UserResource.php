@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Identity\Actions\SaveAccountPhoto;
 use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Marketplace\Support\SchoolYearDirectory;
+use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -56,6 +57,16 @@ class UserResource extends JsonResource
             // so it never leaks through a stray ->toArray(); named here on purpose.
             'platform_role' => $this->platform_role?->value,
             'last_workspace_id' => $this->last_workspace_id,
+            /*
+            | The workspace this request RESOLVED, which the page then names in
+            | `X-Workspace` on every call (`RefuseStaleWorkspace`). Never derived
+            | from `last_workspace_id` on the client: the session key outranks the
+            | column for same-origin browser traffic, so the two can disagree and
+            | a header built from the column would 409 every request for ever.
+            | Null for a student or guardian who is a member of nothing — no header
+            | is sent then, and nothing is checked.
+            */
+            'current_workspace' => $this->currentWorkspace(),
             // The clock this person reads — null until their browser stamps it
             // (`PUT /me/timezone`), in which case the browser's own zone is used.
             'timezone' => $this->timezone,
@@ -207,6 +218,30 @@ class UserResource extends JsonResource
                 'name' => (string) $workspace->name,
             ])
             ->all();
+    }
+
+    /**
+     * The resolved workspace as `{uuid, name}`, or null.
+     *
+     * The same `?? last_workspace_id` fallback as {@see choosesCourseVisibility()}:
+     * on the sign-in response `Auth::user()` is not yet this user, so the context
+     * resolves nothing, while every later request will resolve the column.
+     *
+     * @return array{uuid: string, name: string}|null
+     */
+    private function currentWorkspace(): ?array
+    {
+        $workspaceId = app(WorkspaceContext::class)->id() ?? $this->resource->last_workspace_id;
+
+        if ($workspaceId === null) {
+            return null;
+        }
+
+        $workspace = Workspace::query()->whereKey($workspaceId)->first(['uuid', 'name']);
+
+        return $workspace === null
+            ? null
+            : ['uuid' => (string) $workspace->uuid, 'name' => (string) $workspace->name];
     }
 
     /**

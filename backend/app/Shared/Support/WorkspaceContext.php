@@ -23,6 +23,19 @@ class WorkspaceContext
 {
     private const SESSION_KEY = 'workspace_id';
 
+    /**
+     * Whose choice the session key is.
+     *
+     * ⛔ THE SESSION IS THE BROWSER'S, NOT THE ACCOUNT'S. The API authenticates by
+     * bearer token, but same-origin requests carry the session cookie too
+     * (`config/sanctum.php`), and a bearer sign-out ends the token and leaves
+     * the session alone. So one person switched to workspace X, signed out, the
+     * next person signed in on the same browser — and resolved X, a workspace
+     * they may not belong to, with no switch ever made. The key is honoured only
+     * for the user who wrote it; anyone else falls back to their own column.
+     */
+    private const SESSION_OWNER_KEY = 'workspace_user_id';
+
     private ?int $resolvedId = null;
 
     private bool $resolved = false;
@@ -46,7 +59,7 @@ class WorkspaceContext
         }
 
         // Super Admins may operate globally (no current workspace) unless one is set.
-        $fromSession = $this->sessionValue();
+        $fromSession = $this->sessionValue($user);
         if ($fromSession !== null) {
             return $this->resolvedId = $fromSession;
         }
@@ -82,9 +95,11 @@ class WorkspaceContext
         $this->resolvedId = $workspace->getKey();
         $this->resolved = true;
 
-        Session::put(self::SESSION_KEY, $workspace->getKey());
-
         $user = $this->user();
+
+        Session::put(self::SESSION_KEY, $workspace->getKey());
+        Session::put(self::SESSION_OWNER_KEY, $user?->getAuthIdentifier());
+
         if ($user instanceof Model && $user->getAttribute('last_workspace_id') !== $workspace->getKey()) {
             $user->forceFill(['last_workspace_id' => $workspace->getKey()])->save();
         }
@@ -101,7 +116,7 @@ class WorkspaceContext
         $this->resolvedId = null;
         $this->resolved = true;
 
-        Session::forget(self::SESSION_KEY);
+        Session::forget([self::SESSION_KEY, self::SESSION_OWNER_KEY]);
         app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     }
 
@@ -183,9 +198,17 @@ class WorkspaceContext
         return Auth::user();
     }
 
-    private function sessionValue(): ?int
+    private function sessionValue(Authenticatable $user): ?int
     {
         if (! Session::isStarted()) {
+            return null;
+        }
+
+        // Another account's choice on this browser is not this account's context
+        // — see SESSION_OWNER_KEY. A key written before the owner was recorded
+        // is dropped too; the column `set()` also wrote answers instead.
+        $owner = Session::get(self::SESSION_OWNER_KEY);
+        if ($owner === null || (string) $owner !== (string) $user->getAuthIdentifier()) {
             return null;
         }
 
