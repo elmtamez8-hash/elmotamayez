@@ -44,14 +44,21 @@ final class AssistantAppointments
     /**
      * Open an assignment, or re-open a revoked one.
      *
-     * ⚠️ A RE-OPENED ASSIGNMENT STARTS UNCONFINED — its old scope rows are
-     * dropped (owner decision 2026-09-30). Revival is a NEW appointment, exactly
-     * as a first one is: no rows means every course, and the teacher confines it
-     * again from the team screen. Keeping the rows would bring back a
-     * confinement somebody set for a different job — months ago, for courses
-     * that may since have been deleted — with nothing on any screen saying it
-     * came back. A LIVE assignment is left exactly as it is (a move between two
-     * assistant roles changes neither its wall nor its scope).
+     * ⚠️ A RE-OPENED ASSIGNMENT COMES BACK CONFINED TO ITS OLD SCOPE (owner
+     * decision 2026-09-30). The `assistant_scopes` rows are KEPT: an assistant
+     * the teacher confined, removed and invited back must not return with every
+     * course open to them. Clearing the rows would do exactly that, because no
+     * rows means «every course».
+     *
+     * ⚠️ AND A SCOPE WHOSE COURSES WERE ALL DELETED STAYS «CONFINED TO NOTHING».
+     * `assistant_scopes.course_id` has no foreign key and nothing but
+     * `SetAssistantScope` deletes a row, so a deleted course's row survives.
+     * `scopedCourseIdsFor()` therefore still returns a non-empty list, and
+     * `mayActOnCourse()` refuses every live course. The team screen counts such
+     * rows as `unavailable_courses_count`. Never «tidy» those rows here: an
+     * empty scope reads as UNCONFINED. A LIVE assignment is left exactly as it
+     * is (a move between two assistant roles changes neither its wall nor its
+     * scope).
      */
     public function appoint(int $workspaceId, int $userId, ?int $invitedBy): void
     {
@@ -63,7 +70,6 @@ final class AssistantAppointments
 
         if ($existing instanceof AssistantAssignment) {
             if ($existing->revoked_at !== null) {
-                $existing->scopes()->delete();
                 // `revoked_at` is not fillable — it is claimed by a conditional UPDATE.
                 $existing->forceFill(['revoked_at' => null])->save();
             }

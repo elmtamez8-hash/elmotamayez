@@ -7,10 +7,12 @@ use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Tenancy\Actions\UpdateWorkspaceMemberRole;
+use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Modules\Tenancy\Models\Role;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
@@ -91,23 +93,71 @@ it('closes the assignment, and lifts the wall, when an assistant is promoted to 
         ->and(readsOrders($member))->toBeTrue();
 });
 
-it('re-opens a revoked assignment UNCONFINED — the old scope does not come back', function (): void {
-    $member = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+/** A revoked assignment of `$member`, once confined to `$courses`. */
+function revokedAssignmentConfinedTo(User $member, Course ...$courses): AssistantAssignment
+{
     $old = AssistantAssignment::factory()->revoked()->create([
         'assistant_user_id' => $member->getKey(),
-        'invited_by_user_id' => $this->owner->getKey(),
+        'invited_by_user_id' => test()->owner->getKey(),
     ]);
-    AssistantScope::factory()->create([
-        'assistant_assignment_id' => $old->getKey(),
-        'course_id' => $this->course->getKey(),
-    ]);
+
+    foreach ($courses as $course) {
+        AssistantScope::factory()->create([
+            'assistant_assignment_id' => $old->getKey(),
+            'course_id' => $course->getKey(),
+        ]);
+    }
+
+    return $old;
+}
+
+function mayActOn(User $member, Course $course): bool
+{
+    return app(AssistantScopeDirectory::class)->mayActOnCourse($member, (int) test()->workspace->getKey(), (int) $course->getKey());
+}
+
+it('re-opens a revoked assignment CONFINED to its old courses (owner decision 2026-09-30)', function (): void {
+    $member = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+    $other = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $old = revokedAssignmentConfinedTo($member, $this->course);
 
     changeRoleAsOwner($member, Roles::ASSISTANT_TEACHER);
 
     $revived = assignmentOf($this->workspace, $member);
     expect($revived?->getKey())->toBe($old->getKey())
         ->and($revived?->revoked_at)->toBeNull()
-        ->and($revived?->scopes()->count())->toBe(0);
+        ->and($revived?->scopes()->pluck('course_id')->map(fn ($id): int => (int) $id)->all())->toBe([(int) $this->course->getKey()])
+        ->and(mayActOn($member, $this->course))->toBeTrue()
+        ->and(mayActOn($member, $other))->toBeFalse();
+});
+
+it('re-opens a re-invited assistant CONFINED to their old courses too', function (): void {
+    $member = User::factory()->create();
+    $other = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    revokedAssignmentConfinedTo($member, $this->course);
+
+    // The acceptance door: `AcceptInvitation` dispatches this after writing the membership.
+    $this->addWorkspaceMember($this->workspace, Roles::ASSISTANT_TEACHER, $member);
+    WorkspaceMemberAdded::dispatch($this->workspace, $member, Roles::ASSISTANT_TEACHER);
+
+    expect(assignmentOf($this->workspace, $member)?->revoked_at)->toBeNull()
+        ->and(mayActOn($member, $this->course))->toBeTrue()
+        ->and(mayActOn($member, $other))->toBeFalse();
+});
+
+it('keeps a revived assistant whose old courses were all deleted confined to NOTHING, never to everything', function (): void {
+    $member = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+    $gone = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $alive = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    revokedAssignmentConfinedTo($member, $this->course, $gone);
+
+    $this->course->delete();
+    $gone->forceDelete();
+
+    changeRoleAsOwner($member, Roles::ASSISTANT_TEACHER);
+
+    expect(app(AssistantScopeDirectory::class)->scopedCourseIdsFor($member, (int) $this->workspace->getKey()))->not->toBeNull()
+        ->and(mayActOn($member, $alive))->toBeFalse();
 });
 
 it('closes the assignment when an assistant is demoted to student', function (): void {

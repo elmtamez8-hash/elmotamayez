@@ -40,9 +40,9 @@ use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
  * `forceFill`, and clearing it is the whole of the re-appointment: the wall, the
  * confinement and the attribution all read this one row.
  *
- * ⚠️ SINCE 2026-09-30 A RE-APPOINTMENT STARTS UNCONFINED (the old scope rows are
- * dropped), and the rule lives in {@see AssistantAppointments} with the role
- * change and the removal that also open and close this row.
+ * ⚠️ A RE-APPOINTMENT COMES BACK CONFINED TO ITS OLD SCOPE (owner decision
+ * 2026-09-30). The rule lives in {@see AssistantAppointments}, together with the
+ * role change and the removal that also open and close this row.
  */
 class CreateAssistantAssignment
 {
