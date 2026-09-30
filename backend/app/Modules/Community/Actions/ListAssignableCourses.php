@@ -30,8 +30,8 @@ class ListAssignableCourses extends Action
         return Course::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
-            ->with('creator:id,first_name,last_name')
+            ->with(['creator:id,first_name,last_name', 'teacherProfile:id,user_id', 'teacherProfile.user:id,first_name,last_name'])
             ->orderBy('title')
-            ->get(['id', 'uuid', 'workspace_id', 'title', 'cover_path', 'status', 'created_by']);
+            ->get(['id', 'uuid', 'workspace_id', 'title', 'cover_path', 'status', 'created_by', 'teacher_profile_id']);
     }
 }

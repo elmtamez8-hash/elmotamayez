@@ -14,6 +14,7 @@ use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -44,6 +45,7 @@ class ReportBrokenEmbed extends Action
     public function __construct(
         private readonly DispatchNotification $dispatch,
         private readonly WorkspaceContext $context,
+        private readonly AssistantScopeDirectory $assistants,
     ) {}
 
     public function handle(string $courseKey, string $lessonUuid, string $reporterFingerprint): void
@@ -236,6 +238,12 @@ class ReportBrokenEmbed extends Action
      * `assistant-teacher` holds `courses.update`, so «المدرّس ومن يعينه» is
      * satisfied by the permission rather than by a list of role names.
      *
+     * ⛔ AND FILTERED TO THOSE WHO WORK ON THIS COURSE (2026-09-30). The
+     * permission is workspace-wide, so an assistant confined to course A was
+     * told about a broken link in course B — a course they cannot open, with a
+     * link to a screen that answers «خارج نطاق عملك». `mayActOnCourse()` is the
+     * wall every course door asks; it is a no-op for everyone not confined.
+     *
      * ⚠️ NOT NAMED `notify()`. `ProviderAgnosticTest` fails the build on `->notify(`
      * anywhere under `Actions/`, because that is Laravel's own Notifiable method
      * and using it would bypass `DispatchNotification` — the one door where the
@@ -251,6 +259,10 @@ class ReportBrokenEmbed extends Action
             $recipients = User::query()->permission(Permissions::COURSES_UPDATE)->get();
 
             foreach ($recipients as $recipient) {
+                if (! $this->assistants->mayActOnCourse($recipient, (int) $course->workspace_id, (int) $course->getKey())) {
+                    continue;
+                }
+
                 $this->dispatch->handle(new NotificationRequest(
                     recipient: $recipient,
                     type: NotificationType::LessonLinkReported,

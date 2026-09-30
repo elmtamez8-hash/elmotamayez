@@ -216,7 +216,15 @@ export default function CreateCoursePage() {
     setLoading(true);
 
     try {
-      const course = await api.post<Course>("/courses", form);
+      // ⛔ The price keys only for the teacher (owner decision 2026-09-30): an
+      // assistant's course is born at the defaults, and the server refuses one
+      // that is not — even a currency that differs from the platform's.
+      const { currency, is_free_enrollment: isFree, ...rest } = form;
+      const payload: Record<string, unknown> =
+        user?.can_choose_course_pricing === true
+          ? { ...rest, currency, is_free_enrollment: isFree }
+          : rest;
+      const course = await api.post<Course>("/courses", payload);
       router.push(`/manage/courses/${course.uuid}`);
     } catch (err: unknown) {
       const found = fieldErrors(err);
@@ -450,14 +458,22 @@ export default function CreateCoursePage() {
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <ToggleTile
-                id="is_free_enrollment"
-                Icon={SparkIcon}
-                title="كورس مجاني"
-                description="يسجّل فيه أي طالب بلا دفع ولا باقة."
-                checked={form.is_free_enrollment}
-                onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
-              />
+              {/* ⛔ للمدرّسِ وحدَه (قرارُ المالك 2026-09-30) — الجوابُ من الخادم
+                  (`can_choose_course_pricing`)، وكورسُ المساعدِ يُولَدُ بالباقات. */}
+              {user?.can_choose_course_pricing === true ? (
+                <ToggleTile
+                  id="is_free_enrollment"
+                  Icon={SparkIcon}
+                  title="كورس مجاني"
+                  description="يسجّل فيه أي طالب بلا دفع ولا باقة."
+                  checked={form.is_free_enrollment}
+                  onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
+                />
+              ) : (
+                <p className="self-center text-sm text-ink-muted">
+                  يُنشأ الكورس بالباقات. جعله مجانياً يقرّره مدرّس الكورس.
+                </p>
+              )}
               <ToggleTile
                 id="is_sequential"
                 Icon={ListIcon}

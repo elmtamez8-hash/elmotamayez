@@ -20,10 +20,13 @@ use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
  * lights up — invisibly, and only on the `redis` connection production runs, not
  * on the `sync` one every test uses.
  *
- * The recipient is the course's author, on the precedent of
- * {@see NotifyTeacherCohortTransferRequested}: a workspace may hold several people
- * who could plausibly be «the teacher», and the one who built the course is the
- * one whose availability the request was picked from.
+ * The recipient is the teacher the request is ADDRESSED to — the profile whose
+ * availability it was picked from — and, for a request carrying none, the
+ * course's teacher (`Course::teacherUser()`).
+ *
+ * ⛔ NEVER `course.creator` (2026-09-30): an assistant who CREATED the course
+ * received every private-session request for it, and the teacher whose hour was
+ * being booked heard nothing.
  */
 class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
 {
@@ -36,11 +39,11 @@ class NotifyTeacherPrivateSessionRequested implements ShouldQueueAfterCommit
         $request = $event->request;
         $course = $request->course;
         $student = $request->student;
-        $teacher = $course?->creator;
+        $teacher = $request->teacherProfile->user ?? $course?->teacherUser();
 
-        // `created_by` is nullable — a course can outlive its author — and a
-        // student whose account is gone has nothing to ask for. Neither is an
-        // error, and neither is a message anybody can act on.
+        // A course may have no teacher left — a course can outlive its author —
+        // and a student whose account is gone has nothing to ask for. Neither is
+        // an error, and neither is a message anybody can act on.
         if ($course === null || $student === null || $teacher === null) {
             return;
         }

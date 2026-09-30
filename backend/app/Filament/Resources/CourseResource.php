@@ -176,8 +176,14 @@ class CourseResource extends Resource
                         // مربوطٌ بـ`Course::price` الافتراضيّة فوقَ `price_minor`.
                         // كانَ `integer()` بلا حدٍّ أدنى ولا `required`: السالبُ
                         // يُحفَظ، والفراغُ يرتطمُ بـ`NOT NULL` صفحةَ خطأ.
+                        /*
+                        | ⚠️ والسعرُ قرارُ المدرّسِ كالظهور (قرارُ المالك ٢٠٢٦-٠٩-٣٠)،
+                        | والسؤالُ `CoursePolicy::changePricing()` كما في الـAPI. الحقولُ
+                        | الثلاثةُ مُعطَّلةٌ لمن لا يُجيبُه بنعم، والمُعطَّلُ لا يُرسَل.
+                        */
                         MoneyInput::make('price', fn (Get $get): mixed => $get('currency'))
                             ->label('السعر')
+                            ->disabled(fn (?Course $record): bool => ! self::mayPrice($record))
                             ->required()
                             ->helperText('بالعملةِ المختارة — ٤٩٫٩٩ تُكتَبُ 49.99')
                             ->default(0),
@@ -190,6 +196,7 @@ class CourseResource extends Resource
                         Select::make('currency')
                             ->label('العملة')
                             ->options(Currency::options())
+                            ->disabled(fn (?Course $record): bool => ! self::mayPrice($record))
                             ->live()
                             ->required()
                             ->default(fn (): string => app(BillingSettings::class)->currency()),
@@ -200,11 +207,18 @@ class CourseResource extends Resource
                         */
                         Checkbox::make('is_free_enrollment')
                             ->label('كورس مجاني')
+                            ->disabled(fn (?Course $record): bool => ! self::mayPrice($record))
                             ->helperText('يسجّل فيه أي طالب بلا دفع. بدونه لا يُدخَل الكورس إلا بباقة.')
                             ->default(false)
                             ->columnSpanFull(),
                     ]),
             ]);
+    }
+
+    /** `CoursePolicy::changePricing()` for the reader of this screen. */
+    private static function mayPrice(?Course $record): bool
+    {
+        return $record instanceof Course && (Auth::user()?->can('changePricing', $record) ?? false);
     }
 
     public static function table(Table $table): Table

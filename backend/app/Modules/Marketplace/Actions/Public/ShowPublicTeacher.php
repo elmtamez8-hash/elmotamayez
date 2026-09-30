@@ -144,8 +144,8 @@ class ShowPublicTeacher extends Action
     /**
      * The teacher's own publicly listed courses (FR-058).
      *
-     * A separate query rather than a relation on TeacherProfile: courses point at
-     * a user, not a profile, and adding a second path to the same rows is how the
+     * A separate query rather than a relation on TeacherProfile: a course points
+     * at its profile OR (legacy) at a user, and adding a second path to the same rows is how the
      * two start disagreeing.
      *
      * @return Collection<int, Course>
@@ -154,8 +154,19 @@ class ShowPublicTeacher extends Action
     {
         return Course::query()
             ->publiclyListed()
-            ->where('created_by', $teacher->user_id)
-            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'subject'])
+            /*
+            | ⛔ THE COURSES THIS PROFILE TEACHES, NOT THOSE ITS PERSON TYPED
+            | (2026-09-30). `created_by` alone dropped every course an ASSISTANT
+            | created for this teacher off the teacher's own page. The creator
+            | arm stays for a course with no profile recorded — the legacy truth
+            | `Course::teacherProfileForListing()` spells.
+            */
+            ->where(fn ($taught) => $taught
+                ->where('teacher_profile_id', $teacher->getKey())
+                ->orWhere(fn ($legacy) => $legacy
+                    ->whereNull('teacher_profile_id')
+                    ->where('created_by', $teacher->user_id)))
+            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'teacherProfile.user:id,first_name,last_name', 'subject'])
             ->withCount([
                 // Scoped, and it was not. `withCount('lessons')` counts every row
                 // — so a teacher's half-written drafts and their retired archive

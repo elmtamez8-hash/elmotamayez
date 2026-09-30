@@ -96,6 +96,9 @@ class ReadPublicCourse extends Action
                 // teacher on it. A 200 with a hole in it, which no 404 test can
                 // see.
                 'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
+                // The course's TEACHER (2026-09-30) — `creator` is whoever pressed
+                // the button, an assistant included. The relation carries the bypass.
+                'teacherProfile.user:id,first_name,last_name',
             ])
             ->withCount([
                 // The same constraint the card uses: an unconstrained count adds
@@ -300,7 +303,8 @@ class ReadPublicCourse extends Action
 
     public function privateSubscriptionAvailable(Course $course): bool
     {
-        $teacherProfileId = $course->creator?->teacherProfile?->getKey();
+        // The course's teacher, never its creator — {@see Course::teacherProfileForListing()}.
+        $teacherProfileId = $course->teacherProfileForListing()?->getKey();
 
         if ($teacherProfileId === null) {
             return false;

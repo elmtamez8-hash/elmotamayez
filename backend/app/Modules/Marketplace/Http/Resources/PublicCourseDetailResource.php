@@ -107,8 +107,10 @@ class PublicCourseDetailResource extends JsonResource
      */
     private function teacherShape(): ?array
     {
-        $creator = $this->creator;
-        $profile = $creator?->teacherProfile;
+        // ⛔ THE COURSE'S TEACHER, NEVER `creator` (2026-09-30): an assistant
+        // who created the course was bylined as its teacher. {@see Course::teacherUser()}
+        $creator = $this->teacherUser();
+        $profile = $this->teacherProfileForListing();
 
         if ($creator === null || $profile === null) {
             return null;
@@ -144,7 +146,7 @@ class PublicCourseDetailResource extends JsonResource
         return [
             'workspace_uuid' => (string) $workspace->uuid,
             'name' => TeacherContactName::of(
-                $this->creator?->name,
+                $this->teacherUser()?->name,
                 $workspace->name,
                 $workspace->type === WorkspaceType::Teacher->value,
             ),

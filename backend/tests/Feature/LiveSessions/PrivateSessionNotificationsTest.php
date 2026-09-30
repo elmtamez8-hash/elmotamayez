@@ -45,14 +45,22 @@ beforeEach(function (): void {
     fakeSessionTimeline();
 });
 
-it('asks the teacher who wrote the course, not the student', function (): void {
+it('asks the teacher the request is addressed to — the profile\'s person — not the student', function (): void {
     $fx = privateSessionFixture();
 
     privateNoticeRequested($fx);
 
-    assertNotifiedOnce($fx['owner'], NotificationType::PrivateSessionRequested);
+    /*
+    | ⛔ NOT THE COURSE'S AUTHOR (2026-09-30). The fixture is an academy's shape
+    | — the owner wrote the course, a teacher with their own profile teaches it —
+    | and the request was picked from THAT teacher's hours. It used to go to
+    | `course.creator`, which is also how an assistant who created a course
+    | received every request for it.
+    */
+    assertNotifiedOnce($fx['profile']->user()->firstOrFail(), NotificationType::PrivateSessionRequested);
 
-    expect(wasNotified($fx['student'], NotificationType::PrivateSessionRequested))->toBeFalse();
+    expect(wasNotified($fx['owner'], NotificationType::PrivateSessionRequested))->toBeFalse()
+        ->and(wasNotified($fx['student'], NotificationType::PrivateSessionRequested))->toBeFalse();
 });
 
 it('tells the student their private session was accepted', function (): void {

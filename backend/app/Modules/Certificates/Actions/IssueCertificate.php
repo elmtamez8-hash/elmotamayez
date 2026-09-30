@@ -63,7 +63,12 @@ class IssueCertificate extends Action
                 | author), so both columns are nullable and the page falls back to
                 | the course title rather than printing an empty line.
                 */
-                'teacher_display_name' => $enrollment->course->creator?->name,
+                /*
+                | ⛔ THE COURSE'S TEACHER, NEVER `creator` (2026-09-30): a course
+                | an ASSISTANT created printed the assistant's name on every
+                | certificate. {@see \App\Modules\Courses\Models\Course::teacherUser()}
+                */
+                'teacher_display_name' => $enrollment->course->teacherUser()?->name,
                 // `->` and not `?->` on the left of `??`: `??` already uses isset
                 // semantics, so a null course subject yields the title rather
                 // than an error — and PHPStan rejects the redundant nullsafe.

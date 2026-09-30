@@ -575,6 +575,9 @@ function privateSessionFixture(int $minutes = 45, int $credits = 10): array
     $startsAt = CarbonImmutable::now()->utc()->addWeek()->startOfWeek()->addDays(2)->setTime(15, 0);
 
     $built = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $owner, $student, $minutes, $credits, $startsAt): array {
+        // ⚠️ AN ACADEMY'S SHAPE: the profile's person is NOT the owner who wrote
+        // the course. Since 2026-09-30 the profile's person is who a request is
+        // addressed to (`Course::teacherUser()`) — `$built['profile']->user`.
         $profile = TeacherProfile::factory()->create(['workspace_id' => $workspace->getKey()]);
 
         $course = Course::factory()->published()->create([

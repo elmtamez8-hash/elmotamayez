@@ -161,6 +161,17 @@ export interface User {
    */
   can_choose_course_visibility?: boolean;
   /**
+   * Whether this person may make a NEW course free or price it — the teacher,
+   * never an assistant (owner decision 2026-09-30). The same answer as the
+   * visibility flag, sent separately so each screen reads the question it asks.
+   */
+  can_choose_course_pricing?: boolean;
+  /**
+   * An assistant CONFINED to some courses: they may set nothing «for all my
+   * students», so «اختبار جديد» requires a course of theirs (2026-09-30).
+   */
+  is_confined_assistant?: boolean;
+  /**
    * أماكن العمل التي ينتمي إليها هذا الشخص — يملكها أو يساعد فيها (مواصفة ٠٢٥).
    *
    * ⚠️ العدد هو ما تقرؤه اللافتة، وثلاثة أجوبة لا اثنان: صفر ⇒ لا لافتة (طالبٌ
@@ -274,6 +285,13 @@ export interface Course {
    * elsewhere, so a missing key means «not told» and the field stays hidden.
    */
   can_change_visibility?: boolean;
+  /**
+   * Whether the reader may make the course free or move its price — the
+   * course's teacher alone (owner decision 2026-09-30). Sent beside
+   * `can_change_visibility`; a missing key means «not told», so the field stays
+   * hidden and the save sends neither `is_free_enrollment` nor `currency`.
+   */
+  can_change_pricing?: boolean;
   /**
    * Whether a visitor can reach the course at `/courses/{slug}`, and why not —
    * `Course::publicListingBlockers()`. Sent to the course's EDITOR on

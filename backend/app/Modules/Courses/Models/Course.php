@@ -46,6 +46,8 @@ use Laravel\Scout\Searchable;
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
+ * @property int|null $teacher_profile_id
+ * @property-read TeacherProfile|null $teacherProfile the course's TEACHER — {@see Course::teacherUser()}
  * @property-read Subject|null $subject subject_id is nullable — 007 added the column with no writer,
  *   and a course created before 026's backfill (or by a factory) still carries none
  */
@@ -310,10 +312,73 @@ class Course extends BaseModel
         return $this->belongsTo(Subject::class);
     }
 
-    /** @return BelongsTo<User, $this> */
+    /**
+     * Who PRESSED the button — the author/actor, never «the teacher».
+     *
+     * ⛔ An assistant who creates a course is its `created_by`. Every reader that
+     * means «this course's teacher» (a notification, a certificate, a public
+     * card, the marketplace predicate) goes through `teacherUser()` /
+     * `teacherProfile()` instead — docs/gotchas/courses.md.
+     *
+     * @return BelongsTo<User, $this>
+     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The teacher this course is taught and priced under —
+     * `courses.teacher_profile_id`, written by `CourseTeacherProfile::resolve()`
+     * (the creator's own profile in this workspace, else the workspace owner's).
+     *
+     * ⚠️ THE BYPASS IS BAKED INTO THE RELATION. `teacher_profiles` is tenant
+     * owned, and two of this relation's readers are queued listeners whose
+     * context is whatever the worker last handled, and two more are guest
+     * pages. A per-call-site closure is forgotten at one of them.
+     *
+     * @return BelongsTo<TeacherProfile, $this>
+     */
+    public function teacherProfile(): BelongsTo
+    {
+        return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id')
+            ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * «Who is this course's teacher?» — the ONE answer (2026-09-30).
+     *
+     * ⛔ NOT `creator`. `created_by` is whoever pressed «أنشئ الكورس», and when
+     * that was an ASSISTANT the assistant became the teacher everywhere: the
+     * private-session and group-transfer requests went to them, the certificate
+     * printed their name, the public card showed them, and the marketplace
+     * judged THEIR profile. The teacher is the profile's person.
+     *
+     * ⚠️ FALLS BACK TO `creator` WHEN THE COURSE HAS NO PROFILE — the legacy
+     * truth (a teacher who authored before submitting their application; the
+     * profile is claimed later by `ClaimCoursesForNewTeacherProfile`). An
+     * assistant's course always has one when the workspace's teacher does,
+     * because `CourseTeacherProfile::resolve()` falls through to the owner's.
+     *
+     * Reads `teacherProfile.user` and `creator`; a list must eager-load both.
+     */
+    public function teacherUser(): ?User
+    {
+        return $this->teacherProfile->user ?? $this->creator;
+    }
+
+    /**
+     * The teacher's profile as the marketplace judges it: the course's own,
+     * else — for a course with none recorded — its creator's (the legacy truth,
+     * {@see teacherUser()}). Reads `teacherProfile` and `creator.teacherProfile`.
+     */
+    public function teacherProfileForListing(): ?TeacherProfile
+    {
+        if ($this->teacher_profile_id !== null) {
+            return $this->teacherProfile;
+        }
+
+        return $this->creator?->teacherProfile;
     }
 
     /**
@@ -431,7 +496,19 @@ class Course extends BaseModel
             ->whereExists(function (QueryBuilder $sub): void {
                 $sub->selectRaw('1')
                     ->from('teacher_profiles')
-                    ->whereColumn('teacher_profiles.user_id', 'courses.created_by')
+                    /*
+                    | ⛔ THE COURSE'S TEACHER, NOT ITS CREATOR (2026-09-30) —
+                    | `teacherProfileForListing()` in SQL, and the two must move
+                    | together. It read `user_id = created_by`, so a course an
+                    | ASSISTANT created was judged by the assistant's profile.
+                    | The creator arm stays for a course with no profile
+                    | recorded, the legacy truth.
+                    */
+                    ->where(fn (QueryBuilder $teacher) => $teacher
+                        ->whereColumn('teacher_profiles.id', 'courses.teacher_profile_id')
+                        ->orWhere(fn (QueryBuilder $legacy) => $legacy
+                            ->whereNull('courses.teacher_profile_id')
+                            ->whereColumn('teacher_profiles.user_id', 'courses.created_by')))
                     ->where('teacher_profiles.is_publicly_listed', true)
                     // The constant rather than 'approved': a literal here is
                     // coupling to another module that nobody can grep for, and
@@ -503,9 +580,10 @@ class Course extends BaseModel
      * pressed «انشر الكورس» and sees nothing wrong. The reasons are codes, not
      * sentences: the screen owns the words.
      *
-     * Reads `creator.teacherProfile` and `workspace`; a caller that renders
-     * this for a signed-in teacher must load the profile WITHOUT the workspace
-     * scope (a tenant model) or an approved teacher reads as unlisted.
+     * Reads `teacherProfile`, `creator.teacherProfile` and `workspace`; a caller
+     * that renders this for a signed-in teacher must load `creator.teacherProfile`
+     * WITHOUT the workspace scope (a tenant model) or an approved teacher reads
+     * as unlisted (`teacherProfile` carries the bypass in its definition).
      *
      * @return list<'draft'|'archived'|'private'|'workspace_not_in_marketplace'|'teacher_not_listed'>
      */
@@ -525,7 +603,7 @@ class Course extends BaseModel
             $blockers[] = 'workspace_not_in_marketplace';
         }
 
-        $profile = $this->creator?->teacherProfile;
+        $profile = $this->teacherProfileForListing();
 
         if ($profile === null
             || ! (bool) $profile->is_publicly_listed

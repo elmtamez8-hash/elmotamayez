@@ -146,6 +146,9 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - LESSON CONTENT HAS FOUR DOORS, NOT ONE — AND THE ONE THAT ACTUALLY SERVES THE FILE ENDS AT `hasActiveEnrollment`.
 - A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
 - A course's visibility is the TEACHER's call, not `courses.update`'s — an assistant edits content but `changeVisibility`/`chooseVisibility` refuse them, and the screens read the server's boolean.
+- A course's PRICE («كورس مجاني», `price_minor`, `currency`) is the teacher's call too — `changePricing`/`choosePricing` read the visibility predicate, asked only on a change / a non-default create; the screens read `can_change_pricing` / `can_choose_course_pricing` and send no price key otherwise.
+- «Who is this course's teacher» is `Course::teacherUser()` (the `teacher_profile_id` person, `creator` only when no profile is recorded) — never `creator`, which is whoever pressed the button (an assistant included); the marketplace SQL spells the same two arms.
+- The tree's three delete doors ask `CoursePolicy::deleteLessons()` (`lessons.delete` + scope), not `manageLessons()` — the default assistant no longer deletes sections, chapters or lessons.
 
 ### Exams, questions, practice and grading → [`docs/gotchas/assessments.md`](docs/gotchas/assessments.md)
 _Read before touching `Modules/Assessments/`, exams, the question bank, practice, study rooms._
@@ -160,6 +163,7 @@ _Read before touching `Modules/Assessments/`, exams, the question bank, practice
 - Starting an exam asks the course's sequence, and the attempt allowance is a claim.
 - Any code that deletes `exam_answers` (or an attempt that has them) must call `QuestionStatRollupState::requestFullRecompute()` — `AssessmentsPersonalData::answersDeleted()` is the door — or the incremental rollup keeps counting deleted answers for ever.
 - A confined assistant manages the homework of their OWN courses only — `AssignmentPolicy` (`view` above the student branch, `manage`, and `placeInCourse` for create and move) and both `SubmissionPolicy` staff branches ask `mayActOnCourse()`; a course-less assignment is refused to them, and a `view` refusal falls through to an ACTIVE ENROLMENT in the course (student powers only).
+- An exam's course arrives as a uuid (`course`, `WorkspaceRules::exists('courses','uuid')`), resolved to `course_id` in `ExamController` before the scope check; «اختبار جديد» requires it from a confined assistant (`is_confined_assistant` on `/auth/me`) and offers «كل طلابي» to everyone else.
 - A confined assistant manages the EXAMS of their own courses only — `ExamPolicy` (`view` above the student branch, `update`/`delete`/`publish`/`manageQuestions`, and `placeInCourse` for create and move) asks `mayActOnCourse()`, `ExamController::update()` now calls `authorize('update')` (the request asked the permission alone), and the managing `GET /exams` list is narrowed by `scopedCourseIdsFor()`; a course-less exam is refused to them, and a `view` refusal falls through to an ACTIVE ENROLMENT (student powers only).
 
 ### Live sessions, the broadcast room and attendance → [`docs/gotchas/live-sessions.md`](docs/gotchas/live-sessions.md)
@@ -288,6 +292,7 @@ _Read before touching `Modules/Notifications/`, templates, WhatsApp, push, guard
 - `isFocusing()` asked `status = running` and never read the clock, so one abandoned timer muted an account's notifications for ever.
 - `NotificationChannel::Push` is deliberately absent from `defaultChannels()`, and SUBSCRIBING is what switches it on.
 - `ProviderAgnosticTest` fails on a private method NAMED `notify()` inside `Actions/`, and it is right to.
+- A workspace-wide permission is not a recipient list — a course-keyed fan-out (the broken-link report) filters each recipient through `mayActOnCourse()`.
 
 ### Community, chat, realtime and gamification → [`docs/gotchas/community.md`](docs/gotchas/community.md)
 _Read before touching `Modules/Community/`, `Modules/Gamification/`, Reverb/Echo, feature flags._

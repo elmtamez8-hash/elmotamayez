@@ -18,6 +18,9 @@ class CoursePolicy extends BasePolicy
     /** The refusal an assistant reads when they try to move a course's visibility. */
     public const VISIBILITY_REFUSAL = 'ظهور الكورس (عام أو خاص) يقرّره مدرّس الكورس وحده.';
 
+    /** The refusal an assistant reads when they try to price a course or make it free. */
+    public const PRICING_REFUSAL = 'سعر الكورس وجعله مجانياً يقرّرهما مدرّس الكورس وحده.';
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::COURSES_VIEW)
@@ -140,6 +143,41 @@ class CoursePolicy extends BasePolicy
             : Response::deny(self::VISIBILITY_REFUSAL);
     }
 
+    /**
+     * Whether this course's PRICE may be moved — `is_free_enrollment`,
+     * `price_minor`, `currency` — the teacher's decision alone (owner decision
+     * 2026-09-30, on the visibility precedent).
+     *
+     * ⛔ ASKED BESIDE `update()`, NEVER INSTEAD OF IT, and only when one of the
+     * three actually CHANGES: the edit screen echoes the currency and the free
+     * flag on every save, and an assistant fixing a title must not be refused.
+     * {@see User::decidesCoursePricingIn()}
+     */
+    public function changePricing(User $user, Course $course): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $user->decidesCoursePricingIn((int) $course->workspace_id)
+            ? Response::allow()
+            : Response::deny(self::PRICING_REFUSAL);
+    }
+
+    /**
+     * The same decision at CREATION — asked only when the new course is not
+     * born at the defaults (paid, price 0, the platform currency). An assistant
+     * creates a course the teacher then prices.
+     */
+    public function choosePricing(User $user): Response
+    {
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        return $workspaceId !== null && $user->decidesCoursePricingIn($workspaceId)
+            ? Response::allow()
+            : Response::deny(self::PRICING_REFUSAL);
+    }
+
     public function delete(User $user, Course $course): Response
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
@@ -173,6 +211,32 @@ class CoursePolicy extends BasePolicy
         }
 
         return $user->can(Permissions::LESSONS_MANAGE)
+            ? Response::allow()
+            : Response::deny();
+    }
+
+    /**
+     * Deleting a section, a chapter or a lesson of this course.
+     *
+     * ⛔ `lessons.delete` GUARDED NOTHING UNTIL 2026-09-30. The three delete
+     * doors asked `manageLessons()` (`lessons.manage`), so the permission the
+     * roles screen offers as «حذف الدروس» could be unticked with no effect —
+     * and the default assistant, who holds `lessons.manage` and not
+     * `lessons.delete`, deleted whole sections. The same workspace and
+     * assistant-scope walls as `manageLessons()`, then the permission that
+     * names the act.
+     */
+    public function deleteLessons(User $user, Course $course): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
+        return $user->can(Permissions::LESSONS_DELETE)
             ? Response::allow()
             : Response::deny();
     }
