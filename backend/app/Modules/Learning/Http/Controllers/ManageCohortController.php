@@ -67,7 +67,7 @@ class ManageCohortController extends Controller
 
     public function index(Request $request, Course $course): JsonResponse
     {
-        $this->authorize('viewAny', Cohort::class);
+        $this->authorize('viewAny', [Cohort::class, $course]);
 
         $cohorts = Cohort::query()
             ->where('course_id', $course->getKey())
@@ -187,7 +187,7 @@ class ManageCohortController extends Controller
 
     public function store(Request $request, Course $course, CreateCohort $action): JsonResponse
     {
-        $this->authorize('create', Cohort::class);
+        $this->authorize('create', [Cohort::class, $course]);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
@@ -406,7 +406,7 @@ class ManageCohortController extends Controller
 
     public function studentHistory(Request $request, Course $course, User $student): JsonResponse
     {
-        $this->authorize('viewAny', Cohort::class);
+        $this->authorize('viewAny', [Cohort::class, $course]);
 
         $events = CohortMembershipEvent::query()
             ->where('course_id', $course->getKey())
@@ -420,7 +420,7 @@ class ManageCohortController extends Controller
 
     public function transferRequests(Request $request, Course $course): JsonResponse
     {
-        $this->authorize('viewAny', CohortTransferRequest::class);
+        $this->authorize('viewAny', [CohortTransferRequest::class, $course]);
 
         $requests = CohortTransferRequest::query()
             ->where('course_id', $course->getKey())

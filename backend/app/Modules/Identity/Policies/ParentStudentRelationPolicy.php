@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 
 /**
@@ -93,10 +94,23 @@ class ParentStudentRelationPolicy
             return false;
         }
 
-        return Enrollment::query()
+        $enrolledHere = Enrollment::query()
             ->where('workspace_id', $workspaceId)
             ->where('student_user_id', $relation->student_user_id)
             ->whereIn('status', Enrollment::GRANTING_STATUSES)
             ->exists();
+
+        /*
+        | ⚠️ AND A CONFINED ASSISTANT READS THE FAMILIES OF THEIR OWN STUDENTS ONLY
+        | (spec 010 · FR-005, audit 2026-09-30). `relations.view.student` is on
+        | the assistant role by default, and «enrolled anywhere in my workspace»
+        | let an assistant confined to one course read every other course's
+        | guardians. A no-op for everybody who is not a confined assistant.
+        */
+        return $enrolledHere && app(AssistantScopeDirectory::class)->mayActOnStudent(
+            $user,
+            $workspaceId,
+            (int) $relation->student_user_id,
+        );
     }
 }
