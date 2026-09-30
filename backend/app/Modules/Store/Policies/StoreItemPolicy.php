@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -40,7 +41,24 @@ class StoreItemPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $this->viewAny($user);
+        if (($permission = $this->viewAny($user))->denied()) {
+            return $permission;
+        }
+
+        /*
+        | ⛔ SPEC 010 · FR-005 (2026-09-30), beside the permission: a confined
+        | assistant who holds `store.items.manage` opens and edits the goods of
+        | their own courses. An item tied to no course is the teacher's shop at
+        | large and is refused to them — the directory's rule for anything that
+        | hangs off no course.
+        */
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $item->workspace_id,
+            $item->course_id === null ? null : (int) $item->course_id,
+        )
+            ? Response::allow()
+            : Response::deny('هذا المنتج خارج نطاق عملك.');
     }
 
     public function create(User $user): Response

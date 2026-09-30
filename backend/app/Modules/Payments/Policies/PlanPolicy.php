@@ -6,8 +6,10 @@ namespace App\Modules\Payments\Policies;
 
 use App\Models\User;
 use App\Modules\Payments\Models\Plan;
+use App\Modules\Payments\Support\PlanCourses;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -57,9 +59,11 @@ class PlanPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::PLANS_MANAGE)
-            ? Response::allow()
-            : Response::deny();
+        if (! $user->can(Permissions::PLANS_MANAGE)) {
+            return Response::deny();
+        }
+
+        return $this->withinAssistantScope($user, $plan);
     }
 
     public function create(User $user): Response
@@ -75,7 +79,30 @@ class PlanPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $this->create($user);
+        if (($permission = $this->create($user))->denied()) {
+            return $permission;
+        }
+
+        return $this->withinAssistantScope($user, $plan);
+    }
+
+    /**
+     * ⛔ SPEC 010 · FR-005 FOR PLANS (2026-09-30), beside the permission and
+     * never instead of it. A confined assistant who holds `plans.manage` opens
+     * and edits the plans of their own courses — a course plan, or a group plan
+     * of one of their courses. A workspace plan sells no one course and is
+     * refused to them ({@see PlanCourses}). A teacher, an owner, an unconfined
+     * assistant and a platform officer pass it as a no-op.
+     */
+    private function withinAssistantScope(User $user, Plan $plan): Response
+    {
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $plan->workspace_id,
+            app(PlanCourses::class)->ofPlan($plan),
+        )
+            ? Response::allow()
+            : Response::deny('هذه الباقة خارج نطاق عملك.');
     }
 
     /** The platform's half, and no tenant role holds it. */

@@ -87,4 +87,37 @@ interface AssistantScopeDirectory
      * @return list<int>|null
      */
     public function scopedCourseIdsFor(User $user, int $workspaceId): ?array;
+
+    /**
+     * The students this assistant may act on, or `null` for no confinement.
+     *
+     * The LIST form of {@see mayActOnStudent()}, for a screen that filters many
+     * rows by student: the students actively enrolled in any course of the
+     * confinement, read with the same enrolment predicate `mayActOnStudent()`
+     * intersects with, so the list and the per-row door cannot disagree.
+     *
+     * ⚠️ `null` AND `[]` ARE DIFFERENT ANSWERS, as on `scopedCourseIdsFor()`:
+     * `null` is «filter nothing», `[]` is «a confined assistant whose courses
+     * have nobody in them» and must filter everything out.
+     *
+     * @return list<int>|null user ids, ascending
+     */
+    public function scopedStudentIdsFor(User $user, int $workspaceId): ?array;
+
+    /**
+     * Of these people, the ones the confinement lets act on this student.
+     *
+     * ⚠️ BATCHED, AND THAT IS ITS WHOLE REASON TO EXIST. `mayActOnStudent()` asked
+     * once per member costs one assignment read per member — a fan-out over a
+     * workspace's staff (a chat message tells every one of them) became a query
+     * per person. This answers for the whole list in at most three reads, and
+     * fills the same memo the single-person methods read.
+     *
+     * Everybody who is not a confined assistant passes, exactly as they pass
+     * `mayActOnStudent()` — this narrows, it never authorises.
+     *
+     * @param  list<int>  $userIds
+     * @return list<int> the subset of `$userIds` that passes, in input order
+     */
+    public function whoMayActOnStudent(array $userIds, int $workspaceId, int $studentUserId): array;
 }

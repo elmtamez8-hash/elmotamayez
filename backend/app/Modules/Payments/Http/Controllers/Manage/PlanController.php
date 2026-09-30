@@ -14,8 +14,11 @@ use App\Modules\Payments\Http\Resources\ManagedPlanResource;
 use App\Modules\Payments\Http\Resources\PlanChangeRequestResource;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
+use App\Modules\Payments\Support\PlanCourses;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -39,7 +42,7 @@ class PlanController extends Controller
 
         // Scoped by the global scope, which resolves here: the reader is a
         // workspace MEMBER, unlike every student-facing read in this module.
-        $plans = Plan::query()->orderedByShape()->get();
+        $plans = $this->visiblePlans($request)->orderedByShape()->get();
 
         return response()->json(['data' => ManagedPlanResource::collection($plans)]);
     }
@@ -71,6 +74,9 @@ class PlanController extends Controller
         $this->authorize('viewAny', Plan::class);
 
         $requests = PlanChangeRequest::query()
+            // The requests on the plans this reader may open — a confined
+            // assistant's own courses (spec 010 · FR-005), everybody else's all.
+            ->whereIn('plan_id', $this->visiblePlans($request)->select('id'))
             ->with('plan')
             ->orderByDesc('requested_at')
             ->limit(50)
@@ -110,6 +116,25 @@ class PlanController extends Controller
         }
 
         return response()->json(['data' => PlanChangeRequestResource::make($saved)], 201);
+    }
+
+    /**
+     * The plans this reader may open: the workspace's, narrowed for a confined
+     * assistant to the plans of their own courses — the list form of
+     * `PlanPolicy::view()` (spec 010 · FR-005, 2026-09-30).
+     *
+     * @return Builder<Plan>
+     */
+    private function visiblePlans(Request $request): Builder
+    {
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $scoped = $workspaceId === null
+            ? null
+            : app(AssistantScopeDirectory::class)->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
+        $query = Plan::query();
+
+        return $scoped === null ? $query : app(PlanCourses::class)->within($query, $scoped, (int) $workspaceId);
     }
 
     private function save(SavePlanRequest $request, SavePlan $action, ?Plan $plan, int $status): JsonResponse

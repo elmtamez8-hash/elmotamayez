@@ -39,12 +39,20 @@ class CountWithheldStudents extends Action
         private readonly WithholdingReader $withholding,
     ) {}
 
-    public function handle(Workspace $workspace): int
+    /**
+     * `$courseIds` narrows the count exactly as it narrows
+     * {@see ListStudentBalances::handle()} — a confined assistant's card counts
+     * the people their table lists, never the whole workspace.
+     *
+     * @param  list<int>|null  $courseIds
+     */
+    public function handle(Workspace $workspace, ?array $courseIds = null): int
     {
         $withheld = [];
 
         CreditBalance::query()
             ->where('workspace_id', $workspace->getKey())
+            ->when($courseIds !== null, fn ($query) => $query->whereIn('credit_balances.course_id', $courseIds ?? []))
             ->whereExists(fn (QueryBuilder $query) => $query->selectRaw('1')
                 ->from('enrollments')
                 ->whereColumn('enrollments.student_user_id', 'credit_balances.student_user_id')

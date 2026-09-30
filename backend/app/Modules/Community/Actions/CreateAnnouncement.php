@@ -7,11 +7,14 @@ namespace App\Modules\Community\Actions;
 use App\Models\User;
 use App\Modules\Community\Data\AnnouncementData;
 use App\Modules\Community\Models\Announcement;
+use App\Modules\Community\Support\AnnouncementCourses;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 
@@ -31,6 +34,15 @@ use Illuminate\Validation\ValidationException;
  */
 class CreateAnnouncement extends Action
 {
+    public function __construct(
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly AnnouncementCourses $courses,
+    ) {}
+
+    /**
+     * @throws AuthorizationException when a confined assistant addresses
+     *                                anybody outside their courses
+     */
     public function handle(User $author, AnnouncementData $data): Announcement
     {
         $workspaceId = (int) app(WorkspaceContext::class)->id();
@@ -74,6 +86,18 @@ class CreateAnnouncement extends Action
             throw ValidationException::withMessages([
                 'scope_uuid' => 'اختر الكورس أو الحصة التي يخصّها الإعلان.',
             ]);
+        }
+
+        /*
+        | ⛔ A CONFINED ASSISTANT ADDRESSES ONLY THEIR OWN COURSES (spec 010 ·
+        | FR-005, 2026-09-30) — a course of theirs, a session of one, a group of
+        | one. `all` resolves to no course and the directory refuses it to them:
+        | the whole workspace is exactly what the confinement withholds. Asked
+        | HERE, after the target is resolved inside the workspace, because the
+        | Action is the one door the API, a seeder and the panel share.
+        */
+        if (! $this->assistants->mayActOnCourse($author, $workspaceId, $this->courses->of($data->scope, $scopeId, $workspaceId))) {
+            throw new AuthorizationException('هذا الإعلان خارج نطاق عملك.');
         }
 
         $announcement = new Announcement([
