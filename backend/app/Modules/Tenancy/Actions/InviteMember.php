@@ -7,20 +7,36 @@ namespace App\Modules\Tenancy\Actions;
 use App\Models\User;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\RoleGrants;
 use App\Modules\Tenancy\Support\StaffAccounts;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Str;
 
 class InviteMember extends Action
 {
-    public function handle(Workspace $workspace, string $email, string $role, ?User $inviter = null): Invitation
+    public function __construct(private readonly RoleGrants $grants) {}
+
+    /**
+     * ⚠️ `$inviter` IS REQUIRED (audit 2026-09-30). It was nullable and read by
+     * nothing; a guard that skips a null actor is the hole it was meant to close.
+     */
+    public function handle(Workspace $workspace, string $email, string $role, User $inviter): Invitation
     {
+        $account = StaffAccounts::accountFor($email);
+
         /*
         | ⛔ حسابُ الطالبِ أو وليِّ الأمرِ لا يصيرُ عضواً في الفريق (قرارُ المالك
         | 2026-09-26). يُرفَضُ هنا قبلَ أن تُرسَلَ الدعوة، لا عندَ قبولِها بعدَ أن
         | انتظرَها صاحبُها — {@see StaffAccounts}.
         */
-        StaffAccounts::guard(StaffAccounts::accountFor($email), $role);
+        StaffAccounts::guard($account, $role);
+
+        /*
+        | ⛔ A delegated `members.invite` invites no `tenant-owner` and no role
+        | above its own, and nobody re-invites themselves into a new role
+        | ({@see RoleGrants}).
+        */
+        $this->grants->guard($workspace, $inviter, $account, $role);
 
         return Invitation::create([
             'workspace_id' => $workspace->getKey(),

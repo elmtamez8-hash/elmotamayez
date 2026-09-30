@@ -36,6 +36,11 @@ class UpdateMemberRoleRequest extends FormRequest
             | The owner's own row is refused by the Action, not by this list —
             | `tenant-owner` is a legitimate role for a second member, and the
             | hazard is editing the person `workspaces.owner_user_id` names.
+            |
+            | ⚠️ LEGITIMATE WHEN THE OWNER GIVES IT. Who may give which role is
+            | also the Action's (`RoleGrants`, audit 2026-09-30): nobody their
+            | own row, `tenant-owner` only from the owner, and no role carrying
+            | a permission the giver lacks. A list here cannot say «from whom».
             */
             'role' => ['required', 'in:tenant-owner,teacher,assistant-teacher,student'],
         ];

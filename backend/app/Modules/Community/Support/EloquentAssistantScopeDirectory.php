@@ -140,6 +140,16 @@ final class EloquentAssistantScopeDirectory implements AssistantScopeDirectory
         unset($this->scopes[$userId.':'.$workspaceId]);
     }
 
+    /**
+     * Drop BOTH memos of one person in one workspace — the assignment and the
+     * scope. For `AssistantAppointments`, which opens and closes assignments
+     * inside a request whose earlier checks may already have read them.
+     */
+    public function forgetAssignmentOf(int $userId, int $workspaceId): void
+    {
+        unset($this->assignments[$userId.':'.$workspaceId], $this->scopes[$userId.':'.$workspaceId]);
+    }
+
     private function assignmentId(User $user, int $workspaceId): ?int
     {
         $key = $this->key($user, $workspaceId);
