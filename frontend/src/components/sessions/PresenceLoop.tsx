@@ -2,7 +2,29 @@
 
 import { useEffect, useState } from "react";
 
+import { ApiError } from "@/lib/api";
 import { classSessions, type PresenceState } from "@/lib/class-sessions";
+
+/**
+ * Why the server put this person out of the room.
+ *
+ * `removed` is the teacher's «إخراج»; `ended` is every other refusal the beat
+ * gives (the room closed, the window shut, the seat went) — one sentence for
+ * all of them, because telling them apart is the door's business (FR-015).
+ */
+export type EvictionReason = "removed" | "ended";
+
+/** Reads the refusal's own code — the server names a removal and nothing else. */
+export function evictionReason(err: unknown): EvictionReason | null {
+  if (!(err instanceof ApiError) || err.status !== 403) return null;
+
+  const code =
+    typeof err.body === "object" && err.body !== null && "code" in err.body
+      ? (err.body as { code: unknown }).code
+      : null;
+
+  return code === "removed_from_session" ? "removed" : "ended";
+}
 
 /**
  * The heartbeat. Attendance is nothing but this loop and the server's
@@ -25,10 +47,18 @@ export function PresenceLoop({
   sessionUuid,
   intervalSeconds,
   onUpdate,
+  onEvicted,
 }: {
   sessionUuid: string;
   intervalSeconds: number;
   onUpdate?: (state: PresenceState) => void;
+  /**
+   * The server refused the beat for good (403). ⚠️ THE PAGE MUST LEAVE THE
+   * ROOM on this: the provider cannot revoke a ticket, so a removed student's
+   * video keeps flowing until her own browser disconnects — the heartbeat is
+   * our only way of telling it to.
+   */
+  onEvicted?: (reason: EvictionReason) => void;
 }) {
   const [missedBeats, setMissedBeats] = useState(0);
 
@@ -44,8 +74,16 @@ export function PresenceLoop({
         missed = 0;
         setMissedBeats(0);
         onUpdate?.(state);
-      } catch {
+      } catch (err: unknown) {
         if (cancelled) return;
+
+        // A refusal is an answer, not a dropped beat: stop at once and say so.
+        const eviction = evictionReason(err);
+        if (eviction !== null) {
+          clearInterval(timer);
+          onEvicted?.(eviction);
+          return;
+        }
 
         missed += 1;
         setMissedBeats(missed);
@@ -76,7 +114,7 @@ export function PresenceLoop({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [sessionUuid, intervalSeconds, onUpdate]);
+  }, [sessionUuid, intervalSeconds, onUpdate, onEvicted]);
 
   // Two missed beats is exactly the point where the server stops crediting, so
   // it is the first moment the student is losing something by not knowing.

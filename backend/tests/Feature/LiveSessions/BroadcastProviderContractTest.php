@@ -6,6 +6,7 @@ use Agence104\LiveKit\EgressServiceClient;
 use Agence104\LiveKit\RoomServiceClient;
 use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
@@ -98,7 +99,7 @@ it('creates the same room twice without making two', function (BroadcastProvider
 // field name should still fail.
 it('puts no credential in a join ticket', function (BroadcastProviderInterface $provider): void {
     $user = contractUser();
-    $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Participant);
+    $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false));
 
     $serialised = strtolower(json_encode([
         $ticket->roomUrl,
@@ -114,7 +115,7 @@ it('puts no credential in a join ticket', function (BroadcastProviderInterface $
 
 it('issues a ticket that expires', function (BroadcastProviderInterface $provider): void {
     $user = contractUser();
-    $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Host);
+    $ticket = $provider->issueTicket(contractSession(), $user, ParticipantRole::Host, PublishRights::host());
 
     // Measured against the SETTING, not a literal: the ttl is a platform_settings
     // row an operator tunes (FR-007), so a hard-coded ceiling would fail this gate
@@ -150,6 +151,22 @@ it('honours or refuses host controls according to what it claims', function (Bro
     }
 
     expect(fn () => $provider->hostAction($session, HostAction::End))
+        ->toThrow(UnsupportedCapability::class);
+})->with('broadcastProviders');
+
+// 2026-09-30 — the microphone and the screen as permissions. The same rule:
+// a provider that cannot change them says so rather than pretending a mute held.
+it('honours or refuses publish-rights changes according to what it claims', function (BroadcastProviderInterface $provider): void {
+    $session = contractSession();
+
+    if ($provider->capabilities()->hostControls) {
+        // An empty map is «nobody to change», answered without a call.
+        expect($provider->applyPublishRights($session, []))->toBe([]);
+
+        return;
+    }
+
+    expect(fn () => $provider->applyPublishRights($session, ['someone' => new PublishRights(false, false)]))
         ->toThrow(UnsupportedCapability::class);
 })->with('broadcastProviders');
 

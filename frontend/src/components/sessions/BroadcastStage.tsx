@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LiveKitRoom,
   ParticipantTile,
   RoomAudioRenderer,
   useIsSpeaking,
   useLocalParticipant,
+  useLocalParticipantPermissions,
   useParticipantAttributes,
   useTracks,
   VideoTrack,
@@ -19,6 +20,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { type JoinTicket } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
+import { mayPublish, SOURCE_MICROPHONE, SOURCE_SCREEN_SHARE } from "@/lib/room-permissions";
 
 /**
  * The video, and the only file in the frontend that names the provider.
@@ -87,7 +89,9 @@ export function BroadcastStage({
         <Stage />
         {/* Plays everyone else's audio. Without it the room is silent film. */}
         <RoomAudioRenderer />
-        <SelfControls />
+        {/* The role from the SIGNED ticket decides what is drawn; the server's
+            grant decides what works (the host's has no hand to raise). */}
+        <SelfControls isHost={ticket.role === "host"} />
         {/*
           ⚠️ The role comes from the SIGNED TICKET, never from a piece of browser
           state. It is also not the guard: the server checks `host` on the policy
@@ -187,12 +191,49 @@ function StageTile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   );
 }
 
-/** My microphone, my camera, my screen — nobody else's. */
-function SelfControls() {
+/**
+ * My microphone, my camera, my screen — nobody else's.
+ *
+ * ⚠️ THE HOST GETS NO «ارفع يدك» AND NO «لم أفهم» (owner decision 2026-09-30).
+ * Both are a student's request to the person teaching, and the teacher raising
+ * a hand in their own lesson put a ✋ in the queue they are meant to be
+ * reading. The server backs it: a host ticket cannot write its own attributes.
+ *
+ * ⚠️ AND WHAT A STUDENT MAY PUBLISH IS READ FROM HER LIVE PERMISSIONS, never
+ * assumed. The host's «كتم» / «اكتم الجميع» take the microphone out of the
+ * permission the provider pushes to this browser, and the screen is shared
+ * only once the host allowed it — so the button follows the grant as it
+ * changes, mid-lesson, with no reload.
+ */
+function SelfControls({ isHost }: { isHost: boolean }) {
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
   const { attributes } = useParticipantAttributes({ participant: localParticipant });
+  const permissions = useLocalParticipantPermissions();
   const [error, setError] = useState("");
+
+  // Unknown (not connected yet) opens the microphone — nothing was refused —
+  // and keeps the screen closed, because a student's screen is closed until
+  // the host says otherwise.
+  const micAllowed = isHost || mayPublish(permissions, SOURCE_MICROPHONE) !== false;
+  const screenAllowed = isHost || mayPublish(permissions, SOURCE_SCREEN_SHARE) === true;
+
+  /*
+   * The grant is the rule and the provider enforces it; this only keeps the
+   * browser's own state honest, so a microphone the host just took does not
+   * sit «on» in the button with nothing going out.
+   */
+  useEffect(() => {
+    if (!micAllowed && isMicrophoneEnabled) {
+      localParticipant.setMicrophoneEnabled(false).catch(() => undefined);
+    }
+  }, [micAllowed, isMicrophoneEnabled, localParticipant]);
+
+  useEffect(() => {
+    if (!screenAllowed && isScreenShareEnabled) {
+      localParticipant.setScreenShareEnabled(false).catch(() => undefined);
+    }
+  }, [screenAllowed, isScreenShareEnabled, localParticipant]);
 
   const handRaised = attributes?.hand === "1";
   const confused = attributes?.confused === "1";
@@ -252,6 +293,12 @@ function SelfControls() {
     <div className="mt-4 space-y-3">
       {error !== "" && <Alert tone="warning" title={error} />}
 
+      {!micAllowed && (
+        <p role="status" className="text-sm text-ink-muted">
+          كتمك المدرّس — ارفع يدك لتطلب الكلام.
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {/*
           ⚠️ ATTRIBUTES, NOT MESSAGES, AND NOT ROWS IN OUR DATABASE. The provider
@@ -261,12 +308,14 @@ function SelfControls() {
           need no endpoint of ours: a raised hand is worth nothing once the
           lesson ends, so storing it would be a table that only ever grows.
         */}
-        <Button
-          variant={handRaised ? "secondary" : "ghost"}
-          onClick={() => void signal("hand", !handRaised)}
-        >
-          {handRaised ? "أنزل يدي" : "ارفع يدك ✋"}
-        </Button>
+        {!isHost && (
+          <Button
+            variant={handRaised ? "secondary" : "ghost"}
+            onClick={() => void signal("hand", !handRaised)}
+          >
+            {handRaised ? "أنزل يدي" : "ارفع يدك ✋"}
+          </Button>
+        )}
 
         {/*
           ⚠️ THE QUIET STUDENT'S BUTTON, and it is not a second hand. Raising a
@@ -276,18 +325,21 @@ function SelfControls() {
           list of names. It carries no text on purpose: a free-form «ما فهمت
           إيه؟» is a second chat, unmoderated, in the middle of a lesson.
         */}
-        <Button
-          variant={confused ? "secondary" : "ghost"}
-          onClick={() => void signal("confused", !confused)}
-        >
-          {confused ? "فهمت الآن" : "لم أفهم 🤔"}
-        </Button>
+        {!isHost && (
+          <Button
+            variant={confused ? "secondary" : "ghost"}
+            onClick={() => void signal("confused", !confused)}
+          >
+            {confused ? "فهمت الآن" : "لم أفهم 🤔"}
+          </Button>
+        )}
 
         <Button
-          variant={isMicrophoneEnabled ? "secondary" : "ghost"}
+          variant={isMicrophoneEnabled && micAllowed ? "secondary" : "ghost"}
+          disabled={!micAllowed}
           onClick={() => run(() => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled))}
         >
-          {isMicrophoneEnabled ? "كتم ميكروفوني" : "تشغيل ميكروفوني"}
+          {isMicrophoneEnabled && micAllowed ? "كتم ميكروفوني" : "تشغيل ميكروفوني"}
         </Button>
 
         <Button
@@ -300,12 +352,16 @@ function SelfControls() {
         {/* The library asks the browser for the screen. We never call
             getDisplayMedia ourselves — permissions, track lifecycle and the stop
             button the browser draws are all its problem, correctly. */}
-        <Button
-          variant={isScreenShareEnabled ? "secondary" : "ghost"}
-          onClick={() => run(() => localParticipant.setScreenShareEnabled(!isScreenShareEnabled))}
-        >
-          {isScreenShareEnabled ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"}
-        </Button>
+        {/* Drawn only once the host allowed it: a button that answers «not
+            permitted» on press is a button that should not be there. */}
+        {screenAllowed && (
+          <Button
+            variant={isScreenShareEnabled ? "secondary" : "ghost"}
+            onClick={() => run(() => localParticipant.setScreenShareEnabled(!isScreenShareEnabled))}
+          >
+            {isScreenShareEnabled ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"}
+          </Button>
+        )}
       </div>
     </div>
   );

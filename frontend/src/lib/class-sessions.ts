@@ -253,7 +253,39 @@ export interface RoomParticipant {
    * that is always there tells every classmate the question was asked.
    */
   is_removed?: boolean;
+  /**
+   * The host's media decisions about this seat (2026-09-30) — ABSENT unless the
+   * reader is the host, for the same reason `is_removed` is.
+   */
+  mic_locked?: boolean;
+  /** Let speak while the whole room is locked. */
+  mic_allowed?: boolean;
+  screen_share_allowed?: boolean;
 }
+
+/** The roster, and — for the host alone — the room's microphone lock. */
+export interface RoomRoster {
+  data: RoomParticipant[];
+  room?: { mics_locked: boolean };
+}
+
+/**
+ * Every host control. ⚠️ ONLY `end` ENDS THE LESSON: the microphone and screen
+ * controls change a permission and nothing else, and removal is `remove` /
+ * `remove-all` alone.
+ */
+export type HostAction =
+  | "mute"
+  | "remove"
+  | "end"
+  | "mute-all"
+  | "remove-all"
+  | "lower-hands"
+  | "readmit"
+  | "allow-mic"
+  | "allow-all-mics"
+  | "allow-screen-share"
+  | "revoke-screen-share";
 
 export interface PresenceState {
   stay_seconds: number;
@@ -601,8 +633,7 @@ export const classSessions = {
    * could be in the session, so a person arriving later is already in the map —
    * a lookup per new participant would be an N+1 driven by whoever joins.
    */
-  participants: (uuid: string) =>
-    api.get<{ data: RoomParticipant[] }>(`/class-sessions/${uuid}/participants`),
+  participants: (uuid: string) => api.get<RoomRoster>(`/class-sessions/${uuid}/participants`),
 
   /** One heartbeat. The reply is what the SERVER believes, not what we sent. */
   presence: (uuid: string) =>
@@ -617,7 +648,7 @@ export const classSessions = {
    */
   host: (
     uuid: string,
-    action: "mute" | "remove" | "end" | "mute-all" | "remove-all" | "lower-hands" | "readmit",
+    action: HostAction,
     targetUuid?: string,
   ) =>
     api.post<{ done: boolean }>(`/class-sessions/${uuid}/host/${action}`, {

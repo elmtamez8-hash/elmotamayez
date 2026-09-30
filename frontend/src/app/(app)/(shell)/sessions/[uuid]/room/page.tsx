@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 import { BroadcastStage } from "@/components/sessions/BroadcastStage";
-import { PresenceLoop } from "@/components/sessions/PresenceLoop";
+import { PresenceLoop, type EvictionReason } from "@/components/sessions/PresenceLoop";
 import { RecordingNotice } from "@/components/compliance/RecordingNotice";
 import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
@@ -98,6 +98,14 @@ export default function SessionRoomPage({
   // A transient failure (offline, 5xx, 429) is being retried on its own, so the
   // loading line says so instead of a bare «جارٍ التحضير» for half a minute.
   const [retrying, setRetrying] = useState(false);
+  /*
+    ⚠️ THE SERVER PUT THIS PERSON OUT, AND THE BROWSER HAS TO LEAVE ON ITS OWN.
+    The provider cannot revoke a ticket, so after «إخراج» the student's video
+    kept flowing until something disconnected her — and nothing did. The
+    heartbeat's 403 is that something: the ticket is dropped, which unmounts the
+    room, and the page says why.
+  */
+  const [evicted, setEvicted] = useState<EvictionReason | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,12 +268,18 @@ export default function SessionRoomPage({
 
   // The person asked: one knock, and the automatic budget starts again from zero.
   const retry = () => {
+    setEvicted(null);
     setError("");
     setLoading(true);
     setAttempt((n) => n + 1);
   };
 
   const onPresence = useCallback((state: PresenceState) => setPresence(state), []);
+
+  const onEvicted = useCallback((reason: EvictionReason) => {
+    setTicket(null);
+    setEvicted(reason);
+  }, []);
 
   const end = async () => {
     setEnding(true);
@@ -375,6 +389,23 @@ export default function SessionRoomPage({
         </Alert>
       )}
 
+      {evicted === "removed" && (
+        <Alert tone="warning" title="أخرجك المدرّس من الحصة">
+          انقطع اتصالك بالبثّ. إن كان ذلك خطأً فالمدرّس وحده يستطيع السماح لك بالعودة.
+        </Alert>
+      )}
+
+      {evicted === "ended" && (
+        <Alert tone="info" title="خرجتَ من الغرفة">
+          لم تعد الغرفة متاحة لك الآن — ربما انتهت الحصة أو أُغلقت.
+          <div className="mt-3">
+            <Button variant="secondary" size="sm" onClick={retry}>
+              حاول مرة أخرى
+            </Button>
+          </div>
+        </Alert>
+      )}
+
       {ticket !== null && (
         <>
           {/*
@@ -395,6 +426,7 @@ export default function SessionRoomPage({
               sessionUuid={uuid}
               intervalSeconds={ticket.presence_interval_seconds}
               onUpdate={onPresence}
+              onEvicted={onEvicted}
             />
 
             {/* The host's beat keeps a register row too — it is how delivery is

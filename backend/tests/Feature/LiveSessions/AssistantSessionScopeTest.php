@@ -126,8 +126,12 @@ it('lets a confined assistant host and manage their own course\'s session and re
     $this->postJson("/api/v1/class-sessions/{$this->nearSession->uuid}/join")
         ->assertOk()
         ->assertJsonPath('role', 'host');
-    $this->postJson("/api/v1/class-sessions/{$this->nearSession->uuid}/host/mute", ['target_uuid' => $this->owner->uuid])
+    $this->postJson("/api/v1/class-sessions/{$this->nearSession->uuid}/host/lower-hands")
         ->assertOk();
+    // Past the policy: the owner is a HOST of the lesson, and the student
+    // controls refuse a host target in the Action (2026-09-30) — 422, not 403.
+    $this->postJson("/api/v1/class-sessions/{$this->nearSession->uuid}/host/mute", ['target_uuid' => $this->owner->uuid])
+        ->assertStatus(422);
 
     foreach ([$this->farSession, $this->courseless] as $session) {
         // Not a host there, and holding no seat — the door's uniform refusal.

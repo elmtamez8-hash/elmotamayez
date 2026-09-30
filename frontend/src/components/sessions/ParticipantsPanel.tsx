@@ -20,6 +20,23 @@ import { arabicNumber } from "@/lib/numerals";
 /** How long a burst of arrivals is allowed to collapse into one roster fetch. */
 const COALESCE_MS = 2000;
 
+/** A row's own controls — each one about ONE student, never the lesson. */
+type RowAction = "mute" | "remove" | "allow-mic" | "allow-screen-share" | "revoke-screen-share";
+
+/** The header's — about the room, never ending it («إنهاء الحصة» lives below the stage). */
+type RoomAction = "mute-all" | "allow-all-mics" | "remove-all" | "lower-hands";
+
+/**
+ * ⚠️ THE TEACHER AND THE ASSISTANTS ARE NOT STUDENTS OF THIS ROOM (2026-09-30).
+ * No student control is drawn on their rows — the server refuses a host target
+ * anyway — and neither a hand nor a «لم أفهم» of theirs joins the queue or the
+ * count the teacher reads. An identity the roster does not know yet is treated
+ * as a student: a face nobody can mute is worse than one button too many.
+ */
+function isStaffRow(person: RoomParticipant | undefined): boolean {
+  return person?.role === "host" || person?.role === "staff";
+}
+
 /**
  * The class roll during the lesson: a face, a name, the badges earned, and the
  * two buttons a teacher needs.
@@ -50,6 +67,9 @@ export function ParticipantsPanel({
 }) {
   const participants = useParticipants();
   const [roster, setRoster] = useState<Map<string, RoomParticipant>>(new Map());
+  // «اكتم الجميع» is a stored lock now, so the header shows its state and
+  // offers the way back. Sent to the host alone.
+  const [roomLocked, setRoomLocked] = useState(false);
   const [busy, setBusy] = useState("");
   /*
    * ⚠️ THE ERROR CARRIES THE KEY OF THE CONTROL THAT RAISED IT, and it used to be
@@ -117,6 +137,7 @@ export function ParticipantsPanel({
           // and the panel showed nothing for two seconds on every entry.
           loaded.current = true;
           setRoster(new Map((response.data ?? []).map((person) => [person.uuid, person])));
+          setRoomLocked(response.room?.mics_locked === true);
         })
         // A roster that will not load changes nothing about what the room can do:
         // the lesson plays, the rows fall back to «مشارك», and the host buttons
@@ -146,7 +167,7 @@ export function ParticipantsPanel({
     return () => clearTimeout(timer);
   }, [reload, participants.length]);
 
-  const act = async (action: "mute" | "remove", identity: string) => {
+  const act = async (action: RowAction, identity: string) => {
     setBusy(`${action}:${identity}`);
     setError(null);
 
@@ -163,7 +184,7 @@ export function ParticipantsPanel({
     }
   };
 
-  const actOnRoom = async (action: "mute-all" | "remove-all" | "lower-hands") => {
+  const actOnRoom = async (action: RoomAction) => {
     setBusy(action);
     setError(null);
 
@@ -211,12 +232,14 @@ export function ParticipantsPanel({
    */
   const queue = new Map(
     [...signals.entries()]
-      .filter(([, signal]) => signal.hand !== null)
+      .filter(([identity, signal]) => signal.hand !== null && !isStaffRow(roster.get(identity)))
       .sort((a, b) => (a[1].hand ?? 0) - (b[1].hand ?? 0))
       .map(([identity], index): [string, number] => [identity, index + 1]),
   );
 
-  const confusedCount = [...signals.values()].filter((signal) => signal.confused).length;
+  const confusedCount = [...signals.entries()].filter(
+    ([identity, signal]) => signal.confused && !isStaffRow(roster.get(identity)),
+  ).length;
 
   if (participants.length === 0 && removed.length === 0) return null;
 
@@ -235,6 +258,8 @@ export function ParticipantsPanel({
               🤔 <bdi>{arabicNumber(confusedCount)}</bdi> لم يفهموا
             </Badge>
           )}
+
+          {isHost && roomLocked && <Badge tone="warning">الميكروفونات مقفلة</Badge>}
         </h3>
 
         {/*
@@ -257,13 +282,30 @@ export function ParticipantsPanel({
             >
               امسح الإشارات
             </Button>
-            <Button
-              variant="ghost"
-              loading={busy === "mute-all"}
-              onClick={() => void actOnRoom("mute-all")}
-            >
-              اكتم الجميع
-            </Button>
+            {/*
+              ⚠️ A LOCK, NOT A ONE-OFF MUTE (2026-09-30): while it stands every
+              student — and every student who joins later — has no microphone
+              until the host lets one speak. So the button is a toggle that
+              reads the server's state. Neither side ends the lesson or puts
+              anyone out; both are permission changes and nothing else.
+            */}
+            {roomLocked ? (
+              <Button
+                variant="secondary"
+                loading={busy === "allow-all-mics"}
+                onClick={() => void actOnRoom("allow-all-mics")}
+              >
+                اسمح للجميع بالكلام
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                loading={busy === "mute-all"}
+                onClick={() => void actOnRoom("mute-all")}
+              >
+                اكتم الجميع
+              </Button>
+            )}
             {/* ⚠️ ARMED, BECAUSE IT SITS EIGHT PIXELS FROM «اكتم الجميع» in a
                 wrapping row on a teacher's phone. One of the two is recoverable
                 in a tap and the other empties the lesson. */}
@@ -293,6 +335,7 @@ export function ParticipantsPanel({
             participant={participant}
             person={roster.get(participant.identity)}
             isHost={isHost}
+            roomLocked={roomLocked}
             busy={busy}
             error={
               error !== null && error.key.endsWith(`:${participant.identity}`)
@@ -353,6 +396,7 @@ function ParticipantRow({
   participant,
   person,
   isHost,
+  roomLocked,
   busy,
   error,
   onAct,
@@ -362,10 +406,11 @@ function ParticipantRow({
   participant: Participant;
   person: RoomParticipant | undefined;
   isHost: boolean;
+  roomLocked: boolean;
   busy: string;
   /** The reason THIS row's last action failed, if it did. */
   error: string | null;
-  onAct: (action: "mute" | "remove", identity: string) => Promise<void>;
+  onAct: (action: RowAction, identity: string) => Promise<void>;
   queuePosition: number | null;
   onSignals: (identity: string, hand: boolean, confused: boolean) => void;
 }) {
@@ -381,6 +426,15 @@ function ParticipantRow({
   const confused = attributes?.confused === "1";
   const name = person?.name ?? "مشارك";
   const identity = participant.identity;
+  const staff = isStaffRow(person);
+  /*
+   * Whether this student may speak right now, as the SERVER decided it: a named
+   * mute, or the room lock without a «may speak» of her own. The button offers
+   * the other state — «اسمح بالكلام» on a silenced row, «كتم» on an open one.
+   */
+  const silenced =
+    person?.mic_locked === true || (roomLocked && person?.mic_allowed !== true);
+  const mayShare = person?.screen_share_allowed === true;
 
   /*
    * The panel above keeps the queue, and this is where it learns. Reported on
@@ -445,6 +499,16 @@ function ParticipantRow({
 
             {person?.role === "host" && <Badge tone="info">المدرّس</Badge>}
             {person?.role === "staff" && <Badge tone="neutral">مساعد</Badge>}
+
+            {/* The host's own view of what they decided — never sent to anyone
+                else, so no classmate reads «مكتوم» beside a name. */}
+            {isHost && !staff && person?.mic_locked === true && (
+              <Badge tone="warning">مكتوم</Badge>
+            )}
+            {isHost && !staff && roomLocked && person?.mic_allowed === true && (
+              <Badge tone="info">مسموح له بالكلام</Badge>
+            )}
+            {isHost && !staff && mayShare && <Badge tone="info">يمكنه مشاركة الشاشة</Badge>}
           </span>
 
           {/* Nothing at all when there are none — never an empty row of chips,
@@ -462,14 +526,35 @@ function ParticipantRow({
         </span>
       </span>
 
-      {isHost && !participant.isLocal && (
-        <span className="flex shrink-0 gap-2">
+      {isHost && !participant.isLocal && !staff && (
+        <span className="flex shrink-0 flex-wrap gap-2">
+          {silenced ? (
+            <Button
+              variant="secondary"
+              loading={busy === `allow-mic:${participant.identity}`}
+              onClick={() => void onAct("allow-mic", participant.identity)}
+            >
+              اسمح بالكلام
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              loading={busy === `mute:${participant.identity}`}
+              onClick={() => void onAct("mute", participant.identity)}
+            >
+              كتم
+            </Button>
+          )}
           <Button
             variant="ghost"
-            loading={busy === `mute:${participant.identity}`}
-            onClick={() => void onAct("mute", participant.identity)}
+            loading={
+              busy === `${mayShare ? "revoke-screen-share" : "allow-screen-share"}:${participant.identity}`
+            }
+            onClick={() =>
+              void onAct(mayShare ? "revoke-screen-share" : "allow-screen-share", participant.identity)
+            }
           >
-            كتم
+            {mayShare ? "امنع مشاركة الشاشة" : "اسمح بمشاركة الشاشة"}
           </Button>
           {/* Same eight pixels, same pair: «كتم» is undone in a tap and this
               puts a paying student out of the hour they booked. */}

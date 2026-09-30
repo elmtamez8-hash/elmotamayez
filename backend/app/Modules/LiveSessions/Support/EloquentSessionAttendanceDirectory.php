@@ -12,8 +12,10 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\SessionAttendanceDirectory;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * LiveSessions' answer to "did this person hold a seat?".
@@ -73,6 +75,21 @@ class EloquentSessionAttendanceDirectory implements SessionAttendanceDirectory
             ->where('class_session_id', $classSessionId)
             ->whereIn('status', $statuses)
             ->exists();
+    }
+
+    public function hostsSession(User $user, int $classSessionId): bool
+    {
+        // ⚠️ THE PERMISSION FIRST, AND IT COSTS NOTHING: every student's post
+        // into a session room asks this, and a student stops here before the
+        // session row is read at all.
+        if (! $user->can(Permissions::SESSIONS_HOST)) {
+            return false;
+        }
+
+        $session = ClassSession::query()->withoutWorkspaceScope()->find($classSessionId);
+
+        // The very ability `BroadcastController` gates the host routes on.
+        return $session !== null && Gate::forUser($user)->allows('host', $session);
     }
 
     public function wasRemovedFromSession(User $user, int $classSessionId): bool

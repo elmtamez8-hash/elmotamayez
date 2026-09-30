@@ -31,16 +31,31 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   },
 }));
 
-// Rendered only once a ticket exists; kept out of jsdom.
-vi.mock("@/components/sessions/BroadcastStage", () => ({ BroadcastStage: () => null }));
+// Rendered only once a ticket exists; kept out of jsdom. The marker is what a
+// test asks to learn whether the room is still mounted (i.e. connected).
+vi.mock("@/components/sessions/BroadcastStage", () => ({
+  BroadcastStage: () => <div data-testid="broadcast-stage" />,
+}));
+// When set, the one beat on mount is a refusal instead (see the eviction tests).
+let evictWith: "removed" | "ended" | null = null;
 // One beat on mount, so the line the beat feeds («مدة حضورك») can be asked about.
 vi.mock("@/components/sessions/PresenceLoop", async () => {
   const { useEffect } = await import("react");
   return {
-    PresenceLoop: ({ onUpdate }: { onUpdate?: (state: { stay_seconds: number; status: string; session_status: string }) => void }) => {
+    PresenceLoop: ({
+      onUpdate,
+      onEvicted,
+    }: {
+      onUpdate?: (state: { stay_seconds: number; status: string; session_status: string }) => void;
+      onEvicted?: (reason: "removed" | "ended") => void;
+    }) => {
       useEffect(() => {
+        if (evictWith !== null) {
+          onEvicted?.(evictWith);
+          return;
+        }
         onUpdate?.({ stay_seconds: 600, status: "present", session_status: "live" });
-      }, [onUpdate]);
+      }, [onUpdate, onEvicted]);
       return null;
     },
   };
@@ -76,6 +91,7 @@ const showCalls = () => get.mock.calls.filter(([path]) => path === "/class-sessi
 
 beforeEach(() => {
   vi.clearAllMocks();
+  evictWith = null;
   mockUser = { permissions: [] };
   vi.useFakeTimers();
   get.mockImplementation(() => Promise.reject(new Error("unexpected read")));
@@ -382,5 +398,60 @@ describe("«تفاصيل الحصة» on a closed room", () => {
     await openClosed();
 
     expect(screen.getByRole("link", { name: "تفاصيل الحصة" }).getAttribute("href")).toBe("/manage/sessions/s-1");
+  });
+});
+
+describe("put out of the room by the heartbeat", () => {
+  /*
+  | ⚠️ THE PROVIDER CANNOT REVOKE A TICKET, so after «إخراج» a student's video
+  | kept flowing until her own browser left — and nothing made it leave. The
+  | heartbeat's 403 is that signal now: the ticket is dropped (the room
+  | unmounts, which disconnects it) and the page says why.
+  */
+  async function enterThenEvict(reason: "removed" | "ended") {
+    evictWith = reason;
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ status: "live", room_opened: true }))
+        : Promise.reject(new Error("403")),
+    );
+    post.mockImplementation(() =>
+      Promise.resolve({ role: "participant", token: "t", room_url: "wss://x", expires_at: "", presence_interval_seconds: 30 }),
+    );
+
+    await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+  }
+
+  it("disconnects a removed student and tells her the teacher did it", async () => {
+    await enterThenEvict("removed");
+
+    expect(screen.queryByTestId("broadcast-stage")).toBeNull();
+    expect(screen.getByText("أخرجك المدرّس من الحصة")).toBeTruthy();
+  });
+
+  it("disconnects on any other refusal with a neutral line", async () => {
+    await enterThenEvict("ended");
+
+    expect(screen.queryByTestId("broadcast-stage")).toBeNull();
+    expect(screen.queryByText("أخرجك المدرّس من الحصة")).toBeNull();
+    expect(screen.getByText("خرجتَ من الغرفة")).toBeTruthy();
+  });
+
+  it("keeps the room while the heartbeat answers", async () => {
+    // The control: without it the two above pass on a page that never mounts.
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ status: "live", room_opened: true }))
+        : Promise.reject(new Error("403")),
+    );
+    post.mockImplementation(() =>
+      Promise.resolve({ role: "participant", token: "t", room_url: "wss://x", expires_at: "", presence_interval_seconds: 30 }),
+    );
+
+    await renderRoom();
+    await act(() => vi.advanceTimersByTimeAsync(0));
+
+    expect(screen.getByTestId("broadcast-stage")).toBeTruthy();
   });
 });

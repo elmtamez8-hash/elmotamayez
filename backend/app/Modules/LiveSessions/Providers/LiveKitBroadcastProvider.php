@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\BroadcastCapabilities;
 use App\Modules\LiveSessions\Data\JoinTicket;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
@@ -30,10 +31,12 @@ use Livekit\EgressStatus;
 use Livekit\EncodedFileOutput;
 use Livekit\ParticipantInfo;
 use Livekit\ParticipantInfo\Kind;
+use Livekit\ParticipantPermission;
 use Livekit\RoomCompositeEgressRequest;
 use Livekit\RoomEgress;
 use Livekit\S3Upload;
 use Livekit\TrackInfo;
+use Livekit\TrackSource;
 use Livekit\TrackType;
 use Throwable;
 use Twirp\Error as TwirpError;
@@ -158,16 +161,22 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
      * (research §R3 · FR-015). The room does not need to exist for a token to be
      * valid, so there is nothing to check anyway.
      */
-    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role): JoinTicket
+    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role, PublishRights $rights): JoinTicket
     {
         $ttlMinutes = $this->settings->ticketTtlMinutes();
         $expiresAt = CarbonImmutable::now()->addMinutes($ttlMinutes);
+
+        $isHost = $role === ParticipantRole::Host;
 
         $grant = (new VideoGrant)
             ->setRoomJoin()
             // This room and no other. The grant is the whole door.
             ->setRoomName($this->roomName($session))
-            // A student raises her hand and speaks — US1, not a host privilege.
+            /*
+             * ⚠️ `canPublish` STAYS TRUE FOR EVERYONE, AND NARROWING HAPPENS IN
+             * THE SOURCE LIST. Setting it false to mute a student would take
+             * her camera too. The sources are what the host decides.
+             */
             ->setCanPublish(true)
             ->setCanSubscribe(true)
             /*
@@ -183,11 +192,29 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
              * participant who writes a sentence into their own attributes has
              * written it to a value nobody prints. The role is NOT here — it
              * lives in the signed grant above, where its holder cannot reach it.
+             *
+             * ⚠️ FALSE FOR A HOST (2026-09-30): the teacher has no hand to raise
+             * and no «لم أفهم» to press, and clearing a student's signals is an
+             * admin call from the server, not the host's own grant.
              */
-            ->setCanUpdateOwnMetadata(true)
+            ->setCanUpdateOwnMetadata($rights->updateOwnSignals)
             // FR-010: the role lives INSIDE the ticket, so its holder cannot
             // promote themselves by editing anything they can reach.
-            ->setRoomAdmin($role === ParticipantRole::Host);
+            ->setRoomAdmin($isHost);
+
+        if (! $isHost) {
+            /*
+             * ⚠️ AN EMPTY LIST MEANS «EVERY SOURCE», in the grant and in the
+             * permission update alike — so a student's list always names the
+             * camera, and the host's is left unset (null is dropped from the
+             * token) rather than written as `[]`.
+             *
+             * And no data channel: nothing in the product sends a data message,
+             * and an open one is an unmoderated chat beside the moderated one.
+             */
+            $grant->setCanPublishSources($this->grantSources($rights))
+                ->setCanPublishData(false);
+        }
 
         $token = (new AccessToken(
             (string) config('sessions.livekit.key'),
@@ -210,7 +237,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
     }
 
     /** @return list<string> */
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null, array $studentIdentities = []): array
     {
         // ⚠️ ENDING IS OURS, AND THERE IS DELIBERATELY NO BRANCH FOR IT.
         //
@@ -225,7 +252,7 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         $room = $this->roomName($session);
 
         if ($action->isBulk()) {
-            return $this->applyToWholeRoom($room, $action, $actor?->uuid);
+            return $this->applyToWholeRoom($room, $action, $actor?->uuid, $studentIdentities);
         }
 
         if ($target === null) {
@@ -254,11 +281,13 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
          */
         try {
             match ($action) {
-                HostAction::Mute => $this->muteEveryAudioTrack($room, $identity),
                 HostAction::Remove => $this->rooms()->removeParticipant($room, $identity),
-                // Unreachable: `End` and every bulk form returned above. The arm
-                // exists so a seventh action added tomorrow is a no-op here
-                // rather than an UnhandledMatchError in the middle of a lesson.
+                // Unreachable: `End`, every bulk form and every publish-rights
+                // action (mute included — it is `applyPublishRights()` now) never
+                // come here. The arm makes anything else a NO-OP rather than an
+                // UnhandledMatchError mid-lesson — and a no-op can never end a
+                // lesson or disconnect anyone, which a fallthrough to «remove»
+                // or «end» would.
                 default => null,
             };
         } catch (TwirpError $e) {
@@ -285,11 +314,13 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
      * teacher asked about the ROOM, not about that person — the single-target
      * form still answers «هذا المشارك لم يعد في الغرفة», where it is the answer.
      *
+     * @param  list<string>  $studentIdentities  the only identities this may touch
      * @return list<string> the identities actually acted on — what the caller
      *                      stamps, so a removal outlives the disconnect
      */
-    private function applyToWholeRoom(string $room, HostAction $action, ?string $exceptIdentity): array
+    private function applyToWholeRoom(string $room, HostAction $action, ?string $exceptIdentity, array $studentIdentities): array
     {
+        $students = array_flip($studentIdentities);
         $touched = [];
 
         try {
@@ -311,13 +342,15 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
 
             $identity = (string) $participant->getIdentity();
 
-            if ($identity === $exceptIdentity) {
+            // ⚠️ THE SEAT HOLDERS AND NOBODY ELSE (2026-09-30). The actor is
+            // skipped as before, and so is every OTHER host: a co-teacher or an
+            // assistant host is not in the list the caller built.
+            if ($identity === $exceptIdentity || ! isset($students[$identity])) {
                 continue;
             }
 
             try {
                 match ($action) {
-                    HostAction::MuteAll => $this->muteEveryAudioTrack($room, $identity),
                     HostAction::RemoveAll => $this->rooms()->removeParticipant($room, $identity),
                     HostAction::LowerHands => $this->clearSignals($room, $participant),
                     default => null,
@@ -365,19 +398,165 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
     }
 
     /**
-     * Mute every audio track the participant has published, not the first.
+     * A student's microphone and screen, as PERMISSIONS — applied now.
      *
-     * ⚠️ AND THE TRACK ID IS RESOLVED IN HERE. Widening `hostAction()` to take a
-     * `trackSid` would put the provider's vocabulary into the interface that
-     * exists to keep it out (research §R8) — a teacher pressing "mute" knows
-     * about a person, not about a track. Someone joining from two devices, or
-     * with a second microphone, is exactly the case a single track would miss.
+     * ⚠️ ONE LIST CALL, THEN ONE UPDATE PER PERSON IN THE ROOM. The list is also
+     * what tells us who is actually here: somebody in the map who is not is
+     * skipped, because the caller stored the decision and their next ticket
+     * carries it. The same `NotFound` race as the bulk forms is skipped per
+     * participant for the same reason.
+     *
+     * ⚠️ AND ONLY `STANDARD` PARTICIPANTS WHOSE IDENTITY THE CALLER NAMED. The
+     * recorder is a participant (`EG_…`) and every host is outside the map, so
+     * neither can be muted by «اكتم الجميع».
+     *
+     * @param  array<string, PublishRights>  $rights
+     * @return list<string>
      */
-    private function muteEveryAudioTrack(string $room, string $identity): void
+    public function applyPublishRights(ClassSession $session, array $rights): array
     {
-        foreach ($this->rooms()->getParticipant($room, $identity)->getTracks() as $track) {
-            if ($track instanceof TrackInfo && $track->getType() === TrackType::AUDIO) {
-                $this->rooms()->mutePublishedTrack($room, $identity, $track->getSid(), true);
+        if ($rights === []) {
+            return [];
+        }
+
+        $room = $this->roomName($session);
+        $applied = [];
+
+        try {
+            $participants = $this->rooms()->listParticipants($room)->getParticipants();
+        } catch (TwirpError $e) {
+            // No room yet is «nobody to apply it to», not an outage: the host
+            // may decide before anyone has joined, and the tickets carry it.
+            if ($e->getErrorCode() === ErrorCode::NotFound) {
+                return [];
+            }
+
+            throw $this->translate($e);
+        }
+
+        foreach ($participants as $participant) {
+            if (! $participant instanceof ParticipantInfo || $participant->getKind() !== Kind::STANDARD) {
+                continue;
+            }
+
+            $identity = (string) $participant->getIdentity();
+            $wanted = $rights[$identity] ?? null;
+
+            if ($wanted === null) {
+                continue;
+            }
+
+            try {
+                /*
+                 * ⚠️ THE BELT FIRST: mute what is live before narrowing. The
+                 * provider documents unpublishing on a revoked `canPublish`, not
+                 * on a narrowed source list, so an open microphone is closed by
+                 * hand — and the permission then stops her opening it again.
+                 */
+                $this->muteRevokedTracks($room, $participant, $wanted);
+
+                $this->rooms()->updateParticipant($room, $identity, permission: $this->permissionFor($wanted));
+                $applied[] = $identity;
+            } catch (TwirpError $e) {
+                if ($e->getErrorCode() !== ErrorCode::NotFound) {
+                    throw $this->translate($e);
+                }
+            }
+        }
+
+        return $applied;
+    }
+
+    /**
+     * The WHOLE permission set, because the update replaces it.
+     *
+     * ⚠️ EVERY FIELD IS WRITTEN, AND A PROTOBUF FIELD LEFT OUT IS `false`. A
+     * permission carrying only the source list would ship `can_subscribe =
+     * false` — the student stops seeing and hearing the lesson — and
+     * `can_publish = false`, which takes her camera. That is a «mute» that
+     * behaves like a removal, and `LiveKitAdapterTest` asserts each field.
+     */
+    private function permissionFor(PublishRights $rights): ParticipantPermission
+    {
+        return new ParticipantPermission([
+            'can_subscribe' => true,
+            'can_publish' => true,
+            'can_publish_data' => false,
+            'can_publish_sources' => $this->permissionSources($rights),
+            'hidden' => false,
+            'recorder' => false,
+            'can_update_metadata' => $rights->updateOwnSignals,
+            'agent' => false,
+            'can_subscribe_metrics' => false,
+        ]);
+    }
+
+    /**
+     * The grant spells a source as a string; the permission update as a number.
+     * Both vocabularies live here and nowhere else.
+     *
+     * @return list<string>
+     */
+    private function grantSources(PublishRights $rights): array
+    {
+        $sources = ['camera'];
+
+        if ($rights->microphone) {
+            $sources[] = 'microphone';
+        }
+
+        if ($rights->screenShare) {
+            $sources[] = 'screen_share';
+            $sources[] = 'screen_share_audio';
+        }
+
+        return $sources;
+    }
+
+    /** @return list<int> */
+    private function permissionSources(PublishRights $rights): array
+    {
+        $sources = [TrackSource::CAMERA];
+
+        if ($rights->microphone) {
+            $sources[] = TrackSource::MICROPHONE;
+        }
+
+        if ($rights->screenShare) {
+            $sources[] = TrackSource::SCREEN_SHARE;
+            $sources[] = TrackSource::SCREEN_SHARE_AUDIO;
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Mute every live track of a source the new rights no longer allow.
+     *
+     * ⚠️ THE TRACK ID IS RESOLVED IN HERE, from the participant the list call
+     * already returned — no second read. Widening the interface to take a
+     * `trackSid` would put the provider's vocabulary into the contract that
+     * exists to keep it out (research §R8). Every track, not the first: someone
+     * with two microphones is exactly the case a single track would miss.
+     */
+    private function muteRevokedTracks(string $room, ParticipantInfo $participant, PublishRights $rights): void
+    {
+        foreach ($participant->getTracks() as $track) {
+            if (! $track instanceof TrackInfo || $track->getMuted()) {
+                continue;
+            }
+
+            $source = $track->getSource();
+            $revoked = match (true) {
+                $source === TrackSource::MICROPHONE,
+                $source === TrackSource::UNKNOWN && $track->getType() === TrackType::AUDIO => ! $rights->microphone,
+                $source === TrackSource::SCREEN_SHARE,
+                $source === TrackSource::SCREEN_SHARE_AUDIO => ! $rights->screenShare,
+                default => false,
+            };
+
+            if ($revoked) {
+                $this->rooms()->mutePublishedTrack($room, (string) $participant->getIdentity(), $track->getSid(), true);
             }
         }
     }

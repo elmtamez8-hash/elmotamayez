@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\BroadcastCapabilities;
 use App\Modules\LiveSessions\Data\JoinTicket;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
@@ -65,7 +66,7 @@ class NullBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role): JoinTicket
+    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role, PublishRights $rights): JoinTicket
     {
         $expiresAt = CarbonImmutable::now()->addMinutes(self::TICKET_TTL_MINUTES);
 
@@ -76,6 +77,8 @@ class NullBroadcastProvider implements BroadcastProviderInterface
             'session' => $session->uuid,
             'user' => $user->getKey(),
             'role' => $role->value,
+            'microphone' => $rights->microphone,
+            'screen_share' => $rights->screenShare,
             'expires' => $expiresAt->getTimestamp(),
         ], JSON_THROW_ON_ERROR));
 
@@ -87,7 +90,12 @@ class NullBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null, array $studentIdentities = []): array
+    {
+        throw UnsupportedCapability::for($this->identifier(), 'hostControls');
+    }
+
+    public function applyPublishRights(ClassSession $session, array $rights): array
     {
         throw UnsupportedCapability::for($this->identifier(), 'hostControls');
     }

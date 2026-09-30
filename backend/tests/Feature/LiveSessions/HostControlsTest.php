@@ -9,6 +9,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Jobs\CloseClassSessionJob;
 use App\Modules\LiveSessions\Jobs\MarkAbsenteesJob;
+use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Providers\NullBroadcastProvider;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -47,14 +48,22 @@ beforeEach(function (): void {
 });
 
 it('lets the teacher mute a participant', function (): void {
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    app(BookSeat::class)->handle($this->session, $student);
+
     Sanctum::actingAs($this->owner);
 
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute", [
-        'target_uuid' => $this->owner->uuid,
+        'target_uuid' => $student->uuid,
     ])->assertOk();
 
-    expect($this->provider->hostActions)->toHaveCount(1)
-        ->and($this->provider->hostActions[0]['action'])->toBe('mute');
+    // A mute is a PERMISSION now (2026-09-30), pushed to the provider as the
+    // student's whole publish set — never a removal, never an end.
+    expect($this->provider->appliedRights)->toHaveCount(1)
+        ->and($this->provider->appliedRights[0][$student->uuid]->microphone)->toBeFalse()
+        ->and($this->provider->hostActions)->toBe([]);
 });
 
 it('refuses host controls to a student', function (): void {
@@ -103,11 +112,19 @@ it('refuses an action that names no participant', function (): void {
 it('answers 501 when the bound provider cannot mute', function (): void {
     $this->app->instance(BroadcastProviderInterface::class, new NullBroadcastProvider);
 
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    app(BookSeat::class)->handle($this->session, $student);
+
     Sanctum::actingAs($this->owner);
 
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute", [
-        'target_uuid' => $this->owner->uuid,
+        'target_uuid' => $student->uuid,
     ])->assertStatus(501);
+
+    // Asked BEFORE anything is written: no stored mute the room never saw.
+    expect(Attendance::query()->withoutWorkspaceScope()->whereNotNull('mic_locked_at')->count())->toBe(0);
 });
 
 /*
@@ -146,14 +163,17 @@ it('sends the whole-room actions through with the host named, so they can be exc
         $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/{$action}")->assertOk();
     }
 
-    expect($this->provider->hostActions)->toHaveCount(3)
+    // «اكتم الجميع» is a permission change now (`appliedRights`), not a
+    // provider host action; the other two still are.
+    expect($this->provider->hostActions)->toHaveCount(2)
         ->and(array_column($this->provider->hostActions, 'action'))
-        ->toBe(['mute-all', 'remove-all', 'lower-hands'])
+        ->toBe(['remove-all', 'lower-hands'])
         // No target: the action is about the room. The actor is what the
         // provider excludes, and without it every bulk press evicts the teacher.
-        ->and(array_column($this->provider->hostActions, 'target'))->toBe([null, null, null])
+        ->and(array_column($this->provider->hostActions, 'target'))->toBe([null, null])
         ->and(array_column($this->provider->hostActions, 'actor'))
-        ->toBe(array_fill(0, 3, (int) $this->owner->getKey()));
+        ->toBe(array_fill(0, 2, (int) $this->owner->getKey()))
+        ->and($this->provider->appliedRights)->toHaveCount(1);
 });
 
 it('does not ask a bulk action to name a participant', function (): void {
@@ -338,7 +358,7 @@ it('answers a provider outage during a bulk action with 503 and no vendor words'
 
     $this->provider->failWith = new BroadcastProviderUnavailable('خدمةُ البثِّ لا تستجيب الآن.');
 
-    $response = $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/mute-all")
+    $response = $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove-all")
         ->assertStatus(503)
         ->assertJsonPath('code', 'broadcast_unavailable');
 

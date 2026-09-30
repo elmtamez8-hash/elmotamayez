@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
+use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Enums\AttendanceStatus;
 use App\Modules\LiveSessions\Enums\HostAction;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
+use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
+use App\Modules\LiveSessions\Support\RoomMediaRights;
+use App\Modules\LiveSessions\Support\RoomRevocation;
 use App\Shared\Actions\Action;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Mute, remove, end — one person or the whole room — and let somebody back in.
@@ -36,12 +42,28 @@ use DomainException;
  * there is nothing for a provider to do, so routing it through `hostAction()`
  * would answer 501 on a button that needs no provider at all — the End defect
  * reached from a second direction.
+ *
+ * **The microphone and the screen are PERMISSIONS (2026-09-30).** «كتم» used to
+ * mute a published track and nothing else, which the student undid with one
+ * tap of her own button — and a reload handed her a fresh ticket that could
+ * speak. The decision is now STORED first (on the seat, or on the session for
+ * «اكتم الجميع») and then pushed to whoever is inside; the next ticket reads the
+ * same columns ({@see RoomMediaRights}). None of these actions can end a lesson
+ * or disconnect anyone: they never reach `End`, `closeRoom()` or a removal, and
+ * the provider's permission update restates everything a student keeps.
+ *
+ * **And a host is never the target of a student control.** Mute, remove, allow
+ * and the screen toggles refuse a target who passes the host gate or holds no
+ * seat here — a co-teacher cannot be muted or put out by the button meant for a
+ * student, and every bulk form walks the seat holders alone.
  */
 class PerformHostAction extends Action
 {
     public function __construct(
         private readonly BroadcastProviderResolver $providers,
         private readonly CloseBroadcastRoom $closeRoom,
+        private readonly RoomMediaRights $mediaRights,
+        private readonly RoomRevocation $revocation,
     ) {}
 
     /**
@@ -69,11 +91,172 @@ class PerformHostAction extends Action
             return;
         }
 
-        $identities = $this->providers->for($session)->hostAction($session, $action, $target, $actor);
+        if ($target !== null && $action->requiresTarget()) {
+            $this->assertStudentTarget($session, $target);
+        }
+
+        $provider = $this->providers->for($session);
+
+        if ($action->changesPublishRights()) {
+            $this->changePublishRights($provider, $session, $action, $target);
+
+            return;
+        }
+
+        $identities = $provider->hostAction(
+            $session,
+            $action,
+            $target,
+            $actor,
+            $action->isBulk() ? $this->mediaRights->studentIdentitiesOf($session) : [],
+        );
 
         if ($action === HostAction::Remove || $action === HostAction::RemoveAll) {
             $this->recordRemoval($session, $identities);
         }
+    }
+
+    /**
+     * ⚠️ THE STUDENT CONTROLS ARE FOR STUDENTS. A host of this session — the
+     * teacher, a co-teacher, an assistant passing the host gate — is refused
+     * here as a target, and so is anyone with no seat (staff in the room). The
+     * buttons are hidden on those rows; this is the door, because a hidden
+     * button is not a guard.
+     */
+    private function assertStudentTarget(ClassSession $session, User $target): void
+    {
+        if ($this->revocation->isHost($session, $target)) {
+            throw new DomainException('هذا من مُضيفي الحصّة، وأدواتُ الطلابِ لا تُطبَّقُ عليه.');
+        }
+
+        if (! $session->holdsSeat($target)) {
+            throw new DomainException('هذا المشاركُ ليس طالباً في هذه الحصّة.');
+        }
+    }
+
+    /**
+     * Store the decision, then apply it to whoever is inside.
+     *
+     * ⚠️ IN THAT ORDER, AND THE STORE IS NOT UNDONE WHEN THE PROVIDER FAILS. The
+     * decision is the teacher's and it is idempotent: a second press re-applies
+     * it. Stored first, a student who joins a second later is already muted by
+     * her ticket; applied first and stored after, a crash between the two leaves
+     * a muted student whose next reload un-mutes her.
+     *
+     * The capability is asked BEFORE anything is written: a provider that cannot
+     * change a participant's permissions answers 501 with nothing recorded,
+     * rather than a stored mute the room never sees.
+     */
+    private function changePublishRights(BroadcastProviderInterface $provider, ClassSession $session, HostAction $action, ?User $target): void
+    {
+        if (! $provider->capabilities()->hostControls) {
+            throw UnsupportedCapability::for($provider->identifier(), 'hostControls');
+        }
+
+        $this->recordPublishRights($session, $action, $target);
+
+        $rights = $target === null
+            ? $this->mediaRights->forStudentsOf($session)
+            : [(string) $target->uuid => $this->mediaRights->forStudent($session, $target)];
+
+        try {
+            $provider->applyPublishRights($session, $rights);
+        } catch (BroadcastProviderUnavailable $e) {
+            // The adapter's own sentence says «nothing changed», which is no
+            // longer true: the decision is stored and every ticket carries it.
+            throw new BroadcastProviderUnavailable(
+                'سُجِّل قرارُك ويسري على كلِّ من يدخلُ الغرفةَ بعدَ الآن، لكنّ خدمةَ البثِّ لم تستجبْ لتطبيقِه على الحاضرين — اضغطْ مرّةً أخرى بعدَ قليل.',
+                previous: $e,
+            );
+        }
+    }
+
+    /**
+     * The columns {@see RoomMediaRights} reads. See its docblock for the rule;
+     * this is only the writing of it.
+     */
+    private function recordPublishRights(ClassSession $session, HostAction $action, ?User $target): void
+    {
+        DB::transaction(function () use ($session, $action, $target): void {
+            if ($action === HostAction::MuteAll || $action === HostAction::AllowAllMics) {
+                $this->lockRoomMics($session, $action === HostAction::MuteAll);
+
+                return;
+            }
+
+            $columns = match ($action) {
+                HostAction::Mute => ['mic_locked_at' => now(), 'mic_allowed_at' => null],
+                HostAction::AllowMic => ['mic_locked_at' => null, 'mic_allowed_at' => now()],
+                HostAction::AllowScreenShare => ['screen_share_allowed_at' => now()],
+                HostAction::RevokeScreenShare => ['screen_share_allowed_at' => null],
+                // `changesPublishRights()` is the guard above; nothing else
+                // arrives here, and nothing here can end or empty a room.
+                default => [],
+            };
+
+            if ($columns !== []) {
+                $this->seatRow($session, $target)->fill($columns)->save();
+            }
+        });
+    }
+
+    /**
+     * «اكتم الجميع» / «اسمح للجميع بالكلام».
+     *
+     * ⚠️ THE LOCK IS STAMPED ONCE (`whereNull`) — a second press is not a second
+     * decision — and every «may speak» override is cleared with it, whichever
+     * way it goes: re-locking means the one student let through for a question
+     * is silenced again, and unlocking makes the override meaningless. Per-seat
+     * MUTES are left standing on unlock; see {@see RoomMediaRights}.
+     */
+    private function lockRoomMics(ClassSession $session, bool $locked): void
+    {
+        $query = ClassSession::query()->withoutWorkspaceScope()->whereKey($session->getKey());
+
+        if ($locked) {
+            $query->whereNull('mics_locked_at')->update(['mics_locked_at' => now()]);
+        } else {
+            $query->update(['mics_locked_at' => null]);
+        }
+
+        Attendance::query()
+            ->withoutWorkspaceScope()
+            ->where('class_session_id', $session->getKey())
+            ->whereNotNull('mic_allowed_at')
+            ->update(['mic_allowed_at' => null]);
+
+        // The row the caller holds is read by the rights resolver next.
+        $session->setAttribute('mics_locked_at', ClassSession::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($session->getKey())
+            ->value('mics_locked_at'));
+        $session->syncOriginalAttribute('mics_locked_at');
+    }
+
+    /**
+     * This student's register row, made if they have none yet — the host may
+     * decide before the student's first heartbeat wrote one.
+     *
+     * ⚠️ NOT `updateOrCreate`: its second array is applied on UPDATE as well as
+     * on create, so a status supplied for the new-row case would overwrite the
+     * register's verdict for everybody who already has one. `absent` is the
+     * honest starting point for a row the sweep will correct.
+     */
+    private function seatRow(ClassSession $session, ?User $target): Attendance
+    {
+        $attendance = Attendance::query()->withoutWorkspaceScope()->firstOrNew([
+            'class_session_id' => $session->getKey(),
+            'student_user_id' => (int) $target?->getKey(),
+        ]);
+
+        if (! $attendance->exists) {
+            $attendance->fill([
+                'workspace_id' => $session->workspace_id,
+                'status' => AttendanceStatus::Absent->value,
+            ]);
+        }
+
+        return $attendance;
     }
 
     /**

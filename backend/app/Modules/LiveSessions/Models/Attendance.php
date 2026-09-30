@@ -35,6 +35,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface|null $confirmed_at
  * @property CarbonInterface|null $report_sent_at
  * @property CarbonInterface|null $recording_watched_at
+ * @property CarbonInterface|null $removed_at
+ * @property CarbonInterface|null $mic_locked_at the host muted this student (`RoomMediaRights`)
+ * @property CarbonInterface|null $mic_allowed_at the host let this student speak while the room is locked
+ * @property CarbonInterface|null $screen_share_allowed_at the host let this student share a screen
  * @property CarbonInterface|null $overridden_at
  * @property CarbonInterface|null $credit_verdict_at stamped ⇒ THIS SEAT WAS
  *                                                   CHARGED, which is not the same as «the stay reached the
@@ -79,6 +83,11 @@ class Attendance extends BaseModel
         'override_reason',
         'confirmed_at',
         'removed_at',
+        // The host's media decisions about this seat (2026-09-30) — written only
+        // by `PerformHostAction`, read by the ticket.
+        'mic_locked_at',
+        'mic_allowed_at',
+        'screen_share_allowed_at',
         'report_sent_at',
         'recording_watched_at',
     ];
@@ -96,6 +105,9 @@ class Attendance extends BaseModel
             'overridden_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'removed_at' => 'datetime',
+            'mic_locked_at' => 'datetime',
+            'mic_allowed_at' => 'datetime',
+            'screen_share_allowed_at' => 'datetime',
             // ٠٣٥ — written inside the close loop's existing `forceFill`, and
             // deliberately not fillable for the reason `stay_seconds` left.
             'credit_verdict_at' => 'datetime',
