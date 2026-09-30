@@ -104,6 +104,38 @@ it('lets an assistant who hosts the session lock its room without chat.moderate'
         ->assertJsonPath('is_locked', false);
 });
 
+/*
+| ⚠️ `can_moderate` DRAWS THREE CONTROLS IN THE ROOM, NOT ONE — the lock, the
+| per-thread silence and «مفيدة». A button the screen shows and the door refuses
+| is the dead-end defect #304 cleaned up, so each door is pressed here as the
+| same assistant the lock test uses.
+*/
+it('opens every control can_moderate draws to that assistant, not the lock alone', function (): void {
+    $assistant = ($this->newAssistant)([Permissions::SESSIONS_HOST, Permissions::CHAT_REPLY]);
+
+    Sanctum::actingAs($this->student);
+    $room = hostLockRoom($this);
+    $message = $this->postJson("/api/v1/conversations/{$room['uuid']}/messages", ['body' => 'سؤال عن الدرس'])
+        ->assertCreated()
+        ->json();
+
+    Sanctum::actingAs($assistant);
+    expect(hostLockRoom($this)['can_moderate'])->toBeTrue();
+
+    $this->postJson("/api/v1/conversations/{$room['uuid']}/write-bans", [
+        'user_uuid' => $this->student->uuid,
+        'reason' => 'مقاطعة الشرح',
+        'minutes' => 10,
+    ])->assertCreated();
+
+    $this->deleteJson("/api/v1/conversations/{$room['uuid']}/write-bans", [
+        'user_uuid' => $this->student->uuid,
+    ])->assertOk();
+
+    $this->postJson('/api/v1/messages/'.($message['uuid'] ?? $message['data']['uuid']).'/helpful')
+        ->assertSuccessful();
+});
+
 it('keeps the lock from an assistant who does not host the session', function (): void {
     // The control: without it the case above passes on a build where every
     // assistant who may reply can close every room.
