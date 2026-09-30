@@ -375,3 +375,21 @@ it('shows the host each seat\'s media state and the room lock, and a student non
             ->and($person)->not->toHaveKey('screen_share_allowed');
     }
 });
+
+/*
+| A seat holder who passes the host gate is STAFF on the roster, so the panel
+| draws no student control on their row — it drew «كتم»/«إخراج», and the server
+| answered 422.
+*/
+it('labels a seat-holding co-host as staff on the roster, and a student as a student', function (): void {
+    $student = mediaStudent($this);
+    $cohost = mediaAssistantHost($this);
+
+    Sanctum::actingAs($this->owner);
+    $rows = collect($this->getJson("/api/v1/class-sessions/{$this->session->uuid}/participants")
+        ->assertOk()->json('data'))->keyBy('uuid');
+
+    expect($rows[$cohost->uuid]['role'])->toBe('staff')
+        ->and($rows[$student->uuid]['role'])->toBe('student')
+        ->and($rows[$this->owner->uuid]['role'])->toBe('host');
+});

@@ -3,7 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Community\Enums\ConversationKind;
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
+use App\Modules\Community\Models\Conversation;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Learning\Models\Cohort;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Marketplace\Models\TeacherProfile;
@@ -11,6 +17,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Support\Facades\Gate;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -158,4 +165,80 @@ it('never hands the lock to a student of the room', function (): void {
 
     $this->postJson("/api/v1/conversations/{$room['uuid']}/lock", ['locked' => true])
         ->assertForbidden();
+});
+
+/*
+| ⚠️ THE HOST RUNS THE ROOM WITHOUT `chat.reply` (owner decision 2026-09-30):
+| an assistant granted `sessions.host` alone could mute the class and could not
+| even OPEN its chat. The session's room only — a lesson room, a group room and
+| a session the assistant does not host stay exactly where they were.
+*/
+it('lets an assistant with sessions.host alone read, write in and lock the room of a session they host', function (): void {
+    $assistant = ($this->newAssistant)([Permissions::SESSIONS_HOST]);
+
+    expect($assistant->can(Permissions::CHAT_REPLY))->toBeFalse();
+
+    Sanctum::actingAs($assistant);
+    $room = hostLockRoom($this);
+
+    expect($room['can_moderate'])->toBeTrue();
+
+    // Written with no seat of their own: they run the room.
+    $this->postJson("/api/v1/conversations/{$room['uuid']}/messages", ['body' => 'أهلاً بكم'])
+        ->assertCreated();
+    $this->getJson("/api/v1/conversations/{$room['uuid']}/messages")->assertOk();
+
+    $this->postJson("/api/v1/conversations/{$room['uuid']}/lock", ['locked' => true])
+        ->assertOk()
+        ->assertJsonPath('is_locked', true);
+});
+
+it('keeps that assistant out of a session room they do not host, and out of lesson and group rooms', function (): void {
+    $assistant = ($this->newAssistant)([Permissions::SESSIONS_HOST]);
+
+    // Confined to another course: this session is not theirs to host.
+    $other = Course::factory()->published()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'created_by' => $this->owner->getKey(),
+    ]);
+    $assignment = AssistantAssignment::factory()->create([
+        'assistant_user_id' => $assistant->getKey(),
+        'invited_by_user_id' => $this->owner->getKey(),
+    ]);
+    AssistantScope::factory()->create([
+        'assistant_assignment_id' => $assignment->getKey(),
+        'course_id' => $other->getKey(),
+    ]);
+    app()->forgetScopedInstances();
+
+    Sanctum::actingAs($assistant);
+    $this->getJson('/api/v1/class-sessions/'.$this->session->uuid.'/chat')->assertForbidden();
+
+    // Unconfined, the host branch still never reaches a lesson or a group room.
+    $free = ($this->newAssistant)([Permissions::SESSIONS_HOST]);
+
+    $lessonRoom = new Conversation([
+        'workspace_id' => $this->workspace->getKey(),
+        'kind' => ConversationKind::Lesson,
+        'lesson_id' => Lesson::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'course_id' => $this->course->getKey(),
+        ])->getKey(),
+    ]);
+    $cohortRoom = new Conversation([
+        'workspace_id' => $this->workspace->getKey(),
+        'kind' => ConversationKind::Cohort,
+        'cohort_id' => Cohort::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'course_id' => $this->course->getKey(),
+        ])->getKey(),
+    ]);
+
+    foreach (['lesson' => $lessonRoom, 'cohort' => $cohortRoom] as $kind => $room) {
+        $gate = Gate::forUser($free);
+
+        expect($gate->allows('view', $room))->toBeFalse("{$kind} view")
+            ->and($gate->allows('post', $room))->toBeFalse("{$kind} post")
+            ->and($gate->allows('moderate', $room))->toBeFalse("{$kind} moderate");
+    }
 });

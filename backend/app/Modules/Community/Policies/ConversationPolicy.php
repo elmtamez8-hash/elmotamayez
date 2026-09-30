@@ -458,6 +458,12 @@ class ConversationPolicy
      */
     private function runsTheRoom(User $user, Conversation $conversation): bool
     {
+        // The session's host runs its room with or without `chat.reply`
+        // (owner decision 2026-09-30) — scope included, see `roomStaffSide()`.
+        if ($this->hostsThisSessionRoom($user, $conversation)) {
+            return true;
+        }
+
         $staff = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
             || ($user->workspaces()->withoutGlobalScopes()
                 ->whereKey((int) $conversation->workspace_id)->exists()
@@ -493,6 +499,19 @@ class ConversationPolicy
      */
     private function roomStaffSide(User $user, Conversation $conversation): ?Response
     {
+        /*
+        | ⚠️ THE HOST OF A SESSION RUNS THAT SESSION'S ROOM — reads it, writes in
+        | it without a seat, endorses in it — with or without `chat.reply` (owner
+        | decision 2026-09-30). An assistant granted `sessions.host` alone could
+        | mute the class and could not open its chat. `hostsSession()` IS
+        | `ClassSessionPolicy::host`, so a confined assistant's course scope comes
+        | with it; a lesson room, a group room and a private thread never reach
+        | this branch, and another session's room answers false.
+        */
+        if ($this->hostsThisSessionRoom($user, $conversation)) {
+            return Response::allow();
+        }
+
         /*
         | Membership AND `chat.reply`, both.
         |

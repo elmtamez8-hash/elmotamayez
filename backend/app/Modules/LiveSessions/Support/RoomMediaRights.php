@@ -11,6 +11,7 @@ use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Tenancy\Support\Roles;
 use Illuminate\Support\Collection;
 
 /**
@@ -109,7 +110,8 @@ final class RoomMediaRights
      * ⚠️ THE HOST GATE IS ASKED OF EVERY SEAT HOLDER, not «the teacher's user
      * id»: an assistant who passes `ClassSessionPolicy::host` is a host of this
      * lesson whatever else they hold, and «اكتم الجميع» must never reach them.
-     * The same gate `RoomRevocation::isHost()` asks at the door.
+     * The same gate `RoomRevocation::isHost()` asks at the door — asked through
+     * {@see hostsAmong()}, which puts the gate behind one bulk read.
      *
      * @return Collection<int, User> keyed by user id
      */
@@ -127,11 +129,57 @@ final class RoomMediaRights
             return collect();
         }
 
+        $hosts = $this->hostsAmong($session, array_values($ids->all()));
+
         return User::query()
             ->whereIn('id', $ids)
             ->get()
-            ->reject(fn (User $user): bool => $this->revocation->isHost($session, $user))
+            ->reject(fn (User $user): bool => isset($hosts[(int) $user->getKey()]))
             ->keyBy(fn (User $user): int => (int) $user->getKey());
+    }
+
+    /**
+     * Which of these people pass this session's HOST gate.
+     *
+     * ⚠️ ONE BULK READ FIRST, THE GATE ONLY FOR WHAT SURVIVES IT. The host gate
+     * is `sessions.host` in THIS workspace's team plus the assistant scope, and
+     * nobody holds a workspace permission without a non-student membership here
+     * — so the candidates are the non-student members of the workspace (plus a
+     * super admin, whom `Gate::before` passes everywhere), and a room of thirty
+     * students costs one query and zero policy calls. Asked per row it was the
+     * whole policy thirty times. `workspace_members` carries STUDENT rows too,
+     * which is why the role is filtered, not membership alone.
+     *
+     * @param  list<int>  $userIds
+     * @return array<int, true> user id ⇒ true
+     */
+    public function hostsAmong(ClassSession $session, array $userIds): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $workspaceId = (int) $session->workspace_id;
+
+        $candidates = User::query()
+            ->whereIn('id', $userIds)
+            ->where(fn ($query) => $query
+                ->where('is_super_admin', true)
+                ->orWhereHas('workspaces', fn ($members) => $members
+                    ->withoutGlobalScopes()
+                    ->whereKey($workspaceId)
+                    ->where('workspace_members.role', '!=', Roles::STUDENT)))
+            ->get();
+
+        $hosts = [];
+
+        foreach ($candidates as $candidate) {
+            if ($this->revocation->isHost($session, $candidate)) {
+                $hosts[(int) $candidate->getKey()] = true;
+            }
+        }
+
+        return $hosts;
     }
 
     /** @return list<string> the student identities a bulk action may touch */
