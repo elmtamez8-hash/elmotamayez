@@ -6,6 +6,7 @@ namespace App\Modules\Community\Support;
 
 use App\Models\User;
 use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 
@@ -126,6 +127,124 @@ final class EloquentAssistantScopeDirectory implements AssistantScopeDirectory
         return $this->scopes[$key] = $courseIds === [] ? null : $courseIds;
     }
 
+    public function scopedStudentIdsFor(User $user, int $workspaceId): ?array
+    {
+        $scoped = $this->scopedCourseIdsFor($user, $workspaceId);
+
+        if ($scoped === null) {
+            return null;
+        }
+
+        /*
+        | One read per scoped course, through the one spelling of «actively
+        | enrolled» the announcement fan-out uses — the same `GRANTING_STATUSES`
+        | predicate `activeCourseIdsFor()` reads for `mayActOnStudent()`, so a
+        | student on this list is a student that door lets through. A confinement
+        | is a handful of courses, never hundreds.
+        */
+        $ids = [];
+
+        foreach ($scoped as $courseId) {
+            foreach ($this->enrollments->activeStudentIdsFor($workspaceId, $courseId) as $studentId) {
+                $ids[$studentId] = $studentId;
+            }
+        }
+
+        ksort($ids);
+
+        return array_values($ids);
+    }
+
+    public function whoMayActOnStudent(array $userIds, int $workspaceId, int $studentUserId): array
+    {
+        if ($userIds === []) {
+            return [];
+        }
+
+        $this->primeScopes($userIds, $workspaceId);
+
+        $studentCourses = null;
+        $allowed = [];
+
+        foreach ($userIds as $userId) {
+            $scoped = $this->scopes[$userId.':'.$workspaceId] ?? null;
+
+            if ($scoped === null) {
+                $allowed[] = $userId;
+
+                continue;
+            }
+
+            // Read once, and only when somebody on the list is confined.
+            if ($studentCourses === null) {
+                $student = User::query()->find($studentUserId);
+                $studentCourses = $student instanceof User ? $this->enrollments->activeCourseIdsFor($student) : [];
+            }
+
+            if (array_intersect($scoped, $studentCourses) !== []) {
+                $allowed[] = $userId;
+            }
+        }
+
+        return $allowed;
+    }
+
+    /**
+     * Fill both memos for many people in two reads — the live assignments of
+     * the ones not yet known, then the scope rows of those assignments.
+     *
+     * @param  list<int>  $userIds
+     */
+    private function primeScopes(array $userIds, int $workspaceId): void
+    {
+        $unknown = array_values(array_filter(
+            $userIds,
+            fn (int $id): bool => ! array_key_exists($id.':'.$workspaceId, $this->scopes),
+        ));
+
+        if ($unknown === []) {
+            return;
+        }
+
+        $assignments = AssistantAssignment::query()
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $workspaceId)
+            ->whereIn('assistant_user_id', $unknown)
+            ->active()
+            ->pluck('id', 'assistant_user_id');
+
+        $scopeRows = $assignments->isEmpty()
+            ? collect()
+            // ⚠️ Through the assignment ids just proved to be in this workspace —
+            // `assistant_scopes` has no `workspace_id` of its own (see above).
+            : AssistantScope::query()
+                ->whereIn('assistant_assignment_id', $assignments->values()->all())
+                ->get(['assistant_assignment_id', 'course_id'])
+                ->groupBy('assistant_assignment_id');
+
+        foreach ($unknown as $userId) {
+            $key = $userId.':'.$workspaceId;
+            $assignmentId = $assignments->get($userId);
+
+            $this->assignments[$key] = $assignmentId === null ? null : (int) $assignmentId;
+
+            if ($assignmentId === null) {
+                $this->scopes[$key] = null;
+
+                continue;
+            }
+
+            $courseIds = [];
+
+            foreach ($scopeRows->get($assignmentId, collect()) as $row) {
+                $courseIds[] = (int) $row->course_id;
+            }
+
+            // An empty scope is no confinement — the rule `scopedCourseIdsFor()` keeps.
+            $this->scopes[$key] = $courseIds === [] ? null : $courseIds;
+        }
+    }
+
     /**
      * Drop the memoised scope of one person in one workspace.
      *
@@ -138,6 +257,16 @@ final class EloquentAssistantScopeDirectory implements AssistantScopeDirectory
     public function forgetScopeOf(int $userId, int $workspaceId): void
     {
         unset($this->scopes[$userId.':'.$workspaceId]);
+    }
+
+    /**
+     * Drop BOTH memos of one person in one workspace — the assignment and the
+     * scope. For `AssistantAppointments`, which opens and closes assignments
+     * inside a request whose earlier checks may already have read them.
+     */
+    public function forgetAssignmentOf(int $userId, int $workspaceId): void
+    {
+        unset($this->assignments[$userId.':'.$workspaceId], $this->scopes[$userId.':'.$workspaceId]);
     }
 
     private function assignmentId(User $user, int $workspaceId): ?int

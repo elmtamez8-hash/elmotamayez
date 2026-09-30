@@ -7,6 +7,7 @@ use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
@@ -148,6 +149,12 @@ it('tells a confined assistant nothing about a student outside their courses', f
 
     $confined = $this->addWorkspaceMember($this->workspaceA, Roles::ASSISTANT_TEACHER);
     $unconfined = $this->addWorkspaceMember($this->workspaceA, Roles::ASSISTANT_TEACHER);
+
+    // Both hold `chat.reply` — the teaching side of a thread needs it (and the
+    // default assistant role does not carry it), so without the grant the
+    // confined one's zero below would be the permission, not the confinement.
+    $confined->givePermissionTo(Permissions::CHAT_REPLY);
+    $unconfined->givePermissionTo(Permissions::CHAT_REPLY);
 
     $assignment = AssistantAssignment::factory()->create([
         'assistant_user_id' => $confined->getKey(),

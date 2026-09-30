@@ -10,6 +10,7 @@ use App\Modules\Store\Data\StoreItemData;
 use App\Modules\Store\Http\Requests\SaveStoreItemRequest;
 use App\Modules\Store\Http\Resources\StoreItemResource;
 use App\Modules\Store\Models\StoreItem;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +32,18 @@ class StoreItemController extends Controller
     {
         $this->authorize('viewAny', StoreItem::class);
 
+        /*
+        | ⛔ A CONFINED ASSISTANT LISTS THE GOODS OF THEIR OWN COURSES (spec 010
+        | · FR-005, 2026-09-30) — the list form of `StoreItemPolicy::view()`; an
+        | item tied to no course is not theirs.
+        */
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $scoped = $workspaceId === null
+            ? null
+            : app(AssistantScopeDirectory::class)->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
         $items = StoreItem::query()
+            ->when($scoped !== null, fn ($query) => $query->whereIn('course_id', $scoped ?? []))
             // ⚠️ EAGER LOADED, AND THE FIELD IS ASSERTED AS WELL AS THE COST.
             // Dropping this makes the page one query CHEAPER and the course name
             // absent, so a budget test measuring queries alone reads the
@@ -50,6 +62,8 @@ class StoreItemController extends Controller
         $item = $save->handle(
             StoreItemData::fromArray($request->validated()),
             $this->workspaceId(),
+            null,
+            $this->currentUser($request),
         );
 
         return (new StoreItemResource($item))->response()->setStatusCode(201);
@@ -63,6 +77,7 @@ class StoreItemController extends Controller
             StoreItemData::fromArray($request->validated()),
             $this->workspaceId(),
             $item,
+            $this->currentUser($request),
         ));
     }
 

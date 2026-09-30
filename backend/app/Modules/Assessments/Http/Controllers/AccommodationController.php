@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Assessments\Actions\GrantAccommodation;
 use App\Modules\Assessments\Http\Requests\GrantAccommodationRequest;
 use App\Modules\Assessments\Models\Accommodation;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -23,12 +24,25 @@ use Illuminate\Http\Request;
  */
 class AccommodationController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, AssistantScopeDirectory $assistants): JsonResponse
     {
         $this->authorize('viewAny', Accommodation::class);
 
+        /*
+        | ⛔ A CONFINED ASSISTANT LISTS THE STUDENTS OF THEIR OWN COURSES (spec
+        | 010 · FR-005, 2026-09-30) — an arrangement names the student and the
+        | reason, and the unfiltered list was every one in the workspace. The
+        | list form of the `mayActOnStudent()` the create and revoke doors ask,
+        | read in one pass rather than once per row. `null` is everybody else.
+        */
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $students = $workspaceId === null
+            ? null
+            : $assistants->scopedStudentIdsFor($this->currentUser($request), $workspaceId);
+
         $rows = Accommodation::query()
             ->active()
+            ->when($students !== null, fn ($query) => $query->whereIn('student_user_id', $students ?? []))
             ->with('student:id,uuid,first_name,last_name')
             ->orderByDesc('id')
             ->get();

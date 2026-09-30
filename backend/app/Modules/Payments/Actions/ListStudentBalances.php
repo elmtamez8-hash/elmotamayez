@@ -50,13 +50,21 @@ class ListStudentBalances extends Action
     /**
      * One page of rows. The paginator's collection is the ROWS, not the models.
      *
+     * `$courseIds` narrows the rows to these courses — a confined assistant's
+     * scope (spec 010 · FR-005); `null` is every course. ⚠️ `[]` is NOT `null`:
+     * it narrows to nothing, and the caller never passes it for an unconfined
+     * reader.
+     *
+     * @param  list<int>|null  $courseIds
      * @return LengthAwarePaginator<int, array<string, scalar>>
      */
-    public function handle(Workspace $workspace, int $perPage = 50, int $page = 1): LengthAwarePaginator
+    public function handle(Workspace $workspace, int $perPage = 50, int $page = 1, ?array $courseIds = null): LengthAwarePaginator
     {
         $paginator = Enrollment::query()
             ->where('workspace_id', $workspace->getKey())
             ->where('status', 'active')
+            // In SQL, before the page is cut — the same reason as the orphans below.
+            ->when($courseIds !== null, fn ($query) => $query->whereIn('course_id', $courseIds ?? []))
             // Orphans are excluded IN SQL as well as below: filtered only after
             // the page is cut, a page would come back short and the total would
             // count people who are not on any page.

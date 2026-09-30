@@ -9,6 +9,7 @@ use App\Modules\Community\Data\PeriodicReviewData;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use DomainException;
 
@@ -29,7 +30,10 @@ use DomainException;
  */
 class SubmitPeriodicReview extends Action
 {
-    public function __construct(private readonly EnrollmentDirectory $enrollments) {}
+    public function __construct(
+        private readonly EnrollmentDirectory $enrollments,
+        private readonly AssistantScopeDirectory $assistants,
+    ) {}
 
     public function handle(Workspace $workspace, User $teacher, PeriodicReviewData $data): PeriodicReview
     {
@@ -37,8 +41,11 @@ class SubmitPeriodicReview extends Action
 
         // One refusal for «no such person» and «not your student»: two answers
         // would tell a teacher which uuids name real accounts.
+        // ⛔ AND A CONFINED ASSISTANT WRITES ONLY FOR A STUDENT OF THEIR OWN
+        // COURSES (spec 010 · FR-005) — the same one refusal, for the same reason.
         if ($student === null
-            || ! $this->enrollments->hasActiveEnrollmentInWorkspace($student, (int) $workspace->getKey())) {
+            || ! $this->enrollments->hasActiveEnrollmentInWorkspace($student, (int) $workspace->getKey())
+            || ! $this->assistants->mayActOnStudent($teacher, (int) $workspace->getKey(), (int) $student->getKey())) {
             throw new DomainException('لا يوجد طالب مسجّل عندك بهذا المعرّف.');
         }
 
@@ -79,6 +86,19 @@ class SubmitPeriodicReview extends Action
         // notification a statement about something that no longer exists.
         if ($review->exists && $review->isPublished()) {
             throw new DomainException('لا يمكن تعديل تقييم منشور.');
+        }
+
+        /*
+        | ⛔ AN ASSISTANT REVISES ONLY A DRAFT THEY WROTE (2026-09-30). The fill
+        | below makes the writer the author, so without this an assistant could
+        | take over the teacher's draft for the period and then publish it — the
+        | way around `PeriodicReviewPolicy::publish()`'s author rule. The teacher
+        | and the owner revise any draft, as before.
+        */
+        if ($review->exists
+            && (int) $review->teacher_user_id !== (int) $teacher->getKey()
+            && $this->assistants->isAssistantIn($teacher, (int) $workspace->getKey())) {
+            throw new DomainException('هذه المسودة كتبها غيرك، ولا يعدّلها المساعد.');
         }
 
         $review->fill([

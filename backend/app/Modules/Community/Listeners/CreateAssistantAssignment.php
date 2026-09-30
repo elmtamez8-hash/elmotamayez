@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Community\Listeners;
 
-use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Support\AssistantAppointments;
 use App\Modules\Tenancy\Actions\AcceptInvitation;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
-use App\Modules\Tenancy\Support\Roles;
 
 /**
  * Somebody joined a teacher's workspace, so they are on the teacher's team.
@@ -40,34 +39,25 @@ use App\Modules\Tenancy\Support\Roles;
  * fillable — it is claimed by a conditional UPDATE — so it is cleared with
  * `forceFill`, and clearing it is the whole of the re-appointment: the wall, the
  * confinement and the attribution all read this one row.
+ *
+ * ⚠️ A RE-APPOINTMENT COMES BACK CONFINED TO ITS OLD SCOPE (owner decision
+ * 2026-09-30). The rule lives in {@see AssistantAppointments}, together with the
+ * role change and the removal that also open and close this row.
  */
 class CreateAssistantAssignment
 {
-    /** Roles that are not somebody's assistant. */
-    private const NOT_ASSISTANTS = [Roles::TENANT_OWNER, Roles::TEACHER, Roles::STUDENT];
+    public function __construct(private readonly AssistantAppointments $appointments) {}
 
     public function handle(WorkspaceMemberAdded $event): void
     {
-        if (in_array($event->role, self::NOT_ASSISTANTS, true)) {
+        if (! AssistantAppointments::isAssistantRole($event->role)) {
             return;
         }
 
-        $existing = AssistantAssignment::query()
-            ->withoutWorkspaceScope()
-            ->where('workspace_id', $event->workspace->getKey())
-            ->where('assistant_user_id', $event->user->getKey())
-            ->first();
-
-        if ($existing instanceof AssistantAssignment) {
-            $existing->forceFill(['revoked_at' => null])->save();
-
-            return;
-        }
-
-        AssistantAssignment::query()->create([
-            'workspace_id' => $event->workspace->getKey(),
-            'assistant_user_id' => $event->user->getKey(),
-            'invited_by_user_id' => $event->workspace->owner_user_id,
-        ]);
+        $this->appointments->appoint(
+            (int) $event->workspace->getKey(),
+            (int) $event->user->getKey(),
+            $event->workspace->owner_user_id === null ? null : (int) $event->workspace->owner_user_id,
+        );
     }
 }
