@@ -25,7 +25,14 @@ class ListPublicCourses extends Action
     {
         $query = Course::query()
             ->publiclyListed()
-            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'teacherProfile.user:id,first_name,last_name', 'subject'])
+            ->with([
+                'creator:id,first_name,last_name',
+                // Unscoped: a SIGNED-IN reader's context would hide a profile kept in
+                // another workspace — a 200 with no teacher on the card.
+                'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
+                'teacherProfile.user:id,first_name,last_name',
+                'subject',
+            ])
             ->withCount([
                 // Scoped, and it was not. `withCount('lessons')` counts every row
                 // — so a teacher's half-written drafts and their retired archive
@@ -40,7 +47,12 @@ class ListPublicCourses extends Action
         $this->applyFilters($query, $filters);
         $this->applySort($query, $filters->sort);
 
-        return $query->paginate(perPage: $filters->perPage, page: $filters->page);
+        $page = $query->paginate(perPage: $filters->perPage, page: $filters->page);
+
+        // One answer for the page, not a query per card.
+        Course::primeCreatorTeaches($page->items());
+
+        return $page;
     }
 
     /** @param Builder<Course> $query */
@@ -79,10 +91,11 @@ class ListPublicCourses extends Action
     }
 
     /**
-     * Through the course's TEACHER — its own profile, or for a course with none
-     * recorded its creator's (`Course::teacherProfileForListing()` in SQL). It
-     * read `creator.teacherProfile` alone, so a course an ASSISTANT created was
-     * filed under the assistant's subjects and missing from its teacher's.
+     * Through the course's TEACHER — `Course::teacherProfileForListing()` in
+     * SQL: the creator's profile when the creator teaches here (or no profile is
+     * recorded), else the recorded one. It read `creator.teacherProfile` alone,
+     * so a course an ASSISTANT created was filed under the assistant's subjects
+     * and missing from its teacher's.
      *
      * @param  Builder<Course>  $query
      * @return Builder<Course>
@@ -90,10 +103,14 @@ class ListPublicCourses extends Action
     private static function throughTeacher(Builder $query, string $path, Closure $constraint): Builder
     {
         return $query->where(fn (Builder $teacher) => $teacher
-            ->whereHas('teacherProfile'.$path, $constraint)
-            ->orWhere(fn (Builder $legacy) => $legacy
-                ->whereNull('teacher_profile_id')
-                ->whereHas('creator.teacherProfile'.$path, $constraint)));
+            ->where(fn (Builder $own) => $own
+                ->whereHas('creator.teacherProfile'.$path, $constraint)
+                ->where(fn (Builder $why) => $why
+                    ->whereNull('teacher_profile_id')
+                    ->orWhere(fn (Builder $teaches) => Course::creatorTeachesClause($teaches))))
+            ->orWhere(fn (Builder $recorded) => $recorded
+                ->whereHas('teacherProfile'.$path, $constraint)
+                ->whereNot(fn (Builder $teaches) => Course::creatorTeachesClause($teaches))));
     }
 
     /** @param Builder<Course> $query */

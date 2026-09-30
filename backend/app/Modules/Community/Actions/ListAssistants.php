@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Actions;
 
 use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Courses\Models\Course;
 use App\Shared\Actions\Action;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -41,11 +42,16 @@ class ListAssistants extends Action
     /** @return Collection<int, AssistantAssignment> */
     public function handle(int $workspaceId): Collection
     {
-        return AssistantAssignment::query()
+        $assignments = AssistantAssignment::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->with(self::RELATIONS)
             ->orderBy('id')
             ->get();
+
+        // «Who teaches it» for every course chip at once — see `AssistantCourseResource`.
+        Course::primeCreatorTeaches($assignments->flatMap->scopes->map->course->filter());
+
+        return $assignments;
     }
 }

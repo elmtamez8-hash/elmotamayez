@@ -19,10 +19,10 @@ use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
  * lights up — invisibly, and only on the `redis` connection production runs, not
  * on the `sync` one every test uses.
  *
- * The recipient is the course's TEACHER
- * (`Course::teacherUser()`) — the person of its
- * teacher profile, never `course.creator`: an assistant who CREATED the course
- * received every transfer request for it (fixed 2026-09-30).
+ * The recipient is the course's TEACHER (`Course::teacherUser()`): its creator
+ * when the creator teaches in the workspace, the recorded teacher profile's
+ * person when the creator was an ASSISTANT — who used to receive every transfer
+ * request for it (fixed 2026-09-30).
  */
 class NotifyTeacherCohortTransferRequested implements ShouldQueueAfterCommit
 {

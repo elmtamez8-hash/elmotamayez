@@ -21,8 +21,9 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * query per course.
  *
  * ⛔ NOT `creator` ALONE (2026-09-30): on this very screen, a course an
- * ASSISTANT created showed the assistant as its teacher. The profile's person
- * first, `creator` only for a course with no profile recorded.
+ * ASSISTANT created showed the assistant as its teacher. The creator when they
+ * teach here, else the recorded profile's person — `Course::teacherUser()`'s
+ * rule.
  * {@see Course::teacherUser()}
  *
  * ⚠️ NO PRICE. The authoring `CourseResource` carries `price_minor`; this one is
@@ -52,7 +53,9 @@ class AssistantCourseResource extends JsonResource
     {
         $creator = $this->relationLoaded('creator') ? $this->creator : null;
 
-        if ($this->teacher_profile_id === null) {
+        // The creator when they teach here (primed by the caller in one query),
+        // the recorded profile's person when an assistant created the course.
+        if ($this->teacher_profile_id === null || $this->resource->creatorTeaches()) {
             return $creator;
         }
 

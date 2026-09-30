@@ -27,11 +27,16 @@ class ListAssignableCourses extends Action
     /** @return Collection<int, Course> */
     public function handle(int $workspaceId): Collection
     {
-        return Course::query()
+        $courses = Course::query()
             ->withoutWorkspaceScope()
             ->where('workspace_id', $workspaceId)
             ->with(['creator:id,first_name,last_name', 'teacherProfile:id,user_id', 'teacherProfile.user:id,first_name,last_name'])
             ->orderBy('title')
             ->get(['id', 'uuid', 'workspace_id', 'title', 'cover_path', 'status', 'created_by', 'teacher_profile_id']);
+
+        // «Who teaches it» for the whole list at once — see `AssistantCourseResource`.
+        Course::primeCreatorTeaches($courses);
+
+        return $courses;
     }
 }

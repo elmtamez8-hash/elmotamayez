@@ -70,6 +70,9 @@ class RelatedTeachers extends Action
                 ->limit($courseLimit)
                 ->get();
 
+            // One answer for the list, not a query per card.
+            Course::primeCreatorTeaches($courses);
+
             return ['teachers' => $teachers, 'courses' => $courses];
         });
     }

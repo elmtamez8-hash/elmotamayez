@@ -147,7 +147,7 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
 - A course's visibility is the TEACHER's call, not `courses.update`'s — an assistant edits content but `changeVisibility`/`chooseVisibility` refuse them, and the screens read the server's boolean.
 - A course's PRICE («كورس مجاني», `price_minor`, `currency`) is the teacher's call too — `changePricing`/`choosePricing` read the visibility predicate, asked only on a change / a non-default create; the screens read `can_change_pricing` / `can_choose_course_pricing` and send no price key otherwise.
-- «Who is this course's teacher» is `Course::teacherUser()` (the `teacher_profile_id` person, `creator` only when no profile is recorded) — never `creator`, which is whoever pressed the button (an assistant included); the marketplace SQL spells the same two arms.
+- «Who is this course's teacher» is `Course::teacherUser()`: the creator when they TEACH in the workspace (owner/co-teacher, no assistant assignment), else the `teacher_profile_id` person — never that profile first (its owner fallback is for pricing only); lists call `Course::primeCreatorTeaches()`, and the marketplace SQL uses `creatorTeachesClause()`.
 - The tree's three delete doors ask `CoursePolicy::deleteLessons()` (`lessons.delete` + scope), not `manageLessons()` — the default assistant no longer deletes sections, chapters or lessons.
 
 ### Exams, questions, practice and grading → [`docs/gotchas/assessments.md`](docs/gotchas/assessments.md)

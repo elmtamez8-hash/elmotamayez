@@ -113,6 +113,9 @@ class EnrollmentController extends Controller
         | anywhere indexing the top level. So what is ADDED is `meta` and nothing
         | breaks. The zero is the reason it survived this long.
         */
+        // «Who teaches it» for the page at once — `EnrollmentResource` names them.
+        Course::primeCreatorTeaches(collect($enrollments->items())->map->course->filter());
+
         return response()->json(EnrollmentResource::collection($enrollments)->response()->getData(true));
     }
 

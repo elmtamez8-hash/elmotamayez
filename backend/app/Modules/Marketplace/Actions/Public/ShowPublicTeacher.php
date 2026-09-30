@@ -152,21 +152,33 @@ class ShowPublicTeacher extends Action
      */
     public function coursesOf(TeacherProfile $teacher): Collection
     {
-        return Course::query()
+        $courses = Course::query()
             ->publiclyListed()
             /*
-            | ⛔ THE COURSES THIS PROFILE TEACHES, NOT THOSE ITS PERSON TYPED
-            | (2026-09-30). `created_by` alone dropped every course an ASSISTANT
-            | created for this teacher off the teacher's own page. The creator
-            | arm stays for a course with no profile recorded — the legacy truth
-            | `Course::teacherProfileForListing()` spells.
+            | ⛔ THE COURSES THIS PROFILE TEACHES (2026-09-30) —
+            | `Course::teacherProfileForListing()` in SQL: the ones its person
+            | created while teaching here (or with no profile recorded), plus
+            | the ones an ASSISTANT created under this profile. `created_by`
+            | alone dropped the latter off the teacher's own page; the recorded
+            | profile alone would hand every co-teacher's course to the owner.
             */
             ->where(fn ($taught) => $taught
-                ->where('teacher_profile_id', $teacher->getKey())
-                ->orWhere(fn ($legacy) => $legacy
-                    ->whereNull('teacher_profile_id')
-                    ->where('created_by', $teacher->user_id)))
-            ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'teacherProfile.user:id,first_name,last_name', 'subject'])
+                ->where(fn ($own) => $own
+                    ->where('created_by', $teacher->user_id)
+                    ->where(fn ($why) => $why
+                        ->whereNull('teacher_profile_id')
+                        ->orWhere(fn ($teaches) => Course::creatorTeachesClause($teaches))))
+                ->orWhere(fn ($recorded) => $recorded
+                    ->where('teacher_profile_id', $teacher->getKey())
+                    ->whereNot(fn ($teaches) => Course::creatorTeachesClause($teaches))))
+            ->with([
+                'creator:id,first_name,last_name',
+                // Unscoped: a SIGNED-IN reader's context would hide a profile kept in
+                // another workspace — a 200 with no teacher on the card.
+                'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
+                'teacherProfile.user:id,first_name,last_name',
+                'subject',
+            ])
             ->withCount([
                 // Scoped, and it was not. `withCount('lessons')` counts every row
                 // — so a teacher's half-written drafts and their retired archive
@@ -179,5 +191,9 @@ class ShowPublicTeacher extends Action
             ])
             ->orderByDesc('created_at')
             ->get();
+
+        Course::primeCreatorTeaches($courses);
+
+        return $courses;
     }
 }

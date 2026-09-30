@@ -46,10 +46,7 @@ it('falls back to the platform zone for an account with none — or with a name 
 
 it('tells a Cairo teacher the asked hour on BOTH clocks, and a Doha student the answer on both too', function (): void {
     $fx = privateSessionFixture();
-    // The TEACHER is the profile's person (2026-09-30), not the owner who wrote
-    // the course — the request is addressed to their hours.
-    $teacher = $fx['profile']->user()->firstOrFail();
-    $teacher->forceFill(['timezone' => 'Africa/Cairo'])->save();
+    $fx['owner']->forceFill(['timezone' => 'Africa/Cairo'])->save();
     $fx['student']->forceFill(['timezone' => 'Asia/Qatar'])->save();
 
     Sanctum::actingAs($fx['student']);
@@ -63,7 +60,7 @@ it('tells a Cairo teacher the asked hour on BOTH clocks, and a Doha student the 
     // The fixture's lesson is in November: the two clocks differ by an hour.
     expect($cairoClock)->not->toBe($dohaClock);
 
-    $asked = assertNotifiedOnce($teacher, NotificationType::PrivateSessionRequested);
+    $asked = assertNotifiedOnce($fx['owner'], NotificationType::PrivateSessionRequested);
 
     // Owner decision 2026-09-26: the two clocks differ at that instant, so the
     // teacher reads their own hour AND the student's.
