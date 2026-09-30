@@ -86,14 +86,16 @@ class SetCoursePromoVideo extends Action
      * FR-009 — only an approved, publicly listed teacher may put a video on a
      * public page.
      *
-     * Read from the course's author rather than from the caller: the course is
-     * what carries the video, and `created_by` is the person whose face is in
+     * Read from the course's TEACHER rather than from the caller: the course is
+     * what carries the video, and its teacher is the person whose face is in
      * it. An assistant acting for the teacher is still publishing the teacher's
-     * video.
+     * video — and ⛔ since 2026-09-30 that is the teacher PROFILE, not
+     * `created_by`: an assistant who CREATED the course was judged by their own
+     * (absent) profile and refused. {@see Course::teacherProfileForListing()}
      */
     private function assertPubliclyListedTeacher(Course $course): void
     {
-        $profile = $course->creator?->teacherProfile;
+        $profile = $course->teacherProfileForListing();
 
         $listed = $profile !== null
             && $profile->is_publicly_listed

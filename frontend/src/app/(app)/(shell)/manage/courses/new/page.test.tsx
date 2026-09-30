@@ -24,7 +24,10 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push, back: vi.fn() }) }
 
 // `importActual` for everything but `useAuth`: the page reads one flag off the
 // signed-in account, and the rest of the module stays real.
-let mockUser: Record<string, unknown> = { can_choose_course_visibility: true };
+let mockUser: Record<string, unknown> = {
+  can_choose_course_visibility: true,
+  can_choose_course_pricing: true,
+};
 
 vi.mock("@/lib/auth-context", async () => {
   const actual = await vi.importActual<typeof import("@/lib/auth-context")>("@/lib/auth-context");
@@ -35,7 +38,7 @@ vi.mock("@/lib/auth-context", async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   post.mockResolvedValue({ uuid: "c-1" });
-  mockUser = { can_choose_course_visibility: true };
+  mockUser = { can_choose_course_visibility: true, can_choose_course_pricing: true };
 });
 
 function submit() {
@@ -128,5 +131,39 @@ describe("«ظهور الكورس» on the new course form", () => {
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.visibility).toBe("public");
+  });
+
+  /*
+  | ⛔ «كورس مجاني» والسعرُ للمدرّسِ وحدَه كالظهور (قرارُ المالك 2026-09-30):
+  | المساعدُ لا يرى الخيار، وطلبُه لا يحملُ `is_free_enrollment` ولا `currency`
+  | — فالخادمُ يرفضُ غيرَ الافتراضيّ، وعملةُ الواجهةِ قد تخالفُ عملةَ المنصّة.
+  */
+  it.each([
+    ["an assistant (false)", { can_choose_course_pricing: false }],
+    ["an account the server said nothing about", {}],
+  ])("hides «كورس مجاني» from %s and sends no price key", async (_label, user) => {
+    mockUser = user;
+    render(<CreateCoursePage />);
+
+    expect(screen.queryByLabelText(/كورس مجاني/)).toBeNull();
+    expect(screen.getByText(/جعله مجانياً يقرّره مدرّس الكورس/)).toBeTruthy();
+
+    submit();
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalled());
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body).not.toHaveProperty("is_free_enrollment");
+    expect(body).not.toHaveProperty("currency");
+  });
+
+  it("sends the teacher's price keys", async () => {
+    render(<CreateCoursePage />);
+
+    submit();
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalled());
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body).toHaveProperty("is_free_enrollment", false);
+    expect(body).toHaveProperty("currency");
   });
 });

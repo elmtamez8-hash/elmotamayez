@@ -11,6 +11,7 @@ use App\Modules\Marketplace\Support\SchoolYearDirectory;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -146,6 +147,22 @@ class UserResource extends JsonResource
              */
             'can_choose_course_visibility' => $this->choosesCourseVisibility(),
             /*
+             | ⛔ و«كورس مجاني» على صفحةِ الإنشاءِ للمدرّسِ وحدَه كذلك (قرارُ المالك
+             | 2026-09-30) — الجوابُ نفسُه (`User::decidesCoursePricingIn()` يقرأُ
+             | سؤالَ الظهور)، فلا استعلامَ ثانٍ. صفحةُ التعديلِ تقرأُ
+             | `can_change_pricing` عن الكورسِ نفسِه.
+             */
+            'can_choose_course_pricing' => $this->choosesCourseVisibility(),
+            /*
+             | ⛔ An assistant CONFINED to some courses (`AssistantScopeDirectory`
+             | answers a list, not null) may not set anything «for all my
+             | students» — a course-less exam is refused them by
+             | `ExamPolicy::placeInCourse()`. «اختبار جديد» reads this to make its
+             | course picker required and drop the «كل طلابي» option (2026-09-30);
+             | the server still refuses on its own.
+             */
+            'is_confined_assistant' => $this->confinedToCourses(),
+            /*
              | ⚠️ `workspaces`, NOT `workplaces` — spec 025 · FR-021 draws the line
              | itself: what changes is what a PERSON reads, not what a machine
              | does. Two keys one letter apart in the payload that also carries
@@ -249,8 +266,32 @@ class UserResource extends JsonResource
      * they are in — the same workspace `grantedPermissions()` answers about.
      * A student or parent account holds no staff row (see `workplaces()`), so
      * the query is skipped for them.
+     *
+     * Asked ONCE per payload: the pricing flag reads the same answer.
      */
     private function choosesCourseVisibility(): bool
+    {
+        return $this->decidesCourses ??= $this->askDecidesCourses();
+    }
+
+    private ?bool $decidesCourses = null;
+
+    /** Whether an assistant assignment confines this person to a set of courses here. */
+    private function confinedToCourses(): bool
+    {
+        $role = $this->platform_role?->value;
+
+        if ($role === 'student' || $role === 'parent') {
+            return false;
+        }
+
+        $workspaceId = app(WorkspaceContext::class)->id() ?? $this->resource->last_workspace_id;
+
+        return $workspaceId !== null
+            && app(AssistantScopeDirectory::class)->scopedCourseIdsFor($this->resource, (int) $workspaceId) !== null;
+    }
+
+    private function askDecidesCourses(): bool
     {
         $role = $this->platform_role?->value;
 

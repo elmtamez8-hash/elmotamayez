@@ -168,8 +168,21 @@ export default function EditCoursePage({
         sending an empty string on every save would clear an approved video every
         time the title was edited.
       */
-      const { promo_video_url: pastedUrl, visibility, ...withoutPromo } = form;
+      const {
+        promo_video_url: pastedUrl,
+        visibility,
+        currency,
+        is_free_enrollment: isFree,
+        ...withoutPromo
+      } = form;
       const payload: Record<string, unknown> = { ...withoutPromo };
+      // ⛔ The price keys only for the course's teacher (owner decision
+      // 2026-09-30): an assistant's save carries neither, so it cannot move them
+      // and is never refused for echoing them.
+      if (course?.can_change_pricing === true) {
+        payload.currency = currency;
+        payload.is_free_enrollment = isFree;
+      }
       // Sent only when it CHANGED: a course the platform hid (`hidden`) shows as
       // «خاص» here, and echoing that back would quietly overwrite the panel's
       // decision on every title edit.
@@ -413,12 +426,22 @@ export default function EditCoursePage({
             2026-09-25). Unticked, the course is entered through a plan only; with
             no plan yet it shows «لم يفتح المدرّس الاشتراك بعد» — never «free».
           */}
-          <CheckboxField
-            id="is_free_enrollment"
-            label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
-            checked={form.is_free_enrollment}
-            onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
-          />
+          {/* ⛔ وللمدرّسِ وحدَه كالظهور (قرارُ المالك 2026-09-30): الجوابُ من
+              الخادم (`can_change_pricing`)، والمساعدُ يقرأُ الحالَ وسببَ غيابِ
+              الخيار بدلَ زرٍّ يرفضُه الخادم. */}
+          {course.can_change_pricing === true ? (
+            <CheckboxField
+              id="is_free_enrollment"
+              label="كورس مجاني — يسجّل فيه أي طالب بلا دفع ولا باقة"
+              checked={form.is_free_enrollment}
+              onChange={(v) => setForm({ ...form, is_free_enrollment: v })}
+            />
+          ) : (
+            <p className="text-sm text-ink-muted">
+              {course.is_free_enrollment ? "الكورس مجاني." : "الكورس بالباقات."} سعر الكورس وجعله
+              مجانياً يقرّرهما مدرّس الكورس.
+            </p>
+          )}
 
           <CheckboxField
             id="is_sequential"

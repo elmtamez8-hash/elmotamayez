@@ -75,6 +75,16 @@ class CreateCourse extends Action
         }
 
         /*
+        | ⛔ والسعرُ قرارُ المدرّسِ كذلك (قرارُ المالك 2026-09-30) — «كورس مجاني»
+        | يفتحُ الكورسَ لكلِّ طالبٍ بلا دفع، وكانَ المساعدُ يختارُه بلا سؤال.
+        | يُسأَلُ عن غيرِ الافتراضيِّ وحدَه (مدفوع، سعرُ صفر، عملةُ المنصّة)،
+        | فالمساعدُ يُنشئُ الكورسَ ويُسعِّرُه مدرّسُه.
+        */
+        if ($this->setsPricing($dto)) {
+            Gate::forUser($creator)->authorize('choosePricing', Course::class);
+        }
+
+        /*
         | ⚠️ ONE TRANSACTION FOR THE ROW AND ITS ANNOUNCEMENT. {@see CourseCreated}'s
         | first listener puts the course into a confined assistant's scope; were the
         | two written apart, a failure between them would leave the assistant holding
@@ -83,6 +93,14 @@ class CreateCourse extends Action
         return DB::transaction(function () use ($dto, $creator, $subjectId): Course {
             return $this->persist($dto, $creator, $subjectId);
         });
+    }
+
+    /** Whether the new course is born away from the defaults on any pricing key. */
+    private function setsPricing(CreateCourseDTO $dto): bool
+    {
+        return $dto->isFreeEnrollment
+            || $dto->priceMinor !== 0
+            || ($dto->currency !== null && $dto->currency !== app(BillingSettings::class)->currency());
     }
 
     private function persist(CreateCourseDTO $dto, User $creator, int $subjectId): Course

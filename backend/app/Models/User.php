@@ -185,6 +185,22 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     }
 
     /**
+     * Whether this person decides a course's PRICE — «كورس مجاني», the price and
+     * the currency (owner decision 2026-09-30).
+     *
+     * ⛔ THE SAME ANSWER AS {@see decidesCourseVisibilityIn()}, DELIBERATELY, and
+     * a second predicate here would be the two-spellings defect: both are «is
+     * this THE teacher of the workspace». An assistant holds `courses.update`
+     * and edits the course's content; whether it is sold, and for how much, is
+     * the teacher's call, and was not guarded at all until this day — ticking
+     * «كورس مجاني» opened a paid course to everybody.
+     */
+    public function decidesCoursePricingIn(int $workspaceId): bool
+    {
+        return $this->decidesCourseVisibilityIn($workspaceId);
+    }
+
+    /**
      * أيُّ أنواعِ البياناتِ الشخصيّةِ تخصُّ هذا الحساب.
      *
      * ⛔ شاشةُ «خصوصيّتي» كانت تعرضُ الثلاثةَ والثلاثينَ فئةً لكلِّ حساب، فقرأَ

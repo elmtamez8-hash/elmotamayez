@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Enums\ContentStatus;
 use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
@@ -11,6 +14,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Notifications\Models\Notification;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Illuminate\Support\Carbon;
@@ -233,4 +237,55 @@ it('does not promise that the teacher was told', function (): void {
     // no-such-thing branch. The same rule that forbids printing «٠ دقيقة».
     expect($body)->toBe('شكراً لك. سُجِّلت ملاحظتك.')
         ->and($body)->not->toContain('أبلغنا');
+});
+
+/*
+| ⛔ ONLY THOSE WHO WORK ON THIS COURSE ARE TOLD (2026-09-30). `courses.update`
+| is workspace-wide, so an assistant confined to another course was alerted
+| about a course they cannot open. Both directions: the near assistant and an
+| unconfined one are still told.
+*/
+it('alerts the assistants who work on this course and never one confined elsewhere', function (): void {
+    [$course, $lesson, $workspace] = reportFixture();
+
+    [$near, $far, $free] = app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $course): array {
+        $owner = User::query()->findOrFail($workspace->owner_user_id);
+        $otherCourse = Course::factory()->create(['workspace_id' => $workspace->getKey(), 'slug' => 'report-far-course']);
+
+        $confine = function (User $assistant, Course $to) use ($owner): void {
+            $row = AssistantAssignment::factory()->create([
+                'assistant_user_id' => $assistant->getKey(),
+                'invited_by_user_id' => $owner->getKey(),
+            ]);
+            AssistantScope::factory()->create([
+                'assistant_assignment_id' => $row->getKey(),
+                'course_id' => $to->getKey(),
+            ]);
+        };
+
+        $near = test()->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+        $far = test()->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+        $free = test()->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+
+        $confine($near, $course);
+        $confine($far, $otherCourse);
+
+        return [$near, $far, $free];
+    });
+
+    app()->forgetScopedInstances();
+    asRealGuest();
+
+    $this->postJson("/api/v1/marketplace/courses/{$course->uuid}/lessons/{$lesson->uuid}/report")
+        ->assertStatus(202);
+
+    $told = fn (User $user): bool => Notification::query()
+        ->where('type', NotificationType::LessonLinkReported->value)
+        ->where('recipient_user_id', $user->getKey())
+        ->exists();
+
+    expect($told($near))->toBeTrue()
+        ->and($told($free))->toBeTrue()
+        ->and($told($far))->toBeFalse()
+        ->and($told(User::query()->findOrFail($workspace->owner_user_id)))->toBeTrue();
 });

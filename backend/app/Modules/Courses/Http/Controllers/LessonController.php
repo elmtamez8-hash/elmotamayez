@@ -167,7 +167,8 @@ class LessonController extends Controller
 
     public function destroy(Course $course, Lesson $lesson, ManageLessons $action): JsonResponse
     {
-        $this->authorize('manageLessons', $course);
+        // `lessons.delete`, not `lessons.manage` — see `CoursePolicy::deleteLessons()`.
+        $this->authorize('deleteLessons', $course);
         $this->assertBelongsToCourse($lesson, $course);
 
         $action->delete($lesson);

@@ -11,6 +11,7 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
@@ -28,6 +29,7 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Laravel\Scout\Searchable;
+use stdClass;
 
 /**
  * @property string $status
@@ -46,6 +48,8 @@ use Laravel\Scout\Searchable;
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
+ * @property int|null $teacher_profile_id
+ * @property-read TeacherProfile|null $teacherProfile the course's TEACHER — {@see Course::teacherUser()}
  * @property-read Subject|null $subject subject_id is nullable — 007 added the column with no writer,
  *   and a course created before 026's backfill (or by a factory) still carries none
  */
@@ -310,11 +314,181 @@ class Course extends BaseModel
         return $this->belongsTo(Subject::class);
     }
 
-    /** @return BelongsTo<User, $this> */
+    /**
+     * Who PRESSED the button — the author/actor, never «the teacher».
+     *
+     * ⛔ An assistant who creates a course is its `created_by`. Every reader that
+     * means «this course's teacher» (a notification, a certificate, a public
+     * card, the marketplace predicate) goes through `teacherUser()` /
+     * `teacherProfile()` instead — docs/gotchas/courses.md.
+     *
+     * @return BelongsTo<User, $this>
+     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    /**
+     * The teacher this course is taught and priced under —
+     * `courses.teacher_profile_id`, written by `CourseTeacherProfile::resolve()`
+     * (the creator's own profile in this workspace, else the workspace owner's).
+     *
+     * ⚠️ THE BYPASS IS BAKED INTO THE RELATION. `teacher_profiles` is tenant
+     * owned, and two of this relation's readers are queued listeners whose
+     * context is whatever the worker last handled, and two more are guest
+     * pages. A per-call-site closure is forgotten at one of them.
+     *
+     * @return BelongsTo<TeacherProfile, $this>
+     */
+    public function teacherProfile(): BelongsTo
+    {
+        return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id')
+            ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * «Who is this course's teacher?» — the ONE answer (2026-09-30).
+     *
+     * ⛔ THE CREATOR, UNLESS THE CREATOR DOES NOT TEACH HERE. `created_by` is
+     * whoever pressed «أنشئ الكورس». When that is the owner or a co-teacher
+     * (pivot role `tenant-owner`/`teacher`, no live assistant assignment) they
+     * ARE the teacher. When it was an ASSISTANT — or someone who has since left
+     * the workspace — the assistant became the teacher everywhere: private
+     * requests, the certificate, the public card. Then the course's
+     * `teacher_profile_id` person answers, and `creator` is the last fallback.
+     *
+     * ⚠️ NEVER `teacher_profile_id` FIRST. `CourseTeacherProfile::resolve()`
+     * falls through to the OWNER's profile whenever the creator has none of
+     * their own in the workspace — the ordinary co-teacher — and that fallback
+     * is for PRICING and settlement only. Reading it first named the owner as
+     * the teacher of every co-teacher's course (review of #302).
+     *
+     * Reads `creator` and `teacherProfile.user`; a list primes
+     * {@see primeCreatorTeaches()} or pays one query per row.
+     */
+    public function teacherUser(): ?User
+    {
+        if ($this->creatorTeaches()) {
+            return $this->creator;
+        }
+
+        return $this->teacherProfile->user ?? $this->creator;
+    }
+
+    /**
+     * The teacher's profile as the marketplace judges it — {@see teacherUser()}'s
+     * rule: the creator's own profile when the creator teaches here (or no
+     * profile is recorded — the legacy truth), else the course's recorded one.
+     * `publicListingConstraints()`, `ListPublicCourses::throughTeacher()` and
+     * `ShowPublicTeacher::coursesOf()` spell the same arms in SQL.
+     */
+    public function teacherProfileForListing(): ?TeacherProfile
+    {
+        if ($this->creatorTeaches() || $this->teacher_profile_id === null) {
+            return $this->creator?->teacherProfile;
+        }
+
+        return $this->teacherProfile;
+    }
+
+    /** @var bool|null memo of {@see creatorTeaches()}, set by {@see primeCreatorTeaches()} */
+    private ?bool $creatorTeachesHere = null;
+
+    /**
+     * Whether `created_by` TEACHES in this course's workspace: a
+     * `tenant-owner`/`teacher` pivot row there and no live assistant
+     * assignment (the wall is at the check, never on the role name). A creator
+     * who left the workspace has no row and does not teach here.
+     */
+    public function creatorTeaches(): bool
+    {
+        if ($this->creatorTeachesHere === null) {
+            self::primeCreatorTeaches([$this]);
+        }
+
+        return (bool) $this->creatorTeachesHere;
+    }
+
+    /**
+     * Answer {@see creatorTeaches()} for a whole list in two queries — a
+     * Resource runs once per row. The ONE spelling of the PHP side;
+     * {@see creatorTeachesClause()} is its SQL twin.
+     *
+     * ⚠️ `workspace_members` and `assistant_assignments` are read as TABLES:
+     * this is a predicate over rows, and the models belong to Tenancy and
+     * Community.
+     *
+     * @param  iterable<Course>  $courses
+     */
+    public static function primeCreatorTeaches(iterable $courses): void
+    {
+        $pending = [];
+
+        foreach ($courses as $course) {
+            if ($course->created_by === null) {
+                $course->creatorTeachesHere = false;
+
+                continue;
+            }
+
+            $pending[] = $course;
+        }
+
+        if ($pending === []) {
+            return;
+        }
+
+        $users = array_values(array_unique(array_map(fn (Course $c): int => (int) $c->created_by, $pending)));
+        $workspaces = array_values(array_unique(array_map(fn (Course $c): int => (int) $c->workspace_id, $pending)));
+
+        $pair = fn (stdClass $row): string => $row->user_id.':'.$row->workspace_id;
+
+        $teaching = DB::table('workspace_members')
+            ->whereIn('user_id', $users)
+            ->whereIn('workspace_id', $workspaces)
+            ->whereIn('role', self::TEACHING_ROLES)
+            ->get(['user_id', 'workspace_id'])
+            ->map($pair)
+            ->flip();
+
+        $assisting = DB::table('assistant_assignments')
+            ->whereIn('assistant_user_id', $users)
+            ->whereIn('workspace_id', $workspaces)
+            ->whereNull('revoked_at')
+            ->get(['assistant_user_id as user_id', 'workspace_id'])
+            ->map($pair)
+            ->flip();
+
+        foreach ($pending as $course) {
+            $key = (int) $course->created_by.':'.(int) $course->workspace_id;
+            $course->creatorTeachesHere = $teaching->has($key) && ! $assisting->has($key);
+        }
+    }
+
+    /**
+     * {@see creatorTeaches()} in SQL, against the outer `courses` row. Wrap it
+     * in `whereNot()` for «does not teach».
+     *
+     * @param  QueryBuilder|Builder<Course>  $query
+     */
+    public static function creatorTeachesClause(QueryBuilder|Builder $query): void
+    {
+        $query
+            ->whereExists(fn (QueryBuilder $member) => $member->selectRaw('1')
+                ->from('workspace_members')
+                ->whereColumn('workspace_members.user_id', 'courses.created_by')
+                ->whereColumn('workspace_members.workspace_id', 'courses.workspace_id')
+                ->whereIn('workspace_members.role', self::TEACHING_ROLES))
+            ->whereNotExists(fn (QueryBuilder $assistant) => $assistant->selectRaw('1')
+                ->from('assistant_assignments')
+                ->whereColumn('assistant_assignments.assistant_user_id', 'courses.created_by')
+                ->whereColumn('assistant_assignments.workspace_id', 'courses.workspace_id')
+                ->whereNull('assistant_assignments.revoked_at'));
+    }
+
+    /** The pivot roles that TEACH — `User::decidesCourseVisibilityIn()`'s list. */
+    private const TEACHING_ROLES = [Roles::TENANT_OWNER, Roles::TEACHER];
 
     /**
      * هل لهذا الكورسِ حصّةٌ حيّةٌ واحدةٌ أصلاً؟
@@ -431,7 +605,23 @@ class Course extends BaseModel
             ->whereExists(function (QueryBuilder $sub): void {
                 $sub->selectRaw('1')
                     ->from('teacher_profiles')
-                    ->whereColumn('teacher_profiles.user_id', 'courses.created_by')
+                    /*
+                    | ⛔ THE COURSE'S TEACHER (2026-09-30) — `teacherProfileForListing()`
+                    | in SQL, and the two must move together: the creator's own
+                    | profile when the creator teaches here or no profile is
+                    | recorded, else the recorded one. It read `user_id =
+                    | created_by` alone, so a course an ASSISTANT created was
+                    | judged by the assistant's profile.
+                    */
+                    ->where(fn (QueryBuilder $teacher) => $teacher
+                        ->where(fn (QueryBuilder $own) => $own
+                            ->whereColumn('teacher_profiles.user_id', 'courses.created_by')
+                            ->where(fn (QueryBuilder $why) => $why
+                                ->whereNull('courses.teacher_profile_id')
+                                ->orWhere(fn (QueryBuilder $teaches) => self::creatorTeachesClause($teaches))))
+                        ->orWhere(fn (QueryBuilder $recorded) => $recorded
+                            ->whereColumn('teacher_profiles.id', 'courses.teacher_profile_id')
+                            ->whereNot(fn (QueryBuilder $teaches) => self::creatorTeachesClause($teaches))))
                     ->where('teacher_profiles.is_publicly_listed', true)
                     // The constant rather than 'approved': a literal here is
                     // coupling to another module that nobody can grep for, and
@@ -503,9 +693,10 @@ class Course extends BaseModel
      * pressed «انشر الكورس» and sees nothing wrong. The reasons are codes, not
      * sentences: the screen owns the words.
      *
-     * Reads `creator.teacherProfile` and `workspace`; a caller that renders
-     * this for a signed-in teacher must load the profile WITHOUT the workspace
-     * scope (a tenant model) or an approved teacher reads as unlisted.
+     * Reads `teacherProfile`, `creator.teacherProfile` and `workspace`; a caller
+     * that renders this for a signed-in teacher must load `creator.teacherProfile`
+     * WITHOUT the workspace scope (a tenant model) or an approved teacher reads
+     * as unlisted (`teacherProfile` carries the bypass in its definition).
      *
      * @return list<'draft'|'archived'|'private'|'workspace_not_in_marketplace'|'teacher_not_listed'>
      */
@@ -525,7 +716,7 @@ class Course extends BaseModel
             $blockers[] = 'workspace_not_in_marketplace';
         }
 
-        $profile = $this->creator?->teacherProfile;
+        $profile = $this->teacherProfileForListing();
 
         if ($profile === null
             || ! (bool) $profile->is_publicly_listed

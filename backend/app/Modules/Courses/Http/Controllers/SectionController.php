@@ -116,7 +116,8 @@ class SectionController extends Controller
 
     public function destroy(Course $course, Section $section, ManageSections $action): JsonResponse
     {
-        $this->authorize('manageLessons', $course);
+        // `lessons.delete`, not `lessons.manage` — see `CoursePolicy::deleteLessons()`.
+        $this->authorize('deleteLessons', $course);
         $this->assertBelongsToCourse($section, $course);
 
         $action->delete($section);
