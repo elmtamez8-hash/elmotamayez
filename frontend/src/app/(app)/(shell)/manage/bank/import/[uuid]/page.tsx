@@ -20,6 +20,8 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { bank, importStatusLabel, type ImportReport, type ImportReportRow } from "@/lib/bank";
 import { arabicNumber } from "@/lib/numerals";
+import { RequirePermission } from "@/components/ui/states/RefusedState";
+import { P } from "@/lib/permissions";
 
 /**
  * One upload, row by row.
@@ -32,7 +34,16 @@ import { arabicNumber } from "@/lib/numerals";
  * an interval that keeps firing against a finished import is a request every few
  * seconds, for ever, on a page left open in a background tab.
  */
+// `ImportController::show` asks `questions.manage`, like the list before it.
 export default function ImportReportPage({ params }: { params: Promise<{ uuid: string }> }) {
+  return (
+    <RequirePermission permission={P.questionsManage} reason="إضافة الأسئلة إلى البنك واستيرادها يتولّاه المدرّس.">
+      <ImportReportScreen params={params} />
+    </RequirePermission>
+  );
+}
+
+function ImportReportScreen({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
 
   const [report, setReport] = useState<ImportReport | null>(null);

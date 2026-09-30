@@ -39,6 +39,7 @@ import { arabicNumber } from "@/lib/numerals";
  */
 export default function BankPage() {
   const { user } = useAuth();
+  const mayWrite = can(user, P.questionsManage);
   const [questions, setQuestions] = useState<BankQuestion[]>([]);
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,12 +146,16 @@ export default function BankPage() {
         title="بنك الأسئلة"
         description="سؤالٌ واحد يخدم كلّ اختباراتك. عدّله مرّةً، ولن تتغيّر درجةُ محاولةٍ سابقة."
         actions={
-          <>
-            <Button href="/manage/bank/import" variant="secondary">
-              استيراد من ملف
-            </Button>
-            <Button href="/manage/bank/new">سؤال جديد</Button>
-          </>
+          // An assistant READS the bank (`bank.view`) and writes nothing in it:
+          // both doors ask `questions.manage`, which spec 008 kept off the role.
+          mayWrite ? (
+            <>
+              <Button href="/manage/bank/import" variant="secondary">
+                استيراد من ملف
+              </Button>
+              <Button href="/manage/bank/new">سؤال جديد</Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -210,12 +215,12 @@ export default function BankPage() {
         state={loading ? "loading" : failed ? "error" : questions.length === 0 ? "empty" : "ready"}
         emptyTitle={showDisabled ? "لا أسئلة معطَّلة" : "لا أسئلة بعد"}
         emptyDescription="ابدأ بسؤالٍ واحد، أو استورد ملفاً فيه مئات."
-        emptyAction={<Button href="/manage/bank/import">استيراد من ملف</Button>}
+        emptyAction={mayWrite ? <Button href="/manage/bank/import">استيراد من ملف</Button> : undefined}
         onRetry={() => load({ q, concept, difficulty, bloom, active: showDisabled ? "0" : "1" })}
       />
 
       {/* A rename is `questions.manage` at the door (ConceptPolicy::update). */}
-      {can(user, P.questionsManage) && (
+      {mayWrite && (
         <ConceptManager
           concepts={concepts}
           onRenamed={(renamed) =>

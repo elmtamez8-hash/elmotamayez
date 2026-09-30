@@ -13,6 +13,8 @@ import { CheckIcon, CoursesIcon } from "@/components/icons";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ApiError, errorMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 import {
   courses,
   moveWithin,
@@ -84,7 +86,10 @@ function isTreeConflict(body: unknown): body is { message: string; tree: CourseT
  */
 export default function CourseContentPage({ params }: { params: Promise<{ uuid: string }> }) {
   const { uuid } = use(params);
-
+  const { user } = useAuth();
+  // Deleting a section, chapter or item asks `lessons.delete` (the teacher's);
+  // an assistant builds the tree and does not remove from it.
+  const mayDelete = can(user, P.lessonsDelete);
 
   const [tree, setTree] = useState<CourseTree | null>(null);
   const [loading, setLoading] = useState(true);
@@ -459,7 +464,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
             return courses.renameLesson(uuid, nodeUuid, title);
           })
         }
-        onDelete={(kind, nodeUuid, label) => {
+        onDelete={!mayDelete ? undefined : (kind, nodeUuid, label) => {
           // Confirmed here, and refused on the server when it would destroy
           // recorded progress or an uploaded file — the dialog is a courtesy,
           // the guard is the Action.

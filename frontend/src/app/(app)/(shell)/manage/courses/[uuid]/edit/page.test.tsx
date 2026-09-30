@@ -23,6 +23,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, back: vi.fn() }),
 }));
 
+let mockUser: { permissions: string[] } = { permissions: ["courses.update", "courses.publish"] };
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
+
 const { default: EditCoursePage } = await import("./page");
 
 function course(visibility: string, canChange: boolean | "absent", canPrice: boolean | "absent" = true) {
@@ -72,6 +76,7 @@ async function save() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { permissions: ["courses.update", "courses.publish"] };
   put.mockResolvedValue({});
 });
 
@@ -133,6 +138,27 @@ describe("«ظهور الكورس» for someone who may not decide it", () => {
 
     expect(body).toHaveProperty("title", "رياضيات");
     expect(body).not.toHaveProperty("visibility");
+  });
+});
+
+/*
+| «انشر الكورس» / «إلغاء النشر» يسألانِ `courses.publish`، والمساعدُ لا يحملُها —
+| فالزرُّ يغيبُ وتبقى جملةٌ تقولُ مَن يتولّاه، بدلَ ضغطةٍ تُجيبُ ٤٠٣.
+*/
+describe("publishing, for someone who may not publish", () => {
+  it("offers «إلغاء النشر» to the teacher", async () => {
+    await openPage("public");
+
+    expect(screen.getByRole("button", { name: "إلغاء النشر" })).toBeTruthy();
+  });
+
+  it("draws neither button for a reader without courses.publish, and says who does it", async () => {
+    mockUser = { permissions: ["courses.update"] };
+    await openPage("public");
+
+    expect(screen.queryByRole("button", { name: "إلغاء النشر" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "انشر الكورس" })).toBeNull();
+    expect(screen.getByText("نشر الكورس وإلغاء نشره يتولّاهما المدرّس.")).toBeTruthy();
   });
 });
 

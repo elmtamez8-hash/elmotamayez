@@ -17,6 +17,9 @@ import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { arabicNumber } from "@/lib/numerals";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
+import { AssistantScopeNotice } from "@/components/courses/AssistantScopeNotice";
 
 /**
  * ⚠️ ONE REQUEST FOR THE WHOLE SET, AND THE FILTERS ARE BUILT FROM IT.
@@ -35,6 +38,11 @@ const PAGE_SIZE = 200;
 const NO_STAGE = "__none";
 
 export default function ManageCoursesPage() {
+  const { user } = useAuth();
+  // An assistant holds `courses.create` and neither of the other two — the
+  // matrix keeps deleting and publishing with the teacher.
+  const mayCreate = can(user, P.coursesCreate);
+  const mayDelete = can(user, P.coursesDelete);
   const [courses, setCourses] = useState<Course[]>([]);
   const [total, setTotal] = useState(0);
   const [stageNames, setStageNames] = useState<Record<string, string>>({});
@@ -161,11 +169,15 @@ export default function ManageCoursesPage() {
             : `${counted(courses.length, NOUNS.courses)} · أنشئها وحرّرها وانشرها.`
         }
         actions={
-          <Button href="/manage/courses/new" iconStart={<SparkIcon className="h-4 w-4" />}>
-            كورس جديد
-          </Button>
+          mayCreate ? (
+            <Button href="/manage/courses/new" iconStart={<SparkIcon className="h-4 w-4" />}>
+              كورس جديد
+            </Button>
+          ) : undefined
         }
       />
+
+      <AssistantScopeNotice />
 
       {error && <Alert tone="danger" title={error} />}
 
@@ -237,9 +249,13 @@ export default function ManageCoursesPage() {
           />
         ) : (
           <EmptyState
-            title="لم تنشئ كورساً بعد"
-            description="ابدأ بكورس واحد، أضف دروسه، ثم انشره لطلابك."
-            action={<Button href="/manage/courses/new">أنشئ كورساً</Button>}
+            title={mayCreate ? "لم تنشئ كورساً بعد" : "لا كورسات بعد"}
+            description={
+              mayCreate
+                ? "ابدأ بكورس واحد، أضف دروسه، ثم انشره لطلابك."
+                : "لا كورسات لك هنا بعد. حين يضيفك المدرّس إلى كورس يظهر في هذه القائمة."
+            }
+            action={mayCreate ? <Button href="/manage/courses/new">أنشئ كورساً</Button> : undefined}
           />
         )
       ) : (
@@ -335,34 +351,37 @@ export default function ManageCoursesPage() {
               </div>
 
               {/* Two clicks, not window.confirm(): a native dialog blocks the
-                  page, cannot be translated, and cannot be tested. */}
-              <div className="absolute top-3 end-3">
-                {confirming === course.uuid ? (
-                  <div className="flex gap-1 rounded-lg bg-surface-raised p-1 shadow-sm">
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      loading={deleting === course.uuid}
-                      loadingLabel="جارٍ الحذف…"
-                      onClick={() => remove(course.uuid)}
+                  page, cannot be translated, and cannot be tested.
+                  Absent without `courses.delete` — the server refuses the press. */}
+              {mayDelete && (
+                <div className="absolute top-3 end-3">
+                  {confirming === course.uuid ? (
+                    <div className="flex gap-1 rounded-lg bg-surface-raised p-1 shadow-sm">
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        loading={deleting === course.uuid}
+                        loadingLabel="جارٍ الحذف…"
+                        onClick={() => remove(course.uuid)}
+                      >
+                        أكّد الحذف
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                        إلغاء
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(course.uuid)}
+                      aria-label={`احذف كورس ${course.title}`}
+                      className="rounded-lg bg-surface-raised p-1.5 text-ink-muted opacity-0 transition hover:text-danger-ink focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-hover:opacity-100"
                     >
-                      أكّد الحذف
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
-                      إلغاء
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(course.uuid)}
-                    aria-label={`احذف كورس ${course.title}`}
-                    className="rounded-lg bg-surface-raised p-1.5 text-ink-muted opacity-0 transition hover:text-danger-ink focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-hover:opacity-100"
-                  >
-                    <TrashIcon />
-                  </button>
-                )}
-              </div>
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
+              )}
             </article>
           ))}
         </div>

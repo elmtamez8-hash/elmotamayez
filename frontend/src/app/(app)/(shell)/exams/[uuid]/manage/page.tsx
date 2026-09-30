@@ -5,6 +5,8 @@ import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import type { Exam } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -30,6 +32,17 @@ export default function ManageExamPage({
 }) {
   const { uuid } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
+  /*
+    The assistant role holds `exams.create`/`exams.update` and none of these
+    three (`RolePermissionMatrix`): publishing and deleting a paper are the
+    teacher's, and choosing its questions is `questions.manage`, which spec 008
+    took off the assistant with the shared bank. Each control is absent without
+    its permission rather than offered and refused on press.
+  */
+  const mayPublish = can(user, P.examsPublish);
+  const mayDelete = can(user, P.examsDelete);
+  const mayPickQuestions = can(user, P.questionsManage);
 
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState(true);
@@ -155,7 +168,7 @@ export default function ManageExamPage({
             {showSettings ? "أغلق الإعدادات" : "إعدادات الاختبار"}
           </Button>
 
-          {exam.status === "draft" && (
+          {exam.status === "draft" && mayPublish && (
             <Button
               size="sm"
               loading={publishing}
@@ -168,7 +181,7 @@ export default function ManageExamPage({
 
           {/* Two clicks, not window.confirm(): a native dialog blocks the page
               and cannot be translated. */}
-          {confirmExam ? (
+          {!mayDelete ? null : confirmExam ? (
             <>
               <Button size="sm" variant="danger" loading={deleting} onClick={deleteExam}>
                 أكّد حذف الاختبار
@@ -258,7 +271,17 @@ export default function ManageExamPage({
           screen kept rendering and every button 404'd.
 
           A question belongs to the bank now; the exam merely includes it. */}
-      <ExamItemsPanel examUuid={uuid} />
+      {/* ⚠️ BOTH HALVES of `/manage/exams/{uuid}/items` ask `manageQuestions`,
+          the READ included — so without it the panel cannot even list what
+          the paper holds, and rendered an error box under a working page. */}
+      {mayPickQuestions ? (
+        <ExamItemsPanel examUuid={uuid} />
+      ) : (
+        <Alert tone="info" title="أسئلة الاختبار يختارها المدرّس">
+          اختيار أسئلته وترتيبها من بنك الأسئلة يتولّاه المدرّس
+          {mayPublish ? "" : "، وكذلك نشره"}. يمكنك تعديل إعداداته من «إعدادات الاختبار».
+        </Alert>
+      )}
 
     </div>
   );

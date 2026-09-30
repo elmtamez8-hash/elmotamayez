@@ -23,6 +23,8 @@ import { formatSessionTime } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
 import { backoffDelay, isTransientFailure, MAX_AUTOMATIC_TRIES } from "@/lib/retry";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 
 /** How often a student who is early asks whether the host has opened the room. */
 const WAITING_POLL_MS = 20_000;
@@ -46,6 +48,14 @@ export default function SessionRoomPage({
 }) {
   const zone = useViewerTimeZone();
   const { uuid } = use(params);
+  const { user } = useAuth();
+  /*
+    ⚠️ «تفاصيل الحصة» LINKED INTO `/manage/sessions/{uuid}` FOR EVERY READER — a
+    student or an assistant who met a closed room was sent to a screen the
+    sidebar gate refuses them. Only `sessions.manage` opens that one; everybody
+    else has the session's own page.
+  */
+  const detailsHref = can(user, P.sessionsManage) ? `/manage/sessions/${uuid}` : `/sessions/${uuid}`;
 
   const [ticket, setTicket] = useState<JoinTicket | null>(null);
   /*
@@ -306,7 +316,7 @@ export default function SessionRoomPage({
           أُغلقت غرفة البثّ، فلا دخول إليها. إن كان لها تسجيل فسيظهر درساً في الكورس.
           <div className="mt-3">
             <Link
-              href={`/manage/sessions/${uuid}`}
+              href={detailsHref}
               className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               تفاصيل الحصة
@@ -356,7 +366,7 @@ export default function SessionRoomPage({
           أُغلقت الغرفة ولا يمكن الدخول إليها مجدداً. كشف الحضور يُقفَل في موعد انتهاء الحصة.
           <div className="mt-3">
             <Link
-              href={`/manage/sessions/${uuid}`}
+              href={detailsHref}
               className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               العودة إلى تفاصيل الحصة

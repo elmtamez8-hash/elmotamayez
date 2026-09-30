@@ -45,6 +45,12 @@ vi.mock("@/lib/class-sessions", () => ({
   },
 }));
 
+// The teacher by default; `sessions.manage` is what the dates and the
+// session screen ask, and an assistant holds only `sessions.view`.
+let mockUser: { permissions: string[] } = { permissions: ["courses.update", "sessions.view", "sessions.manage"] };
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
+
 const GROUP = {
   uuid: "g-1",
   name: "مجموعة السبت",
@@ -61,6 +67,7 @@ const GROUP = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { permissions: ["courses.update", "sessions.view", "sessions.manage"] };
   show.mockResolvedValue(GROUP);
   members.mockResolvedValue({ data: [] });
   history.mockResolvedValue({ data: [] });
@@ -251,5 +258,42 @@ describe("why a group is not on sale", () => {
 
     expect(screen.queryByText("باقتها معطَّلة")).toBeNull();
     expect(screen.queryByText(/لا إجراء مطلوب منك/)).toBeNull();
+  });
+});
+
+describe("a group's page for an assistant", () => {
+  const SESSION = {
+    uuid: "sess-7",
+    title: "المتجهات",
+    status: "scheduled",
+    starts_at: "2026-10-10T13:00:00Z",
+    timezone: "Asia/Qatar",
+  };
+
+  it("offers no «أضِف مواعيد» without sessions.manage", async () => {
+    mockUser = { permissions: ["courses.update", "sessions.view"] };
+    await open();
+
+    expect(screen.queryByText("أضِف مواعيد لهذه المجموعة")).toBeNull();
+    expect(screen.queryByRole("button", { name: "ولِّد المواعيد" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "أضِف الموعد" })).toBeNull();
+  });
+
+  it("sends a reader of the calendar to the session's own page, not the manage screen", async () => {
+    mockUser = { permissions: ["courses.update", "sessions.view"] };
+    list.mockResolvedValue({ data: [SESSION] });
+    await open();
+
+    expect(screen.getByRole("link", { name: "افتح الحصة" }).getAttribute("href")).toBe("/sessions/sess-7");
+    expect(screen.getByText("المتجهات").closest("a")?.getAttribute("href")).toBe("/sessions/sess-7");
+  });
+
+  it("draws the row without a link for a reader with neither", async () => {
+    mockUser = { permissions: ["courses.update"] };
+    list.mockResolvedValue({ data: [SESSION] });
+    await open();
+
+    expect(screen.getByText("المتجهات").closest("a")).toBeNull();
+    expect(screen.queryByRole("link", { name: "افتح الحصة" })).toBeNull();
   });
 });

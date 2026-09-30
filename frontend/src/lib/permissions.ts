@@ -15,6 +15,18 @@
 export const P = {
   coursesUpdate: "courses.update",
   /*
+   * ⚠️ THE TEACHER'S HALF OF THE COURSE, AND THE ASSISTANT ROLE HOLDS NEITHER.
+   * `RolePermissionMatrix` gives an assistant `courses.create` and
+   * `courses.update` but puts delete and publish on `$teacher` — so the trash
+   * can and «انشر الكورس» were offered to an assistant and refused on press.
+   */
+  coursesCreate: "courses.create",
+  coursesDelete: "courses.delete",
+  coursesPublish: "courses.publish",
+  // Removing a section, chapter or item from the tree: `CoursePolicy::deleteLessons`.
+  // Building the tree is `lessons.manage`, which the assistant keeps.
+  lessonsDelete: "lessons.delete",
+  /*
    * ⚠️ THE READ, AND IT IS A DIFFERENT QUESTION FROM THE TWO BELOW.
    * `ExamController::index()` asks `exams.view` to decide whether the list is
    * the AUTHOR'S — drafts included, unfiltered by enrolment — or the student's
@@ -25,6 +37,10 @@ export const P = {
   examsView: "exams.view",
   examsCreate: "exams.create",
   examsUpdate: "exams.update",
+  // Teacher-only, like the course pair above: an assistant writes a paper and
+  // the teacher decides it is ready and whether it goes.
+  examsPublish: "exams.publish",
+  examsDelete: "exams.delete",
   /*
    * ⚠️ `.all`, AND THE DOT SHAPE IS `certificates.view.all` — the students' half.
    * `CertificateController::index()` narrows to `student_user_id = me` for
@@ -83,6 +99,9 @@ export const P = {
   billingBalanceView: "billing.balance.view",
   billingExamMode: "billing.exam_mode.manage",
   membersView: "members.view",
+  // The invite form on «فريقك». `InviteMemberRequest` asks exactly this; an
+  // assistant reads the team and does not add to it.
+  membersInvite: "members.invite",
   /*
    * ⚠️ SEPARATE FROM `membersView`, AND IT GATES A CONTROL RATHER THAN A
    * LINK. Reading the team is one question; changing what somebody on it

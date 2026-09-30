@@ -46,3 +46,14 @@ describe("the course status badge", () => {
     expect(screen.getByText("منشور")).toBeTruthy();
   });
 });
+
+describe("«اختبارات الكورس»", () => {
+  // It opened every course's papers mixed; the list filters on `?course=` now.
+  it("opens this course's papers, not the whole list", async () => {
+    await openPage("draft");
+
+    expect(screen.getByRole("link", { name: "اختبارات الكورس" }).getAttribute("href")).toBe(
+      "/manage/exams?course=c-1",
+    );
+  });
+});

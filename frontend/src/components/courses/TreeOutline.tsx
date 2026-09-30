@@ -42,7 +42,13 @@ export function TreeOutline({
   onAddChapter: (sectionUuid: string, title: string) => Promise<boolean>;
   onAddLesson: (chapter: TreeChapter) => void;
   onRename: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => Promise<boolean>;
-  onDelete: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => void;
+  /*
+   * ⚠️ OPTIONAL, AND ABSENT MEANS «NO DELETE CONTROL ANYWHERE IN THE TREE».
+   * The three destroy routes ask `CoursePolicy::deleteLessons` — `lessons.delete`,
+   * a teacher's permission the assistant role does not hold — so the host omits
+   * this for such a reader rather than drawing a bin that answers 403.
+   */
+  onDelete?: (kind: "section" | "chapter" | "lesson", uuid: string, title: string) => void;
   onMoveSection: (uuid: string, direction: -1 | 1) => void;
   onMoveChapter: (section: TreeSection, uuid: string, direction: -1 | 1) => void;
   onMoveLesson: (chapter: TreeChapter, uuid: string, direction: -1 | 1) => void;
@@ -74,11 +80,13 @@ export function TreeOutline({
                 current={section.title}
                 busy={busy}
               />
-              <DeleteButton
-                onDelete={() => onDelete("section", section.uuid, section.title)}
-                label={section.title}
-                busy={busy}
-              />
+              {onDelete !== undefined && (
+                <DeleteButton
+                  onDelete={() => onDelete("section", section.uuid, section.title)}
+                  label={section.title}
+                  busy={busy}
+                />
+              )}
             </div>
           </header>
 
@@ -104,11 +112,13 @@ export function TreeOutline({
                       current={chapter.title}
                       busy={busy}
                     />
-                    <DeleteButton
-                      onDelete={() => onDelete("chapter", chapter.uuid, chapter.title)}
-                      label={chapter.title}
-                      busy={busy}
-                    />
+                    {onDelete !== undefined && (
+                      <DeleteButton
+                        onDelete={() => onDelete("chapter", chapter.uuid, chapter.title)}
+                        label={chapter.title}
+                        busy={busy}
+                      />
+                    )}
                   </div>
                 </header>
 
@@ -176,11 +186,13 @@ export function TreeOutline({
                           current={lesson.title}
                           busy={busy}
                         />
-                        <DeleteButton
-                          onDelete={() => onDelete("lesson", lesson.uuid, lesson.title)}
-                          label={lesson.title}
-                          busy={busy}
-                        />
+                        {onDelete !== undefined && (
+                          <DeleteButton
+                            onDelete={() => onDelete("lesson", lesson.uuid, lesson.title)}
+                            label={lesson.title}
+                            busy={busy}
+                          />
+                        )}
                       </span>
                     </li>
                   ))}

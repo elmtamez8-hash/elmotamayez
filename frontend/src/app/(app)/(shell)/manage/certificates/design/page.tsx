@@ -14,6 +14,8 @@ import { CertificateIcon, UploadIcon } from "@/components/icons";
 import { userMessage } from "@/lib/errors";
 import { counted } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
+import { RequirePermission } from "@/components/ui/states/RefusedState";
+import { P } from "@/lib/permissions";
 import type { CertificateValues } from "@/lib/certificate-design";
 import {
   certificateDesigns,
@@ -49,7 +51,20 @@ interface Editing {
   boxes: Boxes;
 }
 
+// `CertificateDesignPolicy` asks `certificates.regenerate` for every door,
+// the list included — the teacher's permission, not the assistant's.
 export default function CertificateDesignPage() {
+  return (
+    <RequirePermission
+      permission={P.certificatesRegenerate}
+      reason="تصميم شهادة الكورس يتولّاه المدرّس."
+    >
+      <CertificateDesignScreen />
+    </RequirePermission>
+  );
+}
+
+function CertificateDesignScreen() {
   const [designs, setDesigns] = useState<CertificateDesignCard[]>([]);
   const [limit, setLimit] = useState(0);
   const [used, setUsed] = useState(0);
