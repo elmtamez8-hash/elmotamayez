@@ -47,6 +47,11 @@ vi.mock("@/components/sessions/PresenceLoop", async () => {
 });
 vi.mock("@/components/community/SessionChat", () => ({ SessionChat: () => null }));
 
+// A student by default — they hold no permissions at all.
+let mockUser: { permissions: string[] } = { permissions: [] };
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
+
 function session(overrides: Record<string, unknown> = {}) {
   return {
     uuid: "s-1",
@@ -71,6 +76,7 @@ const showCalls = () => get.mock.calls.filter(([path]) => path === "/class-sessi
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockUser = { permissions: [] };
   vi.useFakeTimers();
   get.mockImplementation(() => Promise.reject(new Error("unexpected read")));
 });
@@ -346,5 +352,35 @@ describe("the session page opened early", () => {
     await act(() => vi.advanceTimersByTimeAsync(601_000));
 
     expect(screen.getByText("دخول الغرفة")).toBeTruthy();
+  });
+});
+
+/*
+| «تفاصيل الحصة» on a closed room pointed at `/manage/sessions/{uuid}` for every
+| reader — a student or an assistant landed on a screen the sidebar gate refuses.
+*/
+describe("«تفاصيل الحصة» on a closed room", () => {
+  async function openClosed() {
+    get.mockImplementation((path: string) =>
+      path === "/class-sessions/s-1"
+        ? Promise.resolve(session({ room_closed: true, room_opened: true, join_open: false }))
+        : Promise.reject(new Error("403")),
+    );
+    post.mockImplementation(() => Promise.reject(new Error("403")));
+
+    await renderRoom();
+  }
+
+  it("sends a reader without sessions.manage to the session's own page", async () => {
+    await openClosed();
+
+    expect(screen.getByRole("link", { name: "تفاصيل الحصة" }).getAttribute("href")).toBe("/sessions/s-1");
+  });
+
+  it("sends the teacher to the manage screen", async () => {
+    mockUser = { permissions: ["sessions.view", "sessions.manage"] };
+    await openClosed();
+
+    expect(screen.getByRole("link", { name: "تفاصيل الحصة" }).getAttribute("href")).toBe("/manage/sessions/s-1");
   });
 });

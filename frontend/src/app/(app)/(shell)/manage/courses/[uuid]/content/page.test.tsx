@@ -44,16 +44,20 @@ vi.mock("@/components/courses/TreeOutline", () => ({
     onDelete,
     onAddLesson,
   }: {
-    onDelete: (kind: string, uuid: string, title: string) => void;
+    onDelete?: (kind: string, uuid: string, title: string) => void;
     onAddLesson: (chapter: { uuid: string }) => void;
   }) => (
     <div>
-      <button type="button" onClick={() => onDelete("lesson", "lesson-plain", "الدرس الأول")}>
-        احذف-درساً
-      </button>
-      <button type="button" onClick={() => onDelete("lesson", "lesson-recording", "حصة السبت")}>
-        احذف-تسجيلاً
-      </button>
+      {onDelete !== undefined && (
+        <>
+          <button type="button" onClick={() => onDelete("lesson", "lesson-plain", "الدرس الأول")}>
+            احذف-درساً
+          </button>
+          <button type="button" onClick={() => onDelete("lesson", "lesson-recording", "حصة السبت")}>
+            احذف-تسجيلاً
+          </button>
+        </>
+      )}
       <button type="button" onClick={() => onAddLesson({ uuid: "chapter-1" })}>
         أضِف-عنصراً
       </button>
@@ -62,6 +66,10 @@ vi.mock("@/components/courses/TreeOutline", () => ({
 }));
 
 vi.mock("@/components/courses/LessonEditor", () => ({ LessonEditor: () => null }));
+
+let mockUser: { permissions: string[] } = { permissions: ["lessons.manage", "lessons.delete"] };
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
 // Reduced to its confirm press: the question here is what the page says AFTER.
 vi.mock("@/components/courses/PublishImpactDialog", () => ({
   PublishImpactDialog: ({
@@ -114,6 +122,7 @@ async function openPage(courseStatus = "published") {
 }
 
 beforeEach(() => {
+  mockUser = { permissions: ["lessons.manage", "lessons.delete"] };
   vi.clearAllMocks();
 });
 
@@ -290,5 +299,23 @@ describe("the message after «نشر كل المسودّات»", () => {
     await publishAll("published");
 
     expect(screen.getByText("نُشرت المسودّات — صارت مرئية لطلابك الآن.")).toBeTruthy();
+  });
+});
+
+// `CoursePolicy::deleteLessons` asks `lessons.delete`; an assistant holds only
+// `lessons.manage`, so the page hands the tree no delete at all.
+describe("deleting, for a reader without lessons.delete", () => {
+  it("offers the tree no delete", async () => {
+    mockUser = { permissions: ["lessons.manage"] };
+    await openPage();
+
+    expect(screen.queryByRole("button", { name: "احذف-درساً" })).toBeNull();
+    expect(screen.getByRole("button", { name: "أضِف-عنصراً" })).toBeTruthy();
+  });
+
+  it("offers it to the teacher", async () => {
+    await openPage();
+
+    expect(screen.getByRole("button", { name: "احذف-درساً" })).toBeTruthy();
   });
 });

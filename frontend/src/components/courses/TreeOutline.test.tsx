@@ -97,3 +97,57 @@ describe("inline writes in the course tree", () => {
     );
   });
 });
+
+/*
+| The destroy routes ask `lessons.delete` (`CoursePolicy::deleteLessons`), which
+| the assistant role does not hold — so a host that passes no `onDelete` gets a
+| tree with no bin on any row, and one that passes it gets a bin on each.
+*/
+describe("delete controls", () => {
+  const FULL: CourseTree = {
+    ...TREE,
+    sections: [
+      {
+        ...TREE.sections[0],
+        chapters: [
+          {
+            uuid: "ch-1",
+            title: "الحركة",
+            order: 1,
+            status: "draft",
+            status_label: "مسودّة",
+            lessons: [
+              {
+                uuid: "l-1",
+                title: "السرعة",
+                type: "article",
+                cohort_uuids: [],
+                blocked_by: null,
+                is_recording: false,
+                order: 1,
+                status: "draft",
+                status_label: "مسودّة",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as unknown as CourseTree;
+
+  it("draws a delete on the section, the chapter and the item when offered", () => {
+    renderTree({ tree: FULL });
+
+    expect(screen.getByRole("button", { name: "حذف «الميكانيكا»" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "حذف «الحركة»" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "حذف «السرعة»" })).toBeTruthy();
+  });
+
+  it("draws none of them when the host passes no onDelete", () => {
+    renderTree({ tree: FULL, onDelete: undefined });
+
+    expect(screen.queryByRole("button", { name: /^حذف «/ })).toBeNull();
+    // The rest of the row is still there — building the tree is lessons.manage.
+    expect(screen.getByText("السرعة")).toBeTruthy();
+  });
+});

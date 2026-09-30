@@ -23,6 +23,9 @@ export const P = {
   coursesCreate: "courses.create",
   coursesDelete: "courses.delete",
   coursesPublish: "courses.publish",
+  // Removing a section, chapter or item from the tree: `CoursePolicy::deleteLessons`.
+  // Building the tree is `lessons.manage`, which the assistant keeps.
+  lessonsDelete: "lessons.delete",
   /*
    * ⚠️ THE READ, AND IT IS A DIFFERENT QUESTION FROM THE TWO BELOW.
    * `ExamController::index()` asks `exams.view` to decide whether the list is
