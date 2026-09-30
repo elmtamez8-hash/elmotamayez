@@ -116,3 +116,46 @@ describe("QuestionForm", () => {
     expect(await screen.findByText("الاسم مستخدم من قبل.")).toBeTruthy();
   });
 });
+
+/*
+| An assistant opens a bank question (`bank.view`) and may not change it
+| (`questions.manage`): the form is drawn disabled, and nothing that only writes is
+| drawn at all — a «احفظ» that answers 403 is the dead end this mode removes.
+*/
+describe("QuestionForm, read-only", () => {
+  const QUESTION = {
+    uuid: "q-1",
+    type: "mcq" as const,
+    difficulty: "medium" as const,
+    bloom_level: "understand" as const,
+    is_active: true,
+    content: "كم يساوي ٢ + ٢؟",
+    points: 1,
+    explanation: null,
+    options: [
+      { uuid: "o-1", content: "٤", is_correct: true },
+      { uuid: "o-2", content: "٥", is_correct: false },
+      { uuid: "o-3", content: "٦", is_correct: false },
+    ],
+    created_at: "2026-01-01",
+  };
+
+  it("disables every field and draws no save, no new concept and no option controls", async () => {
+    render(<QuestionForm question={QUESTION as never} readOnly />);
+
+    await waitFor(() => expect(screen.getByLabelText(/نصّ السؤال/).matches(":disabled")).toBe(true));
+    expect(screen.queryByRole("button", { name: "احفظ" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "فكرة جديدة" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "أضف فكرة" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "أضف خياراً" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "حذف" })).toBeNull();
+    expect(screen.getByRole("link", { name: "عودة إلى البنك" })).toBeTruthy();
+  });
+
+  it("stays editable by default", async () => {
+    render(<QuestionForm question={QUESTION as never} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "احفظ" })).toBeTruthy());
+    expect(screen.getByLabelText(/نصّ السؤال/).matches(":disabled")).toBe(false);
+  });
+});

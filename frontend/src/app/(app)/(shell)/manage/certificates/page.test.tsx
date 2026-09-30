@@ -78,6 +78,7 @@ describe("ManageCertificatesPage", () => {
   });
 
   it("links to the design screen, which nothing else reaches", async () => {
+    mockUser = { permissions: ["certificates.view.all", "certificates.regenerate"] };
     get.mockResolvedValue({ data: [], meta: { last_page: 1 } });
 
     await act(async () => {
@@ -87,6 +88,18 @@ describe("ManageCertificatesPage", () => {
     const link = screen.getByRole("link", { name: "تصميم الشهادة" });
 
     expect(link.getAttribute("href")).toBe("/manage/certificates/design");
+  });
+
+  // An assistant reads the certificates and cannot design one: every door of
+  // `CertificateDesignPolicy` asks `certificates.regenerate`.
+  it("offers no design link to a reader who may not design", async () => {
+    get.mockResolvedValue({ data: [], meta: { last_page: 1 } });
+
+    await act(async () => {
+      render(<ManageCertificatesPage />);
+    });
+
+    expect(screen.queryByRole("link", { name: "تصميم الشهادة" })).toBeNull();
   });
 });
 

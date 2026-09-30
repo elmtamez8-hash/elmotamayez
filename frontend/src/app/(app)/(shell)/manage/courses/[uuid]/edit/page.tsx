@@ -6,6 +6,8 @@ import { userMessage } from "@/lib/errors";
 import { COURSE_TYPES } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 import { Alert } from "@/components/ui/Alert";
 import { StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -47,6 +49,10 @@ export default function EditCoursePage({
 }) {
   const { uuid } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
+  // `courses.publish` is the teacher's: an assistant edits the course and the
+  // teacher decides when students see it. Both routes answer 403 without it.
+  const mayPublish = can(user, P.coursesPublish);
 
   const [course, setCourse] = useState<Course | null>(null);
   const [form, setForm] = useState({
@@ -248,7 +254,11 @@ export default function EditCoursePage({
           </span>
         }
         actions={
-          course.status === "draft" ? (
+          !mayPublish ? (
+            course.status === "draft" || course.status === "published" ? (
+              <p className="text-sm text-ink-muted">نشر الكورس وإلغاء نشره يتولّاهما المدرّس.</p>
+            ) : undefined
+          ) : course.status === "draft" ? (
             <Button
               loading={publishing}
               loadingLabel="جارٍ النشر…"

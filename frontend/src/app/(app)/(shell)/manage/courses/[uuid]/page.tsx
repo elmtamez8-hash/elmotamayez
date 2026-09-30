@@ -123,7 +123,10 @@ export default function CourseDetailPage({
           تعديل الكورس
         </Button>
 
-        <Button href="/manage/exams" variant="secondary">
+        {/* THIS course's papers — `/exams?course=` filters on the server
+            (`ExamController::index`). It opened the whole list, every course
+            mixed, under a button that says «of the course». */}
+        <Button href={`/manage/exams?course=${uuid}`} variant="secondary">
           اختبارات الكورس
         </Button>
 

@@ -37,6 +37,8 @@ import {
 import { userMessage } from "@/lib/errors";
 import { formatDate, formatDateTime, localDateTimeToIso, statusLabel, statusTone, counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
+import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
 import { arabicNumber } from "@/lib/numerals";
 
 /**
@@ -62,6 +64,22 @@ export default function ManageCohortPage({
 }) {
   const zone = useViewerTimeZone();
   const { uuid: cohortUuid } = use(params);
+  const { user } = useAuth();
+  /*
+    ⚠️ THE GROUP IS `courses.update` AND ITS DATES ARE `sessions.manage`. An
+    assistant holds the first and not the second (`RolePermissionMatrix` keeps
+    the calendar's writes with the teacher), so «أضِف مواعيد» answered 403 and
+    every session row linked into `/manage/sessions/{uuid}`, which the sidebar
+    gate refuses them. A reader of the calendar (`sessions.view`) opens the
+    session's own page instead; anybody else reads the row without a link.
+  */
+  const mayManageSessions = can(user, P.sessionsManage);
+  const sessionHref = (session: ClassSession): string | null =>
+    mayManageSessions
+      ? `/manage/sessions/${session.uuid}`
+      : can(user, P.sessionsView)
+        ? `/sessions/${session.uuid}`
+        : null;
 
   const [group, setGroup] = useState<
     (ManagedCohort & { course: { uuid: string; title: string } | null }) | null
@@ -338,128 +356,130 @@ export default function ManageCohortPage({
         make-up lesson that falls outside it. Folding the second into the first
         would mean editing the weekly schedule to add one Tuesday.
       */}
-      <Card>
-        <div className="mb-4">
-          <SectionHeading
-            id="group-add-dates"
-            Icon={ScheduleIcon}
-            title="أضِف مواعيد لهذه المجموعة"
-            description="يولِّد حصصاً من جدول توفّرك الأسبوعيّ داخل المدى. المواعيد المتداخلة أو الواقعة في فترة تجميد تُتخطّى ويُقال لك أيّها."
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <TextField
-            id="generate-from"
-            label="من تاريخ"
-            type="date"
-            value={range.from}
-            onChange={(from) => setRange({ ...range, from })}
-          />
-          <TextField
-            id="generate-to"
-            label="إلى تاريخ"
-            type="date"
-            value={range.to}
-            onChange={(to) => setRange({ ...range, to })}
-          />
-        </div>
-
-        <div className="mt-4">
-          <Button
-            loading={busy}
-            loadingLabel="جارٍ التوليد"
-            disabled={courseUuid === "" || range.from === "" || range.to === "" || range.to <= range.from}
-            onClick={() =>
-              run(
-                classSessions
-                  .generate({
-                    course_uuid: courseUuid,
-                    from: range.from,
-                    to: range.to,
-                    cohort_uuid: cohortUuid,
-                    type: "group",
-                    // The group's own ceiling, or a sensible open number when it
-                    // declared none — the seat count is the session's, and a
-                    // group with no limit is not a session with no seats.
-                    seats_total: group.capacity ?? 30,
-                    title: group.name,
-                  })
-                  .then((result) => {
-                    setNote(
-                      `أُنشِئت ${counted(result.created.length, NOUNS.sessions)}` +
-                        (result.skipped.length > 0
-                          ? ` · تُخطّيت ${arabicNumber(result.skipped.length)} (تداخل أو تجميد)`
-                          : ""),
-                    );
-                  }),
-              )
-            }
-          >
-            ولِّد المواعيد
-          </Button>
-        </div>
-
-        <div className="mt-6 border-t border-line pt-4">
-          <div className="mb-3">
+      {mayManageSessions && (
+        <Card>
+          <div className="mb-4">
             <SectionHeading
-              id="group-one-off"
-              level={4}
-              Icon={ClockIcon}
-              title="أو موعد واحد خارج الجدول"
+              id="group-add-dates"
+              Icon={ScheduleIcon}
+              title="أضِف مواعيد لهذه المجموعة"
+              description="يولِّد حصصاً من جدول توفّرك الأسبوعيّ داخل المدى. المواعيد المتداخلة أو الواقعة في فترة تجميد تُتخطّى ويُقال لك أيّها."
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <TextField
-              id="one-off-title"
-              label="عنوان الحصة"
-              value={oneOff.title}
-              onChange={(title) => setOneOff({ ...oneOff, title })}
+              id="generate-from"
+              label="من تاريخ"
+              type="date"
+              value={range.from}
+              onChange={(from) => setRange({ ...range, from })}
             />
             <TextField
-              id="one-off-starts"
-              label="موعد البدء"
-              type="datetime-local"
-              value={oneOff.startsAt}
-              onChange={(startsAt) => setOneOff({ ...oneOff, startsAt })}
-            />
-            <NumberField
-              id="one-off-duration"
-              label="المدة (دقيقة)"
-              min={5}
-              value={oneOff.duration}
-              onChange={(duration) => setOneOff({ ...oneOff, duration })}
+              id="generate-to"
+              label="إلى تاريخ"
+              type="date"
+              value={range.to}
+              onChange={(to) => setRange({ ...range, to })}
             />
           </div>
+
           <div className="mt-4">
             <Button
-              variant="secondary"
               loading={busy}
-              loadingLabel="جارٍ الإضافة"
-              disabled={courseUuid === "" || oneOff.title === "" || oneOff.startsAt === ""}
+              loadingLabel="جارٍ التوليد"
+              disabled={courseUuid === "" || range.from === "" || range.to === "" || range.to <= range.from}
               onClick={() =>
                 run(
-                  classSessions.create({
-                    course_uuid: courseUuid,
-                    title: oneOff.title,
-                    type: "group",
-                    cohort_uuid: cohortUuid,
-                    // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive
-                    // wall clock and the API runs on UTC, so the string alone
-                    // moves the lesson by the operator's own offset.
-                    starts_at: localDateTimeToIso(oneOff.startsAt, zone),
-                    duration_minutes: Number(oneOff.duration),
-                    seats_total: group.capacity ?? 30,
-                  }),
-                  () => setOneOff({ title: "", startsAt: "", duration: "60" }),
+                  classSessions
+                    .generate({
+                      course_uuid: courseUuid,
+                      from: range.from,
+                      to: range.to,
+                      cohort_uuid: cohortUuid,
+                      type: "group",
+                      // The group's own ceiling, or a sensible open number when it
+                      // declared none — the seat count is the session's, and a
+                      // group with no limit is not a session with no seats.
+                      seats_total: group.capacity ?? 30,
+                      title: group.name,
+                    })
+                    .then((result) => {
+                      setNote(
+                        `أُنشِئت ${counted(result.created.length, NOUNS.sessions)}` +
+                          (result.skipped.length > 0
+                            ? ` · تُخطّيت ${arabicNumber(result.skipped.length)} (تداخل أو تجميد)`
+                            : ""),
+                      );
+                    }),
                 )
               }
             >
-              أضِف الموعد
+              ولِّد المواعيد
             </Button>
           </div>
-        </div>
-      </Card>
+
+          <div className="mt-6 border-t border-line pt-4">
+            <div className="mb-3">
+              <SectionHeading
+                id="group-one-off"
+                level={4}
+                Icon={ClockIcon}
+                title="أو موعد واحد خارج الجدول"
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <TextField
+                id="one-off-title"
+                label="عنوان الحصة"
+                value={oneOff.title}
+                onChange={(title) => setOneOff({ ...oneOff, title })}
+              />
+              <TextField
+                id="one-off-starts"
+                label="موعد البدء"
+                type="datetime-local"
+                value={oneOff.startsAt}
+                onChange={(startsAt) => setOneOff({ ...oneOff, startsAt })}
+              />
+              <NumberField
+                id="one-off-duration"
+                label="المدة (دقيقة)"
+                min={5}
+                value={oneOff.duration}
+                onChange={(duration) => setOneOff({ ...oneOff, duration })}
+              />
+            </div>
+            <div className="mt-4">
+              <Button
+                variant="secondary"
+                loading={busy}
+                loadingLabel="جارٍ الإضافة"
+                disabled={courseUuid === "" || oneOff.title === "" || oneOff.startsAt === ""}
+                onClick={() =>
+                  run(
+                    classSessions.create({
+                      course_uuid: courseUuid,
+                      title: oneOff.title,
+                      type: "group",
+                      cohort_uuid: cohortUuid,
+                      // ⚠️ CONVERTED, NEVER SENT RAW. The input's value is a naive
+                      // wall clock and the API runs on UTC, so the string alone
+                      // moves the lesson by the operator's own offset.
+                      starts_at: localDateTimeToIso(oneOff.startsAt, zone),
+                      duration_minutes: Number(oneOff.duration),
+                      seats_total: group.capacity ?? 30,
+                    }),
+                    () => setOneOff({ title: "", startsAt: "", duration: "60" }),
+                  )
+                }
+              >
+                أضِف الموعد
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="mb-3">
@@ -469,46 +489,63 @@ export default function ManageCohortPage({
         {sessions.length === 0 ? (
           <EmptyState
             title="لا مواعيد قادمة"
-            description="ولِّد مواعيد من جدولك الأسبوعيّ أعلاه، أو أضِف موعداً واحداً."
+            description={
+              mayManageSessions
+                ? "ولِّد مواعيد من جدولك الأسبوعيّ أعلاه، أو أضِف موعداً واحداً."
+                : "يضيف المدرّس مواعيد هذه المجموعة، وتظهر هنا حين تُجدوَل."
+            }
           />
         ) : (
           <ul className="space-y-2">
-            {sessions.map((session, index) => (
-              <li
-                key={session.uuid}
-                className="animate-float-in flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3"
-                style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
-              >
-                {/*
-                  ⚠️ العنوانُ نفسُه هو الرابط، وكانت الكلمةَ «تعديل» وحدَها في
-                  آخرِ السطر. الحصّةُ لها شاشةٌ كاملةٌ — الحضورُ والغرفةُ
-                  والتسجيلُ والإلغاء — و«تعديل» تَعِدُ بحقلٍ واحد، فلا شيءَ في
-                  الصفِّ كان يقولُ إنّ للحصّةِ مكاناً يُدخَلُ إليه. وهدفُ الضغطِ
-                  صارَ العنوانَ والتاريخَ معاً بدلَ كلمةٍ من خمسةِ أحرف.
-                */}
-                <Link
-                  href={`/manage/sessions/${session.uuid}`}
-                  className="min-w-0 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            {sessions.map((session, index) => {
+              const href = sessionHref(session);
+
+              return (
+                <li
+                  key={session.uuid}
+                  className="animate-float-in flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3"
+                  style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
                 >
-                  <p className="truncate text-sm font-medium text-ink underline-offset-4 hover:underline">
-                    {session.title}
-                  </p>
-                  <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at, zone)}</p>
-                </Link>
-                <div className="flex items-center gap-2">
-                  <Badge tone={statusTone(session.status)}>{statusLabel(session.status)}</Badge>
-                  {/* Changing a date is the session's own screen — a second
-                      spelling of «change the time» here would be one more place
-                      the overlap and freeze rules could disagree. */}
-                  <Link
-                    href={`/manage/sessions/${session.uuid}`}
-                    className="rounded text-xs text-primary-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    افتح الحصة
-                  </Link>
-                </div>
-              </li>
-            ))}
+                  {/*
+                    ⚠️ العنوانُ نفسُه هو الرابط، وكانت الكلمةَ «تعديل» وحدَها في
+                    آخرِ السطر. الحصّةُ لها شاشةٌ كاملةٌ — الحضورُ والغرفةُ
+                    والتسجيلُ والإلغاء — و«تعديل» تَعِدُ بحقلٍ واحد، فلا شيءَ في
+                    الصفِّ كان يقولُ إنّ للحصّةِ مكاناً يُدخَلُ إليه. وهدفُ الضغطِ
+                    صارَ العنوانَ والتاريخَ معاً بدلَ كلمةٍ من خمسةِ أحرف.
+                  */}
+                  {href !== null ? (
+                    <Link
+                      href={href}
+                      className="min-w-0 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      <p className="truncate text-sm font-medium text-ink underline-offset-4 hover:underline">
+                        {session.title}
+                      </p>
+                      <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at, zone)}</p>
+                    </Link>
+                  ) : (
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">{session.title}</p>
+                      <p className="text-xs text-ink-muted">{formatDateTime(session.starts_at, zone)}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <Badge tone={statusTone(session.status)}>{statusLabel(session.status)}</Badge>
+                    {/* Changing a date is the session's own screen — a second
+                        spelling of «change the time» here would be one more place
+                        the overlap and freeze rules could disagree. */}
+                    {href !== null && (
+                      <Link
+                        href={href}
+                        className="rounded text-xs text-primary-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        افتح الحصة
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

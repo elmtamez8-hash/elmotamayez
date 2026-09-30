@@ -22,6 +22,10 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
   const { uuid } = use(params);
   const router = useRouter();
   const { user } = useAuth();
+  // `QuestionPolicy::view` is `bank.view`, and update/delete are
+  // `questions.manage` — so an assistant may open a question and read it, and
+  // the form is shown to them read-only rather than as a save that 403s.
+  const mayWrite = can(user, P.questionsManage);
 
   const [question, setQuestion] = useState<BankQuestion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,9 +99,11 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
               })} —التعديل يسري عليها كلّها، ولا يمسّ درجةَ محاولةٍ سابقة.`
         }
         actions={
-          <Button variant="danger" onClick={() => setAsking(true)} disabled={removing}>
-            حذف أو تعطيل
-          </Button>
+          mayWrite ? (
+            <Button variant="danger" onClick={() => setAsking(true)} disabled={removing}>
+              حذف أو تعطيل
+            </Button>
+          ) : undefined
         }
       />
 
@@ -115,10 +121,16 @@ export default function EditBankQuestionPage({ params }: { params: Promise<{ uui
       {error !== "" && <Alert tone="danger" title="تعذّر التنفيذ">{error}</Alert>}
       {outcome !== "" && <Alert tone="info" title="عُطِّل ولم يُحذف">{outcome}</Alert>}
 
-      <QuestionForm question={question} />
+      {!mayWrite && (
+        <Alert tone="info" title="للقراءة فقط">
+          تعديل أسئلة البنك وحذفها يتولّاه المدرّس.
+        </Alert>
+      )}
+
+      <QuestionForm question={question} readOnly={!mayWrite} />
 
       {/* Essays only: a machine-marked question has no one to apply a scheme. */}
-      {question.type === "essay" && can(user, P.questionsManage) && <RubricEditor question={question} />}
+      {question.type === "essay" && mayWrite && <RubricEditor question={question} />}
     </div>
   );
 }

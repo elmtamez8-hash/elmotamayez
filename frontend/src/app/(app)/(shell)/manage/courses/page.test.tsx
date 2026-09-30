@@ -22,6 +22,20 @@ vi.mock("@/lib/api", async (importOriginal) => ({
   api: { get: (path: string) => get(path), delete: vi.fn() },
 }));
 
+const TEACHER = ["courses.create", "courses.update", "courses.delete", "courses.publish"];
+// `RolePermissionMatrix`'s assistant: writes a course, never deletes or publishes one.
+const ASSISTANT = ["courses.create", "courses.update"];
+
+let mockUser: { permissions: string[]; current_workspace: { uuid: string; name: string } | null } = {
+  permissions: TEACHER,
+  current_workspace: { uuid: "w-1", name: "أكاديمية سامي" },
+};
+
+vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
+
+/** `/assistants/me` — none by default: a teacher assists nobody. */
+let mine: unknown[] = [];
+
 const course = (over: Record<string, unknown>) => ({
   uuid: "c-1",
   title: "كورس",
@@ -55,12 +69,17 @@ function answer(courses: ReturnType<typeof course>[]) {
       return Promise.resolve({ data: courses, meta: { total: courses.length } });
     }
     if (path === "/signup/grade-levels") return Promise.resolve(STAGES);
+    if (path === "/assistants/me") return Promise.resolve({ data: mine });
 
     return Promise.reject(new Error(`unexpected ${path}`));
   });
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mine = [];
+  mockUser = { permissions: TEACHER, current_workspace: { uuid: "w-1", name: "أكاديمية سامي" } };
+});
 
 describe("manage courses", () => {
   it("puts each group and the times it meets on the course card", async () => {
@@ -139,5 +158,94 @@ describe("manage courses", () => {
 
     await waitFor(() => expect(screen.queryByText("ثانوي")).toBeNull());
     expect(screen.getByText("بلا مرحلة له")).toBeTruthy();
+  });
+});
+
+/*
+| ما يعرضُه الخادمُ ثمّ يرفضُه: المساعدُ يحملُ `courses.create` ولا يحملُ
+| `courses.delete` (`RolePermissionMatrix`) — فكانت سلّةُ الحذفِ على كلِّ بطاقةٍ
+| زرّاً يُجيبُ ٤٠٣.
+*/
+describe("what an assistant is offered", () => {
+  it("shows the teacher «كورس جديد» and a delete on every card", async () => {
+    answer([course({})]);
+
+    render(<ManageCoursesPage />);
+    await screen.findByText("كورس");
+
+    expect(screen.getByRole("link", { name: "كورس جديد" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "احذف كورس كورس" })).toBeTruthy();
+  });
+
+  it("draws no delete for a reader without courses.delete", async () => {
+    mockUser = { ...mockUser, permissions: ASSISTANT };
+    answer([course({})]);
+
+    render(<ManageCoursesPage />);
+    await screen.findByText("كورس");
+
+    expect(screen.queryByRole("button", { name: "احذف كورس كورس" })).toBeNull();
+    // Creating is theirs, so the button stays.
+    expect(screen.getByRole("link", { name: "كورس جديد" })).toBeTruthy();
+  });
+
+  it("offers no «كورس جديد» without courses.create", async () => {
+    mockUser = { ...mockUser, permissions: ["courses.update"] };
+    answer([]);
+
+    render(<ManageCoursesPage />);
+    await screen.findByText("لا كورسات بعد");
+
+    expect(screen.queryByRole("link", { name: "كورس جديد" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "أنشئ كورساً" })).toBeNull();
+  });
+
+  it("names the courses a confined assistant works on, in this team only", async () => {
+    mockUser = { ...mockUser, permissions: ASSISTANT };
+    mine = [
+      {
+        uuid: "a-1",
+        assistant: { uuid: "u-1", name: "مساعد" },
+        workspace: { uuid: "w-1", name: "أكاديمية سامي" },
+        is_confined: true,
+        courses: [{ uuid: "c-1", title: "الجبر" }, { uuid: "c-2", title: "الهندسة" }],
+        revoked_at: null,
+      },
+      {
+        uuid: "a-2",
+        assistant: { uuid: "u-1", name: "مساعد" },
+        workspace: { uuid: "w-2", name: "فريق آخر" },
+        is_confined: true,
+        courses: [{ uuid: "c-9", title: "كيمياء فريق آخر" }],
+        revoked_at: null,
+      },
+    ];
+    answer([course({})]);
+
+    render(<ManageCoursesPage />);
+
+    expect(await screen.findByText(/تعمل على: الجبر · الهندسة/)).toBeTruthy();
+    expect(screen.queryByText(/كيمياء فريق آخر/)).toBeNull();
+  });
+
+  it("says nothing to an assistant who works on every course", async () => {
+    mockUser = { ...mockUser, permissions: ASSISTANT };
+    mine = [
+      {
+        uuid: "a-1",
+        assistant: { uuid: "u-1", name: "مساعد" },
+        workspace: { uuid: "w-1", name: "أكاديمية سامي" },
+        is_confined: false,
+        courses: [],
+        revoked_at: null,
+      },
+    ];
+    answer([course({})]);
+
+    render(<ManageCoursesPage />);
+    await screen.findByText("كورس");
+    await waitFor(() => expect(get).toHaveBeenCalledWith("/assistants/me"));
+
+    expect(screen.queryByText(/تعمل على/)).toBeNull();
   });
 });

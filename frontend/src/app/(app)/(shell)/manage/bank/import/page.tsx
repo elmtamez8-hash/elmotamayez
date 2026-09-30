@@ -16,6 +16,8 @@ import { Table, type Column } from "@/components/ui/Table";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { bank, importStatusLabel, type DuplicatePolicy, type ImportReport } from "@/lib/bank";
+import { RequirePermission } from "@/components/ui/states/RefusedState";
+import { P } from "@/lib/permissions";
 
 /**
  * Filling the bank from a file.
@@ -25,7 +27,16 @@ import { bank, importStatusLabel, type DuplicatePolicy, type ImportReport } from
  * duplicate this tab is closed. A job that stops to ask a question is a job that
  * hangs for ever.
  */
+// Every read and write here asks `questions.manage` (`ImportController`).
 export default function ImportPage() {
+  return (
+    <RequirePermission permission={P.questionsManage} reason="إضافة الأسئلة إلى البنك واستيرادها يتولّاه المدرّس.">
+      <ImportScreen />
+    </RequirePermission>
+  );
+}
+
+function ImportScreen() {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
 

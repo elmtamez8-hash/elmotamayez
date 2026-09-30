@@ -195,9 +195,12 @@ export default function ManageCertificatesPage() {
         title="شهادات الطلاب"
         description="كلّ شهادة صدرت عندك، والاسم عليها هو الاسم يوم استحقّها."
         actions={
-          <Button variant="secondary" href="/manage/certificates/design" iconStart={<PrintIcon />}>
-            تصميم الشهادة
-          </Button>
+          // The design screen asks `certificates.regenerate` for every read.
+          canRegenerate ? (
+            <Button variant="secondary" href="/manage/certificates/design" iconStart={<PrintIcon />}>
+              تصميم الشهادة
+            </Button>
+          ) : undefined
         }
       />
 

@@ -40,19 +40,45 @@ export default function ManageExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  /*
+    `?course=<uuid>` — «اختبارات الكورس» on a course's page lands here with it.
+    `undefined` until the address is read, so the first request already carries
+    the filter instead of fetching the whole list and then the narrow one.
+
+    ⚠️ READ FROM `location` IN AN EFFECT, NOT WITH `useSearchParams` — that hook
+    fails the production build outside a `<Suspense>` (see the course content
+    page, which carries `?lesson=` the same way).
+
+    The server filters (`ExamController::index` matches the uuid through the
+    relation), so an unknown uuid is an empty list, never the unfiltered one.
+  */
+  const [course, setCourse] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("course");
+
+    setCourse(value !== null && value !== "" ? value : null);
+  }, []);
 
   const load = useCallback(() => {
+    if (course === undefined) return;
+
     setLoading(true);
     setFailed(false);
 
     api
-      .get<{ data: Exam[] }>("/exams")
+      .get<{ data: Exam[] }>(course === null ? "/exams" : `/exams?course=${encodeURIComponent(course)}`)
       .then((res) => setExams(res.data ?? []))
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [course]);
 
   useEffect(load, [load]);
+
+  const showAll = () => {
+    window.history.replaceState(null, "", "/manage/exams");
+    setCourse(null);
+  };
 
   const canCreate = can(user, P.examsCreate);
 
@@ -122,13 +148,22 @@ export default function ManageExamsPage() {
         actions={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
       />
 
+      {typeof course === "string" && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge tone="info">اختبارات كورس واحد فقط</Badge>
+          <Button size="sm" variant="ghost" onClick={showAll}>
+            اعرض كل الاختبارات
+          </Button>
+        </div>
+      )}
+
       <Table
         columns={columns}
         rows={exams}
         rowKey={(row) => row.uuid}
         caption="اختباراتك بحالتها وعدد أسئلتها"
         state={loading ? "loading" : failed ? "error" : exams.length === 0 ? "empty" : "ready"}
-        emptyTitle="لا اختبارات بعد"
+        emptyTitle={typeof course === "string" ? "لا اختبارات في هذا الكورس بعد" : "لا اختبارات بعد"}
         emptyDescription="أنشئ اختباراً لتقيس فهم طلابك لما شرحته."
         emptyAction={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
         onRetry={load}

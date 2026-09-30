@@ -38,7 +38,20 @@ type OptionDraft = { content: string; is_correct: boolean };
  * The four tags are `required` here AND enforced in the Action behind it. Not
  * redundancy: the importer reaches that Action with no form behind it at all.
  */
-export function QuestionForm({ question }: { question?: BankQuestion }) {
+export function QuestionForm({
+  question,
+  readOnly = false,
+}: {
+  question?: BankQuestion;
+  /**
+   * For a reader who holds `bank.view` and not `questions.manage` — an
+   * assistant. Every field is disabled by the enclosing `<fieldset>` (one native
+   * switch rather than a prop threaded through eleven fields), and the controls
+   * that only write — save, a new concept, adding or removing an option — are
+   * not drawn at all.
+   */
+  readOnly?: boolean;
+}) {
   const router = useRouter();
 
   const [concepts, setConcepts] = useState<Concept[]>([]);
@@ -99,7 +112,8 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
     }
   };
 
-  const conceptCreatorOpen = addingConcept || (conceptsLoaded && concepts.length === 0);
+  const conceptCreatorOpen =
+    !readOnly && (addingConcept || (conceptsLoaded && concepts.length === 0));
 
   const isEssay = type === "essay";
 
@@ -145,7 +159,7 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
   };
 
   return (
-    <div className="space-y-6">
+    <fieldset disabled={readOnly} className="min-w-0 space-y-6">
       {error !== "" && <Alert tone="danger" title="تعذّر الحفظ">{error}</Alert>}
 
       <Card>
@@ -241,7 +255,7 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
                 </Button>
               )}
             </div>
-          ) : (
+          ) : readOnly ? null : (
             <div>
               <Button size="sm" variant="ghost" onClick={() => setAddingConcept(true)}>
                 فكرة جديدة
@@ -285,13 +299,15 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-ink">الخيارات</h2>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setOptions((c) => [...c, { content: "", is_correct: false }])}
-              >
-                أضف خياراً
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setOptions((c) => [...c, { content: "", is_correct: false }])}
+                >
+                  أضف خياراً
+                </Button>
+              )}
             </div>
 
             {errors.options !== undefined && <Alert tone="danger" title="الخيارات">{errors.options}</Alert>}
@@ -322,7 +338,7 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
                     }
                   />
                 </div>
-                {options.length > 2 && (
+                {options.length > 2 && !readOnly && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -348,13 +364,15 @@ export function QuestionForm({ question }: { question?: BankQuestion }) {
       )}
 
       <div className="flex gap-2">
-        <Button onClick={save} disabled={saving}>
-          {saving ? "جارٍ الحفظ…" : "احفظ"}
-        </Button>
+        {!readOnly && (
+          <Button onClick={save} disabled={saving}>
+            {saving ? "جارٍ الحفظ…" : "احفظ"}
+          </Button>
+        )}
         <Button href="/manage/bank" variant="ghost">
-          إلغاء
+          {readOnly ? "عودة إلى البنك" : "إلغاء"}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }

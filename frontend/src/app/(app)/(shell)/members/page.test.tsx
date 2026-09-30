@@ -230,3 +230,28 @@ describe("MembersPage", () => {
     });
   });
 });
+
+// «أرسل الدعوة» asks `members.invite` (`InviteMemberRequest`); an assistant
+// reads the team and does not add to it.
+describe("the invite form", () => {
+  beforeEach(() => {
+    api.get.mockReset();
+    respond();
+  });
+
+  it("is drawn for a reader who may invite", async () => {
+    auth.user = { permissions: ["members.invite"] };
+    render(<MembersPage />);
+
+    expect(await screen.findByRole("button", { name: "أرسل الدعوة" })).toBeTruthy();
+  });
+
+  it("is not drawn without members.invite", async () => {
+    auth.user = { permissions: ["members.view"] };
+    render(<MembersPage />);
+
+    await screen.findByText("سارة");
+    expect(screen.queryByRole("button", { name: "أرسل الدعوة" })).toBeNull();
+    expect(screen.queryByLabelText("البريد الإلكتروني")).toBeNull();
+  });
+});

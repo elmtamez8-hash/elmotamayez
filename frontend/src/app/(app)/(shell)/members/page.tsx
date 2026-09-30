@@ -151,6 +151,9 @@ export default function MembersPage() {
   };
 
   const canChangeRoles = can(user, P.membersUpdate);
+  // The invite form. An assistant reads the team (`members.view`) and does not
+  // add to it — `InviteMemberRequest` asks `members.invite`, a teacher's name.
+  const canInvite = can(user, P.membersInvite);
 
   /*
    * ⛔ `DELETE …/members/{member}` EXISTED AND NO SCREEN CALLED IT. Taking
@@ -250,43 +253,45 @@ export default function MembersPage() {
     <div className="space-y-6">
       <PageHeader Icon={MembersIcon} title="فريقك" />
 
-      <Card as="section" padding="sm">
-        <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">
-          {error && (
-            <div className="w-full">
-              <Alert tone="danger" title={error} />
+      {canInvite && (
+        <Card as="section" padding="sm">
+          <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">
+            {error && (
+              <div className="w-full">
+                <Alert tone="danger" title={error} />
+              </div>
+            )}
+
+            <div className="min-w-56 flex-1">
+              <TextField
+                id="invite_email"
+                label="البريد الإلكتروني"
+                type="email"
+                value={email}
+                onChange={setEmail}
+                error={fields.email}
+                placeholder="member@example.com"
+                required
+              />
             </div>
-          )}
 
-          <div className="min-w-56 flex-1">
-            <TextField
-              id="invite_email"
-              label="البريد الإلكتروني"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              error={fields.email}
-              placeholder="member@example.com"
-              required
-            />
-          </div>
+            <div className="min-w-40">
+              <SelectField
+                id="invite_role"
+                label="الدور"
+                value={role}
+                onChange={setRole}
+                options={ROLE_OPTIONS}
+                error={fields.role}
+              />
+            </div>
 
-          <div className="min-w-40">
-            <SelectField
-              id="invite_role"
-              label="الدور"
-              value={role}
-              onChange={setRole}
-              options={ROLE_OPTIONS}
-              error={fields.role}
-            />
-          </div>
-
-          <Button type="submit" loading={inviting} loadingLabel="جارٍ الإرسال…">
-            أرسل الدعوة
-          </Button>
-        </form>
-      </Card>
+            <Button type="submit" loading={inviting} loadingLabel="جارٍ الإرسال…">
+              أرسل الدعوة
+            </Button>
+          </form>
+        </Card>
+      )}
 
       {invite && (
         <Card as="section" padding="sm">
