@@ -10,6 +10,7 @@ use App\Modules\Identity\Support\AccountPhoto;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\SessionAttendanceDirectory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
@@ -251,7 +252,15 @@ class ConversationResource extends JsonResource
         }
 
         if (! $reader->hasPermissionTo(Permissions::CHAT_MODERATE)) {
-            return false;
+            /*
+            | ⚠️ THE HOST OF THIS SESSION'S ROOM MODERATES IT WITHOUT THE
+            | PERMISSION (2026-09-30) — `ConversationPolicy::moderate()`'s first
+            | branch, asked through the same contract method so the lock button
+            | and the door agree. Only a session room reaches the question, and a reader
+            | without `sessions.host` stops at a cached permission check.
+            */
+            return $this->class_session_id !== null
+                && app(SessionAttendanceDirectory::class)->hostsSession($reader, (int) $this->class_session_id);
         }
 
         // Stamped in bulk by the list — a whole screen answered from memory.

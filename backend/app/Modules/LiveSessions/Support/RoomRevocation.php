@@ -152,7 +152,7 @@ final class RoomRevocation
      * سياقُه فارغٌ فالنطاقُ لا يضيفُ شرطاً أصلاً — والسجلُّ يُقرَأُ كذلك من طلبِ
      * المدرّس، حيثُ يُضيفُ النطاقُ مساحةً أخرى فلا يجدُ شيئاً.
      */
-    private function wasRemoved(ClassSession $session, User $user): bool
+    public function wasRemoved(ClassSession $session, User $user): bool
     {
         return Attendance::query()
             ->withoutWorkspaceScope()

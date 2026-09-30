@@ -107,9 +107,20 @@ class BroadcastController extends Controller
         $user = $this->currentUser($request);
 
         if (! $revocation->stillAdmitted($session, $user)) {
+            /*
+             | ⚠️ THE ONE REFUSAL THAT NAMES ITS REASON, AND ONLY ON THIS PATH
+             | (2026-09-30). The page disconnects the room on any 403 here —
+             | the provider cannot revoke a ticket, so the browser leaving is
+             | what ends the video — and a student put out by the teacher is
+             | told so. It leaks nothing FR-015 guards: she was already inside,
+             | and the removal is a fact about HER. The extra read is paid on
+             | the refusal alone, never on the happy beat (its budget is 6).
+             */
+            $removed = $revocation->wasRemoved($session, $user);
+
             return response()->json([
-                'message' => 'انتهت صلاحية وجودك في الغرفة.',
-                'code' => 'session_not_joinable',
+                'message' => $removed ? 'أخرجك المدرّس من الحصة.' : 'انتهت صلاحية وجودك في الغرفة.',
+                'code' => $removed ? 'removed_from_session' : 'session_not_joinable',
             ], 403);
         }
 
@@ -160,7 +171,15 @@ class BroadcastController extends Controller
             return response()->json(['message' => 'لست من المشاركين في هذه الحصة.'], 403);
         }
 
-        return response()->json(['data' => $action->handle($session, $isHost)]);
+        $payload = ['data' => $action->handle($session, $isHost)];
+
+        // The room lock is the host's header toggle; a student reads her own
+        // state from her live permissions, never from this.
+        if ($isHost) {
+            $payload['room'] = ['mics_locked' => $session->mics_locked_at !== null];
+        }
+
+        return response()->json($payload);
     }
 
     public function host(Request $request, ClassSession $session, string $action, PerformHostAction $performer): JsonResponse

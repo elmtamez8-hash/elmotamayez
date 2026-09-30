@@ -7,10 +7,12 @@ namespace App\Modules\LiveSessions\Contracts;
 use App\Models\User;
 use App\Modules\LiveSessions\Data\BroadcastCapabilities;
 use App\Modules\LiveSessions\Data\JoinTicket;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
+use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\ClassSession;
 
@@ -61,11 +63,22 @@ interface BroadcastProviderInterface
      * Requested on every join and never stored: eligibility is re-evaluated each
      * time (FR-046), and a ticket that outlives the room it opens is a door left
      * ajar.
+     *
+     * ⚠️ `$rights` IS WHAT THE HOST DECIDED, AND THE TICKET MUST CARRY IT
+     * (2026-09-30). A mute that lives only in a live connection lasts one
+     * refresh — the student reloads, gets a fresh ticket, and speaks again. The
+     * caller reads the stored decision (`RoomMediaRights`); the provider only
+     * spells it in its own vocabulary.
      */
-    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role): JoinTicket;
+    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role, PublishRights $rights): JoinTicket;
 
     /**
-     * Mute, remove or end — one person, or the whole room.
+     * Remove, or clear the room's signals — one person, or the whole room.
+     *
+     * ⚠️ MUTING IS NOT HERE ANY MORE (2026-09-30): it is a PERMISSION, applied
+     * through {@see applyPublishRights()}, so a student cannot undo it with one
+     * tap of their own microphone button. `Mute`/`MuteAll` never reach this
+     * method.
      *
      * `$target` is the person a single action names. `$actor` is the host who
      * pressed the button, and it exists for the BULK forms: «الجميع» means
@@ -80,11 +93,38 @@ interface BroadcastProviderInterface
      * two-spellings defect this repository has paid for four times. Empty for
      * `End`, which is ours and never reaches an implementation.
      *
+     * ⚠️ AND A BULK FORM ACTS ON `$studentIdentities` AND NOBODY ELSE. Skipping
+     * the actor alone let «أخرِج الجميع» remove a second teacher or an assistant
+     * host; the caller now names the seat holders being taught, and anyone not
+     * in that list — every host, every assistant, the recorder — is untouched.
+     *
+     * @param  list<string>  $studentIdentities  the only identities a bulk form may touch
      * @return list<string> the participant identities affected — our user uuids
      *
      * @throws UnsupportedCapability when the provider does not claim hostControls
      */
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array;
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null, array $studentIdentities = []): array;
+
+    /**
+     * Give each named participant exactly these publish rights, NOW.
+     *
+     * ⚠️ IT REPLACES WHAT THEY HAD — the provider's permission update is a whole
+     * set, not a patch — so an implementation must restate everything a student
+     * keeps (subscribe, publish the camera, raise a hand) beside what changed.
+     * Leaving one out is how «mute» becomes «you can no longer see the lesson».
+     *
+     * ⚠️ IT NEVER ENDS A LESSON AND NEVER DISCONNECTS ANYONE. It narrows or
+     * widens the microphone and the screen; nothing else. Somebody in the map who
+     * is not in the room right now is skipped rather than raised: the decision is
+     * stored by the caller and reaches them in their next ticket.
+     *
+     * @param  array<string, PublishRights>  $rights  identity (our user uuid) ⇒ rights
+     * @return list<string> the identities it actually applied to
+     *
+     * @throws UnsupportedCapability when the provider does not claim hostControls
+     * @throws BroadcastProviderUnavailable when the provider cannot be reached
+     */
+    public function applyPublishRights(ClassSession $session, array $rights): array;
 
     /** Closes the room. Afterwards no earlier ticket opens it (FR-015). Idempotent. */
     public function closeRoom(ClassSession $session): void;

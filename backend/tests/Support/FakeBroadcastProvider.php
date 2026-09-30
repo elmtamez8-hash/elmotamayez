@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\BroadcastCapabilities;
 use App\Modules\LiveSessions\Data\JoinTicket;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Data\RecordingArtifact;
 use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
@@ -99,6 +100,22 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
      */
     public ?Closure $onCreateRoom = null;
 
+    /**
+     * The rights each person's LAST ticket carried, by uuid — what a reload
+     * would hand them. This is how a test proves a mute outlives a refresh.
+     *
+     * @var array<string, PublishRights>
+     */
+    public array $issuedRights = [];
+
+    /**
+     * Every live permission change, in order: `[identity => PublishRights]` per
+     * call. A test that asserts «the host was never touched» reads this.
+     *
+     * @var list<array<string, PublishRights>>
+     */
+    public array $appliedRights = [];
+
     public function identifier(): string
     {
         return 'fake';
@@ -127,8 +144,10 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         );
     }
 
-    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role): JoinTicket
+    public function issueTicket(ClassSession $session, User $user, ParticipantRole $role, PublishRights $rights): JoinTicket
     {
+        $this->issuedRights[(string) $user->uuid] = $rights;
+
         return new JoinTicket(
             roomUrl: 'https://fake.test/rooms/'.$session->uuid,
             token: 'fake-token-'.$user->getKey().'-'.$role->value,
@@ -138,7 +157,7 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
     }
 
     /** @return list<string> */
-    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null): array
+    public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null, array $studentIdentities = []): array
     {
         if ($this->failWith !== null) {
             throw $this->failWith;
@@ -151,6 +170,8 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
             // right: «الجميع» excludes the host, and the actor is how it knows
             // which participant that is.
             'actor' => $actor?->getKey() === null ? null : (int) $actor->getKey(),
+            // The seat holders a bulk form may touch — every host is outside it.
+            'students' => $studentIdentities,
         ];
 
         /*
@@ -162,11 +183,30 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         if ($action->isBulk()) {
             return array_values(array_filter(
                 $this->roomIdentities,
-                fn (string $identity): bool => $identity !== $actor?->uuid,
+                fn (string $identity): bool => $identity !== $actor?->uuid
+                    && in_array($identity, $studentIdentities, true),
             ));
         }
 
         return $action === HostAction::Remove && $target !== null ? [(string) $target->uuid] : [];
+    }
+
+    /**
+     * Records the change and answers with whoever of the map is «in the room»
+     * (`$roomIdentities`) — the real adapter's contract.
+     */
+    public function applyPublishRights(ClassSession $session, array $rights): array
+    {
+        if ($this->failWith !== null) {
+            throw $this->failWith;
+        }
+
+        $this->appliedRights[] = $rights;
+
+        return array_values(array_filter(
+            array_keys($rights),
+            fn (string $identity): bool => in_array($identity, $this->roomIdentities, true),
+        ));
     }
 
     public function closeRoom(ClassSession $session): void

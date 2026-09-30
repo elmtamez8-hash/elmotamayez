@@ -46,6 +46,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonInterface|null $seats_frozen_at
  * @property CarbonInterface|null $room_opened_at
  * @property CarbonInterface|null $room_closed_at
+ * @property CarbonInterface|null $mics_locked_at «اكتم الجميع» — every student ticket carries no microphone while set
  * @property CarbonInterface|null $recording_attempted_at
  * @property int|null $attended_seats ٠٣٥ — for DISPLAY (FR-015أ)
  * @property int|null $charged_seats ٠٣٥ — what the TEACHER IS PAID ON (FR-014)
@@ -121,6 +122,9 @@ class ClassSession extends BaseModel
             'cohort_from_booking' => 'boolean',
             'room_opened_at' => 'datetime',
             'room_closed_at' => 'datetime',
+            // Not fillable: «اكتم الجميع» is a host action (`PerformHostAction`),
+            // never a field a session edit may carry.
+            'mics_locked_at' => 'datetime',
             'recording_status' => RecordingStatus::class,
             'recording_attempts' => 'integer',
             'recording_attempted_at' => 'datetime',

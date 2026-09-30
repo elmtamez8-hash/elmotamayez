@@ -91,7 +91,9 @@ it('evicts a student the host removed', function (): void {
         ->where('student_user_id', $this->student->getKey())
         ->update(['removed_at' => now()]);
 
-    ($this->beat)()->assertForbidden()->assertJsonPath('code', 'session_not_joinable');
+    // The one refusal that names its reason (2026-09-30): the page disconnects
+    // and tells her the teacher put her out, rather than a generic line.
+    ($this->beat)()->assertForbidden()->assertJsonPath('code', 'removed_from_session');
 });
 
 it('evicts a student whose seat was released', function (): void {

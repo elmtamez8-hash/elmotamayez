@@ -6,10 +6,12 @@ namespace App\Modules\LiveSessions\Actions;
 
 use App\Models\User;
 use App\Modules\LiveSessions\Data\JoinTicket;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\BookingEligibility;
 use App\Modules\LiveSessions\Support\BroadcastProviderResolver;
+use App\Modules\LiveSessions\Support\RoomMediaRights;
 use App\Modules\LiveSessions\Support\RoomRevocation;
 use App\Shared\Actions\Action;
 use DomainException;
@@ -38,6 +40,7 @@ class IssueJoinTicket extends Action
         private readonly BookingEligibility $eligibility,
         private readonly OpenBroadcastRoom $openRoom,
         private readonly RoomRevocation $revocation,
+        private readonly RoomMediaRights $mediaRights,
     ) {}
 
     /**
@@ -74,7 +77,7 @@ class IssueJoinTicket extends Action
         if ($isHost) {
             $session = $this->openRoom->handle($session);
 
-            return $this->providers->for($session)->issueTicket($session, $user, ParticipantRole::Host);
+            return $this->providers->for($session)->issueTicket($session, $user, ParticipantRole::Host, PublishRights::host());
         }
 
         /*
@@ -87,6 +90,17 @@ class IssueJoinTicket extends Action
             throw new RuntimeException('لا يمكنك دخول هذه الحصة الآن.');
         }
 
-        return $this->providers->for($session)->issueTicket($session, $user, ParticipantRole::Participant);
+        /*
+         | ⛔ **وما قرّرَه المضيفُ عن الميكروفونِ والشاشةِ يُقرَأُ هنا** (٢٠٢٦-٠٩-٣٠):
+         | كتمٌ يعيشُ في الاتصالِ وحدَه يدومُ تحديثةً واحدة — الطالبةُ تُعيدُ
+         | التحميلَ فتأخذُ تذكرةً جديدةً تتكلّمُ بها. فالتذكرةُ تُصاغُ من الأعمدةِ
+         | نفسِها التي كتبَها الزرّ، ومن يدخلُ متأخّراً وغرفتُه مكتومةٌ يدخلُ مكتوماً.
+         */
+        return $this->providers->for($session)->issueTicket(
+            $session,
+            $user,
+            ParticipantRole::Participant,
+            $this->mediaRights->forStudent($session, $user),
+        );
     }
 }

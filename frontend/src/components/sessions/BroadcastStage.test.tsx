@@ -26,6 +26,16 @@ const setMicrophoneEnabled = vi.fn<(on: boolean) => Promise<void>>();
 const setCameraEnabled = vi.fn<(on: boolean) => Promise<void>>();
 const setScreenShareEnabled = vi.fn<(on: boolean) => Promise<void>>();
 
+/**
+ * The local participant's permissions as the provider pushed them. Reset to
+ * «may publish everything» before each test; the permission tests narrow it.
+ * The numbers are the protocol's `TrackSource` (1 camera · 2 microphone ·
+ * 3 screen · 4 screen audio).
+ */
+const ALL_SOURCES = { canPublish: true, canPublishSources: [1, 2, 3, 4] };
+let permissions: { canPublish: boolean; canPublishSources: number[] } | undefined = ALL_SOURCES;
+let attributes: Record<string, string> = {};
+
 /** What the component asked the library to do on connect. */
 const roomProps = vi.fn<(props: { audio?: boolean; video?: boolean }) => void>();
 
@@ -54,7 +64,8 @@ vi.mock("@livekit/components-react", () => ({
     isCameraEnabled: false,
     isScreenShareEnabled: false,
   }),
-  useParticipantAttributes: () => ({ attributes: {} }),
+  useParticipantAttributes: () => ({ attributes }),
+  useLocalParticipantPermissions: () => permissions,
   // Empty: the participants panel has its own test, and a room with nobody in
   // it is what keeps this file about the three controls it is named after.
   useParticipants: () => [],
@@ -87,6 +98,8 @@ function setMediaDevices(value: unknown): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  permissions = ALL_SOURCES;
+  attributes = {};
 });
 
 afterEach(() => {
@@ -165,5 +178,70 @@ describe("BroadcastStage — self controls", () => {
       expect(setScreenShareEnabled).toHaveBeenCalledWith(true);
     });
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("BroadcastStage — what the teacher and a student may do (2026-09-30)", () => {
+  /*
+  | ⚠️ «ارفع يدك» و«لم أفهم» طلبانِ من الطالبِ إلى من يُدرِّس — المدرّسُ الذي يرفعُ
+  | يدَه في حصّتِه يضعُ ✋ في الطابورِ الذي يُفترَضُ أن يقرأه.
+  */
+  it("gives the host no hand to raise and no «لم أفهم»", () => {
+    render(<BroadcastStage ticket={{ ...TICKET, role: "host" }} sessionUuid="s-1" />);
+
+    expect(screen.queryByRole("button", { name: /ارفع يدك/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /لم أفهم/ })).toBeNull();
+    // The host's own media controls are all there.
+    expect(screen.getByRole("button", { name: "تشغيل ميكروفوني" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "مشاركة الشاشة" })).toBeTruthy();
+  });
+
+  it("gives a student both signals", () => {
+    render(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect(screen.getByRole("button", { name: /ارفع يدك/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /لم أفهم/ })).toBeTruthy();
+  });
+
+  /*
+  | الكتمُ صلاحيّةٌ يدفعُها المزوّدُ إلى المتصفّح أثناءَ الحصّة، فالزرُّ يتبعُها حيّةً —
+  | بلا تحديث. زرٌّ يقرأ علماً محلّياً يعرضُ ميكروفوناً رفضَه الخادمُ.
+  */
+  it("disables her microphone and says why the moment the teacher takes it", () => {
+    const { rerender } = render(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    const mic = screen.getByRole("button", { name: "تشغيل ميكروفوني" }) as HTMLButtonElement;
+    expect(mic.disabled).toBe(false);
+    expect(screen.queryByText(/كتمك المدرّس/)).toBeNull();
+
+    // The provider pushes a permission set with the camera alone.
+    permissions = { canPublish: true, canPublishSources: [1] };
+    rerender(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect((screen.getByRole("button", { name: "تشغيل ميكروفوني" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("كتمك المدرّس — ارفع يدك لتطلب الكلام.")).toBeTruthy();
+    // And the hand is exactly the way back, so it stays.
+    expect(screen.getByRole("button", { name: /ارفع يدك/ })).toBeTruthy();
+  });
+
+  it("hides the screen-share button from a student until the teacher allows it", () => {
+    permissions = { canPublish: true, canPublishSources: [1, 2] };
+    const { rerender } = render(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect(screen.queryByRole("button", { name: "مشاركة الشاشة" })).toBeNull();
+
+    permissions = { canPublish: true, canPublishSources: [1, 2, 3, 4] };
+    rerender(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect(screen.getByRole("button", { name: "مشاركة الشاشة" })).toBeTruthy();
+  });
+
+  it("keeps a student's screen closed before the room has told her anything", () => {
+    permissions = undefined;
+    render(<BroadcastStage ticket={TICKET} sessionUuid="s-1" />);
+
+    expect(screen.queryByRole("button", { name: "مشاركة الشاشة" })).toBeNull();
+    // Nothing was refused yet, so the microphone is not drawn as taken.
+    expect(screen.queryByText(/كتمك المدرّس/)).toBeNull();
   });
 });

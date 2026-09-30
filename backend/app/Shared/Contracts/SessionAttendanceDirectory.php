@@ -65,6 +65,19 @@ interface SessionAttendanceDirectory
     public function wasRemovedFromSession(User $user, int $classSessionId): bool;
 
     /**
+     * Whether this person HOSTS that session — the teacher, or an assistant who
+     * passes the same host gate the broadcast room asks (`sessions.host` plus
+     * the assistant's course scope).
+     *
+     * ⚠️ THE ROOM'S DISCUSSION LOCK IS THE HOST'S (owner decision 2026-09-30).
+     * An assistant running the lesson without `chat.moderate` could mute the
+     * class and could not close its chat. Asked here so `Community` never
+     * re-derives «is this the host» — two spellings of that question put one
+     * answer on the screen and another at the door.
+     */
+    public function hostsSession(User $user, int $classSessionId): bool;
+
+    /**
      * Which of these sessions this student actually ATTENDED.
      *
      * ⚠️ ATTENDANCE, NOT A BOOKING, and the difference is the whole of FR-036.

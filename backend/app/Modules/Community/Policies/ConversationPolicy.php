@@ -146,8 +146,13 @@ class ConversationPolicy
             | and by the per-thread ban, bound by the group membership. The
             | permission is asked first so a student never pays for the scope read.
             */
-            $moderatesHere = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
-                && $this->withinStaffScope($user, $conversation)->allowed();
+            $moderatesHere = ($user->hasPermissionTo(Permissions::CHAT_MODERATE)
+                && $this->withinStaffScope($user, $conversation)->allowed())
+                // ⚠️ AND THE HOST OF THIS SESSION'S ROOM (2026-09-30) — the
+                // person who may lock it is exempt from it, the rule written two
+                // blocks down. `hostsSession()` stops a student at the permission
+                // before the session row is read.
+                || $this->hostsThisSessionRoom($user, $conversation);
 
             /*
             | ⚠️ THE LOCK IS READ FOR THE ROOM AND FOR NOBODY ELSE, and the person
@@ -352,6 +357,19 @@ class ConversationPolicy
      */
     public function moderate(User $user, Conversation $conversation): Response
     {
+        /*
+        | ⚠️ THE HOST OF A SESSION RUNS THAT SESSION'S ROOM, WITH OR WITHOUT
+        | `chat.moderate` (owner decision 2026-09-30). An assistant hosting the
+        | lesson could mute the whole class and could not close its chat —
+        | the same room, two answers. The host gate is `ClassSessionPolicy::host`
+        | asked through the contract, so the assistant's course scope comes with
+        | it and nothing here re-derives it. Every OTHER room still asks the
+        | permission and the scope below.
+        */
+        if ($this->hostsThisSessionRoom($user, $conversation)) {
+            return Response::allow();
+        }
+
         $isMember = $user->workspaces()
             ->withoutGlobalScopes()
             ->whereKey($conversation->workspace_id)
@@ -365,6 +383,14 @@ class ConversationPolicy
         // message (`ModerateMessage`) — a confined assistant moderates the
         // rooms of their own courses only.
         return $this->withinStaffScope($user, $conversation);
+    }
+
+    /** A session's room, and this person passes that session's host gate. */
+    private function hostsThisSessionRoom(User $user, Conversation $conversation): bool
+    {
+        return $conversation->kind->isPublic()
+            && $conversation->class_session_id !== null
+            && $this->seats->hostsSession($user, (int) $conversation->class_session_id);
     }
 
     /**
@@ -432,6 +458,12 @@ class ConversationPolicy
      */
     private function runsTheRoom(User $user, Conversation $conversation): bool
     {
+        // The session's host runs its room with or without `chat.reply`
+        // (owner decision 2026-09-30) — scope included, see `roomStaffSide()`.
+        if ($this->hostsThisSessionRoom($user, $conversation)) {
+            return true;
+        }
+
         $staff = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
             || ($user->workspaces()->withoutGlobalScopes()
                 ->whereKey((int) $conversation->workspace_id)->exists()
@@ -467,6 +499,19 @@ class ConversationPolicy
      */
     private function roomStaffSide(User $user, Conversation $conversation): ?Response
     {
+        /*
+        | ⚠️ THE HOST OF A SESSION RUNS THAT SESSION'S ROOM — reads it, writes in
+        | it without a seat, endorses in it — with or without `chat.reply` (owner
+        | decision 2026-09-30). An assistant granted `sessions.host` alone could
+        | mute the class and could not open its chat. `hostsSession()` IS
+        | `ClassSessionPolicy::host`, so a confined assistant's course scope comes
+        | with it; a lesson room, a group room and a private thread never reach
+        | this branch, and another session's room answers false.
+        */
+        if ($this->hostsThisSessionRoom($user, $conversation)) {
+            return Response::allow();
+        }
+
         /*
         | Membership AND `chat.reply`, both.
         |

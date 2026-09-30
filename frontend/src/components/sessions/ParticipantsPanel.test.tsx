@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { ParticipantsPanel } from "./ParticipantsPanel";
@@ -33,9 +34,12 @@ vi.mock("@livekit/components-react", () => ({
 
 const participants = vi.fn();
 
+const host = vi.fn();
+
 vi.mock("@/lib/class-sessions", () => ({
   classSessions: {
     participants: (uuid: string) => participants(uuid) as Promise<unknown>,
+    host: (...args: unknown[]) => host(...args) as Promise<unknown>,
   },
 }));
 
@@ -55,6 +59,13 @@ function roster(): void {
         role: "student",
         avatar_url: null,
         badges: [{ key: "streak", name: "مواظبة", icon: null }],
+      },
+      {
+        uuid: "u-other",
+        name: "ياسين علي",
+        role: "student",
+        avatar_url: null,
+        badges: [],
       },
     ],
   });
@@ -185,15 +196,16 @@ describe("ParticipantsPanel", () => {
     roomParticipants = [
       { identity: "u-teacher", isLocal: true },
       { identity: "u-student", isLocal: false },
+      { identity: "u-other", isLocal: false },
     ];
     attributesByIdentity["u-student"] = { hand: "1" };
 
     const { rerender } = render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
     expect(await screen.findByRole("img", { name: /سلمى محمود يرفع يده — الدور 1/ })).toBeTruthy();
 
-    attributesByIdentity["u-teacher"] = { hand: "1" };
+    attributesByIdentity["u-other"] = { hand: "1" };
     rerender(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
-    expect(await screen.findByRole("img", { name: /أستاذ خالد يرفع يده — الدور 2/ })).toBeTruthy();
+    expect(await screen.findByRole("img", { name: /ياسين علي يرفع يده — الدور 2/ })).toBeTruthy();
 
     // Down, then up again: the student goes to the back of the queue.
     delete attributesByIdentity["u-student"];
@@ -201,11 +213,11 @@ describe("ParticipantsPanel", () => {
     attributesByIdentity["u-student"] = { hand: "1" };
     rerender(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
 
-    expect(await screen.findByRole("img", { name: /أستاذ خالد يرفع يده — الدور 1/ })).toBeTruthy();
+    expect(await screen.findByRole("img", { name: /ياسين علي يرفع يده — الدور 1/ })).toBeTruthy();
     expect(screen.getByRole("img", { name: /سلمى محمود يرفع يده — الدور 2/ })).toBeTruthy();
 
     delete attributesByIdentity["u-student"];
-    delete attributesByIdentity["u-teacher"];
+    delete attributesByIdentity["u-other"];
   });
 
   it("counts «لم أفهم» without naming anybody in the header", async () => {
@@ -242,5 +254,112 @@ describe("ParticipantsPanel", () => {
     expect(screen.queryByRole("img", { name: "أستاذ خالد يتحدّث الآن" })).toBeNull();
 
     speaking = "";
+  });
+});
+
+describe("ParticipantsPanel — the host's media controls (2026-09-30)", () => {
+  function studentRoster(extra: Record<string, unknown> = {}, room?: { mics_locked: boolean }) {
+    participants.mockResolvedValue({
+      data: [
+        { uuid: "u-teacher", name: "أستاذ خالد", role: "host", avatar_url: null, badges: [] },
+        { uuid: "u-assistant", name: "مساعد أحمد", role: "staff", avatar_url: null, badges: [] },
+        {
+          uuid: "u-student",
+          name: "سلمى محمود",
+          role: "student",
+          avatar_url: null,
+          badges: [],
+          is_removed: false,
+          mic_locked: false,
+          mic_allowed: false,
+          screen_share_allowed: false,
+          ...extra,
+        },
+      ],
+      ...(room === undefined ? {} : { room }),
+    });
+  }
+
+  it("draws no student control on the teacher's or an assistant's row", async () => {
+    studentRoster();
+    roomParticipants = [
+      { identity: "u-teacher", isLocal: false },
+      { identity: "u-assistant", isLocal: false },
+    ];
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText("مساعد أحمد")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "كتم" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "إخراج" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "اسمح بمشاركة الشاشة" })).toBeNull();
+  });
+
+  it("keeps a staff hand and a staff «لم أفهم» out of the queue and the count", async () => {
+    studentRoster();
+    roomParticipants = [{ identity: "u-assistant", isLocal: false }];
+    attributesByIdentity["u-assistant"] = { hand: "1", confused: "1" };
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText("مساعد أحمد")).toBeTruthy();
+    expect(screen.queryByText(/لم يفهموا/)).toBeNull();
+    expect(screen.queryByRole("img", { name: /الدور/ })).toBeNull();
+
+    delete attributesByIdentity["u-assistant"];
+  });
+
+  it("shows what the host decided about a seat and offers the way back", async () => {
+    studentRoster({ mic_locked: true, screen_share_allowed: true });
+    roomParticipants = [{ identity: "u-student", isLocal: false }];
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText("مكتوم")).toBeTruthy();
+    expect(screen.getByText("يمكنه مشاركة الشاشة")).toBeTruthy();
+
+    host.mockResolvedValue({ done: true });
+    await userEvent.click(screen.getByRole("button", { name: "اسمح بالكلام" }));
+    expect(host).toHaveBeenCalledWith("s-1", "allow-mic", "u-student");
+
+    await userEvent.click(screen.getByRole("button", { name: "امنع مشاركة الشاشة" }));
+    expect(host).toHaveBeenCalledWith("s-1", "revoke-screen-share", "u-student");
+  });
+
+  it("turns «اكتم الجميع» into «اسمح للجميع بالكلام» while the room is locked", async () => {
+    studentRoster({ mic_allowed: true }, { mics_locked: true });
+    roomParticipants = [{ identity: "u-student", isLocal: false }];
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+
+    expect(await screen.findByText("الميكروفونات مقفلة")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "اكتم الجميع" })).toBeNull();
+    // Let through for a question while the lock stands — so her row mutes.
+    expect(screen.getByText("مسموح له بالكلام")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "كتم" })).toBeTruthy();
+
+    host.mockResolvedValue({ done: true });
+    await userEvent.click(screen.getByRole("button", { name: "اسمح للجميع بالكلام" }));
+    expect(host).toHaveBeenCalledWith("s-1", "allow-all-mics");
+  });
+
+  /*
+  | ⛔ إضافةُ المالك: أزرارُ الكتمِ تنادي نقاطَ الكتم، ولا تنادي «إنهاء» أبداً.
+  */
+  it("sends mute and «اكتم الجميع» to the mute actions and never to end", async () => {
+    studentRoster();
+    roomParticipants = [{ identity: "u-student", isLocal: false }];
+
+    render(<ParticipantsPanel sessionUuid="s-1" isHost={true} />);
+    await screen.findByText("سلمى محمود");
+
+    host.mockResolvedValue({ done: true });
+    await userEvent.click(screen.getByRole("button", { name: "كتم" }));
+    await userEvent.click(screen.getByRole("button", { name: "اكتم الجميع" }));
+
+    expect(host).toHaveBeenCalledWith("s-1", "mute", "u-student");
+    expect(host).toHaveBeenCalledWith("s-1", "mute-all");
+    expect(host.mock.calls.map((call) => call[1])).not.toContain("end");
+    expect(host.mock.calls.map((call) => call[1])).not.toContain("remove");
   });
 });

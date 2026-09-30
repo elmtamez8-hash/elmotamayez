@@ -7,6 +7,7 @@ namespace App\Modules\LiveSessions\Actions;
 use App\Models\User;
 use App\Modules\Gamification\Actions\ReadBadgesFor;
 use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\LiveSessions\Support\RoomMediaRights;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Collection;
 
@@ -33,7 +34,10 @@ use Illuminate\Support\Collection;
  */
 class ReadSessionRoster extends Action
 {
-    public function __construct(private readonly ReadBadgesFor $badges) {}
+    public function __construct(
+        private readonly ReadBadgesFor $badges,
+        private readonly RoomMediaRights $mediaRights,
+    ) {}
 
     /**
      * `$forHost` adds one key and one key only. Whether the teacher put somebody
@@ -48,7 +52,10 @@ class ReadSessionRoster extends Action
      *     role: string,
      *     avatar_url: string|null,
      *     badges: list<array{key: string, name: string, icon: string|null}>,
-     *     is_removed?: bool
+     *     is_removed?: bool,
+     *     mic_locked?: bool,
+     *     mic_allowed?: bool,
+     *     screen_share_allowed?: bool
      * }>
      */
     public function handle(ClassSession $session, bool $forHost = false): array
@@ -105,6 +112,17 @@ class ReadSessionRoster extends Action
         $badges = $this->badges->handle($userIds);
         $booked = $bookedIds->flip();
 
+        /*
+         * ⚠️ A SEAT HOLDER WHO HOSTS IS STAFF, NOT A STUDENT (2026-09-30). An
+         * assistant host who also booked a seat was labelled «student», so the
+         * panel drew «كتم»/«إخراج» on their row and the server answered 422.
+         * One bulk read, the gate only for the non-student members among them.
+         */
+        $hostingSeatHolders = $this->mediaRights->hostsAmong(
+            $session,
+            array_values(array_diff($bookedIds->unique()->values()->all(), [$hostUserId])),
+        );
+
         // One read for the whole room, never one per row — the `ChatRankStamper`
         // rule. Empty unless the reader may act on it.
         $removed = $forHost
@@ -113,12 +131,28 @@ class ReadSessionRoster extends Action
                 ->map(fn ($id): int => (int) $id)->flip()
             : collect();
 
+        /*
+         * The host's media decisions per seat (2026-09-30) — one read beside the
+         * removal read, and for the host alone for the same reason: «فلان
+         * مكتوم» on every classmate's screen is a punishment nobody chose.
+         */
+        $media = $forHost
+            ? $session->attendances()->withoutWorkspaceScope()
+                ->where(fn ($q) => $q->whereNotNull('mic_locked_at')
+                    ->orWhereNotNull('mic_allowed_at')
+                    ->orWhereNotNull('screen_share_allowed_at'))
+                ->get(['student_user_id', 'mic_locked_at', 'mic_allowed_at', 'screen_share_allowed_at'])
+                ->keyBy(fn ($row): int => (int) $row->student_user_id)
+            : collect();
+
         return array_values($users
-            ->map(function (User $user) use ($badges, $booked, $forHost, $hostUserId, $removed): array {
+            ->map(function (User $user) use ($badges, $booked, $forHost, $hostUserId, $removed, $media, $hostingSeatHolders): array {
                 $row = [
                     'uuid' => (string) $user->uuid,
                     'name' => $user->name,
-                    'role' => $this->roleFor($user, $hostUserId, $booked),
+                    'role' => isset($hostingSeatHolders[(int) $user->getKey()])
+                        ? 'staff'
+                        : $this->roleFor($user, $hostUserId, $booked),
                     'avatar_url' => $this->avatarUrl($user),
                     'badges' => $badges[(int) $user->getKey()] ?? [],
                 ];
@@ -127,6 +161,11 @@ class ReadSessionRoster extends Action
                 // tells every classmate the question was asked.
                 if ($forHost) {
                     $row['is_removed'] = $removed->has((int) $user->getKey());
+
+                    $seat = $media->get((int) $user->getKey());
+                    $row['mic_locked'] = $seat?->mic_locked_at !== null;
+                    $row['mic_allowed'] = $seat?->mic_allowed_at !== null;
+                    $row['screen_share_allowed'] = $seat?->screen_share_allowed_at !== null;
                 }
 
                 return $row;

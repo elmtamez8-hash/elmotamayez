@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Agence104\LiveKit\EgressServiceClient;
 use Agence104\LiveKit\RoomServiceClient;
 use App\Models\User;
+use App\Modules\LiveSessions\Data\PublishRights;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
@@ -17,9 +18,13 @@ use Livekit\EgressInfo;
 use Livekit\EgressStatus;
 use Livekit\FileInfo;
 use Livekit\ListEgressResponse;
+use Livekit\ListParticipantsResponse;
 use Livekit\ParticipantInfo;
+use Livekit\ParticipantInfo\Kind;
+use Livekit\ParticipantPermission;
 use Livekit\RemoveParticipantResponse;
 use Livekit\TrackInfo;
+use Livekit\TrackSource;
 use Livekit\TrackType;
 use Livekit\TwirpError;
 use Twirp\ErrorCode;
@@ -91,7 +96,7 @@ function decodedTicket(string $token): array
 | at the first refactor, and nothing would fail.
 */
 it('mints a ticket without touching the provider at all', function (): void {
-    $ticket = adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant);
+    $ticket = adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false));
 
     expect($ticket->token)->not->toBe('');
 });
@@ -100,7 +105,7 @@ it('grants join on exactly one room and nothing else', function (): void {
     $session = adapterSession();
 
     $claims = decodedTicket(
-        adapter()->issueTicket($session, adapterUser(), ParticipantRole::Participant)->token
+        adapter()->issueTicket($session, adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false))->token
     );
 
     $video = (array) $claims['video'];
@@ -118,7 +123,7 @@ it('identifies a participant by uuid, never by name', function (): void {
     $user = adapterUser();
 
     $claims = decodedTicket(
-        adapter()->issueTicket(adapterSession(), $user, ParticipantRole::Participant)->token
+        adapter()->issueTicket(adapterSession(), $user, ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false))->token
     );
 
     expect($claims['sub'])->toBe($user->uuid)
@@ -130,7 +135,7 @@ it('expires with the configured ttl and not the library default', function (): v
     $ttl = app(SessionSettings::class)->ticketTtlMinutes();
 
     $claims = decodedTicket(
-        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host)->token
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host, PublishRights::host())->token
     );
 
     expect($claims['exp'] - $claims['iat'])->toBe($ttl * 60)
@@ -141,11 +146,11 @@ it('expires with the configured ttl and not the library default', function (): v
 // themselves by editing anything they can reach.
 it('marks the host as room admin and the student as not', function (): void {
     $host = (array) decodedTicket(
-        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host)->token
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host, PublishRights::host())->token
     )['video'];
 
     $student = (array) decodedTicket(
-        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant)->token
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false))->token
     )['video'];
 
     expect($host['roomAdmin'])->toBeTrue()
@@ -167,7 +172,7 @@ it('marks the host as room admin and the student as not', function (): void {
 | been a test that cannot pass, and would have been "fixed" by deleting it.
 */
 it('signs with the secret and never ships it', function (): void {
-    $ticket = adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host);
+    $ticket = adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host, PublishRights::host());
     $claims = decodedTicket($ticket->token);
 
     $everything = json_encode([
@@ -181,40 +186,214 @@ it('signs with the secret and never ships it', function (): void {
 });
 
 /*
-| Muting a PERSON, not a track.
+| A MUTE IS A PERMISSION, AND THE PERMISSION IS A WHOLE SET (2026-09-30).
 |
-| Two devices, or a headset beside a laptop microphone, publish two audio tracks.
-| Muting the first and reporting success is the failure this product is most
-| exposed to: the teacher presses the button, the noise continues, and nothing
-| says why. Resolving the tracks inside the adapter is also what keeps `trackSid`
-| out of the interface (research §R8).
+| ⚠️ The provider's participant update REPLACES the permission, and a protobuf
+| field left out is `false`. A permission built with only the source list would
+| ship `can_subscribe = false` (she no longer sees or hears the lesson) and
+| `can_publish = false` (her camera goes too) — a «mute» that behaves like a
+| removal. Every field is asserted, not only the one that changed.
+|
+| And the belt: every live microphone track is muted first, both of them, never
+| the camera — the provider promises to unpublish on a revoked `canPublish`, not
+| on a narrowed source list.
 */
-it('mutes every audio track a participant has published', function (): void {
+it('narrows the microphone by restating every permission field', function (): void {
     $session = adapterSession();
     $user = adapterUser();
     $room = 'session-'.$session->uuid;
 
     $participant = new ParticipantInfo([
+        'identity' => $user->uuid,
+        'kind' => Kind::STANDARD,
         'tracks' => [
-            new TrackInfo(['sid' => 'TR_mic', 'type' => TrackType::AUDIO]),
-            new TrackInfo(['sid' => 'TR_headset', 'type' => TrackType::AUDIO]),
-            new TrackInfo(['sid' => 'TR_cam', 'type' => TrackType::VIDEO]),
+            new TrackInfo(['sid' => 'TR_mic', 'type' => TrackType::AUDIO, 'source' => TrackSource::MICROPHONE]),
+            new TrackInfo(['sid' => 'TR_headset', 'type' => TrackType::AUDIO, 'source' => TrackSource::MICROPHONE]),
+            new TrackInfo(['sid' => 'TR_cam', 'type' => TrackType::VIDEO, 'source' => TrackSource::CAMERA]),
         ],
     ]);
 
+    $captured = null;
     $rooms = Mockery::mock(RoomServiceClient::class);
-    $rooms->shouldReceive('getParticipant')->once()->with($room, $user->uuid)->andReturn($participant);
+    $rooms->shouldReceive('listParticipants')->once()->with($room)
+        ->andReturn(new ListParticipantsResponse(['participants' => [$participant]]));
     // Both microphones, and not the camera: muting someone must not blank them.
     $rooms->shouldReceive('mutePublishedTrack')->once()->with($room, $user->uuid, 'TR_mic', true);
     $rooms->shouldReceive('mutePublishedTrack')->once()->with($room, $user->uuid, 'TR_headset', true);
+    $rooms->shouldReceive('updateParticipant')->once()
+        ->andReturnUsing(function (string $r, string $identity, $metadata = null, $permission = null) use (&$captured, $room, $user): ParticipantInfo {
+            expect($r)->toBe($room)->and($identity)->toBe($user->uuid);
+            $captured = $permission;
 
-    $provider = new LiveKitBroadcastProvider(
-        new SessionSettings,
-        $rooms,
-        Mockery::mock(EgressServiceClient::class),
-    );
+            return new ParticipantInfo;
+        });
+    // Nothing that ends a lesson or puts anyone out is ever reached.
+    $rooms->shouldNotReceive('removeParticipant');
+    $rooms->shouldNotReceive('deleteRoom');
 
-    $provider->hostAction($session, HostAction::Mute, $user);
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+
+    $applied = $provider->applyPublishRights($session, [$user->uuid => new PublishRights(microphone: false, screenShare: false)]);
+
+    expect($applied)->toBe([$user->uuid])
+        ->and($captured)->toBeInstanceOf(ParticipantPermission::class)
+        ->and($captured->getCanSubscribe())->toBeTrue()
+        ->and($captured->getCanPublish())->toBeTrue()
+        ->and($captured->getCanUpdateMetadata())->toBeTrue()
+        ->and($captured->getCanPublishData())->toBeFalse()
+        ->and($captured->getHidden())->toBeFalse()
+        ->and($captured->getRecorder())->toBeFalse()
+        ->and(iterator_to_array($captured->getCanPublishSources()))->toBe([TrackSource::CAMERA]);
+});
+
+it('gives the microphone and the screen back by listing them', function (): void {
+    $session = adapterSession();
+    $user = adapterUser();
+
+    $captured = null;
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('listParticipants')->once()->andReturn(new ListParticipantsResponse(['participants' => [
+        new ParticipantInfo(['identity' => $user->uuid, 'kind' => Kind::STANDARD]),
+    ]]));
+    $rooms->shouldReceive('updateParticipant')->once()
+        ->andReturnUsing(function (string $r, string $identity, $metadata = null, $permission = null) use (&$captured): ParticipantInfo {
+            $captured = $permission;
+
+            return new ParticipantInfo;
+        });
+
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+    $provider->applyPublishRights($session, [$user->uuid => new PublishRights(microphone: true, screenShare: true)]);
+
+    expect(iterator_to_array($captured->getCanPublishSources()))->toBe([
+        TrackSource::CAMERA, TrackSource::MICROPHONE, TrackSource::SCREEN_SHARE, TrackSource::SCREEN_SHARE_AUDIO,
+    ]);
+});
+
+/*
+| «اكتم الجميع» never reaches a host or the recorder — they are simply not in the
+| map the caller built, and the adapter acts on the map and on `STANDARD` alone.
+| Somebody in the map who has left is skipped: the decision is stored and their
+| next ticket carries it.
+*/
+it('touches only the named students who are actually in the room', function (): void {
+    $session = adapterSession();
+    $student = adapterUser();
+
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('listParticipants')->once()->andReturn(new ListParticipantsResponse(['participants' => [
+        new ParticipantInfo(['identity' => 'teacher-uuid', 'kind' => Kind::STANDARD]),
+        new ParticipantInfo(['identity' => 'EG_recorder', 'kind' => Kind::EGRESS]),
+        new ParticipantInfo(['identity' => $student->uuid, 'kind' => Kind::STANDARD]),
+    ]]));
+    $touched = [];
+    $rooms->shouldReceive('updateParticipant')->once()
+        ->andReturnUsing(function (string $r, string $identity) use (&$touched): ParticipantInfo {
+            $touched[] = $identity;
+
+            return new ParticipantInfo;
+        });
+
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+
+    $applied = $provider->applyPublishRights($session, [
+        $student->uuid => new PublishRights(false, false),
+        'gone-uuid' => new PublishRights(false, false),
+    ]);
+
+    expect($applied)->toBe([$student->uuid])
+        ->and($touched)->toBe([$student->uuid]);
+});
+
+it('treats a room nobody has opened as nobody to change', function (): void {
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('listParticipants')->once()
+        ->andThrow(TwirpError::newError(ErrorCode::NotFound, 'room not found'));
+
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+
+    expect($provider->applyPublishRights(adapterSession(), ['x' => new PublishRights(false, false)]))->toBe([]);
+});
+
+it('names an outage while changing permissions rather than crashing', function (): void {
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('listParticipants')->once()
+        ->andThrow(TwirpError::newError(ErrorCode::Unavailable, 'upstream down'));
+
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+
+    expect(fn () => $provider->applyPublishRights(adapterSession(), ['x' => new PublishRights(false, false)]))
+        ->toThrow(BroadcastProviderUnavailable::class);
+});
+
+/*
+| «أخرِج الجميع» walks the seat holders the caller named — never a co-host.
+|
+| It used to skip the actor alone, so a second teacher or an assistant host in
+| the room was put out with the class.
+*/
+it('removes only the students it was given, never another host', function (): void {
+    $session = adapterSession();
+    $room = 'session-'.$session->uuid;
+
+    $rooms = Mockery::mock(RoomServiceClient::class);
+    $rooms->shouldReceive('listParticipants')->once()->andReturn(new ListParticipantsResponse(['participants' => [
+        new ParticipantInfo(['identity' => 'actor-uuid', 'kind' => Kind::STANDARD]),
+        new ParticipantInfo(['identity' => 'cohost-uuid', 'kind' => Kind::STANDARD]),
+        new ParticipantInfo(['identity' => 'student-uuid', 'kind' => Kind::STANDARD]),
+    ]]));
+    $rooms->shouldReceive('removeParticipant')->once()->with($room, 'student-uuid')->andReturn(new RemoveParticipantResponse);
+
+    $provider = new LiveKitBroadcastProvider(new SessionSettings, $rooms, Mockery::mock(EgressServiceClient::class));
+    $actor = User::factory()->makeOne(['uuid' => 'actor-uuid']);
+
+    expect($provider->hostAction($session, HostAction::RemoveAll, null, $actor, ['student-uuid']))->toBe(['student-uuid']);
+});
+
+// FR-010 + 2026-09-30. What a ticket may PUBLISH is signed into it.
+it('signs a locked student ticket with the camera alone', function (): void {
+    $video = (array) decodedTicket(
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: false, screenShare: false))->token
+    )['video'];
+
+    expect($video['canPublishSources'])->toBe(['camera'])
+        // Never narrowed by `canPublish`, which would take the camera too.
+        ->and($video['canPublish'])->toBeTrue()
+        ->and($video['canSubscribe'])->toBeTrue()
+        ->and($video['canPublishData'])->toBeFalse()
+        ->and($video['canUpdateOwnMetadata'])->toBeTrue();
+});
+
+it('signs the microphone and a permitted screen into a student ticket', function (): void {
+    $video = (array) decodedTicket(
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: true))->token
+    )['video'];
+
+    expect($video['canPublishSources'])->toBe(['camera', 'microphone', 'screen_share', 'screen_share_audio']);
+});
+
+it('gives a student no screen unless the host allowed it', function (): void {
+    $video = (array) decodedTicket(
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Participant, new PublishRights(microphone: true, screenShare: false))->token
+    )['video'];
+
+    expect($video['canPublishSources'])->toBe(['camera', 'microphone']);
+});
+
+/*
+| The host publishes everything — the source list is left UNSET, because an
+| empty list means «every source» and `[]` written by mistake would read the
+| same — and raises no hand: no metadata of their own to write.
+*/
+it('leaves the host every source and no hand to raise', function (): void {
+    $video = (array) decodedTicket(
+        adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host, PublishRights::host())->token
+    )['video'];
+
+    expect($video)->not->toHaveKey('canPublishSources')
+        ->and($video['canUpdateOwnMetadata'])->toBeFalse()
+        ->and($video['canPublish'])->toBeTrue()
+        ->and($video['roomAdmin'])->toBeTrue();
 });
 
 it('removes a participant by uuid, never by name', function (): void {
@@ -356,7 +535,7 @@ it('speaks HTTP to the server API while the ticket keeps the socket scheme', fun
     expect($apiUrl())->toBe('https://x.livekit.cloud');
 
     config()->set('sessions.livekit.url', 'wss://x.livekit.cloud');
-    expect(adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host)->roomUrl)
+    expect(adapter()->issueTicket(adapterSession(), adapterUser(), ParticipantRole::Host, PublishRights::host())->roomUrl)
         ->toBe('wss://x.livekit.cloud');
 });
 
@@ -469,7 +648,7 @@ it('turns "that participant is gone" into a sentence, not a crash', function ():
     $user = adapterUser();
 
     $rooms = Mockery::mock(RoomServiceClient::class);
-    $rooms->shouldReceive('getParticipant')
+    $rooms->shouldReceive('removeParticipant')
         ->once()
         ->andThrow(TwirpError::newError(ErrorCode::NotFound, 'participant does not exist'));
 
@@ -479,9 +658,11 @@ it('turns "that participant is gone" into a sentence, not a crash', function ():
         Mockery::mock(EgressServiceClient::class),
     );
 
-    // A teacher pressing mute on somebody who closed their laptop a second
+    // A teacher pressing «إخراج» on somebody who closed their laptop a second
     // earlier: the most ordinary event in a live lesson, and it read «حدث خطأ».
-    // DomainException is what the controller already maps to 422.
-    expect(fn () => $provider->hostAction($session, HostAction::Mute, $user))
+    // DomainException is what the controller already maps to 422. (A MUTE of
+    // somebody who left is no error at all now — it is stored and their next
+    // ticket carries it; see the publish-rights tests above.)
+    expect(fn () => $provider->hostAction($session, HostAction::Remove, $user))
         ->toThrow(DomainException::class);
 });
