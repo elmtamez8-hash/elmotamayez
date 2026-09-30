@@ -6,7 +6,9 @@ namespace App\Modules\Tenancy\Actions;
 
 use App\Models\User;
 use App\Modules\Identity\Support\TwoFactorMandate;
+use App\Modules\Tenancy\Events\WorkspaceMemberRoleChanged;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\RoleGrants;
 use App\Modules\Tenancy\Support\StaffAccounts;
 use App\Shared\Actions\Action;
 use App\Shared\Support\WorkspaceContext;
@@ -51,9 +53,12 @@ class UpdateWorkspaceMemberRole extends Action
 {
     use LogsActivity;
 
-    public function __construct(private readonly WorkspaceContext $context) {}
+    public function __construct(
+        private readonly WorkspaceContext $context,
+        private readonly RoleGrants $grants,
+    ) {}
 
-    public function handle(Workspace $workspace, User $member, string $role): void
+    public function handle(Workspace $workspace, User $member, string $role, User $actor): void
     {
         /*
         | ⚠️ THE OWNER IS NOT A ROW TO EDIT. `workspaces.owner_user_id` is what
@@ -86,6 +91,13 @@ class UpdateWorkspaceMemberRole extends Action
         */
         StaffAccounts::guard($member, $role);
 
+        /*
+        | ⛔ Nobody changes their own role, and nobody grants more than they hold
+        | — `tenant-owner` is the owner's to give ({@see RoleGrants}, audit
+        | 2026-09-30). Until then a delegated `members.update` promoted itself.
+        */
+        $this->grants->guard($workspace, $actor, $member, $role);
+
         DB::transaction(function () use ($workspace, $member, $role, $current): void {
             $workspace->members()->updateExistingPivot($member->getKey(), ['role' => $role]);
 
@@ -108,6 +120,13 @@ class UpdateWorkspaceMemberRole extends Action
                 $member->unsetRelation('roles');
                 $member->assignRole($role);
             });
+
+            /*
+            | ⚠️ INSIDE THE TRANSACTION, LISTENERS SYNCHRONOUS: the assistant
+            | assignment (Community) opens or closes in the same commit as the
+            | role — see `WorkspaceMemberRoleChanged`.
+            */
+            WorkspaceMemberRoleChanged::dispatch($workspace, $member, (string) $current, $role);
 
             if (TwoFactorMandate::isPrivileged($role)) {
                 TwoFactorMandate::applyTo($member);

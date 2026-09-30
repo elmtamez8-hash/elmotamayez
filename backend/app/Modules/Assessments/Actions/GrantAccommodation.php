@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Assessments\Models\Accommodation;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -33,6 +34,7 @@ class GrantAccommodation extends Action
     public function __construct(
         private readonly EnrollmentDirectory $enrollments,
         private readonly ApplyAccommodation $accommodations,
+        private readonly AssistantScopeDirectory $assistants,
     ) {}
 
     /**
@@ -46,7 +48,19 @@ class GrantAccommodation extends Action
         int $extendedDays,
         string $reason,
     ): Accommodation {
-        if (! $this->enrollments->hasActiveEnrollmentInWorkspace($student, $workspaceId)) {
+        /*
+        | ⛔ AND A CONFINED ASSISTANT ARRANGES ONLY FOR A STUDENT OF THEIR OWN
+        | COURSES (spec 010 · FR-005, 2026-09-30). The SAME refusal, so the
+        | controller's 404 stays one answer — «out of your scope» told apart from
+        | «no such student» would confirm the uuid names somebody enrolled here.
+        |
+        | ⚠️ THE ROW IS ONE PER STUDENT PER WORKSPACE AND APPLIES TO EVERY COURSE,
+        | so an in-scope assistant's arrangement also lengthens that student's
+        | exams in courses the assistant does not work on. Owner decision: the
+        | student is theirs, and the arrangement is about the student.
+        */
+        if (! $this->enrollments->hasActiveEnrollmentInWorkspace($student, $workspaceId)
+            || ! $this->assistants->mayActOnStudent($actor, $workspaceId, (int) $student->getKey())) {
             throw new DomainException('لا يوجد طالبٌ بهذا المعرّف.');
         }
 

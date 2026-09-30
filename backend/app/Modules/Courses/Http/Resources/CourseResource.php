@@ -77,6 +77,21 @@ class CourseResource extends JsonResource
         return $this;
     }
 
+    /**
+     * Whether the reader may move the course's price — «كورس مجاني», the price
+     * and the currency (owner decision 2026-09-30). Stamped beside the
+     * visibility answer, for its reasons; unstamped, the key is absent.
+     * `CoursePolicy::changePricing()` is the one answer.
+     */
+    private ?bool $canChangePricing = null;
+
+    public function withPricingControl(bool $allowed): static
+    {
+        $this->canChangePricing = $allowed;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -128,6 +143,8 @@ class CourseResource extends JsonResource
             'visibility' => $this->visibility,
             // للمدرّسِ وحدَه أن يقلبَه (قرارُ المالك 2026-09-26) — see the setter.
             'can_change_visibility' => $this->when($this->canChangeVisibility !== null, fn (): ?bool => $this->canChangeVisibility),
+            // والسعرُ و«مجاني» كذلك (قرارُ المالك 2026-09-30) — see the setter.
+            'can_change_pricing' => $this->when($this->canChangePricing !== null, fn (): ?bool => $this->canChangePricing),
             /*
             | «هل يصلُ الناسُ إلى هذا الكورس؟» — للمدرّسِ وحدَه (2026-09-26).
             | `listed` هو `isPubliclyListed()` نفسُه، و`blockers` أسبابُ الرفضِ

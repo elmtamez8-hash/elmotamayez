@@ -55,8 +55,9 @@ function createCourseAs(string $title): Course
 {
     test()->postJson('/api/v1/courses', [
         'title' => $title,
+        // No currency: an assistant who CHOOSES one is refused since 2026-09-30
+        // (pricing is the teacher's call — `CoursePolicy::choosePricing()`).
         'price_minor' => 0,
-        'currency' => 'EGP',
         'subject' => (string) test()->subject->uuid,
         'course_type' => Course::TYPE_RECORDED,
     ])->assertCreated();

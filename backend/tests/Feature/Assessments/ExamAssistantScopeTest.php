@@ -343,3 +343,82 @@ it('lets a confined assistant enrolled in the far course sit its exam, and nothi
     $this->getJson("/api/v1/exams/{$farDraft->uuid}")->assertForbidden();
     $this->getJson("/api/v1/exams/{$loose->uuid}")->assertForbidden();
 });
+
+/*
+| ⛔ THE COURSE AS A UUID (2026-09-30) — «اختبار جديد» had no way to send an
+| integer `course_id`, so a confined assistant (refused a course-less paper)
+| could not create an exam at all from the product. `course` is what the screen
+| sends now; `course_id` stays for the panel and old clients.
+*/
+
+it('lets a confined assistant create an exam for their own course named by uuid, and refuses a far one', function (): void {
+    exConfineTo($this->nearCourse);
+    Sanctum::actingAs($this->assistant);
+
+    $before = Exam::query()->count();
+
+    $this->postJson('/api/v1/exams', ['title' => 'بعيد', 'course' => (string) $this->farCourse->uuid])
+        ->assertForbidden();
+    $this->postJson('/api/v1/exams', ['title' => 'لكل الطلاب', 'course' => null])
+        ->assertForbidden();
+
+    expect(Exam::query()->count())->toBe($before);
+
+    $uuid = $this->postJson('/api/v1/exams', ['title' => 'قريب', 'course' => (string) $this->nearCourse->uuid])
+        ->assertCreated()
+        ->json('uuid');
+
+    expect(Exam::query()->where('uuid', $uuid)->value('course_id'))->toBe($this->nearCourse->getKey());
+});
+
+it('refuses a course uuid from another workspace as a validation error', function (): void {
+    [$other] = $this->createWorkspaceWithOwner();
+
+    $foreign = app(WorkspaceContext::class)->forWorkspace(
+        $other,
+        fn (): Course => Course::factory()->create(['workspace_id' => $other->getKey()]),
+    );
+
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/exams', ['title' => 'غريب', 'course' => (string) $foreign->uuid])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('course');
+});
+
+it('lets the owner create an exam for a course by uuid, or for none', function (): void {
+    Sanctum::actingAs($this->owner);
+
+    $withCourse = $this->postJson('/api/v1/exams', ['title' => 'قريب', 'course' => (string) $this->farCourse->uuid])
+        ->assertCreated()
+        ->json('uuid');
+    $loose = $this->postJson('/api/v1/exams', ['title' => 'لكل الطلاب', 'course' => null])
+        ->assertCreated()
+        ->json('uuid');
+
+    expect(Exam::query()->where('uuid', $withCourse)->value('course_id'))->toBe($this->farCourse->getKey())
+        ->and(Exam::query()->where('uuid', $loose)->value('course_id'))->toBeNull();
+});
+
+it('refuses a confined assistant moving their exam to a far course by uuid', function (): void {
+    exConfineTo($this->nearCourse);
+    $near = exPaper($this->nearCourse);
+
+    Sanctum::actingAs($this->assistant);
+
+    $this->putJson("/api/v1/exams/{$near->uuid}", ['course' => (string) $this->farCourse->uuid])
+        ->assertForbidden();
+
+    expect(Exam::query()->whereKey($near->getKey())->value('course_id'))->toBe($this->nearCourse->getKey());
+});
+
+it('tells «اختبار جديد» whether the reader is confined', function (): void {
+    Sanctum::actingAs($this->assistant);
+    $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('is_confined_assistant', false);
+
+    exConfineTo($this->nearCourse);
+    $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('is_confined_assistant', true);
+
+    Sanctum::actingAs($this->owner);
+    $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('is_confined_assistant', false);
+});

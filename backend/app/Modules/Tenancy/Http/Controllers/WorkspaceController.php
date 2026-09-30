@@ -22,6 +22,9 @@ use App\Modules\Tenancy\Http\Resources\WorkspaceResource;
 use App\Modules\Tenancy\Models\Invitation;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\RoleLabels;
+use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\EnrollmentDirectory;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,11 +54,36 @@ class WorkspaceController extends Controller
         return response()->json(WorkspaceResource::make($workspace->fresh()));
     }
 
-    public function members(Request $request, Workspace $workspace): JsonResponse
-    {
+    public function members(
+        Request $request,
+        Workspace $workspace,
+        AssistantScopeDirectory $assistants,
+        EnrollmentDirectory $enrollments,
+    ): JsonResponse {
         // `members.view`, not mere membership: a student is a member too, and
         // this list carries every member's email (see WorkspacePolicy::viewMembers).
         $this->authorize('viewMembers', $workspace);
+
+        /*
+        | ⚠️ AND A CONFINED ASSISTANT READS THE STAFF AND THEIR OWN STUDENTS ONLY
+        | (spec 010 · FR-005, audit 2026-09-30). `members.view` is on the
+        | assistant role by default, and the student rows here carry an EMAIL:
+        | an assistant confined to one course read every student of every course.
+        | Filtered IN THE QUERY, never after the page is read, so `total` and
+        | `last_page` count what the reader may see. The student set is
+        | `activeStudentIdsFor()` over the scope — the same GRANTING statuses
+        | `mayActOnStudent()` reads, so the list and the per-student doors agree.
+        | «Staff» is every role but `student`, as `StaffAccounts` spells it.
+        */
+        $workspaceId = (int) $workspace->getKey();
+        $scoped = $assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+        $studentIds = [];
+
+        foreach ($scoped ?? [] as $courseId) {
+            array_push($studentIds, ...$enrollments->activeStudentIdsFor($workspaceId, $courseId));
+        }
+
+        $studentIds = array_values(array_unique($studentIds));
 
         /*
         | ⚠️ PAGED, BECAUSE `workspace_members` CARRIES THE STUDENTS TOO. A
@@ -67,6 +95,11 @@ class WorkspaceController extends Controller
         */
         $page = $workspace->members()
             ->withPivot('role')
+            ->when($scoped !== null, fn ($query) => $query->where(
+                fn ($visible) => $visible
+                    ->where('workspace_members.role', '!=', Roles::STUDENT)
+                    ->orWhereIn('users.id', $studentIds),
+            ))
             ->orderBy('users.id')
             ->paginate(50);
 
@@ -129,10 +162,11 @@ class WorkspaceController extends Controller
         $this->authorize('updateMembers', $workspace);
 
         try {
-            $action->handle($workspace, $member, (string) $request->validated('role'));
+            $action->handle($workspace, $member, (string) $request->validated('role'), $this->currentUser($request));
         } catch (DomainException $e) {
-            // The owner's own row, and a uuid belonging to nobody in this team.
-            // Both are refusals carrying a sentence, never a 500.
+            // The owner's own row, a uuid belonging to nobody in this team, your
+            // own row, and a role above your own (`RoleGrants`). All refusals
+            // carrying a sentence, never a 500.
             return response()->json(['message' => $e->getMessage()], 422);
         }
 

@@ -14,6 +14,9 @@ use App\Modules\Community\Data\AnnouncementData;
 use App\Modules\Community\Http\Requests\SaveAnnouncementRequest;
 use App\Modules\Community\Http\Resources\AnnouncementResource;
 use App\Modules\Community\Models\Announcement;
+use App\Modules\Community\Support\AnnouncementCourses;
+use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -37,7 +40,11 @@ use Illuminate\Support\Collection;
  */
 class AnnouncementController extends Controller
 {
-    public function __construct(private readonly ReadAnnouncementStats $stats) {}
+    public function __construct(
+        private readonly ReadAnnouncementStats $stats,
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly AnnouncementCourses $courses,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -54,7 +61,21 @@ class AnnouncementController extends Controller
         | (http-and-security.md). The body is `{data, links, meta}` now; the
         | stats are attached to the page's rows in place, before it is wrapped.
         */
+        /*
+        | ⛔ A CONFINED ASSISTANT LISTS WHAT THEY COULD HAVE WRITTEN (spec 010 ·
+        | FR-005, 2026-09-30): the announcements addressed through their own
+        | courses, by anybody — the rows `AnnouncementPolicy::manage()` lets them
+        | publish, edit and withdraw. Never an `all` one. In SQL, before the page
+        | is cut, or a page comes back short and the total counts rows nobody
+        | is shown.
+        */
+        $workspaceId = app(WorkspaceContext::class)->id();
+        $scoped = $workspaceId === null
+            ? null
+            : $this->assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
         $page = Announcement::query()
+            ->when($scoped !== null, fn ($query) => $this->courses->within($query, $scoped ?? [], (int) $workspaceId))
             ->with('author:id,first_name,last_name')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
@@ -86,7 +107,7 @@ class AnnouncementController extends Controller
      */
     public function publish(Request $request, Announcement $announcement, PublishAnnouncement $action): JsonResponse
     {
-        $this->authorize('manage', Announcement::class);
+        $this->authorize('manage', $announcement);
 
         return response()->json(
             AnnouncementResource::make($this->withStats(collect([$action->handle($announcement)]))->first()),
@@ -95,7 +116,7 @@ class AnnouncementController extends Controller
 
     public function update(SaveAnnouncementRequest $request, Announcement $announcement, UpdateAnnouncement $action): JsonResponse
     {
-        $this->authorize('manage', Announcement::class);
+        $this->authorize('manage', $announcement);
 
         $data = AnnouncementData::fromArray($request->validated());
 
@@ -108,7 +129,7 @@ class AnnouncementController extends Controller
 
     public function destroy(Request $request, Announcement $announcement, HideAnnouncement $action): JsonResponse
     {
-        $this->authorize('manage', Announcement::class);
+        $this->authorize('manage', $announcement);
 
         return response()->json(
             AnnouncementResource::make($this->withStats(collect([$action->handle($announcement)]))->first()),

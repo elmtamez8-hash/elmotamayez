@@ -20,8 +20,11 @@ use App\Modules\Community\Support\TermFilter;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Database\DetectsConcurrencyErrors;
@@ -387,6 +390,66 @@ class PostMessage extends Action
         return $asset;
     }
 
+    /**
+     * The members who sit on the TEACHING side of this private thread — the
+     * people `ConversationPolicy::teacherSide()` lets in as staff: a member of
+     * the workspace, holding `chat.reply` there, whom the assistant scope lets
+     * act on this student.
+     *
+     * ⛔ UNTIL 2026-09-30 THIS WAS «EVERY MEMBER WHOM `mayActOnStudent()` LETS
+     * THROUGH», and that directory answers `true` for anybody who is not a
+     * confined assistant — so every STUDENT-role member (a fixture's
+     * `addWorkspaceMember(STUDENT)`, and in production a student a teacher once
+     * invited) and every staff member WITHOUT chat access was told, by name and
+     * with a link, each time this student wrote. The link opens nothing for
+     * them; the notification alone is the leak.
+     *
+     * ⚠️ BATCHED, AND THE ORDER IS FOR THE QUERY COUNT: one read for the staff
+     * pivot, one for the permission (spatie's `permission()` scope, which reads
+     * roles AND direct grants under the team id `forWorkspace()` pins — the
+     * sender's own context may be another workspace or none), then the
+     * directory's one batched call. The loop it replaced cost an assignment read
+     * per member on every message.
+     *
+     * ⚠️ `wherePivot('role', '!=', STUDENT)` IS NOT REDUNDANT WITH THE
+     * PERMISSION. A student-role member holds no `chat.reply` by default, but a
+     * direct grant or a role edit is one tick away, and the pivot is what says
+     * which side of the thread they are on.
+     *
+     * @return list<string>
+     */
+    private function staffSideOf(Workspace $workspace, Conversation $conversation): array
+    {
+        $workspaceId = (int) $conversation->workspace_id;
+
+        $staffIds = $workspace->members()
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->pluck('users.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        if ($staffIds === []) {
+            return [];
+        }
+
+        /** @var array<int, string> $withChat user id => uuid */
+        $withChat = app(WorkspaceContext::class)->forWorkspace($workspaceId, fn (): array => User::query()
+            ->whereIn('users.id', $staffIds)
+            ->permission(Permissions::CHAT_REPLY)
+            ->orderBy('users.id')
+            ->pluck('users.uuid', 'users.id')
+            ->map(fn (mixed $uuid): string => (string) $uuid)
+            ->all());
+
+        $allowed = $this->assistants->whoMayActOnStudent(
+            array_map(intval(...), array_keys($withChat)),
+            $workspaceId,
+            (int) $conversation->student_user_id,
+        );
+
+        return array_map(fn (int $id): string => $withChat[$id], $allowed);
+    }
+
     /** @return list<string> */
     private function recipientUuids(Conversation $conversation, User $sender): array
     {
@@ -409,16 +472,11 @@ class PostMessage extends Action
             | is not in, who cannot open the thread at all. The confinement would
             | still hold at the door and be defeated at lower resolution: the
             | notification carries the sender's name and a link, which is most of
-            | what `mayActOnStudent()` exists to withhold. Free for a teacher or
-            | an owner, who are not confined and answer from a memo.
+            | what `mayActOnStudent()` exists to withhold — and that predicate
+            | alone was never the staff side: see `staffSideOf()`.
             */
-            $workspaceId = (int) $conversation->workspace_id;
-            $studentId = (int) $conversation->student_user_id;
-
-            foreach ($workspace->members()->get() as $member) {
-                if ($this->assistants->mayActOnStudent($member, $workspaceId, $studentId)) {
-                    $uuids[] = (string) $member->uuid;
-                }
+            foreach ($this->staffSideOf($workspace, $conversation) as $uuid) {
+                $uuids[] = $uuid;
             }
         }
 

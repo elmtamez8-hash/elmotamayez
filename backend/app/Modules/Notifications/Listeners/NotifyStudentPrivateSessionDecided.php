@@ -42,7 +42,7 @@ class NotifyStudentPrivateSessionDecided implements ShouldQueueAfterCommit
 
         // The student's own clock, zone named (2026-09-25).
         // Both clocks when they differ (owner decision 2026-09-26).
-        $when = UserClock::formatBoth($student, $course->creator, $request->starts_at, 'المدرّس');
+        $when = UserClock::formatBoth($student, $course->teacherUser(), $request->starts_at, 'المدرّس');
 
         $variables = [
             'course_title' => $course->title,

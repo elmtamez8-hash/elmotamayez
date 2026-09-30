@@ -89,8 +89,9 @@ class EnrollmentController extends Controller
             // so a student can open the one private conversation with them, and a
             // Resource runs once per row — a query inside it is an N+1 by
             // construction.
-            // `course.creator` names the teacher on «راسِل …» (2026-09-28).
-            ->with(['course.creator', 'workspace'])
+            // The course's TEACHER names «راسِل …» (2026-09-28) — its profile's
+            // person, `creator` only for a course with none (2026-09-30).
+            ->with(['course.creator', 'course.teacherProfile.user', 'workspace'])
             ->orderByDesc('enrolled_at')
             ->paginate(15);
 
@@ -112,6 +113,9 @@ class EnrollmentController extends Controller
         | anywhere indexing the top level. So what is ADDED is `meta` and nothing
         | breaks. The zero is the reason it survived this long.
         */
+        // «Who teaches it» for the page at once — `EnrollmentResource` names them.
+        Course::primeCreatorTeaches(collect($enrollments->items())->map->course->filter());
+
         return response()->json(EnrollmentResource::collection($enrollments)->response()->getData(true));
     }
 

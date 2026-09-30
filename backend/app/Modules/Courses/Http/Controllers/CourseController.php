@@ -250,6 +250,16 @@ class CourseController extends Controller
         }
 
         /*
+        | ⛔ والسعرُ كذلك (قرارُ المالك 2026-09-30): `is_free_enrollment` و
+        | `price_minor` و`currency` يُسأَلُ عنها `changePricing` — وعن **التغيير**
+        | لا عن ذِكرِ المفتاح، فشاشةُ التعديلِ تُعيدُ العملةَ وعلامةَ «مجاني» في
+        | كلِّ حفظ.
+        */
+        if (self::changesPricing($data, $course)) {
+            $this->authorize('changePricing', $course);
+        }
+
+        /*
         | ⚠️ THE UUID BECOMES AN ID BEFORE THE UPDATE, and `subject` never reaches
         | `update()`. It is not a column — a mass assignment carrying it would be
         | discarded in silence, which is precisely how `subject_id` came to be
@@ -291,6 +301,33 @@ class CourseController extends Controller
         });
 
         return response()->json(CourseResource::make($course->fresh()));
+    }
+
+    /**
+     * Whether this write MOVES any of the three pricing keys. A key echoed back
+     * with its current value is not a change.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private static function changesPricing(array $data, Course $course): bool
+    {
+        if (array_key_exists('is_free_enrollment', $data)
+            && (bool) $data['is_free_enrollment'] !== (bool) $course->is_free_enrollment) {
+            return true;
+        }
+
+        if (array_key_exists('price_minor', $data)) {
+            $sent = $data['price_minor'];
+            $held = $course->getAttribute('price_minor');
+
+            if (($sent === null) !== ($held === null) || ($sent !== null && (int) $sent !== (int) $held)) {
+                return true;
+            }
+        }
+
+        return array_key_exists('currency', $data)
+            && $data['currency'] !== null
+            && $data['currency'] !== $course->currency;
     }
 
     /**
@@ -356,11 +393,16 @@ class CourseController extends Controller
             'workspace',
             'creator',
             'creator.teacherProfile' => fn ($query) => $query->withoutWorkspaceScope(),
+            // The course's TEACHER, which the blockers now judge (2026-09-30).
+            'teacherProfile',
         ]);
+
+        $reader = $this->currentUser($request);
 
         return $resource
             ->withPublicListingBlockers($course->publicListingBlockers())
-            ->withVisibilityControl($this->currentUser($request)->can('changeVisibility', $course));
+            ->withVisibilityControl($reader->can('changeVisibility', $course))
+            ->withPricingControl($reader->can('changePricing', $course));
     }
 
     public function destroy(Course $course): JsonResponse

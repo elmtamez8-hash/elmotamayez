@@ -13,6 +13,7 @@ use App\Modules\Assessments\Http\Resources\ExamResource;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Support\StudentScope;
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Tenancy\Support\Permissions;
@@ -221,7 +222,7 @@ class ExamController extends Controller
             return response()->json(['message' => 'تعذّر تحديد مكان عملك. أعد تحميل الصفحة.'], 422);
         }
 
-        $validated = $request->validated();
+        $validated = self::resolveCourse($request->validated());
 
         // Spec 010 · FR-005 — a confined assistant sets exams for their own
         // courses only, never for none (see `ExamPolicy::placeInCourse()`).
@@ -239,7 +240,7 @@ class ExamController extends Controller
         // checks were never asked on an edit.
         $this->authorize('update', $exam);
 
-        $validated = $request->validated();
+        $validated = self::resolveCourse($request->validated());
 
         /*
         | The course the edit leaves it in, asked as well as the one it is in:
@@ -255,6 +256,34 @@ class ExamController extends Controller
         $exam->update($validated);
 
         return response()->json(ExamResource::make($exam->fresh()));
+    }
+
+    /**
+     * `course` (a uuid, what the screens send) becomes `course_id` before
+     * anything reads the payload — and never reaches `create()`/`update()`,
+     * which mass-assign it as-is. Present wins over `course_id`; an explicit
+     * null moves the exam to none; absent leaves `course_id` as sent (or not).
+     *
+     * The workspace scope bites on the lookup, and the request's
+     * `WorkspaceRules::exists()` has already refused a foreign uuid.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private static function resolveCourse(array $validated): array
+    {
+        if (! array_key_exists('course', $validated)) {
+            return $validated;
+        }
+
+        $uuid = $validated['course'];
+        unset($validated['course']);
+
+        $validated['course_id'] = $uuid === null
+            ? null
+            : Course::query()->where('uuid', $uuid)->value('id');
+
+        return $validated;
     }
 
     private static function courseIdOf(mixed $courseId): ?int

@@ -29,10 +29,11 @@ vi.mock("@/lib/auth-context", () => ({ useAuth: () => ({ user: mockUser }) }));
 
 const { default: EditCoursePage } = await import("./page");
 
-function course(visibility: string, canChange: boolean | "absent") {
+function course(visibility: string, canChange: boolean | "absent", canPrice: boolean | "absent" = true) {
   return {
     // «absent» is a read nobody stamped — the key is missing, not false.
     ...(canChange === "absent" ? {} : { can_change_visibility: canChange }),
+    ...(canPrice === "absent" ? {} : { can_change_pricing: canPrice }),
     uuid: "c-1",
     title: "رياضيات",
     description: "",
@@ -51,9 +52,13 @@ function course(visibility: string, canChange: boolean | "absent") {
   };
 }
 
-async function openPage(visibility: string, canChange: boolean | "absent" = true) {
+async function openPage(
+  visibility: string,
+  canChange: boolean | "absent" = true,
+  canPrice: boolean | "absent" = true,
+) {
   get.mockImplementation((path: string) =>
-    Promise.resolve(path === "/courses/c-1" ? course(visibility, canChange) : { data: [] }),
+    Promise.resolve(path === "/courses/c-1" ? course(visibility, canChange, canPrice) : { data: [] }),
   );
 
   await act(async () => {
@@ -154,5 +159,42 @@ describe("publishing, for someone who may not publish", () => {
     expect(screen.queryByRole("button", { name: "إلغاء النشر" })).toBeNull();
     expect(screen.queryByRole("button", { name: "انشر الكورس" })).toBeNull();
     expect(screen.getByText("نشر الكورس وإلغاء نشره يتولّاهما المدرّس.")).toBeTruthy();
+  });
+});
+
+/*
+| ⛔ «كورس مجاني» والعملةُ لمدرّسِ الكورسِ وحدَه كذلك (قرارُ المالك 2026-09-30):
+| الجوابُ `can_change_pricing` من الخادم، والمساعدُ يقرأُ الحالَ وسببَ غيابِ
+| الخيار، وحفظُه لا يحملُ مفتاحَي السعر.
+*/
+describe("«كورس مجاني» on the edit form", () => {
+  it("offers it to the course's teacher and sends the price keys", async () => {
+    await openPage("public", true, true);
+
+    fireEvent.click(screen.getByLabelText(/كورس مجاني/));
+    await save();
+
+    const body = put.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+
+    expect(body).toHaveProperty("is_free_enrollment", true);
+    expect(body).toHaveProperty("currency", "QAR");
+  });
+
+  it.each([
+    ["an assistant (false)", false],
+    ["an unstamped read (absent)", "absent" as const],
+  ])("is hidden for %s, says why, and the save carries no price key", async (_label, canPrice) => {
+    await openPage("public", true, canPrice);
+
+    expect(screen.queryByLabelText(/كورس مجاني/)).toBeNull();
+    expect(screen.getByText(/يقرّرهما مدرّس الكورس/)).toBeTruthy();
+
+    await save();
+
+    const body = put.mock.calls.at(-1)?.[1] as Record<string, unknown>;
+
+    expect(body).toHaveProperty("title", "رياضيات");
+    expect(body).not.toHaveProperty("is_free_enrollment");
+    expect(body).not.toHaveProperty("currency");
   });
 });

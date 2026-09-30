@@ -57,7 +57,7 @@ class RelatedTeachers extends Action
             $courses = Course::query()
                 ->publiclyListed()
                 ->where('courses.workspace_id', $workspaceId)
-                ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'subject'])
+                ->with(['creator:id,first_name,last_name', 'creator.teacherProfile', 'teacherProfile.user:id,first_name,last_name', 'subject'])
                 ->withCount([
                     // ⚠️ SCOPED, exactly as `ListPublicCourses` had to be. A bare
                     // `withCount('lessons')` counts a teacher's drafts and their
@@ -69,6 +69,9 @@ class RelatedTeachers extends Action
                 ->orderByDesc('courses.created_at')
                 ->limit($courseLimit)
                 ->get();
+
+            // One answer for the list, not a query per card.
+            Course::primeCreatorTeaches($courses);
 
             return ['teachers' => $teachers, 'courses' => $courses];
         });

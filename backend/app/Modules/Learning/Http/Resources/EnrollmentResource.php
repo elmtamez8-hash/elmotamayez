@@ -43,8 +43,10 @@ class EnrollmentResource extends JsonResource
             | academy read «راسل Nour Academy». `teacher_name` above stays the
             | workspace for the readers that group by it.
             */
+            // ⛔ The TEACHER, never `creator` — an assistant who created the
+            // course was named here (2026-09-30). {@see \App\Modules\Courses\Models\Course::teacherUser()}
             'contact_name' => TeacherContactName::of(
-                $this->course->creator?->name,
+                $this->course->teacherUser()?->name,
                 $this->workspace?->name,
                 $this->workspace?->type === WorkspaceType::Teacher->value,
             ),

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Learning\Policies;
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -26,11 +28,33 @@ use Illuminate\Auth\Access\Response;
  *
  * There is deliberately no `delete()`: FR-035 has no delete to authorise, and a
  * method that only ever denies is a method somebody eventually "fixes".
+ *
+ * ⚠️ AND A CONFINED ASSISTANT RUNS THE GROUPS OF THEIR OWN COURSES ONLY (spec 010
+ * · FR-005, audit 2026-09-30). `courses.update` says «this role may run groups»,
+ * never «of this course»: until the fix an assistant confined to one course read
+ * every other course's roll, history and transfer queue, and added, removed,
+ * renamed and archived there. So every door asks the scope BESIDE the
+ * permission — the course-keyed ones (`viewAny`, `create`) are handed the
+ * route's course, the row-keyed ones read the group's own. `cohorts.assign`
+ * stays above it: a platform officer is nobody's assistant.
  */
 class CohortPolicy extends BasePolicy
 {
-    public function viewAny(User $user): Response
+    /**
+     * ⚠️ THE COURSE IS REQUIRED. Every list of groups is one course's list, and a
+     * `viewAny` that could be asked without one would be the door the scope
+     * cannot see — call it as `authorize('viewAny', [Cohort::class, $course])`.
+     */
+    public function viewAny(User $user, Course $course): Response
     {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        if (($scopeCheck = $this->withinAssistantScope($user, (int) $course->workspace_id, (int) $course->getKey()))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::COURSES_UPDATE)
             ? Response::allow()
             : Response::deny('لا تملك إدارة مجموعات هذا الكورس.');
@@ -41,9 +65,9 @@ class CohortPolicy extends BasePolicy
         return $this->platformAssign($user) ?? $this->manage($user, $cohort);
     }
 
-    public function create(User $user): Response
+    public function create(User $user, Course $course): Response
     {
-        return $this->viewAny($user);
+        return $this->viewAny($user, $course);
     }
 
     public function update(User $user, Cohort $cohort): Response
@@ -90,8 +114,23 @@ class CohortPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        if (($scopeCheck = $this->withinAssistantScope($user, (int) $cohort->workspace_id, (int) $cohort->course_id))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::COURSES_UPDATE)
             ? Response::allow()
             : Response::deny('لا تملك إدارة مجموعات هذا الكورس.');
+    }
+
+    /**
+     * Spec 010 · FR-005 — asked beside the permission, never instead of it; a
+     * no-op for everybody who is not a confined assistant in this workspace.
+     */
+    private function withinAssistantScope(User $user, int $workspaceId, int $courseId): Response
+    {
+        return app(AssistantScopeDirectory::class)->mayActOnCourse($user, $workspaceId, $courseId)
+            ? Response::allow()
+            : Response::deny('هذا الكورس خارج نطاق عملك.');
     }
 }

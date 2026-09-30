@@ -1,22 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, fieldErrors } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
-import type { Exam } from "@/lib/types";
+import type { Course, Exam } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExamIcon } from "@/components/icons";
-import { NumberField, TextField, TextareaField } from "@/components/ui/Field";
+import { NumberField, SelectField, TextField, TextareaField } from "@/components/ui/Field";
 
 export default function NewExamPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  /*
+    ⛔ An assistant confined to some courses may not set a paper «for all my
+    students» — the server refuses it (`ExamPolicy::placeInCourse()`). This page
+    posted no course at all, so a confined assistant could not create an exam
+    (2026-09-30). For them the course is required and «كل طلابي» is not offered;
+    everybody else keeps the course-less paper, which reaches every student.
+  */
+  const confined = user?.is_confined_assistant === true;
+  const [courses, setCourses] = useState<Course[]>([]);
   const [form, setForm] = useState({
     title: "",
     description: "",
+    course: "",
     duration_minutes: "60",
     passing_score: "60",
     max_attempts: "3",
@@ -24,6 +36,15 @@ export default function NewExamPage() {
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // Already narrowed to a confined assistant's own courses on the server. A
+  // failure leaves the list empty, which still offers «كل طلابي» to a teacher.
+  useEffect(() => {
+    api
+      .get<{ data: Course[] }>("/courses?per_page=200")
+      .then((response) => setCourses(response.data ?? []))
+      .catch(() => setCourses([]));
+  }, []);
 
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -38,6 +59,8 @@ export default function NewExamPage() {
       const exam = await api.post<Exam>("/exams", {
         title: form.title,
         description: form.description,
+        // The course as a uuid — the server resolves it. Empty is «كل طلابي».
+        course: form.course === "" ? null : form.course,
         // The inputs hold strings so they can be cleared; the API wants numbers.
         duration_minutes: parseInt(form.duration_minutes, 10) || 60,
         passing_score: parseInt(form.passing_score, 10) || 60,
@@ -53,6 +76,8 @@ export default function NewExamPage() {
       setLoading(false);
     }
   };
+
+  const courseOptions = courses.map((course) => ({ value: course.uuid, label: course.title }));
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -79,6 +104,30 @@ export default function NewExamPage() {
             error={fields.description}
             rows={3}
           />
+
+          {confined ? (
+            <SelectField
+              id="course"
+              label="الكورس"
+              value={form.course}
+              onChange={set("course")}
+              placeholder="اختر الكورس"
+              options={courseOptions}
+              error={fields.course}
+              hint="تضع الاختبار في كورس من كورساتك."
+              required
+            />
+          ) : (
+            <SelectField
+              id="course"
+              label="الكورس"
+              value={form.course}
+              onChange={set("course")}
+              options={[{ value: "", label: "كل طلابي" }, ...courseOptions]}
+              error={fields.course}
+              hint="بلا كورس يصل الاختبار إلى كل طلابك."
+            />
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <NumberField
