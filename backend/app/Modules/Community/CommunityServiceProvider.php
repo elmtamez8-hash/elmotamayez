@@ -11,8 +11,10 @@ use App\Modules\Community\Events\PeriodicReviewPublished;
 use App\Modules\Community\Listeners\AddCreatedCourseToAssistantScope;
 use App\Modules\Community\Listeners\CreateAssistantAssignment;
 use App\Modules\Community\Listeners\FanOutAnnouncement;
+use App\Modules\Community\Listeners\FollowMemberRoleChange;
 use App\Modules\Community\Listeners\NotifyOfflineRecipient;
 use App\Modules\Community\Listeners\NotifyPeriodicReviewPublished;
+use App\Modules\Community\Listeners\RevokeAssignmentOfRemovedMember;
 use App\Modules\Community\Listeners\SeedDefaultBlockedTerms;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Models\AssistantAssignment;
@@ -36,6 +38,8 @@ use App\Modules\Community\Support\ReverbOnlineDirectory;
 use App\Modules\Courses\Events\CourseCreated;
 use App\Modules\Tenancy\Events\WorkspaceCreated;
 use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
+use App\Modules\Tenancy\Events\WorkspaceMemberRemoved;
+use App\Modules\Tenancy\Events\WorkspaceMemberRoleChanged;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
@@ -129,6 +133,14 @@ class CommunityServiceProvider extends Module
         Gate::policy(Announcement::class, AnnouncementPolicy::class);
 
         Event::listen(WorkspaceMemberAdded::class, CreateAssistantAssignment::class);
+
+        /*
+        | The assignment follows the membership through a role change and a
+        | removal too — synchronous, inside each Action's transaction
+        | (`AssistantAppointments`, audit 2026-09-30).
+        */
+        Event::listen(WorkspaceMemberRoleChanged::class, FollowMemberRoleChange::class);
+        Event::listen(WorkspaceMemberRemoved::class, RevokeAssignmentOfRemovedMember::class);
         Event::listen(MessagePosted::class, NotifyOfflineRecipient::class);
 
         /*

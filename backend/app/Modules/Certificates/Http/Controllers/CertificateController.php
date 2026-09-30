@@ -11,7 +11,9 @@ use App\Modules\Certificates\Http\Resources\CertificateResource;
 use App\Modules\Certificates\Http\Resources\PublicCertificateResource;
 use App\Modules\Certificates\Models\Certificate;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Scopes\WorkspaceScope;
+use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -71,6 +73,21 @@ class CertificateController extends Controller
 
         if (! $viewAll) {
             $query->where('student_user_id', $this->currentUser($request)->getKey());
+        } else {
+            /*
+            | ⚠️ `certificates.view.all` SAYS «THIS ROLE MAY READ GRADUATES», NEVER
+            | «OF EVERY COURSE» (spec 010 · FR-005, audit 2026-09-30). The assistant
+            | role carries it by default, so until this an assistant confined to one
+            | course read every other course's certificates here. `null` is «not
+            | confined»; a `?course=` outside the scope meets this and answers an
+            | empty page, never a refusal that confirms the course exists.
+            */
+            $contextId = app(WorkspaceContext::class)->id();
+            $scoped = $contextId === null
+                ? null
+                : app(AssistantScopeDirectory::class)->scopedCourseIdsFor($this->currentUser($request), $contextId);
+
+            $query->when($scoped !== null, fn ($q) => $q->whereIn('course_id', $scoped ?? []));
         }
 
         $certificates = $query->orderByDesc('issued_at')->paginate(15);

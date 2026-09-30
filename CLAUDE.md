@@ -112,6 +112,9 @@ _Read before touching `Modules/Tenancy/`, any policy, `WorkspaceScope`/`Workspac
 - A platform-wide panel list is gated by the super admin (or a platform permission), NEVER a tenant one — an officer who owns a workspace holds every tenant permission there — and in Filament v5 a missing policy method is ALLOW, `DeleteBulkAction` asks `deleteAny` alone, and actions are authorised by `get*AuthorizationResponse()`, not `can*()`.
 - `mayActOnStudent()` is `true` for everybody not confined, so it NARROWS a staff list and never MAKES one — a recipient list starts from the side's own predicate (non-student pivot + `chat.reply`), then `AssistantScopeDirectory::whoMayActOnStudent()` in bulk; `scopedStudentIdsFor()` is its list form (`null` ≠ `[]`).
 - The current workspace is per ACCOUNT, never per tab — `lib/api.ts` sends `X-Workspace` (from `/auth/me`'s `current_workspace`) and `RefuseStaleWorkspace` answers a mismatch 409 `workspace_changed` before binding; switch and logout are exempt.
+- A confined assistant's members list is the staff plus their OWN students (filtered in the query, so the page count agrees) — the student rows carry emails.
+- The assistant assignment follows the membership through a ROLE CHANGE and a REMOVAL (`WorkspaceMemberRoleChanged` / `WorkspaceMemberRemoved` → `Community\Support\AssistantAppointments`, inside the transaction), never through `RevokeAssistant`; a revived assignment comes back CONFINED to its old scope rows (owner decision 2026-09-30), and a scope of only-deleted courses stays «confined to nothing».
+- Nobody changes their own role, `tenant-owner` is the owner's (or a super admin's) to give, and no role carrying a permission the giver lacks may be given — `RoleGrants::guard()` at both the role-change and the invite door.
 
 ### Identity and sign-in → [`docs/gotchas/identity.md`](docs/gotchas/identity.md)
 _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessions._
@@ -122,6 +125,7 @@ _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessi
 - The notification bell is the session heartbeat.
 - `users` carries what every account has; anything true of one role gets its own table.
 - A `GROUP BY … HAVING` DISCOVERY QUERY IS A PREDICATE THAT SHRINKS UNDER ITS OWN WALK, AND PAGING IT BY `OFFSET` SKIPS EXACTLY THE ROWS THE LAST PAGE FIXED — the `chunk`-vs-`chunkById` rule above, reached through an aggregate instead of a column.
+- A confined assistant reads the guardians of their OWN students only — the staff branch of `ParentStudentRelationPolicy` also asks `mayActOnStudent()`.
 
 ### Marketplace, taxonomy and signup catalogues → [`docs/gotchas/marketplace.md`](docs/gotchas/marketplace.md)
 _Read before touching `Modules/Marketplace/`, public listing, subjects/stages/school years, signup forms._
@@ -144,6 +148,7 @@ _Read before touching `Modules/Courses/`, `Modules/Learning/`, cohorts, lesson d
 - A SCOPED RELATION READ ON THE STUDENT'S PATH RETURNS AN EMPTY COURSE, NOT AN ERROR — AND `Enrollment::course()` CARRYING THE BYPASS DOES NOT COVER WHAT HANGS OFF IT.
 - «THE AUTHOR» IS THE PIVOT ROLE, NEVER MERE MEMBERSHIP — AND THE THIRD DOOR OPENED PAID CONTENT.
 - A confined assistant is the author of their OWN courses only — every lesson-door author branch also asks `AssistantScopeDirectory::mayActOnCourse()`.
+- A confined assistant runs the GROUPS and reads the CERTIFICATES of their own courses only — `CohortPolicy::viewAny`/`create` and `CohortTransferRequestPolicy::viewAny` REQUIRE the route's course, every row door asks the row's course, and the certificate list is narrowed by `scopedCourseIdsFor()`.
 - LESSON CONTENT HAS FOUR DOORS, NOT ONE — AND THE ONE THAT ACTUALLY SERVES THE FILE ENDS AT `hasActiveEnrollment`.
 - A deleted course KEEPS its slug: the index, both requests and the panel count soft-deleted rows, so a deleted course's public URL can never be taken by another workspace — and `CourseSlug::taken()` was the door that disagreed.
 - A course's visibility is the TEACHER's call, not `courses.update`'s — an assistant edits content but `changeVisibility`/`chooseVisibility` refuse them, and the screens read the server's boolean.
