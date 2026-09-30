@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Assessments\Models\Accommodation;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -33,8 +34,18 @@ class AccommodationPolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->can(Permissions::ACCOMMODATIONS_MANAGE)
+        if (! $user->can(Permissions::ACCOMMODATIONS_MANAGE)) {
+            return Response::deny();
+        }
+
+        // Spec 010 · FR-005 — beside the permission, never instead of it: a
+        // confined assistant revokes only for a student of their own courses.
+        return app(AssistantScopeDirectory::class)->mayActOnStudent(
+            $user,
+            (int) $accommodation->workspace_id,
+            (int) $accommodation->student_user_id,
+        )
             ? Response::allow()
-            : Response::deny();
+            : Response::deny('هذا الطالب خارج نطاق عملك.');
     }
 }

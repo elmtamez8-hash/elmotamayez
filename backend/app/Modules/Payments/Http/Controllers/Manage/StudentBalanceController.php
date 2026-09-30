@@ -10,6 +10,7 @@ use App\Modules\Payments\Actions\ListStudentBalances;
 use App\Modules\Payments\Support\StudentBalanceAllowlist;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class StudentBalanceController extends Controller
         ListStudentBalances $action,
         CountWithheldStudents $withheld,
         WorkspaceContext $context,
+        AssistantScopeDirectory $assistants,
     ): JsonResponse {
         abort_unless($this->currentUser($request)->can(Permissions::BILLING_BALANCE_VIEW), 403);
 
@@ -46,9 +48,19 @@ class StudentBalanceController extends Controller
 
         $workspace = Workspace::query()->findOrFail($workspaceId);
 
+        /*
+        | ⛔ A CONFINED ASSISTANT READS THE BALANCES OF THEIR OWN COURSES (spec 010
+        | · FR-005, 2026-09-30). `billing.balance.view` is the owner's to tick
+        | onto one assistant, and until this line that assistant read every
+        | student of every course in the workspace. One narrowing, handed to BOTH
+        | reads: the table and the `withheld_students` card must count the same
+        | people, or the card reports students the table never shows.
+        */
+        $scoped = $assistants->scopedCourseIdsFor($this->currentUser($request), $workspaceId);
+
         $perPage = min(max((int) $request->integer('per_page', 50), 1), 100);
 
-        $page = $action->handle($workspace, $perPage, max(1, (int) $request->integer('page', 1)));
+        $page = $action->handle($workspace, $perPage, max(1, (int) $request->integer('page', 1)), $scoped);
 
         /*
         | ⚠️ THE ENVELOPE IS BUILT BY HAND, and `meta` is not decoration. There is
@@ -68,7 +80,7 @@ class StudentBalanceController extends Controller
                 'last_page' => $page->lastPage(),
                 'per_page' => $page->perPage(),
                 'total' => $page->total(),
-                'withheld_students' => $withheld->handle($workspace),
+                'withheld_students' => $withheld->handle($workspace, $scoped),
             ],
         ]);
     }

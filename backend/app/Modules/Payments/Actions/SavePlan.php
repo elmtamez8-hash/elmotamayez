@@ -12,10 +12,13 @@ use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Exceptions\PlanWouldHideCohorts;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Support\BillingSettings;
+use App\Modules\Payments\Support\PlanCourses;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -66,7 +69,11 @@ use Illuminate\Support\Facades\DB;
  */
 class SavePlan extends Action
 {
-    public function __construct(private readonly CohortDirectory $cohorts) {}
+    public function __construct(
+        private readonly CohortDirectory $cohorts,
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly PlanCourses $courses,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -88,6 +95,18 @@ class SavePlan extends Action
         [$duration, $sessionCount] = $this->resolveShape($data, $coverage, $sessionType);
 
         $coverageUuid = $this->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, $workspaceId, $plan?->coverage_uuid);
+
+        /*
+        | ⛔ A CONFINED ASSISTANT SELLS ONLY THEIR OWN COURSES (spec 010 ·
+        | FR-005, 2026-09-30): the coverage the plan will HAVE must be a course of
+        | theirs or a group of one. A workspace plan resolves to no course and is
+        | refused. The coverage a plan HAD is `PlanPolicy::update()`'s question,
+        | asked before this runs. Here because the Action is the one door the API
+        | and the panel share.
+        */
+        if (! $this->assistants->mayActOnCourse($author, $workspaceId, $this->courses->of($coverage, $coverageUuid, $workspaceId))) {
+            throw new AuthorizationException('هذه الباقة خارج نطاق عملك.');
+        }
 
         if ($plan !== null) {
             $this->guardPricedPlan($author, $plan, $duration, $sessionCount, $sessionType, $coverage, $coverageUuid);

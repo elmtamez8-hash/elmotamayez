@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Community\Policies;
 
 use App\Models\User;
+use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Who may write and publish an assessment.
@@ -33,5 +36,44 @@ class PeriodicReviewPolicy
     public function manage(User $user): bool
     {
         return $user->can(Permissions::REVIEWS_PERIODIC_MANAGE);
+    }
+
+    /**
+     * Publish ONE assessment — send it to the student and their guardian.
+     *
+     * ⛔ TWO RULES BESIDE THE PERMISSION (spec 010 · FR-005, 2026-09-30):
+     *
+     * 1. A confined assistant publishes only for a student of their own courses
+     *    — `mayActOnStudent()`, the question the list and the write ask too.
+     * 2. AN ASSISTANT PUBLISHES ONLY WHAT THEY WROTE. A draft is its author's
+     *    judgement of a student's term, and publishing it sends that judgement
+     *    to a guardian; an assistant who holds the permission sends their own,
+     *    never the teacher's or another assistant's. The teacher and the owner
+     *    publish any draft, as before.
+     *    ⚠️ THIS APPLIES TO AN UNCONFINED ASSISTANT TOO — the one place this
+     *    change narrows somebody the scope does not confine, because authorship
+     *    is not a question of scope. `SubmitPeriodicReview` keeps the same rule
+     *    for a REVISION, or it would be the way around this one: revising a
+     *    draft makes the reviser its author.
+     */
+    public function publish(User $user, PeriodicReview $review): Response
+    {
+        if (! $this->manage($user)) {
+            return Response::deny();
+        }
+
+        $assistants = app(AssistantScopeDirectory::class);
+        $workspaceId = (int) $review->workspace_id;
+
+        if (! $assistants->mayActOnStudent($user, $workspaceId, (int) $review->student_user_id)) {
+            return Response::deny('هذا الطالب خارج نطاق عملك.');
+        }
+
+        if ($assistants->isAssistantIn($user, $workspaceId)
+            && (int) $review->teacher_user_id !== (int) $user->getKey()) {
+            return Response::deny('ينشر المساعد التقييمات التي كتبها بنفسه فقط.');
+        }
+
+        return Response::allow();
     }
 }

@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Store\Actions;
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Store\Data\StoreItemData;
 use App\Modules\Store\Enums\StoreItemKind;
 use App\Modules\Store\Models\StoreItem;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * Create or edit a product in the teacher's store (spec 011 · US1 · FR-001).
@@ -29,8 +32,23 @@ use DomainException;
  */
 class SaveStoreItem extends Action
 {
-    public function handle(StoreItemData $data, int $workspaceId, ?StoreItem $item = null): StoreItem
+    /**
+     * @param  User|null  $actor  who is saving it — asked the assistant scope;
+     *                            `null` for a caller with no person behind it
+     *
+     * @throws AuthorizationException when a confined assistant ties it to no
+     *                                course, or to a course outside theirs
+     */
+    public function handle(StoreItemData $data, int $workspaceId, ?StoreItem $item = null, ?User $actor = null): StoreItem
     {
+        $courseId = $this->resolveCourseId($data->courseUuid, $workspaceId);
+
+        // ⛔ Spec 010 · FR-005 — the course the item will HAVE; the one it had
+        // is `StoreItemPolicy::update()`'s question, asked before this runs.
+        if ($actor !== null && ! app(AssistantScopeDirectory::class)->mayActOnCourse($actor, $workspaceId, $courseId)) {
+            throw new AuthorizationException('هذا المنتج خارج نطاق عملك.');
+        }
+
         /*
         | ⚠️ AN EDIT THAT SENDS NO UUID KEEPS THE FILE IT ALREADY HAS, and the
         | version without this line could not fix a typo in a title. The Resource
@@ -62,7 +80,7 @@ class SaveStoreItem extends Action
 
         $item->fill([
             'workspace_id' => $workspaceId,
-            'course_id' => $this->resolveCourseId($data->courseUuid, $workspaceId),
+            'course_id' => $courseId,
             'kind' => $data->kind,
             'title' => $data->title,
             'description' => $data->description,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\Community\Actions\PublishPeriodicReview;
 use App\Modules\Community\Actions\SubmitPeriodicReview;
 use App\Modules\Community\Data\PeriodicReviewData;
@@ -12,6 +13,7 @@ use App\Modules\Community\Http\Requests\SavePeriodicReviewRequest;
 use App\Modules\Community\Http\Resources\PeriodicReviewResource;
 use App\Modules\Community\Models\PeriodicReview;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,9 +32,24 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class PeriodicReviewController extends Controller
 {
     /** Every assessment this teacher has written for one student, newest first. */
-    public function index(Request $request, string $studentUuid): AnonymousResourceCollection
+    public function index(Request $request, string $studentUuid, AssistantScopeDirectory $assistants): AnonymousResourceCollection
     {
         $this->authorize('manage', PeriodicReview::class);
+
+        /*
+        | ⛔ A CONFINED ASSISTANT READS THE ASSESSMENTS OF THEIR OWN COURSES'
+        | STUDENTS (spec 010 · FR-005, 2026-09-30). One refusal for «not in your
+        | scope» and «no such person» — an unknown uuid is id 0, which the
+        | directory refuses a confined reader and waves everybody else past to
+        | the empty list they always got.
+        */
+        $student = User::query()->where('uuid', $studentUuid)->first();
+
+        abort_unless($assistants->mayActOnStudent(
+            $this->currentUser($request),
+            (int) $this->workspace()->getKey(),
+            (int) ($student?->getKey() ?? 0),
+        ), 403, 'هذا الطالب خارج نطاق عملك.');
 
         $reviews = PeriodicReview::query()
             ->whereHas('student', fn ($query) => $query->where('uuid', $studentUuid))
@@ -65,7 +82,7 @@ class PeriodicReviewController extends Controller
      */
     public function publish(Request $request, PeriodicReview $review, PublishPeriodicReview $action): JsonResponse
     {
-        $this->authorize('manage', PeriodicReview::class);
+        $this->authorize('publish', $review);
 
         return response()->json(
             PeriodicReviewResource::make($action->handle($review)->load('teacher:id,uuid,first_name,last_name')),

@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Community\Policies;
 
 use App\Models\User;
+use App\Modules\Community\Models\Announcement;
+use App\Modules\Community\Support\AnnouncementCourses;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Who may address a teacher's whole class at once (FR-042).
@@ -26,8 +30,34 @@ use App\Modules\Tenancy\Support\Permissions;
  */
 class AnnouncementPolicy
 {
-    public function manage(User $user): bool
+    /**
+     * The screen as a whole (`Announcement::class`), or one announcement.
+     *
+     * ⛔ ONE ANNOUNCEMENT ALSO ASKS THE ASSISTANT SCOPE (spec 010 · FR-005,
+     * 2026-09-30), beside the permission and never instead of it: a confined
+     * assistant publishes, edits and withdraws only an announcement addressed
+     * through one of their courses — a course, a session of one, a group of
+     * one. An `all` announcement has no course and is refused to them
+     * ({@see AnnouncementCourses}). Before this, the owner ticking
+     * `announcements.manage` onto one assistant let them address, and take
+     * back, every announcement of the workspace.
+     */
+    public function manage(User $user, ?Announcement $announcement = null): Response
     {
-        return $user->can(Permissions::ANNOUNCEMENTS_MANAGE);
+        if (! $user->can(Permissions::ANNOUNCEMENTS_MANAGE)) {
+            return Response::deny();
+        }
+
+        if ($announcement === null) {
+            return Response::allow();
+        }
+
+        return app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $user,
+            (int) $announcement->workspace_id,
+            app(AnnouncementCourses::class)->ofAnnouncement($announcement),
+        )
+            ? Response::allow()
+            : Response::deny('هذا الإعلان خارج نطاق عملك.');
     }
 }
