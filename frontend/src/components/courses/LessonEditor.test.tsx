@@ -30,6 +30,28 @@ vi.mock("@/lib/courses", () => ({
 // يرفعُ ملفّاً ويطرقُ الشبكة، ولا شأنَ له بقائمةِ الأنواع.
 vi.mock("./AttachmentsPanel", () => ({ AttachmentsPanel: () => null }));
 
+// The rich editor (Tiptap) is its own chunk with its own tests
+// (`RichMarkdownEditor.test.tsx`); here it is a labelled field that, like the
+// real one, reads `value` once on mount and hands Markdown back.
+vi.mock("@/components/ui/RichMarkdownEditor", () => ({
+  RichMarkdownEditor: ({
+    id,
+    label,
+    value,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (markdown: string) => void;
+  }) => (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <textarea id={id} defaultValue={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  ),
+}));
+
 const BASE = {
   uuid: "l-1",
   chapter_uuid: "c-1",
