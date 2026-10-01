@@ -109,6 +109,8 @@ class FanOutAnnouncementJob implements ShouldQueue
             */
             $author = User::query()->find($announcement->author_user_id);
             $authorName = $author instanceof User ? $author->name : 'المدرّس';
+            // Once per pass, like the author: the same words for every recipient.
+            $bodyText = MarkdownRenderer::toPlainText($announcement->body);
             $actionUrl = $this->actionUrlFor($announcement);
 
             foreach (User::query()->whereIn('id', $pending)->get() as $recipient) {
@@ -123,7 +125,7 @@ class FanOutAnnouncementJob implements ShouldQueue
                     variables: [
                         'teacher_name' => $authorName,
                         // The bell shows text, not markup: the Markdown read as words.
-                        'body' => MarkdownRenderer::toPlainText($announcement->body),
+                        'body' => $bodyText,
                     ],
                     actionUrl: $actionUrl,
                     workspaceId: (int) $announcement->workspace_id,
