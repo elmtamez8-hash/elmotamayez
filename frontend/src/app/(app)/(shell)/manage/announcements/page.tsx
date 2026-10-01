@@ -37,6 +37,7 @@ import { classSessions } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDate } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 /** «١٢ إعلاناً» — not in `NOUNS` yet; one screen counts them. */
 const ANNOUNCEMENTS = {
@@ -88,6 +89,7 @@ export default function AnnouncementsPage() {
   const [courses, setCourses] = useState<Array<{ uuid: string; title: string }>>([]);
   const [sessions, setSessions] = useState<Array<{ uuid: string; title: string }>>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [formKey, setFormKey] = useState(0);
   const [busy, setBusy] = useState(false);
   // The create form's failure, under the form; a row action's, above the list.
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +174,10 @@ export default function AnnouncementsPage() {
        * publish it. A surface is not finished until something reaches it.
        */
       await announcements.publish(created.uuid);
+      // A fresh, empty form: the sent text left in the box invited a second
+      // press that would send the same notice twice. (The body editor reads its
+      // value on mount, so a new `key` is how it empties.)
+      setFormKey((key) => key + 1);
       load();
     } catch (err) {
       setError(userMessage(err));
@@ -216,6 +222,7 @@ export default function AnnouncementsPage() {
           <SectionHeading id="new-announcement" Icon={SparkIcon} title="إعلان جديد" />
         </div>
         <AnnouncementForm
+          key={formKey}
           onSubmit={create}
           busy={busy}
           error={error}
@@ -304,7 +311,7 @@ export default function AnnouncementsPage() {
                           </>
                         )
                       }
-                      description={<p className="whitespace-pre-line text-ink">{announcement.body}</p>}
+                      description={<MarkdownText html={announcement.body_html} />}
                       meta={[
                         {
                           key: "notified",

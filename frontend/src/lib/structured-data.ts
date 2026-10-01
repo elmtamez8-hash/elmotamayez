@@ -1,6 +1,7 @@
 import { absoluteHttpUrl } from "@/components/seo/JsonLd";
 import type { CourseDetail, TeacherDetail } from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
+import { htmlToText } from "@/lib/html-text";
 
 /**
  * The schema.org objects the public pages embed through `<JsonLd>` (the
@@ -91,7 +92,7 @@ export function courseLd(course: CourseDetail, url: string, platformName: string
     "@type": "Course",
     name: course.title,
     // Google requires a description; the title stands in when the teacher wrote none.
-    description: (course.description ?? course.title).slice(0, 300),
+    description: (htmlToText(course.description_html) || course.title).slice(0, 300),
     url,
     inLanguage: "ar",
     ...(image !== null ? { image } : {}),

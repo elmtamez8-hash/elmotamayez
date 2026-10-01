@@ -7,6 +7,7 @@ namespace App\Modules\Marketplace\Http\Resources;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Enums\WorkspaceType;
 use App\Shared\Support\TeacherContactName;
@@ -55,6 +56,8 @@ class PublicCourseDetailResource extends JsonResource
             // be a second copy of the same words drifting from its source at the
             // first typo fix, with a teacher's keyboard attached to an XSS sink.
             'description' => $this->description,
+            // Markdown (written in the rich editor), rendered per response — never stored.
+            'description_html' => MarkdownRenderer::toHtml($this->description),
             'cover_url' => $this->cover_path === null ? null : asset('storage/'.$this->cover_path),
             /*
             | The promotional video's ID on the teacher's own channel (018).

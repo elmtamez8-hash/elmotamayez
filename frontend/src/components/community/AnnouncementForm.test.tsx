@@ -3,6 +3,27 @@ import { fireEvent, render, screen } from "@testing-library/react";
 
 import { AnnouncementForm } from "./AnnouncementForm";
 
+// The rich editor (Tiptap) has its own tests; here it is a labelled field that,
+// like the real one, reads `value` once on mount and hands Markdown back.
+vi.mock("@/components/ui/RichMarkdownEditor", () => ({
+  RichMarkdownEditor: ({
+    id,
+    label,
+    value,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (markdown: string) => void;
+  }) => (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <textarea id={id} defaultValue={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  ),
+}));
+
 /*
 | The three scopes, and the flag that says what it does (spec 010 · US6).
 |

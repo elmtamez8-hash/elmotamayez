@@ -5,13 +5,14 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { NumberField, SelectField, TextareaField, TextField } from "@/components/ui/Field";
+import { NumberField, SelectField, TextField } from "@/components/ui/Field";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { EditIcon, SparkIcon } from "@/components/icons";
 import { fieldErrors } from "@/lib/api";
 import { assignments, type Assignment, type AssignmentInput } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
 import { isoToLocalDateTime, localDateTimeToIso } from "@/lib/labels";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 /**
  * Writing a piece of homework — and, until this form, nothing in the product
@@ -150,13 +151,12 @@ export function AssignmentForm({
           maxLength={255}
         />
 
-        <TextareaField
+        <RichMarkdownEditor
           id="assignment_description"
           label="المطلوب من الطالب"
           value={form.description}
           onChange={(value) => set("description", value)}
           error={errors.description}
-          rows={4}
         />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

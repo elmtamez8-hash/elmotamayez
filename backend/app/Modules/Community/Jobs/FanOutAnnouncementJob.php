@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Support\AnnouncementAudience;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Models\Notification;
@@ -108,6 +109,8 @@ class FanOutAnnouncementJob implements ShouldQueue
             */
             $author = User::query()->find($announcement->author_user_id);
             $authorName = $author instanceof User ? $author->name : 'المدرّس';
+            // Once per pass, like the author: the same words for every recipient.
+            $bodyText = MarkdownRenderer::toPlainText($announcement->body);
             $actionUrl = $this->actionUrlFor($announcement);
 
             foreach (User::query()->whereIn('id', $pending)->get() as $recipient) {
@@ -121,7 +124,8 @@ class FanOutAnnouncementJob implements ShouldQueue
                     // leaving one day must not need its callers audited first.
                     variables: [
                         'teacher_name' => $authorName,
-                        'body' => $announcement->body,
+                        // The bell shows text, not markup: the Markdown read as words.
+                        'body' => $bodyText,
                     ],
                     actionUrl: $actionUrl,
                     workspaceId: (int) $announcement->workspace_id,

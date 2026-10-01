@@ -4,12 +4,13 @@ import { useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { CheckboxField, SelectField, TextareaField } from "@/components/ui/Field";
+import { CheckboxField, SelectField } from "@/components/ui/Field";
 import {
   ANNOUNCEMENT_SCOPES,
   type AnnouncementInput,
   type AnnouncementScope,
 } from "@/lib/announcements";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 /**
  * Writing one notice (spec 010 · US6 · FR-042, FR-044).
@@ -79,13 +80,11 @@ export function AnnouncementForm({
       className="space-y-4"
       noValidate
     >
-      <TextareaField
+      <RichMarkdownEditor
         id="body"
         label="نصّ الإعلان"
         value={body}
         onChange={setBody}
-        rows={4}
-        placeholder="حصة الغد تبدأ الساعة الخامسة بدل الرابعة."
         required
         disabled={busy}
       />

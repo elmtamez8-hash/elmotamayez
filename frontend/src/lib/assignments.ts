@@ -64,6 +64,8 @@ export interface Assignment {
   course?: { uuid: string; title: string } | null;
   teacher?: { uuid: string; name: string } | null;
   description: string | null;
+  /** The description rendered from Markdown by the server. */
+  description_html?: string;
   points: number;
   due_at: string | null;
   submission_type: "text" | "file" | "questions";

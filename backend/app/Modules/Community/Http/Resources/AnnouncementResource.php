@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Http\Resources;
 
 use App\Modules\Community\Models\Announcement;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -32,6 +33,8 @@ class AnnouncementResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'body' => $this->body,
+            // Markdown (written in the rich editor), rendered per response — never stored.
+            'body_html' => MarkdownRenderer::toHtml($this->body),
             'scope' => $this->scope,
             'is_urgent' => $this->is_urgent,
             'is_published' => $this->published_at !== null,

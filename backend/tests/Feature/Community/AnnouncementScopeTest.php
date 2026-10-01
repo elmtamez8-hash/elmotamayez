@@ -223,6 +223,23 @@ it('carries the teacher\'s words into the notification itself', function (): voi
     expect($notification->body)->toContain('ANNOUNCEMENT_SENTINEL');
 });
 
+it('puts the words of a Markdown body in the bell, not its syntax', function (): void {
+    Sanctum::actingAs($this->teacher);
+
+    $uuid = $this->postJson('/api/v1/manage/announcements', announcementPayload([
+        'body' => '**مهم:** حصة الغد _تبدأ_ الخامسة.',
+    ]))->assertCreated()->json('uuid');
+
+    $this->postJson("/api/v1/manage/announcements/{$uuid}/publish")->assertOk();
+
+    $body = Notification::query()
+        ->where('source_type', Announcement::SOURCE_TYPE)
+        ->where('recipient_user_id', $this->mathsStudent->getKey())
+        ->firstOrFail()->body;
+
+    expect($body)->toContain('مهم: حصة الغد تبدأ الخامسة.')->not->toContain('**');
+});
+
 it('reaches a student mid-focus only when it is urgent', function (): void {
     /*
     | `FR-044`, measured through the valve that actually exists rather than

@@ -513,6 +513,7 @@ describe("an assignment item", () => {
     course: null,
     teacher: null,
     description: "حلّ التمارين ١–٥.",
+    description_html: "<p>حلّ التمارين ١–٥.</p>",
     points: 20,
     due_at: "2026-10-01T12:00:00+03:00",
     submission_type: "text",

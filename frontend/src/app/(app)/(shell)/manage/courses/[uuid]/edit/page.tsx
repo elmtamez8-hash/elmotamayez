@@ -25,10 +25,10 @@ import {
   CheckboxField,
   SelectField,
   TextField,
-  TextareaField,
 } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 /*
   ما يُقال للمدرّس عن حالة فيديوه. «مرفوض» بلا سببٍ يُجيبه بلصقِ الرابطِ نفسِه،
@@ -323,7 +323,8 @@ export default function EditCoursePage({
             required
           />
 
-          <TextareaField
+          <RichMarkdownEditor
+            key={course.uuid}
             id="description"
             label="الوصف"
             value={form.description}

@@ -11,6 +11,7 @@ import { assignments, stateLabel, type Assignment } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDateTime, NOUNS } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 /**
  * One piece of homework, with the hand-in beside it.
@@ -79,9 +80,7 @@ export function AssignmentCard({
         {mine !== null && <Badge tone={badgeTone(mine.state)}>{stateLabel(mine.state)}</Badge>}
       </div>
 
-      {assignment.description !== null && assignment.description !== "" && (
-        <p className="mb-3 whitespace-pre-wrap text-sm text-ink">{assignment.description}</p>
-      )}
+      <MarkdownText html={assignment.description_html} className="mb-3" />
 
       {/* Said before the deadline, not after the mark. */}
       {assignment.late_policy === "reject" && (

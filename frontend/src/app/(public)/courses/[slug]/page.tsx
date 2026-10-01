@@ -32,6 +32,8 @@ import { siteUrl } from "@/lib/site";
 import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
 import { courseLd } from "@/lib/structured-data";
+import { MarkdownText } from "@/components/ui/MarkdownText";
+import { htmlToText } from "@/lib/html-text";
 
 type Params = { slug: string };
 
@@ -87,7 +89,7 @@ export async function generateMetadata({
       ? `${course.title} — ${course.teacher.name}`
       : course.title;
     const description =
-      course.description?.slice(0, 155) ??
+      (htmlToText(course.description_html) || null)?.slice(0, 155) ??
       `${course.title}: ${counted(course.lessons_count, {
         one: "درس واحد",
         two: "درسان",
@@ -401,10 +403,9 @@ export default async function CoursePage({
             <CourseTabs
               groupCount={course.cohorts.length}
               about={
-                course.description === null ? null : (
-                  <p className="max-w-[62ch] whitespace-pre-line text-[0.95rem] leading-loose text-ink-muted">
-                    {course.description}
-                  </p>
+                !course.description_html ? null : (
+                  // Markdown written in the rich editor, rendered by the server.
+                  <MarkdownText html={course.description_html} className="max-w-[62ch] text-[0.95rem]" />
                 )
               }
               groups={

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Resources;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Learning\Http\Resources\CohortResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -136,6 +137,8 @@ class CourseResource extends JsonResource
             'grade_level' => $this->grade_level,
             'slug' => $this->slug,
             'description' => $this->description,
+            // Markdown (written in the rich editor), rendered per response — never stored.
+            'description_html' => MarkdownRenderer::toHtml($this->description),
             'price_minor' => $this->price_minor,
             'currency' => $this->currency,
             'status' => $this->status,

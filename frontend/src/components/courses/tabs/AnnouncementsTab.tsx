@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import type { CourseAnnouncement } from "@/lib/course-hub";
 import { formatDateTime } from "@/lib/labels";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 /**
  * What was said about this course (US2 · FR-019).
@@ -51,13 +52,10 @@ export function AnnouncementsTab({ announcements }: { announcements: CourseAnnou
               )}
             </div>
 
-            {/* `whitespace-pre-line`: the teacher's line breaks are the only
-                formatting an announcement has, and the body is plain text — it
-                is never rendered as markup, so there is no sanitiser to get
-                wrong. */}
-            <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
-              {announcement.body}
-            </p>
+            {/* Markdown since 2026-10-01 (the rich editor), rendered by the
+                server with raw HTML stripped at the parse — the allowlist is
+                the Markdown feature set, so there is still no sanitiser here. */}
+            <MarkdownText html={announcement.body_html} />
           </Card>
         </div>
       ))}

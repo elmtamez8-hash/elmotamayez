@@ -7,6 +7,7 @@ namespace App\Modules\Courses\Models;
 use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Exceptions\CourseDeletionRefused;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
@@ -658,7 +659,8 @@ class Course extends BaseModel
             'id' => $this->id,
             'workspace_id' => $this->workspace_id,
             'title' => $this->title,
-            'description' => $this->description,
+            // Indexed as the words, not the Markdown syntax around them.
+            'description' => MarkdownRenderer::toPlainText($this->description),
             'status' => $this->status,
             'price_minor' => $this->price_minor,
             // Indexed, not filtered after the fact (R2): Scout runs outside every

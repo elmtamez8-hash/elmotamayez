@@ -41,6 +41,30 @@ final class MarkdownRenderer
         return (string) self::converter()->convert($markdown);
     }
 
+    /**
+     * The same source as READABLE PLAIN TEXT — for every place that shows text
+     * and not markup: a notification body (the bell renders text), a search
+     * index, a meta description. Rendered first and then stripped, so it agrees
+     * with `toHtml()` about what the source says (an escaped `\*` stays a star,
+     * a link keeps its words), and blocks become line breaks rather than running
+     * together.
+     */
+    public static function toPlainText(?string $markdown): string
+    {
+        $html = self::toHtml($markdown);
+
+        if ($html === '') {
+            return '';
+        }
+
+        // A block's end is a line break, so paragraphs and list items stay apart.
+        $html = (string) preg_replace('#</(p|li|h[1-6]|blockquote|pre)>|<br\s*/?>#i', "\n", $html);
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = (string) preg_replace('/[ \t]+\n/', "\n", $text);
+
+        return trim((string) preg_replace('/\n{3,}/', "\n\n", $text));
+    }
+
     private static function converter(): MarkdownConverter
     {
         if (self::$converter instanceof MarkdownConverter) {
