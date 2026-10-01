@@ -57,6 +57,7 @@ export default function StorePage() {
   const [catalogue, setCatalogue] = useState<StoreItem[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [fileLinks, setFileLinks] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setState("loading");
@@ -107,8 +108,17 @@ export default function StorePage() {
     setNote(null);
 
     try {
-      await store.open(purchase.uuid);
-      setNote("فُتِح الملف. تجده الآن في مكتبتك.");
+      const { grant_uuid } = await store.open(purchase.uuid);
+      /*
+       * ⚠️ THE GRANT IS THE FILE, AND IT USED TO BE THROWN AWAY. This said «تجده
+       * الآن في مكتبتك» about a library that does not exist, so a paid book was
+       * never shown to its buyer. The grant streams through our own route
+       * (`/playback/{grant}/stream`, relative — the same door a lesson's file
+       * uses), and the buyer opens it with a click of their own: a tab opened
+       * after an `await` is what popup blockers stop.
+       */
+      setFileLinks((links) => ({ ...links, [purchase.uuid]: `/api/v1/playback/${grant_uuid}/stream` }));
+      setNote("الملف جاهز. اضغط «اعرض الملف» لفتحه.");
       load();
     } catch (error) {
       setProblem(userMessage(error));
@@ -225,6 +235,17 @@ export default function StorePage() {
                         افتح الملف
                       </ConfirmButton>
                     )}
+
+                  {fileLinks[purchase.uuid] && (
+                    <a
+                      href={fileLinks[purchase.uuid]}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-sm font-medium text-primary-ink underline underline-offset-4"
+                    >
+                      اعرض الملف
+                    </a>
+                  )}
 
                   {purchase.is_refundable && (
                     <Button variant="ghost" size="sm" onClick={() => refund(purchase)}>

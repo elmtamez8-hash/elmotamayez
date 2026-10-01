@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use App\Modules\Courses\Models\Lesson;
+use App\Modules\Store\Models\StoreItem;
 
 /*
 | Defaults only. Every value here can be overridden at runtime by a row in
@@ -142,6 +144,18 @@ return [
     | what Chrome, Firefox and Safari record, reported by
     | `AudioContainer` once the tracks prove there is no video in the file.
     */
+    /*
+    | Owners whose uploads get their KIND's full allowance at the local receiver
+    | (`MediaLimits::uploadCeilingFor()`); every other owner — a chat thread —
+    | gets the smaller chat allowance. Listed here, not in Media's code, because
+    | Media may not import the modules that own these files. A store product's
+    | book is a document like a lesson's, and 10 MB refused a real PDF.
+    */
+    'full_allowance_owners' => [
+        Lesson::class,
+        StoreItem::class,
+    ],
+
     'chat_allowed_mime_types' => [
         'audio' => [
             'audio/webm',

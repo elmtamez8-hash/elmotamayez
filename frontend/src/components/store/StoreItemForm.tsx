@@ -69,6 +69,8 @@ export function StoreItemForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [step, setStep] = useState<string | null>(null);
+  /** The row a first save created, kept for a retry after a failed upload. */
+  const [draft, setDraft] = useState<ManagedStoreItem | null>(null);
 
   useEffect(() => {
     // The same call the plans and announcements screens make; the server's
@@ -88,7 +90,13 @@ export function StoreItemForm({
     setStep("جارٍ رفع الملف… لا تغلق الصفحة.");
     const { asset, upload } = await store.requestFile(target.uuid, { filename: chosen.name, size_bytes: chosen.size });
     await media.uploadTo(upload, chosen);
-    await store.completeFile(target.uuid, asset.uuid);
+    const settled = await store.completeFile(target.uuid, asset.uuid);
+
+    // `failed` is an answer, not an error: a type the server refused, say so
+    // here rather than as «الملف المختار غير موجود» from the save after it.
+    if (settled.status !== "ready") {
+      throw new Error("store-file-not-ready");
+    }
 
     return asset.uuid;
   }
@@ -123,11 +131,20 @@ export function StoreItemForm({
     try {
       setStep("جارٍ الحفظ…");
 
-      // A product that will get a file now is saved hidden first; the last
-      // save below puts it on sale with the file attached.
-      let saved = item
-        ? await store.updateItem(item.uuid, needsUpload ? { ...body, is_active: false } : body)
-        : await store.createItem(needsUpload ? { ...body, is_active: false } : body);
+      /*
+       * A NEW product that will get a file now is saved hidden first, and the
+       * last save puts it on sale. An existing one keeps selling on its current
+       * file while the new one uploads (`SaveStoreItem` keeps the file a save
+       * does not name). And a retry after a failed upload reuses the hidden row
+       * this form already created — deleting is refused, so a second create is
+       * an orphan for ever.
+       */
+      const existing = item ?? draft;
+      const hide = needsUpload && !hasFile;
+      let saved = existing
+        ? await store.updateItem(existing.uuid, hide ? { ...body, is_active: false } : body)
+        : await store.createItem(hide ? { ...body, is_active: false } : body);
+      setDraft(saved);
 
       if (needsUpload && file !== null) {
         const assetUuid = await uploadFile(saved, file);
@@ -147,6 +164,8 @@ export function StoreItemForm({
 
       if (Object.keys(fields).length > 0) {
         setErrors(fields);
+      } else if (error instanceof Error && error.message === "store-file-not-ready") {
+        setErrors({ media_asset_uuid: "لم يُقبل الملف. ارفع ملف PDF أو عرضاً تقديمياً سليماً." });
       } else {
         setProblem(userMessage(error));
       }

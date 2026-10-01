@@ -60,14 +60,21 @@ final class MediaLimits
      *
      * The receiving end needs its own ceiling because every check before it is
      * a number the client chose (the declared size) and every check after it
-     * runs once the file is already on our disk. A lesson file gets its kind's
-     * allowance; anything else that reaches this route is a chat attachment
-     * (`RequestChatAttachment` is the only other writer of a pending asset) and
-     * gets the smaller chat allowance, for the reason that method gives.
+     * runs once the file is already on our disk. A lesson file or a store
+     * product's file gets its kind's allowance (`media.full_allowance_owners`);
+     * anything else that reaches this route is a chat attachment and gets the
+     * smaller chat allowance, for the reason that method gives.
+     *
+     * ⚠️ IT USED TO BE «LESSON, OR ELSE CHAT», which made a third writer
+     * (`RequestStoreFile`, 2026-10-01) a chat attachment by default: a 20 MB book
+     * was promised 50 MB at the ticket and refused at 10 MB here.
      */
     public static function uploadCeilingFor(MediaAsset $asset): int
     {
-        return $asset->owner_type === Lesson::class
+        /** @var list<string> $full */
+        $full = config('media.full_allowance_owners', [Lesson::class]);
+
+        return in_array((string) $asset->owner_type, $full, true)
             ? self::maxSizeBytes($asset->kind)
             : min(self::maxSizeBytes($asset->kind), self::maxChatAttachmentBytes());
     }

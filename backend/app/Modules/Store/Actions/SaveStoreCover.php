@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Enums\ImageDriver;
 use Spatie\Image\Image;
+use Throwable;
 
 /**
  * A product's cover picture, on the `public` disk — the account photo's shape
@@ -44,11 +45,19 @@ class SaveStoreCover extends Action
 
             $absolute = Storage::disk('public')->path($stored);
 
-            Image::useImageDriver(ImageDriver::Gd)
-                ->loadFile($absolute)
-                ->fit(Fit::Crop, self::WIDTH, self::HEIGHT)
-                ->quality(85)
-                ->save($absolute);
+            try {
+                Image::useImageDriver(ImageDriver::Gd)
+                    ->loadFile($absolute)
+                    ->fit(Fit::Crop, self::WIDTH, self::HEIGHT)
+                    ->quality(85)
+                    ->save($absolute);
+            } catch (Throwable) {
+                // The raw upload is on the PUBLIC disk until re-encoded — never
+                // leave it there when the re-encode fails.
+                Storage::disk('public')->delete($stored);
+
+                throw new DomainException('تعذّر قراءة الصورة. جرّب صورة أخرى.');
+            }
 
             $path = $stored;
         }

@@ -34,6 +34,12 @@ class RequestStoreFile extends Action
     /** @return array{asset: MediaAsset, ticket: UploadTicket} */
     public function handle(User $uploader, StoreItem $item, string $originalFilename, ?int $declaredSizeBytes = null): array
     {
+        // A printed book has no file to sell; reserving one would leave an asset
+        // nothing can ever attach.
+        if ($item->kind->isStocked()) {
+            throw new DomainException('النسخة المطبوعة لا تحتاج ملفاً.');
+        }
+
         if ($declaredSizeBytes !== null && $declaredSizeBytes > MediaLimits::maxSizeBytes(MediaKind::Document)) {
             throw new DomainException(MediaLimits::sizeRefusal(MediaKind::Document));
         }

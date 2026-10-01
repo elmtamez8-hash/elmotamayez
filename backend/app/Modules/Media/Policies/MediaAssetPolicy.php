@@ -82,8 +82,8 @@ class MediaAssetPolicy
 
     /**
      * The scope question for an existing asset: a lesson's file and a recording
-     * still owned by its session have a course to ask it about; nothing else
-     * does, and passes untouched.
+     * still owned by its session have a course to ask it about; any other owner
+     * (a chat thread, a store product) has its own doors and is refused here.
      *
      * Both owners are read with the workspace scope bypassed on purpose — the
      * membership check above already pinned the workspace, and a scoped read
@@ -106,7 +106,15 @@ class MediaAssetPolicy
         } elseif ($sessions->isSessionOwner($ownerType)) {
             $courseId = $sessions->courseIdForSession((int) $asset->owner_id);
         } else {
-            return true;
+            /*
+            | ⛔ ANY OTHER OWNER HAS ITS OWN DOORS, AND THESE ARE NOT THEM. A chat
+            | attachment completes through its thread and a store product's file
+            | through `/store/items/{item}/file` (`StoreItemPolicy`). This used to
+            | answer `true`, which let `lessons.manage` alone flip a PAID book to
+            | downloadable or delete it from under its buyers — with no scope and
+            | no store permission asked (2026-10-01 review).
+            */
+            return false;
         }
 
         return $this->withinAssistantScope($user, (int) $asset->workspace_id, $courseId);

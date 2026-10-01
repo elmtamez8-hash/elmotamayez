@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Media\Support\MediaLimits;
 use App\Modules\Store\Actions\PurchaseStoreItem;
 use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
@@ -122,4 +123,52 @@ it('names the product on the buyer\'s order instead of «شراء من المت�
     Sanctum::actingAs($buyer);
 
     expect($this->getJson('/api/v1/orders')->assertOk()->json('data.0.store_item_title'))->toBe('مذكّرة الفيزياء');
+});
+
+it('keeps another workspace and a student out of a product\'s upload doors', function (): void {
+    [$foreignWorkspace] = $this->createWorkspaceWithOwner();
+    $foreign = StoreItem::factory()->create(['workspace_id' => $foreignWorkspace->getKey(), 'is_active' => false]);
+    $mine = StoreItem::factory()->create(['workspace_id' => $this->workspace->getKey(), 'is_active' => false]);
+
+    // Another workspace's product does not exist for this teacher.
+    $this->postJson("/api/v1/store/items/{$foreign->uuid}/file", ['filename' => 'x.pdf'])->assertNotFound();
+    $this->postJson("/api/v1/store/items/{$foreign->uuid}/cover", [])->assertNotFound();
+
+    // A student holds no store permission here.
+    $student = User::factory()->create();
+    Sanctum::actingAs($student);
+
+    expect($this->postJson("/api/v1/store/items/{$mine->uuid}/file", ['filename' => 'x.pdf'])->status())->toBeIn([403, 404]);
+});
+
+it('gives a product file the document allowance, not the chat one', function (): void {
+    $item = StoreItem::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $asset = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'owner_type' => StoreItem::class,
+        'owner_id' => $item->getKey(),
+        'kind' => MediaKind::Document,
+    ]);
+
+    expect(MediaLimits::uploadCeilingFor($asset))
+        ->toBe(MediaLimits::maxSizeBytes(MediaKind::Document));
+});
+
+it('refuses a product file on the generic media doors, which are the lesson\'s', function (): void {
+    $item = StoreItem::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $asset = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'owner_type' => StoreItem::class,
+        'owner_id' => $item->getKey(),
+    ]);
+
+    // The owner holds `lessons.manage`; it must not reach a paid book through these.
+    $this->getJson("/api/v1/media/assets/{$asset->uuid}")->assertForbidden();
+    $this->deleteJson("/api/v1/media/assets/{$asset->uuid}")->assertForbidden();
+});
+
+it('reserves no file for a printed product', function (): void {
+    $item = StoreItem::factory()->physical()->create(['workspace_id' => $this->workspace->getKey()]);
+
+    $this->postJson("/api/v1/store/items/{$item->uuid}/file", ['filename' => 'x.pdf'])->assertUnprocessable();
 });

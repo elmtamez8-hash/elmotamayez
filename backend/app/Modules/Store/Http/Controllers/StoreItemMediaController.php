@@ -64,7 +64,9 @@ class StoreItemMediaController extends Controller
         $this->authorize('update', $item);
 
         $request->validate([
-            'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            // Bounded in pixels as well as bytes: a small file can decode to a
+            // huge bitmap, and GD holds the whole of it in memory.
+            'cover' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096', 'dimensions:max_width=6000,max_height=6000'],
         ]);
 
         $file = $request->file('cover');
