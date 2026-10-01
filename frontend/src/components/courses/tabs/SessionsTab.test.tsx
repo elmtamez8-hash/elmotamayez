@@ -30,8 +30,10 @@ function session(uuid: string): ClassSession {
   return {
     uuid,
     title: "حصة المعادلات",
-    starts_at: "2026-10-01T10:00:00Z",
-    ends_at: "2026-10-01T11:00:00Z",
+    // Far in the future: a fixed calendar date became «الماضية» at 10:00 UTC on
+    // 2026-10-01 and failed main's CI from that hour on.
+    starts_at: "2099-01-01T10:00:00Z",
+    ends_at: "2099-01-01T11:00:00Z",
     duration_minutes: 60,
     seats: { total: 6, taken: 3, available: 3 },
   } as ClassSession;
