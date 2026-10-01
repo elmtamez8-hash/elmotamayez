@@ -14,6 +14,7 @@ import {
   WhatsAppIcon,
   XIcon,
   YouTubeIcon,
+  OrdersIcon,
 } from "@/components/icons";
 import { platformIdentity } from "@/lib/platform";
 import { arabicDigits } from "@/lib/numerals";
@@ -25,6 +26,7 @@ const COLUMNS = [
     links: [
       { href: "/teachers", label: "المدرسون", Icon: UsersIcon },
       { href: "/courses", label: "الكورسات", Icon: BookIcon },
+      { href: "/store", label: "المتجر", Icon: OrdersIcon },
       { href: "/blog", label: "المدوّنة", Icon: DocumentIcon },
       { href: "/pricing", label: "الأسعار", Icon: TagIcon },
       { href: "/about", label: "عن المنصة", Icon: InfoIcon },

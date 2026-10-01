@@ -73,6 +73,6 @@ class StoreItemMediaController extends Controller
 
         $saved = $action->handle($item, $file instanceof UploadedFile ? $file : null);
 
-        return new ManageStoreItemResource($saved->load(['course:id,uuid,title', 'mediaAsset']));
+        return new ManageStoreItemResource($saved->load(['course:id,uuid,title', 'mediaAsset', 'subject']));
     }
 }

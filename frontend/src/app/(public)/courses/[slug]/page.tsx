@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { BookIcon, ClockIcon, SparkIcon, UsersIcon } from "@/components/icons";
+import { BookIcon, ClockIcon, OrdersIcon, SparkIcon, UsersIcon } from "@/components/icons";
+import { PublicStoreCard } from "@/components/store/PublicStoreCard";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCover } from "@/components/marketplace/CourseCover";
 import { CourseCurriculum } from "@/components/marketplace/CourseCurriculum";
@@ -178,6 +179,11 @@ export default async function CoursePage({
 }) {
   const { slug } = await params;
   const course = await loadCourse(slug);
+  // Best-effort: the course page renders without its shelf rather than failing.
+  const courseStore = await publicApi
+    .storeItems({ course: course.uuid })
+    .then((page) => page.data)
+    .catch(() => []);
 
   /*
    * 308 to the canonical slug when the visitor arrived on the old uuid URL —
@@ -459,6 +465,24 @@ export default async function CoursePage({
                 />
               )}
             </section>
+
+            {/* The books and notes sold with this course, when any are listed. */}
+            {courseStore.length > 0 && (
+              <section className="flex flex-col gap-4">
+                <SectionHeading Icon={OrdersIcon}>كتب ومذكّرات هذا الكورس</SectionHeading>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {courseStore.slice(0, 4).map((item) => (
+                    <PublicStoreCard key={item.uuid} item={item} />
+                  ))}
+                </div>
+                <Link
+                  href={`/store?course=${encodeURIComponent(course.uuid)}`}
+                  className="w-fit text-sm font-semibold text-primary-ink hover:underline"
+                >
+                  كل منتجات الكورس في المتجر
+                </Link>
+              </section>
+            )}
           </div>
 
           {/* ⚠️ لاصقٌ على الشاشاتِ الواسعةِ وحدَها. عمودٌ لاصقٌ على الهاتفِ يأكلُ

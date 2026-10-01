@@ -35,6 +35,8 @@ class SaveStoreItemRequest extends FormRequest
             // docs/gotchas/billing.md. `StoreItemData` converts through `MinorUnits`.
             'price' => ['required', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
             'currency' => ['sometimes', 'string', 'size:3'],
+            // Platform reference data (no workspace), so a plain `exists` is right here.
+            'subject_slug' => ['nullable', 'string', 'exists:subjects,slug'],
             'course_uuid' => ['nullable', 'uuid', WorkspaceRules::exists('courses', 'uuid')],
             'media_asset_uuid' => ['nullable', 'uuid', WorkspaceRules::exists('media_assets', 'uuid')],
             // Bounded on both sides: `stock` is a SIGNED integer column, and an

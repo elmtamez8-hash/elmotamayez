@@ -9,6 +9,7 @@ import {
   MenuIcon,
   TagIcon,
   UsersIcon,
+  OrdersIcon,
 } from "@/components/icons";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/", label: "الرئيسية", Icon: HomeIcon },
   { href: "/teachers", label: "المدرسون", Icon: UsersIcon },
   { href: "/courses", label: "الكورسات", Icon: BookIcon },
+  { href: "/store", label: "المتجر", Icon: OrdersIcon },
   { href: "/blog", label: "المدوّنة", Icon: DocumentIcon },
   { href: "/pricing", label: "الأسعار", Icon: TagIcon },
   { href: "/about", label: "عن المنصة", Icon: InfoIcon },

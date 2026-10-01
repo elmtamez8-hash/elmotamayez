@@ -50,6 +50,8 @@ export interface ManagedStoreItem extends StoreItem {
   /** Major units («150.00») — what the form fills from; it never converts. */
   price: string;
   shipping_fee: string | null;
+  /** For the subject picker; the public store's subject filter. */
+  subject_slug?: string | null;
   file?: { uuid: string; name: string | null; status: string } | null;
 }
 
@@ -117,6 +119,8 @@ export interface StoreItemInput {
   description?: string | null;
   excerpt?: string | null;
   course_uuid?: string | null;
+  /** `""` or absent falls back to the linked course's subject. */
+  subject_slug?: string | null;
   media_asset_uuid?: string | null;
   stock?: number | null;
   shipping_fee?: string | null;

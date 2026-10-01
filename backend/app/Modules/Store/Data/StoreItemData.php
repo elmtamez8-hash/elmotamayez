@@ -31,6 +31,7 @@ final class StoreItemData extends DataTransferObject
         public readonly ?int $stock = null,
         public readonly ?int $shippingFeeMinor = null,
         public readonly ?string $courseUuid = null,
+        public readonly ?string $subjectSlug = null,
         public readonly bool $isActive = true,
     ) {}
 
@@ -50,6 +51,7 @@ final class StoreItemData extends DataTransferObject
             stock: isset($data['stock']) ? (int) $data['stock'] : null,
             shippingFeeMinor: MinorUnits::fromMajorOrFail(isset($data['shipping_fee']) ? (string) $data['shipping_fee'] : null),
             courseUuid: isset($data['course_uuid']) ? (string) $data['course_uuid'] : null,
+            subjectSlug: isset($data['subject_slug']) && $data['subject_slug'] !== '' ? (string) $data['subject_slug'] : null,
             isActive: (bool) ($data['is_active'] ?? true),
         );
     }

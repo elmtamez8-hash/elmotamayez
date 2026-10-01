@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
@@ -171,4 +172,18 @@ it('reserves no file for a printed product', function (): void {
     $item = StoreItem::factory()->physical()->create(['workspace_id' => $this->workspace->getKey()]);
 
     $this->postJson("/api/v1/store/items/{$item->uuid}/file", ['filename' => 'x.pdf'])->assertUnprocessable();
+});
+
+it('files the product under the subject picked, or its course\'s, for the public store', function (): void {
+    $subject = Subject::query()->firstOrFail();
+
+    $picked = $this->postJson('/api/v1/store/items', printedPayload(['subject_slug' => $subject->slug]))
+        ->assertCreated()
+        ->assertJsonPath('subject_slug', $subject->slug);
+
+    expect((int) StoreItem::query()->where('uuid', $picked->json('uuid'))->value('subject_id'))->toBe((int) $subject->getKey());
+
+    $this->postJson('/api/v1/store/items', printedPayload(['subject_slug' => 'no-such-subject']))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('subject_slug');
 });

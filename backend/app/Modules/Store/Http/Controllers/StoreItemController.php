@@ -48,7 +48,7 @@ class StoreItemController extends Controller
             // Dropping this makes the page one query CHEAPER and the course name
             // absent, so a budget test measuring queries alone reads the
             // regression as an improvement.
-            ->with(['course:id,uuid,title', 'mediaAsset'])
+            ->with(['course:id,uuid,title', 'mediaAsset', 'subject'])
             ->orderByDesc('id')
             ->paginate(20);
 
@@ -66,7 +66,7 @@ class StoreItemController extends Controller
             $this->currentUser($request),
         );
 
-        return (new ManageStoreItemResource($item->load(['course:id,uuid,title', 'mediaAsset'])))->response()->setStatusCode(201);
+        return (new ManageStoreItemResource($item->load(['course:id,uuid,title', 'mediaAsset', 'subject'])))->response()->setStatusCode(201);
     }
 
     public function update(SaveStoreItemRequest $request, StoreItem $item, SaveStoreItem $save): ManageStoreItemResource
@@ -78,7 +78,7 @@ class StoreItemController extends Controller
             $this->workspaceId(),
             $item,
             $this->currentUser($request),
-        )->load(['course:id,uuid,title', 'mediaAsset']));
+        )->load(['course:id,uuid,title', 'mediaAsset', 'subject']));
     }
 
     private function workspaceId(): int

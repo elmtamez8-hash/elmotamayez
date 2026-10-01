@@ -6,12 +6,16 @@ namespace App\Modules\Store\Models;
 
 use App\Models\BaseModel;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Store\Enums\StoreItemKind;
 use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use App\Shared\Traits\IsPubliclyListed;
 use Database\Factories\Modules\Store\StoreItemFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,11 +42,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class StoreItem extends BaseModel
 {
     /** @use HasFactory<StoreItemFactory> */
-    use BelongsToWorkspace, HasFactory, HasUuid;
+    use BelongsToWorkspace, HasFactory, HasUuid, IsPubliclyListed;
 
     protected $fillable = [
         'workspace_id',
         'course_id',
+        'teacher_profile_id',
+        'subject_id',
         'kind',
         'title',
         'description',
@@ -88,6 +94,39 @@ class StoreItem extends BaseModel
     public function coverUrl(): ?string
     {
         return $this->cover_path === null ? null : asset('storage/'.$this->cover_path);
+    }
+
+    /**
+     * The public store (`/marketplace/store/*`): on sale, and its teacher's
+     * profile listed and approved — the same bar a course's public page meets.
+     * `scopePubliclyListed()` adds the workspace's marketplace participation and
+     * drops the workspace scope for the cross-tenant read.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    protected function publicListingConstraints(Builder $query): Builder
+    {
+        return $query
+            ->where('store_items.is_active', true)
+            ->whereExists(fn ($sub) => $sub->selectRaw('1')
+                ->from('teacher_profiles')
+                ->whereColumn('teacher_profiles.id', 'store_items.teacher_profile_id')
+                ->whereNull('teacher_profiles.deleted_at')
+                ->where('teacher_profiles.is_publicly_listed', true)
+                ->where('teacher_profiles.approval_status', TeacherProfile::STATUS_APPROVED));
+    }
+
+    /** @return BelongsTo<TeacherProfile, $this> */
+    public function teacherProfile(): BelongsTo
+    {
+        return $this->belongsTo(TeacherProfile::class);
+    }
+
+    /** @return BelongsTo<Subject, $this> */
+    public function subject(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class);
     }
 
     /** @return BelongsTo<Course, $this> */

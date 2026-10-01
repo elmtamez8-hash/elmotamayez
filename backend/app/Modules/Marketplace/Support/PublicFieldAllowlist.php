@@ -412,6 +412,24 @@ final class PublicFieldAllowlist
     /** @var list<string> */
     public const FAQ = ['question', 'answer'];
 
+    /*
+    | The public store (2026-10-01) — `PublicStoreController`. A product's price
+    | IS published: it is a shop, and `price_minor` is not the course price nor
+    | the teacher's rate that spec 006 took off the browse surfaces. Stock is
+    | not: `is_available` answers the only question a visitor has.
+    */
+    /** @var list<string> */
+    public const STORE_ITEM = [
+        'uuid', 'kind', 'kind_label', 'title', 'excerpt', 'description_html', 'price_minor', 'currency',
+        'shipping_fee_minor', 'is_available', 'cover_url', 'teacher', 'subject', 'course',
+    ];
+
+    /** @var list<string> the product's byline, subject and course — nested in `STORE_ITEM` */
+    public const STORE_ITEM_NESTED = ['uuid', 'slug', 'name', 'title'];
+
+    /** @var list<string> the filter bar's choices */
+    public const STORE_FACETS = ['teachers', 'subjects', 'total'];
+
     /** @var list<string> */
     public const TAXONOMY = ['slug', 'name', 'icon', 'teachers_count'];
 

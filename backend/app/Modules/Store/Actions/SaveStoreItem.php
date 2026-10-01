@@ -6,6 +6,8 @@ namespace App\Modules\Store\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Store\Data\StoreItemData;
@@ -82,6 +84,9 @@ class SaveStoreItem extends Action
         $item->fill([
             'workspace_id' => $workspaceId,
             'course_id' => $courseId,
+            // The public store's two filters, resolved once here (see the migration).
+            'teacher_profile_id' => $this->resolveTeacherProfileId($courseId, $workspaceId, $actor, $item),
+            'subject_id' => $this->resolveSubjectId($data->subjectSlug, $courseId),
             'kind' => $data->kind,
             'title' => $data->title,
             'description' => $data->description,
@@ -170,6 +175,53 @@ class SaveStoreItem extends Action
         }
 
         return (int) $asset->getKey();
+    }
+
+    /**
+     * Whose product this is, for the public store: the course's teacher when it
+     * hangs off one (`Course::teacherProfileForListing()`, the course page's
+     * byline), else the saver's own profile here, else the one it already had,
+     * else the workspace's founder — the first profile created in it.
+     */
+    private function resolveTeacherProfileId(?int $courseId, int $workspaceId, ?User $actor, ?StoreItem $item): ?int
+    {
+        if ($courseId !== null) {
+            $profile = Course::query()->withoutWorkspaceScope()->find($courseId)?->teacherProfileForListing();
+
+            if ($profile !== null) {
+                return (int) $profile->getKey();
+            }
+        }
+
+        $profiles = TeacherProfile::query()->withoutGlobalScopes()->where('workspace_id', $workspaceId);
+
+        $own = $actor === null ? null : (clone $profiles)->where('user_id', $actor->getKey())->value('id');
+
+        $id = $own ?? $item->teacher_profile_id ?? $profiles->orderBy('id')->value('id');
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /** The subject the teacher picked, else the linked course's, else none. */
+    private function resolveSubjectId(?string $subjectSlug, ?int $courseId): ?int
+    {
+        if ($subjectSlug !== null) {
+            $id = Subject::query()->where('slug', $subjectSlug)->orderBy('id')->value('id');
+
+            if ($id === null) {
+                throw new DomainException('المادة المختارة غير موجودة.');
+            }
+
+            return (int) $id;
+        }
+
+        if ($courseId === null) {
+            return null;
+        }
+
+        $id = Course::query()->withoutWorkspaceScope()->whereKey($courseId)->value('subject_id');
+
+        return $id === null ? null : (int) $id;
     }
 
     private function resolveCourseId(?string $courseUuid, int $workspaceId): ?int

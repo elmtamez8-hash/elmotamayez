@@ -36,7 +36,7 @@ use App\Models\User;
 final class GuardianActionUrl
 {
     /** Paths whose page already answers a guardian correctly. */
-    private const GUARDIAN_SAFE = ['/reviews', '/store', '/family'];
+    private const GUARDIAN_SAFE = ['/reviews', '/purchases', '/family'];
 
     public static function for(?string $url, User $student): ?string
     {
