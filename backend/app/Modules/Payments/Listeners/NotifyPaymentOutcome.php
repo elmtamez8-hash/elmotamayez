@@ -46,7 +46,7 @@ class NotifyPaymentOutcome implements ShouldQueueAfterCommit
             type: NotificationType::PaymentConfirmed,
             variables: ['course' => $this->describe($order)],
             // Where the thing bought now lives — the same rule as an approved receipt.
-            actionUrl: $order->kind === OrderKind::Store ? '/store' : '/billing',
+            actionUrl: $order->kind === OrderKind::Store ? '/purchases' : '/billing',
             workspaceId: $order->workspace_id,
         ));
     }
@@ -96,7 +96,7 @@ class NotifyPaymentOutcome implements ShouldQueueAfterCommit
             type: NotificationType::ReceiptApproved,
             variables: ['course' => $this->describe($order)],
             // Where the thing bought now lives: the purchases, or the balance.
-            actionUrl: $order->kind === OrderKind::Store ? '/store' : '/billing',
+            actionUrl: $order->kind === OrderKind::Store ? '/purchases' : '/billing',
             subject: $order->user,
             workspaceId: $order->workspace_id,
         ));
@@ -140,6 +140,14 @@ class NotifyPaymentOutcome implements ShouldQueueAfterCommit
      */
     private function describe(Order $order): string
     {
+        // A store order names the PRODUCT — its course (when linked) is not what
+        // was bought. The title is the snapshot `PurchaseStoreItem` wrote.
+        $product = $order->kind === OrderKind::Store ? ($order->metadata['store_item_title'] ?? null) : null;
+
+        if (is_string($product) && $product !== '') {
+            return $product;
+        }
+
         $title = $order->course?->title;
 
         return is_string($title) && $title !== '' ? $title : $order->kind->label();

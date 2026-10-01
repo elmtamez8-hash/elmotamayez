@@ -356,6 +356,40 @@ export type TeacherDetail = TeacherCard & {
   intro_video_url: string | null;
 };
 
+/** A product on the public store — `PublicStoreItemResource`. */
+export type PublicStoreItem = {
+  uuid: string;
+  kind: "digital" | "physical";
+  kind_label: string;
+  title: string;
+  excerpt: string | null;
+  /** The description rendered from Markdown by the API — the product page only. */
+  description_html?: string;
+  price_minor: number;
+  currency: string;
+  shipping_fee_minor: number | null;
+  is_available: boolean;
+  cover_url: string | null;
+  teacher: { uuid: string; slug: string | null; name: string | null } | null;
+  subject: { slug: string; name: string } | null;
+  /** Only when the course's own public page exists. */
+  course: { uuid: string; title: string; slug: string | null } | null;
+};
+
+/**
+ * The store's filters, read by the server page AND the client filter bar — here
+ * rather than in the `"use client"` component, whose non-component exports reach
+ * a Server Component as client references, not values.
+ */
+export const STORE_FILTER_KEYS = ["teacher", "subject", "kind", "course"] as const;
+
+/** What the store's filter bar offers — only choices that have products. */
+export type StoreFacets = {
+  teachers: Array<{ uuid: string; name: string | null }>;
+  subjects: Array<{ slug: string; name: string }>;
+  total: number;
+};
+
 export type Paginated<T> = {
   data: T[];
   meta: {
@@ -533,6 +567,16 @@ export const publicApi = {
 
   courses: (params: Record<string, string | undefined>) =>
     get<Paginated<CourseCard>>("/marketplace/courses", params),
+
+  // The public store (2026-10-01). Filters: teacher (uuid), subject (slug),
+  // kind, course (uuid), sort. A uuid for the product, never a slug.
+  storeItems: (params: Record<string, string | undefined>) =>
+    get<Paginated<PublicStoreItem>>("/marketplace/store/items", params),
+
+  storeItem: (uuid: string) =>
+    get<PublicStoreItem>(`/marketplace/store/items/${encodeURIComponent(uuid)}`),
+
+  storeFacets: () => get<StoreFacets>("/marketplace/store/facets"),
 
   /*
    * ⚠️ A uuid, NEVER a slug — unlike `teacher()` one line up, which takes

@@ -103,6 +103,9 @@ nothing on these requests; the guard is `publiclyListed()` inside each Action.
 | GET | `/marketplace/teachers` | Filters: subject, grade_level, price, min_rating, min_trust_score, language, available_now, q; sorts: rating_desc, price_asc, trust_desc |
 | GET | `/marketplace/teachers/{slug}` | Resolves a slug **or** a uuid — links shared before slugs existed are uuids; the page 308s to the canonical slug. One 404 for missing / unapproved / unlisted / withdrawn |
 | GET | `/marketplace/courses` | Filters: subject, grade_level, type, price; sorts: popular, price_asc, newest |
+| GET | `/marketplace/store/items` | The public store: `StoreItem::publiclyListed()`. Filters: teacher (uuid), subject (slug), kind, course (uuid); sorts: newest, price_asc, price_desc |
+| GET | `/marketplace/store/items/{uuid}` | One product, with `description_html`. One 404 for missing / off sale / unlisted teacher |
+| GET | `/marketplace/store/facets` | The filter bar's teachers and subjects — only those with a listed product |
 | GET | `/marketplace/courses/{courseKey}/lessons/{lessonUuid}` | 032 — one OPEN `embed` lesson, watched with no account. Course key is a slug **or** a uuid. **One 404** for seven reasons: unknown uuid · locked lesson · lesson in a draft section · open lesson of any other kind · draft course · unlisted teacher · deleted course |
 | POST | `/marketplace/courses/{courseKey}/lessons/{lessonUuid}/report` | 032 — «الفيديو لا يعمل», from whoever is watching. No account, **no request body**, and one constant `202` whatever it finds. One alert per lesson per 24h, plus one for a second distinct reporter inside that window |
 

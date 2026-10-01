@@ -114,11 +114,12 @@ const DESTINATIONS: Array<{ path: string; from: string }> = [
    */
   { path: "/family", from: "LinkGuardian · AcceptRelation · RegisterStudent::inviteGuardian" },
   /*
-   * The store buyer's purchases live on `/store` itself. Both store notices
+   * The store buyer's purchases live on `/purchases` (moved from `/store` on
+   * 2026-10-01, when `/store` became the public catalogue). Both store notices
    * pointed at `/store/purchases` — the API route's path, not a page — so a
    * parcel update and a refund notice were each a 404 to whoever pressed them.
    */
-  { path: "/store", from: "FulfilStorePurchase · AdvanceShipment · NotifyPaymentOutcome (store)" },
+  { path: "/purchases", from: "FulfilStorePurchase · AdvanceShipment · NotifyPaymentOutcome (store)" },
   // The receipt path: a refused receipt is re-uploaded on the SAME order.
   // (The officer's «a receipt is waiting» used to land here too, on a list whose
   // approve/refuse buttons had moved to the panel — see PANEL_DESTINATIONS.)
@@ -164,7 +165,9 @@ describe("notification destinations", () => {
     "/assignments/a1b2c3d4",
     "/manage/assignments/a1b2c3d4",
     "/teacher/application",
-    "/store/purchases",
+    // `/store/purchases` LEFT THIS LIST ON 2026-10-01: `/store/[item]` (the public
+    // product page) now matches it as a product uuid that answers 404 — no
+    // notification names it; the purchases page is `/purchases`.
   ])("%s is still not a route, which is why it was a 404", (path) => {
     expect(known.some((route) => matches(route, path))).toBe(false);
   });

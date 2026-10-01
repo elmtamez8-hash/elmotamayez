@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Marketplace\Models\Subject;
+use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Media\Enums\MediaKind;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\MediaLimits;
 use App\Modules\Store\Actions\PurchaseStoreItem;
 use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
+use App\Modules\Tenancy\Support\Roles;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -171,4 +174,33 @@ it('reserves no file for a printed product', function (): void {
     $item = StoreItem::factory()->physical()->create(['workspace_id' => $this->workspace->getKey()]);
 
     $this->postJson("/api/v1/store/items/{$item->uuid}/file", ['filename' => 'x.pdf'])->assertUnprocessable();
+});
+
+it('files the product under the subject picked, or its course\'s, for the public store', function (): void {
+    $subject = Subject::query()->firstOrFail();
+
+    $picked = $this->postJson('/api/v1/store/items', printedPayload(['subject_slug' => $subject->slug]))
+        ->assertCreated()
+        ->assertJsonPath('subject_slug', $subject->slug);
+
+    expect((int) StoreItem::query()->where('uuid', $picked->json('uuid'))->value('subject_id'))->toBe((int) $subject->getKey());
+
+    $this->postJson('/api/v1/store/items', printedPayload(['subject_slug' => 'no-such-subject']))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('subject_slug');
+});
+
+it('keeps a product\'s teacher when someone else in the workspace edits it', function (): void {
+    $founder = TeacherProfile::factory()->create(['workspace_id' => $this->workspace->getKey(), 'user_id' => $this->owner->getKey()]);
+
+    $uuid = $this->postJson('/api/v1/store/items', printedPayload())->assertCreated()->json('uuid');
+    expect((int) StoreItem::query()->where('uuid', $uuid)->value('teacher_profile_id'))->toBe((int) $founder->getKey());
+
+    $colleague = $this->addWorkspaceMember($this->workspace, Roles::TENANT_OWNER);
+    TeacherProfile::factory()->create(['workspace_id' => $this->workspace->getKey(), 'user_id' => $colleague->getKey()]);
+    Sanctum::actingAs($colleague);
+
+    $this->putJson("/api/v1/store/items/{$uuid}", printedPayload(['title' => 'معدّل']))->assertOk();
+
+    expect((int) StoreItem::query()->where('uuid', $uuid)->value('teacher_profile_id'))->toBe((int) $founder->getKey());
 });

@@ -94,6 +94,9 @@ class DatabaseSeeder extends Seeder
             // since spec 009 and no longer depends on any workspace.)
             $this->call(MarketplaceSeeder::class);
 
+            // Fake store products for the listed teachers above — local testing only.
+            $this->call(StoreDemoSeeder::class);
+
             // Last, and after the demo teacher exists: platform standing is a row
             // added to somebody who is already there. `platform_staff` was empty on
             // every development database until now, which left the officer's half

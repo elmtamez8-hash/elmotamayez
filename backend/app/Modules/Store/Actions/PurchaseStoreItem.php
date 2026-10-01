@@ -15,6 +15,7 @@ use App\Modules\Store\Models\Shipment;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Store\Support\StoreSettings;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Actions\Action;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,13 @@ class PurchaseStoreItem extends Action
     public function handle(User $buyer, PurchaseData $data): StoreOrder
     {
         $item = $this->resolveItem($data->itemUuid);
+
+        // The shop's own staff do not buy from it: an order the teacher pays to
+        // themselves is a commission charge and a stock movement with no buyer.
+        // (A guardian DOES buy — usually for their child — and is not refused.)
+        if ($buyer->workspaces()->where('workspaces.id', $item->workspace_id)->wherePivot('role', '!=', Roles::STUDENT)->exists()) {
+            throw new DomainException('لا يمكنك شراء منتج من متجرك.');
+        }
 
         if ($data->quantity < 1) {
             throw new DomainException('الكمية يجب أن تكون واحدة على الأقل.');

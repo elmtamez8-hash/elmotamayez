@@ -360,7 +360,7 @@ export const mainNav: NavItem[] = [
    * the page lists their own purchases plus the stores of the teachers they are
    * actually enrolled with.
    */
-  { href: "/store", label: "مشترياتي", Icon: StoreIcon, audience: ["student"] },
+  { href: "/purchases", label: "مشترياتي", Icon: StoreIcon, audience: ["student"] },
   /*
    * ⚠️ AND THE SAME SHAPE ONE ROW DOWN, WITH A SECOND FAULT: «متجري» was a
    * possessive beside the learner's «مشترياتي», AND the page it opened was

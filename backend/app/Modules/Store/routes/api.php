@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Store\Http\Controllers\PublicStoreController;
 use App\Modules\Store\Http\Controllers\ShipmentController;
 use App\Modules\Store\Http\Controllers\StoreItemController;
 use App\Modules\Store\Http\Controllers\StoreItemMediaController;
@@ -27,6 +28,13 @@ use Illuminate\Support\Facades\Route;
 | buyer's order. The teacher's routes DO bind, safely, because the reader is a
 | member there and a foreign uuid 404s before any policy runs.
 */
+
+// ── The public store — no auth, every listed teacher (`PublicStoreController`).
+Route::middleware('throttle:public')->prefix('marketplace/store')->group(function (): void {
+    Route::get('/items', [PublicStoreController::class, 'index']);
+    Route::get('/items/{item}', [PublicStoreController::class, 'show']);
+    Route::get('/facets', [PublicStoreController::class, 'facets']);
+});
 
 Route::middleware('auth:sanctum')->group(function (): void {
     // ── The teacher ─────────────────────────────────────────────────────────

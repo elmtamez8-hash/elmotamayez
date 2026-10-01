@@ -18,6 +18,7 @@ const ROUTES = [
   "enrollments",
   "learn",
   "orders",
+  "purchases",
   "subscribe",
   "plans",
   "schedule",

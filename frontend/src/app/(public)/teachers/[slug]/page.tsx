@@ -7,6 +7,7 @@ import {
   CoursesIcon,
   LearningIcon,
   MessagesIcon,
+  OrdersIcon,
   ProgressIcon,
   QuestionIcon,
   SessionsIcon,
@@ -32,6 +33,7 @@ import { TrustScoreBreakdown } from "@/components/marketplace/TrustScoreBreakdow
 import { AvailabilityCalendar } from "@/components/marketplace/AvailabilityCalendar";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { CourseCard } from "@/components/marketplace/CourseCard";
+import { PublicStoreCard } from "@/components/store/PublicStoreCard";
 import { ReviewsTab } from "@/components/marketplace/ReviewsTab";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { videoEmbedUrl } from "@/lib/video-embed";
@@ -169,6 +171,11 @@ export default async function TeacherProfilePage({
   const { tab } = await searchParams;
 
   const teacher = await loadTeacher(slug);
+  // Best-effort: the profile renders without its shelf rather than failing.
+  const storeItems = await publicApi
+    .storeItems({ teacher: teacher.uuid })
+    .then((page) => page.data)
+    .catch(() => []);
   const active: ProfileTabId = isProfileTab(tab) ? tab : "about";
 
   // 308 to the canonical slug when the visitor arrived on the old uuid URL.
@@ -555,6 +562,31 @@ export default async function TeacherProfilePage({
                           course={course}
                           anchor="#groups"
                         />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* The teacher's books and notes, when they sell any — the store's
+                    own cards, and a way through to the whole shelf. */}
+                {storeItems.length > 0 && (
+                  <section aria-labelledby="store-heading" className="space-y-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 id="store-heading" className="flex items-center gap-2 text-lg font-extrabold text-ink">
+                        <OrdersIcon className="h-5 w-5 text-primary-ink" />
+                        كتب ومذكّرات {teacher.name}
+                      </h2>
+                      <Link
+                        href={`/store?teacher=${encodeURIComponent(teacher.uuid)}`}
+                        className="text-sm font-semibold text-primary-ink hover:underline"
+                      >
+                        كل منتجات المدرّس
+                      </Link>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      {storeItems.slice(0, 4).map((item) => (
+                        <PublicStoreCard key={item.uuid} item={item} />
                       ))}
                     </div>
                   </section>

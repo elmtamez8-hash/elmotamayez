@@ -104,6 +104,18 @@ it('names the kind when a refused order has no course, rather than dropping the 
         ->and($notices->first()->body)->toContain(OrderKind::Store->label());
 });
 
+it('names the product on a store order, not the course it hangs off', function (): void {
+    // The snapshot `PurchaseStoreItem` writes; the linked course is not what was bought.
+    $order = receiptNoticeOrder(OrderKind::Store);
+    $order->forceFill(['metadata' => ['store_item_title' => 'مذكّرة الكيمياء']])->save();
+
+    app(RejectOrder::class)->handle(receiptNoticeUpload($order, $this->student)->refresh(), $this->owner, 'الصورة غير واضحة');
+
+    expect(receiptNoticesFor($this->student, NotificationType::ReceiptRejected)->first()->body)
+        ->toContain('مذكّرة الكيمياء')
+        ->not->toContain($this->course->title);
+});
+
 // The payer: accepted --------------------------------------------------------
 
 it('tells a store buyer their receipt was accepted, and where their purchase is', function (): void {
@@ -114,7 +126,7 @@ it('tells a store buyer their receipt was accepted, and where their purchase is'
     $notices = receiptNoticesFor($this->student, NotificationType::ReceiptApproved);
 
     expect($notices)->toHaveCount(1)
-        ->and($notices->first()->action_url)->toBe('/store')
+        ->and($notices->first()->action_url)->toBe('/purchases')
         // The reworded body: a store buyer holds no balance to have «added».
         ->and($notices->first()->body)->not->toContain('رصيدك');
 });

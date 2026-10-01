@@ -62,6 +62,8 @@ export function StoreItemForm({
   const [shipping, setShipping] = useState(item?.shipping_fee ?? "");
   const [courseUuid, setCourseUuid] = useState(item?.course?.uuid ?? "");
   const [courses, setCourses] = useState<Array<{ value: string; label: string }>>([]);
+  const [subjectSlug, setSubjectSlug] = useState(item?.subject_slug ?? "");
+  const [subjects, setSubjects] = useState<Array<{ value: string; label: string }>>([]);
   const [file, setFile] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
@@ -79,6 +81,14 @@ export function StoreItemForm({
       .get<{ data: Array<{ uuid: string; title: string }> }>("/courses?per_page=200")
       .then((res) => setCourses(res.data.map((course) => ({ value: course.uuid, label: course.title }))))
       .catch(() => setCourses([]));
+
+    // The whole active vocabulary (the signup read), not the marketplace's
+    // «subjects with a listed teacher» — a new teacher's first product must be
+    // fileable too.
+    api
+      .get<Array<{ slug: string; name: string }>>("/signup/subjects")
+      .then((rows) => setSubjects(rows.map((subject) => ({ value: subject.slug, label: subject.name }))))
+      .catch(() => setSubjects([]));
   }, []);
 
   const priceMinor = majorToMinor(price);
@@ -113,6 +123,7 @@ export function StoreItemForm({
       description: description || null,
       excerpt: excerpt || null,
       course_uuid: courseUuid || null,
+      subject_slug: subjectSlug || null,
       is_active: isActive,
       // `null` for the other type, never zero: `null` is «cannot run out».
       stock: kind === "physical" ? Number.parseInt(stock, 10) : null,
@@ -218,6 +229,16 @@ export function StoreItemForm({
         onChange={setCourseUuid}
         options={[{ value: "", label: "بدون كورس" }, ...courses]}
         error={errors.course_uuid}
+      />
+
+      <SelectField
+        id="subject_slug"
+        label="المادة"
+        hint="يُصنَّف بها المنتج في المتجر العام. اتركها ليُؤخذ تصنيف الكورس المرتبط."
+        value={subjectSlug}
+        onChange={setSubjectSlug}
+        options={[{ value: "", label: "من الكورس المرتبط" }, ...subjects]}
+        error={errors.subject_slug}
       />
 
       <NumberField

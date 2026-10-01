@@ -268,6 +268,13 @@ export default function StorePage() {
       {teachers.length > 0 && (
         <section aria-labelledby="store-teachers" className="space-y-4">
           <SectionHeading id="store-teachers" Icon={ShopIcon} title="متاجر مدرّسيك" />
+          <p className="text-sm text-ink-muted">
+            {"أو تصفّح "}
+            <Link href="/store" className="font-medium text-primary-ink underline underline-offset-4">
+              المتجر العام
+            </Link>
+            {" بكتب ومذكّرات كل المدرّسين."}
+          </p>
 
           <SelectField
             id="teacher"

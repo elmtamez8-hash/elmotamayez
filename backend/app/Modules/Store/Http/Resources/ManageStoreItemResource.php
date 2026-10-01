@@ -30,6 +30,8 @@ class ManageStoreItemResource extends StoreItemResource
             'commission_bps' => StoreSettings::commissionBps(),
             'price' => $this->price,
             'shipping_fee' => $this->shipping_fee,
+            // For the form's subject picker to fill from.
+            'subject_slug' => $this->whenLoaded('subject', fn (): ?string => $this->subject?->slug),
             'file' => $this->whenLoaded('mediaAsset', fn (): ?array => $this->mediaAsset instanceof MediaAsset ? [
                 'uuid' => $this->mediaAsset->uuid,
                 'name' => $this->mediaAsset->original_filename,
