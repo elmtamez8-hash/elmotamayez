@@ -89,8 +89,8 @@ function announcementFixture(): array
         $post($workspace, $owner, Announcement::SCOPE_COURSE, (int) $course->getKey(), 'ألغِ ما قلتُه.')
             ->forceFill(['hidden_at' => now()])->save();
 
-        // Workspace-wide: reaches this student through the bell, and is not «this
-        // course's announcement». Repeated under every course tab it is noise.
+        // Workspace-wide: shown under every course tab of THIS workspace too
+        // (owner decision 2026-10-01), so it survives the bell being cleared.
         $post($workspace, $owner, Announcement::SCOPE_ALL, null, 'إجازةٌ الأسبوعَ القادم.');
 
         return compact('course', 'other');
@@ -106,6 +106,8 @@ function announcementFixture(): array
         ]);
 
         $post($foreignWorkspace, $foreignOwner, Announcement::SCOPE_COURSE, (int) $foreign->getKey(), 'كلامُ مدرّسٍ آخر.');
+        // Another workspace's `all` — the reader's null context must not widen to it.
+        $post($foreignWorkspace, $foreignOwner, Announcement::SCOPE_ALL, null, 'إعلانُ مساحةٍ أخرى.');
 
         return $foreign;
     });
@@ -127,11 +129,11 @@ it('gives the student this course\'s live announcements and nothing else', funct
             ->json('data'),
     )->pluck('body')->all();
 
-    expect($bodies)->toBe(['حصّةُ الغدِ في السابعة.'])
+    expect($bodies)->toEqualCanonicalizing(['حصّةُ الغدِ في السابعة.', 'إجازةٌ الأسبوعَ القادم.'])
         ->and($bodies)->not->toContain('كلامٌ عن الفيزياء.')
         ->and($bodies)->not->toContain('مسوّدةٌ لم تُنشَر.')
         ->and($bodies)->not->toContain('ألغِ ما قلتُه.')
-        ->and($bodies)->not->toContain('إجازةٌ الأسبوعَ القادم.');
+        ->and($bodies)->not->toContain('إعلانُ مساحةٍ أخرى.');
 });
 
 /*

@@ -51,6 +51,12 @@ type VisibilityFilter = "all" | "visible" | "hidden";
 
 /** The row's heading: who it went to. The body is the row's text, shown once. */
 function audienceTitle(announcement: Announcement): string {
+  const name = announcement.target_name;
+  if (name) {
+    const kind = ({ course: "كورس", session: "حصة", cohort: "مجموعة" } as Record<string, string>)[announcement.scope];
+    if (kind !== undefined) return `إلى ${kind} «${name}»`;
+  }
+
   const label = ANNOUNCEMENT_SCOPES.find((option) => option.key === announcement.scope)?.label;
 
   return label !== undefined ? `إلى ${label}` : "إعلان";

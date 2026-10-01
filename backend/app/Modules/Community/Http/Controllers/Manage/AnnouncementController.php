@@ -15,6 +15,9 @@ use App\Modules\Community\Http\Requests\SaveAnnouncementRequest;
 use App\Modules\Community\Http\Resources\AnnouncementResource;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Support\AnnouncementCourses;
+use App\Modules\Courses\Models\Course;
+use App\Modules\Learning\Models\Cohort;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\JsonResponse;
@@ -147,9 +150,35 @@ class AnnouncementController extends Controller
     private function withStats(Collection $announcements): Collection
     {
         $stats = $this->stats->forMany($announcements);
+        $targets = $this->targetNames($announcements);
 
-        return $announcements->each(function (Announcement $announcement) use ($stats): void {
+        return $announcements->each(function (Announcement $announcement) use ($stats, $targets): void {
             $announcement->setAttribute('stats', $stats[(int) $announcement->getKey()] ?? ['notified' => 0, 'read' => 0]);
+            $announcement->setAttribute('target_name', $targets[$announcement->scope][(int) $announcement->scope_id] ?? null);
         });
+    }
+
+    /**
+     * «إلى كورس الرياضيات» rather than «إلى كورس واحد» — the course, session or
+     * group each row went to, one query per scope for the whole page.
+     *
+     * @param  Collection<int, Announcement>  $announcements
+     * @return array<string, array<int, string>>
+     */
+    private function targetNames(Collection $announcements): array
+    {
+        $ids = fn (string $scope): array => $announcements
+            ->where('scope', $scope)
+            ->pluck('scope_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return [
+            Announcement::SCOPE_COURSE => Course::query()->whereIn('id', $ids(Announcement::SCOPE_COURSE))->pluck('title', 'id')->all(),
+            Announcement::SCOPE_SESSION => ClassSession::query()->whereIn('id', $ids(Announcement::SCOPE_SESSION))->pluck('title', 'id')->all(),
+            Announcement::SCOPE_COHORT => Cohort::query()->whereIn('id', $ids(Announcement::SCOPE_COHORT))->pluck('name', 'id')->all(),
+        ];
     }
 }
