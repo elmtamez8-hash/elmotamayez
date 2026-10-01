@@ -41,6 +41,8 @@ vi.mock("@/lib/public-api", async (importOriginal) => {
     publicApi: {
       course: vi.fn(),
       teacher: (key: string) => teacher(key),
+      // The course's shelf (2026-10-01): empty here, so the page renders no store section.
+      storeItems: async () => ({ data: [], meta: { current_page: 1, per_page: 24, total: 0, last_page: 1 } }),
     },
   };
 });
