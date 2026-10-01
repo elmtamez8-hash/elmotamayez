@@ -1,7 +1,7 @@
 "use client";
 
-import { MarkdownField } from "./MarkdownField";
 import { Alert } from "@/components/ui/Alert";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 import type { LessonDetail } from "@/lib/courses";
 
 /**
@@ -34,12 +34,14 @@ export function NoteEditor({
         وصولهم إلى ما بعده. اجعله للتذكير لا للمحتوى الذي تريد أن يُدرَس.
       </Alert>
 
-      <MarkdownField
+      {/* The shared rich-text field, as the article's: Markdown in and out, and
+          keyed by the lesson because it reads `value` on mount only. */}
+      <RichMarkdownEditor
+        key={lesson.uuid}
         id={`note-${lesson.uuid}`}
         label="نصّ التنويه"
         hint="اجعله قصيراً — التنويه الطويل يُقرأ كدرس."
         value={content}
-        savedHtml={lesson.content_html}
         disabled={disabled}
         onChange={onChange}
       />

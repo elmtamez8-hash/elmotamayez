@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 import {
   CheckboxField,
   NumberField,
   SelectField,
   TextField,
-  TextareaField,
 } from "@/components/ui/Field";
 import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
@@ -213,7 +213,11 @@ export function StoreItemForm({
         error={errors.excerpt}
       />
 
-      <TextareaField
+      {/* Rendered as Markdown on the public product page (`description_html`),
+          so it is written in the shared rich-text field. Keyed by the product:
+          the editor reads `value` on mount only. */}
+      <RichMarkdownEditor
+        key={item?.uuid ?? "new"}
         id="description"
         label="الوصف"
         hint="ما يجده الطالب في صفحة المنتج: المحتوى، عدد الصفحات، لمن يناسب."
