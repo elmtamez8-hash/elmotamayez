@@ -58,6 +58,13 @@ class StoreDemoSeeder extends Seeder
 
     public function run(): void
     {
+        // Fake products on a live store would be sold to real students.
+        if (app()->environment('production')) {
+            $this->command->warn('StoreDemoSeeder is local-only; skipped in production.');
+
+            return;
+        }
+
         $currency = app(BillingSettings::class)->currency();
 
         $profiles = TeacherProfile::query()

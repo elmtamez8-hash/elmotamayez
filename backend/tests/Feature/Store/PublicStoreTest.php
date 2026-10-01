@@ -3,11 +3,16 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Marketplace\Support\PublicFieldAllowlist;
+use App\Modules\Store\Actions\PurchaseStoreItem;
+use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Roles;
+use App\Shared\Support\WorkspaceContext;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -175,4 +180,50 @@ it('publishes only allowlisted keys, and says availability rather than stock', f
 
     expect(storePayloadKeys($payloads['list']))->not->toContain('stock')->not->toContain('commission_bps')
         ->and($payloads['detail']['is_available'])->toBeTrue();
+});
+
+it('links a product to its course only when the course has a public page, and filters by course', function (): void {
+    $this->asGuest();
+
+    [$public, $private] = app(WorkspaceContext::class)->forWorkspace($this->academy, fn (): array => [
+        Course::factory()->published()->create(['workspace_id' => $this->academy->getKey(), 'created_by' => $this->teacher->user_id]),
+        Course::factory()->create(['workspace_id' => $this->academy->getKey(), 'created_by' => $this->teacher->user_id]),
+    ]);
+
+    $linked = storeProduct($this->academy, $this->teacher, ['title' => 'مع كورس عام', 'course_id' => $public->getKey()]);
+    $hiddenCourse = storeProduct($this->academy, $this->teacher, ['title' => 'مع كورس خاص', 'course_id' => $private->getKey()]);
+
+    expect($this->getJson('/api/v1/marketplace/store/items/'.$linked->uuid)->json('course.uuid'))->toBe($public->uuid)
+        // The product is still sold; only the link to a page that would 404 is dropped.
+        ->and($this->getJson('/api/v1/marketplace/store/items/'.$hiddenCourse->uuid)->assertOk()->json('course'))->toBeNull()
+        ->and(collect($this->getJson('/api/v1/marketplace/store/items?course='.$public->uuid)->json('data'))->pluck('title')->all())
+        ->toBe(['مع كورس عام']);
+});
+
+it('answers a signed-in reader whose context resolved to their own workspace, facets included', function (): void {
+    [$third] = $this->createWorkspaceWithOwner(['name' => 'Third']);
+    $student = User::factory()->create(['last_workspace_id' => $third->getKey()]);
+    Sanctum::actingAs($student);
+
+    $titles = collect($this->getJson('/api/v1/marketplace/store/items')->assertOk()->json('data'))->pluck('title');
+    $facets = $this->getJson('/api/v1/marketplace/store/facets')->assertOk()->json();
+
+    // The precondition the test exists for: the reader's context is NOT null —
+    // a scoped query would have ANDed the third workspace onto every read.
+    expect(app(WorkspaceContext::class)->id())->toBe((int) $third->getKey())
+        ->and($titles)->toHaveCount(3)
+        ->and($facets['total'])->toBe(3);
+});
+
+it('refuses a purchase by the shop\'s own staff, and sells to a student of another workspace', function (): void {
+    $staff = User::query()->findOrFail($this->teacher->user_id);
+    $this->academy->members()->syncWithoutDetaching([$staff->getKey() => ['role' => Roles::TEACHER]]);
+
+    expect(fn () => app(PurchaseStoreItem::class)->handle($staff, PurchaseData::fromArray(['item_uuid' => $this->pdf->uuid])))
+        ->toThrow(DomainException::class, 'لا يمكنك شراء منتج من متجرك.');
+
+    $buyer = User::factory()->create();
+
+    expect(app(PurchaseStoreItem::class)->handle($buyer, PurchaseData::fromArray(['item_uuid' => $this->pdf->uuid]))->uuid)
+        ->not->toBeNull();
 });

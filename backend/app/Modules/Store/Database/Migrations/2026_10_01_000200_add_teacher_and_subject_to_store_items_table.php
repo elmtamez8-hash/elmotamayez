@@ -38,8 +38,10 @@ return new class extends Migration
                 ? null
                 : DB::table('courses')->where('id', $item->course_id)->value('subject_id');
 
+            // The same founder `SaveStoreItem` falls back to: a live profile only.
             $teacherId = DB::table('teacher_profiles')
                 ->where('workspace_id', $item->workspace_id)
+                ->whereNull('deleted_at')
                 ->orderBy('id')
                 ->value('id');
 
@@ -53,10 +55,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('store_items', function (Blueprint $table): void {
+            // Foreign keys FIRST: MySQL lets the composite index serve each FK and
+            // refuses to drop an index a constraint still needs (error 1553).
+            $table->dropForeign(['teacher_profile_id']);
+            $table->dropForeign(['subject_id']);
             $table->dropIndex('store_items_teacher_active_idx');
             $table->dropIndex('store_items_subject_active_idx');
-            $table->dropConstrainedForeignId('teacher_profile_id');
-            $table->dropConstrainedForeignId('subject_id');
+            $table->dropColumn(['teacher_profile_id', 'subject_id']);
         });
     }
 };

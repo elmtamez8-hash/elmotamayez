@@ -15,6 +15,7 @@ use App\Modules\Store\Enums\StoreItemKind;
 use App\Modules\Store\Models\StoreItem;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Scopes\WorkspaceScope;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
 
@@ -193,11 +194,13 @@ class SaveStoreItem extends Action
             }
         }
 
-        $profiles = TeacherProfile::query()->withoutGlobalScopes()->where('workspace_id', $workspaceId);
+        // The workspace scope only — `SoftDeletes` stays, so a deleted profile is never chosen.
+        $profiles = TeacherProfile::query()->withoutGlobalScope(WorkspaceScope::class)->where('workspace_id', $workspaceId);
 
         $own = $actor === null ? null : (clone $profiles)->where('user_id', $actor->getKey())->value('id');
 
-        $id = $own ?? $item->teacher_profile_id ?? $profiles->orderBy('id')->value('id');
+        // An edit keeps the product's teacher: whoever presses «حفظ» does not take it over.
+        $id = $item->teacher_profile_id ?? $own ?? $profiles->orderBy('id')->value('id');
 
         return $id === null ? null : (int) $id;
     }
