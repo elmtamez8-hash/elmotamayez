@@ -327,3 +327,38 @@ describe("a publish from the tree", () => {
     );
   });
 });
+
+/*
+| ⛔ A TOGGLE MUST NOT TAKE BACK WHAT IS BEING TYPED (review of #310). The body
+| editor reads its value once; `run()` used to write the server's OLD body into
+| state after ANY save — so ticking «متاح بلا تسجيل» mid-edit left the new words
+| on screen and the old ones in state, and the next «حفظ» sent the old ones.
+*/
+describe("a toggle while the body is being edited", () => {
+  it("keeps the typed body for the next save", async () => {
+    await open();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/نصّ المقالة/), { target: { value: "نصّ جديد لم يُحفظ" } });
+    });
+
+    // The server answers the toggle with the body it still holds.
+    updateLesson.mockResolvedValue({ ...BASE, is_preview: true });
+
+    await act(async () => {
+      fireEvent.click(document.getElementById("preview-l-1") as HTMLElement);
+    });
+
+    updateLesson.mockResolvedValue({ ...BASE, content: "نصّ جديد لم يُحفظ" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "حفظ" }));
+    });
+
+    expect(updateLesson).toHaveBeenLastCalledWith(
+      "c",
+      "l-1",
+      expect.objectContaining({ content: "نصّ جديد لم يُحفظ" }),
+    );
+  });
+});

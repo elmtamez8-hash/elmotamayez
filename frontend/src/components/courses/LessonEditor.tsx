@@ -214,7 +214,15 @@ export function LessonEditor({
     );
   }
 
-  const run = async (work: () => Promise<LessonDetail>, message: string) => {
+  /*
+    ⚠️ THE DRAFT IS SYNCED ONLY BY A SAVE THAT SENT IT (`syncDraft`). The body
+    editor (`RichMarkdownEditor`) reads its value on mount and never again, so a
+    toggle elsewhere on this screen (preview, free, groups, release) that wrote
+    the server's OLD `content` back into state left the screen showing the new
+    words while state — and the next «حفظ» — held the old ones: the teacher's
+    typing lost in silence behind «حُفظ العنصر.» (review of #310).
+  */
+  const run = async (work: () => Promise<LessonDetail>, message: string, syncDraft = false) => {
     setBusy(true);
     setError("");
     setNotice("");
@@ -222,9 +230,11 @@ export function LessonEditor({
     try {
       const fresh = await work();
       setLesson(fresh);
-      setContent(fresh.content ?? "");
-      setUrl(fresh.external_url ?? "");
-      setDuration(fresh.duration_seconds > 0 ? String(fresh.duration_seconds) : "");
+      if (syncDraft) {
+        setContent(fresh.content ?? "");
+        setUrl(fresh.external_url ?? "");
+        setDuration(fresh.duration_seconds > 0 ? String(fresh.duration_seconds) : "");
+      }
       setNotice(message);
       // The outline shows the type and the status; both can have just moved.
       onSaved();
@@ -248,6 +258,7 @@ export function LessonEditor({
             lesson.type === "embed" ? Number.parseInt(duration, 10) || 0 : undefined,
         }),
       "حُفظ العنصر.",
+      true,
     );
 
   const changeType = async (next: LessonTypeValue) => {
@@ -309,6 +320,8 @@ export function LessonEditor({
           void run(
             () => courses.changeLessonType(courseUuid, lesson.uuid, next),
             "تغيّر نوع العنصر.",
+            // A new type is a new editor, mounted from what the server now holds.
+            true,
           );
         }}
       />
