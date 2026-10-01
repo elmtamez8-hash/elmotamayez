@@ -27,6 +27,8 @@ export type AnnouncementScope = "all" | "course" | "session";
 export interface Announcement {
   uuid: string;
   body: string;
+  /** The body rendered from Markdown by the server. */
+  body_html?: string;
   scope: AnnouncementScope;
   is_urgent: boolean;
   is_published: boolean;

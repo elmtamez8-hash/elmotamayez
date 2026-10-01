@@ -273,6 +273,8 @@ export interface Course {
   cohorts?: CohortOption[];
   slug: string;
   description: string;
+  /** The description rendered from Markdown by the server. */
+  description_html?: string;
   /** Minor units — 4999 is 49.99. Format with formatMinorMoney, never directly. */
   price_minor: number;
   currency: string;
@@ -358,6 +360,8 @@ export interface Exam {
   course_id: number | null;
   title: string;
   description: string;
+  /** The description rendered from Markdown by the server. */
+  description_html?: string;
   duration_minutes: number;
   passing_score: number;
   max_attempts: number;

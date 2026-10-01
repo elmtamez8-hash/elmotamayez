@@ -29,7 +29,8 @@ import {
   UsersIcon,
   type IconProps,
 } from "@/components/icons";
-import { SelectField, TextField, TextareaField } from "@/components/ui/Field";
+import { SelectField, TextField } from "@/components/ui/Field";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 /*
   The page reads as four short steps with a live summary beside them, rather than
@@ -271,7 +272,7 @@ export default function CreateCoursePage() {
               required
             />
 
-            <TextareaField
+            <RichMarkdownEditor
               id="description"
               label="الوصف"
               value={form.description}

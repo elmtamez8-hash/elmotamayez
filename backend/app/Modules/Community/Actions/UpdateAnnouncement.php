@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Community\Actions;
 
 use App\Modules\Community\Models\Announcement;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use Illuminate\Support\Facades\DB;
@@ -62,7 +63,7 @@ class UpdateAnnouncement extends Action
             DB::table('notifications')
                 ->where('source_type', Announcement::SOURCE_TYPE)
                 ->where('source_id', $announcement->getKey())
-                ->update(['body->'.app()->getLocale() => $body, 'updated_at' => now()]);
+                ->update(['body->'.app()->getLocale() => MarkdownRenderer::toPlainText($body), 'updated_at' => now()]);
         }
 
         // FR-047's second half: it is recorded. The subject is the announcement,

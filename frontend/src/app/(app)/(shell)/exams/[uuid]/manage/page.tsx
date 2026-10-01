@@ -15,7 +15,6 @@ import {
   CheckboxField,
   NumberField,
   TextField,
-  TextareaField,
 } from "@/components/ui/Field";
 import { CheckIcon, ExamIcon, SettingsIcon, TrashIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -24,6 +23,7 @@ import { ErrorState } from "@/components/ui/states/ErrorState";
 import { ExamItemsPanel } from "@/components/bank/ExamItemsPanel";
 import { counted, NOUNS } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 export default function ManageExamPage({
   params,
@@ -220,13 +220,12 @@ export default function ManageExamPage({
               required
             />
 
-            <TextareaField
+            <RichMarkdownEditor
               id="exam_description"
               label="الوصف"
               value={settings.description}
               onChange={(v) => setSettings({ ...settings, description: v })}
               error={settingsFields.description}
-              rows={2}
             />
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

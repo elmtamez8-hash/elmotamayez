@@ -31,6 +31,8 @@ import type { Certificate, Exam } from "./types";
 export interface CourseAnnouncement {
   uuid: string;
   body: string;
+  /** The body rendered from Markdown by the server. */
+  body_html?: string;
   is_urgent: boolean;
   published_at: string | null;
   author_name: string | null;

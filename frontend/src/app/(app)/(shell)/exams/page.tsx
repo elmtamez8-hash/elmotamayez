@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/Badge";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
+import { htmlToText } from "@/lib/html-text";
 
 /**
  * The papers a student may SIT. The teacher's list is `/manage/exams`.
@@ -66,7 +67,7 @@ export default function ExamsPage() {
           {exams.map((exam) => (
             <Card key={exam.uuid} as="article" padding="sm" interactive>
               <h3 className="mb-2 font-semibold text-ink">{exam.title}</h3>
-              <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{exam.description}</p>
+              <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{htmlToText(exam.description_html)}</p>
 
               <div className="mb-4 flex flex-wrap gap-2">
                 {/*

@@ -14,6 +14,7 @@ import { CoursePublicReach } from "@/components/courses/CoursePublicReach";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 /**
  * ⚠️ MIRRORS `CourseSectionResource` FIELD FOR FIELD, AND UNTIL NOW IT DID NOT.
@@ -90,7 +91,7 @@ export default function CourseDetailPage({
           certificate — and a decorative one competes with them. */}
       <div className="rounded-2xl bg-primary-soft p-8">
         <h2 className="mb-2 text-3xl font-bold text-ink">{course.title}</h2>
-        <p className="mb-4 max-w-2xl text-ink-muted">{course.description}</p>
+        <MarkdownText html={course.description_html} className="mb-4 max-w-2xl" />
         <div className="flex flex-wrap items-center gap-3">
           {/* Whether students can see the course at all. Without it a teacher
               who published every item read the tree as live while the course

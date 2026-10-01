@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Http\Resources;
 
 use App\Modules\Assessments\Models\Exam;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,6 +20,8 @@ class ExamResource extends JsonResource
             'course_id' => $this->course_id,
             'title' => $this->title,
             'description' => $this->description,
+            // Markdown (written in the rich editor), rendered per response — never stored.
+            'description_html' => MarkdownRenderer::toHtml($this->description),
             'duration_minutes' => $this->duration_minutes,
             'passing_score' => $this->passing_score,
             'max_attempts' => $this->max_attempts,

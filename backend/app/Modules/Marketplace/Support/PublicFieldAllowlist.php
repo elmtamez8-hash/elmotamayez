@@ -141,7 +141,7 @@ final class PublicFieldAllowlist
         'uuid',
         'slug',
         'title',
-        'description',
+        'description', 'description_html',
         'cover_url',
         /*
         | The promo video's ID on the teacher's own channel (018 · FR-006).

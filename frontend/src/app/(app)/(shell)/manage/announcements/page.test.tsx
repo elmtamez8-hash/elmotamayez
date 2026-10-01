@@ -17,6 +17,27 @@ const get = vi.fn();
 const list = vi.fn();
 const update = vi.fn();
 
+// The rich editor (Tiptap) has its own tests; here it is a labelled field that,
+// like the real one, reads `value` once on mount and hands Markdown back.
+vi.mock("@/components/ui/RichMarkdownEditor", () => ({
+  RichMarkdownEditor: ({
+    id,
+    label,
+    value,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (markdown: string) => void;
+  }) => (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <textarea id={id} defaultValue={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  ),
+}));
+
 vi.mock("@/lib/api", () => ({
   api: { get: (...args: unknown[]) => get(...args) },
 }));
@@ -45,6 +66,7 @@ beforeEach(() => {
       {
         uuid: "an-1",
         body: "الحصة مؤجلة",
+        body_html: "<p>الحصة مؤجلة</p>",
         scope: "all",
         is_urgent: true,
         is_published: true,
@@ -95,6 +117,8 @@ describe("announcements page — more than one page", () => {
   const row = (uuid: string, body: string) => ({
     uuid,
     body,
+    // What the server renders from the Markdown body.
+    body_html: `<p>${body}</p>`,
     scope: "all",
     is_urgent: false,
     is_published: true,

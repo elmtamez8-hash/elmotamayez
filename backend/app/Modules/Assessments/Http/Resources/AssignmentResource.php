@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Assessments\Http\Resources;
 
 use App\Modules\Assessments\Models\Assignment;
+use App\Modules\Courses\Support\MarkdownRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -27,6 +28,8 @@ class AssignmentResource extends JsonResource
             'uuid' => $this->uuid,
             'title' => $this->title,
             'description' => $this->description,
+            // Markdown (written in the rich editor), rendered per response — never stored.
+            'description_html' => MarkdownRenderer::toHtml($this->description),
             'points' => $this->points,
             'due_at' => $this->due_at,
             /*

@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExamIcon } from "@/components/icons";
-import { NumberField, SelectField, TextField, TextareaField } from "@/components/ui/Field";
+import { NumberField, SelectField, TextField } from "@/components/ui/Field";
+import { RichMarkdownEditor } from "@/components/ui/RichMarkdownEditor";
 
 export default function NewExamPage() {
   const router = useRouter();
@@ -96,13 +97,12 @@ export default function NewExamPage() {
             required
           />
 
-          <TextareaField
+          <RichMarkdownEditor
             id="description"
             label="الوصف"
             value={form.description}
             onChange={set("description")}
             error={fields.description}
-            rows={3}
           />
 
           {confined ? (

@@ -37,6 +37,7 @@ import { classSessions } from "@/lib/class-sessions";
 import { userMessage } from "@/lib/errors";
 import { counted, formatDate } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
+import { MarkdownText } from "@/components/ui/MarkdownText";
 
 /** «١٢ إعلاناً» — not in `NOUNS` yet; one screen counts them. */
 const ANNOUNCEMENTS = {
@@ -304,7 +305,7 @@ export default function AnnouncementsPage() {
                           </>
                         )
                       }
-                      description={<p className="whitespace-pre-line text-ink">{announcement.body}</p>}
+                      description={<MarkdownText html={announcement.body_html} />}
                       meta={[
                         {
                           key: "notified",

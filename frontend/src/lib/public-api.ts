@@ -231,6 +231,8 @@ export type CourseDetail = {
   slug: string | null;
   title: string;
   description: string | null;
+  /** The description rendered from Markdown by the server. */
+  description_html?: string;
   cover_url: string | null;
   subject: { slug: string; name: string; icon: string | null } | null;
   grade_level: string | null;

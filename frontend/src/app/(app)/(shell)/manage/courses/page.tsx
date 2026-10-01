@@ -20,6 +20,7 @@ import { arabicNumber } from "@/lib/numerals";
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
 import { AssistantScopeNotice } from "@/components/courses/AssistantScopeNotice";
+import { htmlToText } from "@/lib/html-text";
 
 /**
  * ⚠️ ONE REQUEST FOR THE WHOLE SET, AND THE FILTERS ARE BUILT FROM IT.
@@ -282,7 +283,7 @@ export default function ManageCoursesPage() {
                   <h3 className="mb-1 font-semibold text-ink group-hover:text-primary-ink">
                     {course.title}
                   </h3>
-                  <p className="line-clamp-2 text-sm text-ink-muted">{course.description}</p>
+                  <p className="line-clamp-2 text-sm text-ink-muted">{htmlToText(course.description_html)}</p>
 
                   {/* The two facts the filters above narrow by, on the card that
                       gets narrowed — a filter whose criterion is invisible on the
