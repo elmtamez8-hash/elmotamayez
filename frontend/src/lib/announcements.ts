@@ -36,6 +36,8 @@ export interface Announcement {
   /** Live counts, never stored — see `FR-046`. */
   notified_count: number | null;
   read_count: number | null;
+  /** The course, session or group it went to; null for `all` or a deleted target. */
+  target_name?: string | null;
   author_name?: string | null;
 }
 

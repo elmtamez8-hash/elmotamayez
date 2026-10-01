@@ -91,6 +91,7 @@ export function LatestNotificationsCard() {
                 <span className="shrink-0 text-xs font-medium text-primary-ink">جديد</span>
               )}
             </div>
+            {row.body !== "" && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{row.body}</p>}
             <p className="text-xs text-ink-muted">{formatDateTime(row.created_at)}</p>
           </li>
         ))}

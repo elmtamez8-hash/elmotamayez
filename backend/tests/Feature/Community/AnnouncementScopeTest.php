@@ -84,6 +84,14 @@ it('reaches every student of one course and nobody in the other', function (): v
     // list comparison fails on the missing recipient AND on the extra one, which
     // two separate counts would not.
     expect(toldAbout($announcement))->toBe([(int) $this->mathsStudent->getKey()]);
+
+    // Tapping it opens the course's tab of announcements, where it stays after the bell is cleared.
+    expect(Notification::query()->where('source_id', $announcement->getKey())->value('action_url'))
+        ->toBe('/enrollments/'.$this->maths->uuid.'?tab=announcements');
+
+    // The teacher's list names the course it went to.
+    expect($this->getJson('/api/v1/manage/announcements')->assertOk()->json('data.0.target_name'))
+        ->toBe($this->maths->title);
 });
 
 it('reaches every student in the workspace when the scope is all', function (): void {

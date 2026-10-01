@@ -40,6 +40,8 @@ class AnnouncementResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'notified_count' => $this->stats['notified'] ?? null,
             'read_count' => $this->stats['read'] ?? null,
+            // Stamped by the manage controller: the course, session or group's name.
+            'target_name' => $this->resource->getAttribute('target_name'),
             'author_name' => $this->whenLoaded('author', fn () => $this->author?->name),
         ];
     }

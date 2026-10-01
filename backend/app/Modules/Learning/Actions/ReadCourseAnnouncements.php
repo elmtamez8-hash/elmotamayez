@@ -25,12 +25,12 @@ use Illuminate\Support\Collection;
  * one. Scoping to this course's id is what narrows it, and the controller's
  * enrolment check is what earns the right to ask about this course at all.
  *
- * ⚠️ AND `SCOPE_ALL` IS DELIBERATELY EXCLUDED. It reaches this student through
- * the bell and it is about every course they study with this teacher, so
- * repeating it under each course's tab is the same sentence three times — and
- * FR-019 asks for «this course's announcements», not the workspace's. `session`
- * scope is likewise absent: it addresses the seat holders of one hour, and US3
- * adds the fourth word («cohort») that the tab will read beside `course`.
+ * ⚠️ `SCOPE_ALL` IS INCLUDED SINCE 2026-10-01 (owner decision). It was left to
+ * the bell alone, and a student who marked the bell read had nowhere to find
+ * «حصة الغد الساعة الخامسة» again. It is pinned to THIS COURSE'S WORKSPACE —
+ * the reader's context is null (above), so without that `where` every
+ * workspace's `all` notice would land in this tab. `session` scope is still
+ * absent: it addresses the seat holders of one hour.
  */
 class ReadCourseAnnouncements extends Action
 {
@@ -38,8 +38,13 @@ class ReadCourseAnnouncements extends Action
     public function handle(Course $course): Collection
     {
         return Announcement::query()
-            ->where('scope', Announcement::SCOPE_COURSE)
-            ->where('scope_id', $course->getKey())
+            ->withoutWorkspaceScope()
+            ->where('workspace_id', $course->workspace_id)
+            ->where(fn ($query) => $query
+                ->where(fn ($own) => $own
+                    ->where('scope', Announcement::SCOPE_COURSE)
+                    ->where('scope_id', $course->getKey()))
+                ->orWhere('scope', Announcement::SCOPE_ALL))
             // Published and not withdrawn. `hidden_at` rather than a soft delete
             // is what lets moderation still read what it acted on, which is
             // exactly why the student's query has to say so itself.

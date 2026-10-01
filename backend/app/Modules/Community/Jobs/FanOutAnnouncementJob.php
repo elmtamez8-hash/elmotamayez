@@ -7,6 +7,7 @@ namespace App\Modules\Community\Jobs;
 use App\Models\User;
 use App\Modules\Community\Models\Announcement;
 use App\Modules\Community\Support\AnnouncementAudience;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Models\Notification;
@@ -107,6 +108,7 @@ class FanOutAnnouncementJob implements ShouldQueue
             */
             $author = User::query()->find($announcement->author_user_id);
             $authorName = $author instanceof User ? $author->name : 'المدرّس';
+            $actionUrl = $this->actionUrlFor($announcement);
 
             foreach (User::query()->whereIn('id', $pending)->get() as $recipient) {
                 $notifications->handle(new NotificationRequest(
@@ -121,6 +123,7 @@ class FanOutAnnouncementJob implements ShouldQueue
                         'teacher_name' => $authorName,
                         'body' => $announcement->body,
                     ],
+                    actionUrl: $actionUrl,
                     workspaceId: (int) $announcement->workspace_id,
                     sourceType: Announcement::SOURCE_TYPE,
                     sourceId: (int) $announcement->getKey(),
@@ -131,6 +134,28 @@ class FanOutAnnouncementJob implements ShouldQueue
         // Forward progress whatever happened above, and the next pass re-reads
         // the announcement — so a hide lands within one chunk.
         self::dispatch($this->announcementId, (int) max($recipientIds));
+    }
+
+    /**
+     * Where tapping the notification goes: a course notice opens that course's
+     * «التنبيهات» tab (`ReadCourseAnnouncements` lists it there), a session
+     * notice the schedule. An `all` or group notice links nowhere — the tab is
+     * not where a group notice is listed, and the whole body is already in the
+     * notification.
+     */
+    private function actionUrlFor(Announcement $announcement): ?string
+    {
+        if ($announcement->scope === Announcement::SCOPE_SESSION) {
+            return '/schedule';
+        }
+
+        if ($announcement->scope !== Announcement::SCOPE_COURSE || $announcement->scope_id === null) {
+            return null;
+        }
+
+        $uuid = Course::query()->withoutWorkspaceScope()->whereKey($announcement->scope_id)->value('uuid');
+
+        return is_string($uuid) ? '/enrollments/'.$uuid.'?tab=announcements' : null;
     }
 
     /**
