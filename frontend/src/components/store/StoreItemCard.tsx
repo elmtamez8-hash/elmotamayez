@@ -30,12 +30,25 @@ export function StoreItemCard({
   return (
     <Card interactive>
       <div className="space-y-3">
+        {item.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element -- a stored upload, not a build asset
+          <img
+            src={item.cover_url}
+            alt=""
+            className="mx-auto aspect-[3/4] w-32 rounded-lg border border-line object-cover shadow-sm"
+          />
+        )}
+
         <div className="flex items-start justify-between gap-3">
           <h4 className="text-base font-semibold text-ink">{item.title}</h4>
           <Badge tone="neutral">{item.kind_label}</Badge>
         </div>
 
-        {item.excerpt && <p className="text-sm text-ink-muted">{item.excerpt}</p>}
+        {/* The excerpt, or the start of the description when none was written —
+            the form promises «اتركه فارغاً ليظهر أول الوصف». */}
+        {(item.excerpt || item.description) && (
+          <p className="line-clamp-3 text-sm text-ink-muted">{item.excerpt || item.description}</p>
+        )}
 
         <div className="flex items-baseline gap-2">
           <span className="text-lg font-bold text-ink">

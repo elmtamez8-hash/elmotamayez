@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Actions;
 
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Learning\Models\LessonProgress;
 use App\Modules\Media\Events\PlaybackSustained;
@@ -120,6 +121,13 @@ class RenewPlaybackGrant extends Action
      */
     private function rememberPosition(PlaybackGrant $grant, int $positionSeconds): void
     {
+        // Only a LESSON's file has a lesson to remember a place in — a store
+        // product's `owner_id` is a `store_items.id`, and read as a lesson id it
+        // wrote a position onto whichever lesson shared that number.
+        if ($grant->asset->owner_type !== Lesson::class) {
+            return;
+        }
+
         $lessonId = (int) $grant->asset->owner_id;
 
         $enrollment = Enrollment::withoutWorkspaceScope()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Store\Http\Controllers\ShipmentController;
 use App\Modules\Store\Http\Controllers\StoreItemController;
+use App\Modules\Store\Http\Controllers\StoreItemMediaController;
 use App\Modules\Store\Http\Controllers\StorePurchaseController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->middleware('throttle:store-write');
     Route::put('/store/items/{item}', [StoreItemController::class, 'update'])
         ->middleware('throttle:store-write');
+    // A product's own uploads: the digital file, then its completion; the cover.
+    Route::post('/store/items/{item}/file', [StoreItemMediaController::class, 'requestFile'])
+        ->middleware('throttle:upload');
+    Route::post('/store/items/{item}/file/{asset}/complete', [StoreItemMediaController::class, 'completeFile'])
+        ->middleware('throttle:store-write');
+    Route::post('/store/items/{item}/cover', [StoreItemMediaController::class, 'cover'])
+        ->middleware('throttle:upload');
 
     Route::get('/store/shipments', [ShipmentController::class, 'index']);
     Route::patch('/store/shipments/{shipment}', [ShipmentController::class, 'update'])

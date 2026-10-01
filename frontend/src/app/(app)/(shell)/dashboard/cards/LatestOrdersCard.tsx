@@ -62,7 +62,7 @@ export function LatestOrdersCard() {
           <li key={order.uuid} className="rounded-lg border border-line p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <p className="text-sm font-medium text-ink">
-                {order.course_title ?? KIND_LABELS[order.kind] ?? order.kind}
+                {order.store_item_title ?? order.course_title ?? KIND_LABELS[order.kind] ?? order.kind}
               </p>
               <span className="shrink-0 text-xs text-ink-muted">
                 {statusLabel(order.status)}

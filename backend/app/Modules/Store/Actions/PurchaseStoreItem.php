@@ -101,6 +101,9 @@ class PurchaseStoreItem extends Action
                 'currency' => $item->currency,
                 'provider' => 'manual',
                 'status' => 'pending',
+                // What was bought, as it was named then — «الطلبات» reads it
+                // instead of the bare «شراء من المتجر» (Payments may not read Store).
+                'metadata' => ['store_item_title' => $item->title, 'quantity' => $data->quantity],
             ]);
 
             $storeOrder = StoreOrder::create([

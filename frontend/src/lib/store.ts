@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { UploadTicket } from "./media";
 
 /**
  * The teacher's store: books and notes, digital or printed (spec 011 · US1).
@@ -37,10 +38,19 @@ export interface StoreItem {
    */
   stock: number | null;
   is_active: boolean;
-  /** Basis points. 1000 = 10%. Integers all the way, never a float. */
-  commission_bps: number;
+  cover_url: string | null;
   course?: { uuid: string | null; title: string | null };
   created_at: string | null;
+}
+
+/** The teacher's view: the buyer's fields plus the shelf-only ones (`ManageStoreItemResource`). */
+export interface ManagedStoreItem extends StoreItem {
+  /** Basis points. 1000 = 10%. Integers all the way, never a float. Never sent to a buyer. */
+  commission_bps: number;
+  /** Major units («150.00») — what the form fills from; it never converts. */
+  price: string;
+  shipping_fee: string | null;
+  file?: { uuid: string; name: string | null; status: string } | null;
 }
 
 export interface Shipment {
@@ -102,14 +112,26 @@ type Paginated<T> = { data: T[]; meta?: { total: number; current_page: number; l
 export interface StoreItemInput {
   kind: StoreItemKind;
   title: string;
-  price_minor: number;
+  /** Major units as typed («150» or «150.50»); the server converts. */
+  price: string;
   description?: string | null;
   excerpt?: string | null;
   course_uuid?: string | null;
   media_asset_uuid?: string | null;
   stock?: number | null;
-  shipping_fee_minor?: number | null;
+  shipping_fee?: string | null;
   is_active?: boolean;
+}
+
+/**
+ * «150.50» ⇒ 15050, for the share preview only — the server converts what is
+ * saved (`MinorUnits`). Parsed as text like the server does, never `* 100`
+ * (0.29 * 100 is 28.999…). null when it is not an amount with ≤ 2 decimals.
+ */
+export function majorToMinor(major: string): number | null {
+  const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(major.trim());
+
+  return match === null ? null : Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
 }
 
 /**
@@ -148,7 +170,7 @@ export interface AppliedDiscount {
 
 export const store = {
   // ── The teacher ──────────────────────────────────────────────────────────
-  items: () => api.get<Paginated<StoreItem>>("/store/items"),
+  items: () => api.get<Paginated<ManagedStoreItem>>("/store/items"),
 
   /*
    * ⚠️ THE BARE RESOURCE, NOT `{ data }`. `StoreItemController` and
@@ -158,10 +180,24 @@ export const store = {
    * threw inside its own `try` and printed an error over a move that had
    * happened, and the item form handed `undefined` to `onSaved`.
    */
-  createItem: (body: StoreItemInput) => api.post<StoreItem>("/store/items", body),
+  createItem: (body: StoreItemInput) => api.post<ManagedStoreItem>("/store/items", body),
 
   updateItem: (uuid: string, body: StoreItemInput) =>
-    api.put<StoreItem>(`/store/items/${uuid}`, body),
+    api.put<ManagedStoreItem>(`/store/items/${uuid}`, body),
+
+  /** The product's own upload: reserve, send the bytes (`media.uploadTo`), complete. */
+  requestFile: (uuid: string, body: { filename: string; size_bytes?: number }) =>
+    api.post<{ asset: { uuid: string }; upload: Pick<UploadTicket, "url" | "method" | "headers"> }>(`/store/items/${uuid}/file`, body),
+
+  completeFile: (uuid: string, assetUuid: string) =>
+    api.post<{ uuid: string; status: string }>(`/store/items/${uuid}/file/${assetUuid}/complete`),
+
+  uploadCover: (uuid: string, file: File) => {
+    const form = new FormData();
+    form.append("cover", file);
+
+    return api.upload<ManagedStoreItem>(`/store/items/${uuid}/cover`, form);
+  },
 
   shipments: () =>
     api.get<Paginated<Shipment> & { meta?: { statuses?: Record<string, string> } }>("/store/shipments"),

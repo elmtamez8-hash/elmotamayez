@@ -146,7 +146,7 @@ export const media = {
    * the ticket back at us, a commercial one points it at its own host, and this
    * function does not change either way.
    */
-  uploadTo: async (ticket: UploadTicket, file: File) => {
+  uploadTo: async (ticket: Pick<UploadTicket, "url" | "method" | "headers">, file: File) => {
     const res = await fetch(ticket.url, {
       method: ticket.method,
       headers: ticket.headers,

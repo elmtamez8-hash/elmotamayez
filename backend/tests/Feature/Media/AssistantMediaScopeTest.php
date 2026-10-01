@@ -10,6 +10,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Media\Models\MediaAsset;
+use App\Modules\Store\Models\StoreItem;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
@@ -178,29 +179,44 @@ it('refuses another workspace\'s lesson file to an assistant, confined or not', 
     }
 });
 
-it('does not ask the scope about a file that belongs to no lesson', function (): void {
+it('refuses a file that belongs to no lesson on the generic media doors, confined or not', function (): void {
+    /*
+    | A chat attachment and a store product's file have their OWN doors (the
+    | thread's, `/store/items/{item}/file`). These generic ones used to answer
+    | `true` for any non-lesson owner, which let `lessons.manage` alone flip a
+    | paid book to downloadable or delete it (2026-10-01). Now they refuse —
+    | before the confinement and after it.
+    */
     grantMediaAssistantDeletion();
 
-    $chatAsset = MediaAsset::factory()->create([
-        'workspace_id' => $this->workspace->getKey(),
-        'owner_type' => Conversation::class,
-        'owner_id' => 999_999,
-        'uploaded_by_user_id' => $this->assistant->getKey(),
-    ]);
-
-    $verdicts = fn (User $user): array => [
-        Gate::forUser($user)->allows('view', $chatAsset),
-        Gate::forUser($user)->allows('update', $chatAsset),
-        Gate::forUser($user)->allows('delete', $chatAsset),
+    $assets = [
+        MediaAsset::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'owner_type' => Conversation::class,
+            'owner_id' => 999_999,
+            'uploaded_by_user_id' => $this->assistant->getKey(),
+        ]),
+        MediaAsset::factory()->create([
+            'workspace_id' => $this->workspace->getKey(),
+            'owner_type' => StoreItem::class,
+            'owner_id' => 999_999,
+        ]),
     ];
 
-    $unconfined = $verdicts($this->assistant);
+    $allowed = fn (User $user): array => collect($assets)
+        ->flatMap(fn (MediaAsset $asset): array => [
+            Gate::forUser($user)->allows('view', $asset),
+            Gate::forUser($user)->allows('update', $asset),
+            Gate::forUser($user)->allows('delete', $asset),
+        ])->unique()->values()->all();
+
+    expect($allowed($this->assistant))->toBe([false]);
 
     confineMediaAssistantTo($this->near);
 
-    expect($verdicts($this->assistant->refresh()))->toBe($unconfined)
-        // …and the confinement did take: the far lesson's file is refused now.
-        ->and(Gate::forUser($this->assistant)->allows('view', $this->farAsset))->toBeFalse();
+    expect($allowed($this->assistant->refresh()))->toBe([false])
+        // …and the positive control: the near lesson's file is still theirs.
+        ->and(Gate::forUser($this->assistant)->allows('view', $this->nearAsset))->toBeTrue();
 });
 
 /*

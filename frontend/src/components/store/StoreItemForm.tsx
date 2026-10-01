@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import {
@@ -10,32 +10,36 @@ import {
   TextField,
   TextareaField,
 } from "@/components/ui/Field";
-import { fieldErrors } from "@/lib/api";
+import { api, fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { formatMinorMoney } from "@/lib/labels";
+import { media } from "@/lib/media";
 import {
+  majorToMinor,
   store,
   teacherNetMinor,
-  type StoreItem,
+  type ManagedStoreItem,
   type StoreItemInput,
   type StoreItemKind,
 } from "@/lib/store";
+
+const FILE_ACCEPT = ".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg";
 
 /**
  * Create or edit a product.
  *
  * ⚠️ THE FIELDS SWITCH ON `kind`, AND THAT IS THE WHOLE DESIGN. A screen that
- * offers a stock count for a file, or asks for a video on a printed book, is the
- * `LessonEditor` defect reached from a new direction: a screen that does not
- * know an item's type must not offer an action that depends on it. The server
- * refuses either mismatch, so the alternative is a correct refusal to a request
- * the screen invented.
+ * offers a stock count for a file, or asks for a file on a printed book, invents
+ * a request the server then refuses.
  *
- * ⚠️ AND THE TEACHER'S SHARE IS COMPUTED HERE, from the price they typed and the
- * published rate. The API does not send a net — it cannot, because a number on
- * this screen plus a number on the buyer's screen is the platform's margin. The
- * arithmetic mirrors `StoreSettings::commissionOn()` including the floor; a
- * different rounding here shows a riyal that never arrives.
+ * ⚠️ A DIGITAL PRODUCT OWNS ITS FILE, SO IT EXISTS BEFORE THE UPLOAD. The server
+ * accepts only a file uploaded through `/store/items/{item}/file` and finished
+ * (`SaveStoreItem`). A new one is therefore created hidden, given its file, and
+ * only then saved with the «معروض للبيع» the teacher chose — all from one press.
+ *
+ * ⚠️ MONEY IS TYPED IN MAJOR UNITS («150» or «150.50») and sent as typed; the
+ * server converts (`MinorUnits`). `majorToMinor` exists only for the share
+ * preview, mirroring `StoreSettings::commissionOn()` including the floor.
  */
 export function StoreItemForm({
   item,
@@ -43,75 +47,130 @@ export function StoreItemForm({
   onSaved,
   onCancel,
 }: {
-  item?: StoreItem;
+  item?: ManagedStoreItem;
   /** Read off any existing product, or the platform default until one exists. */
   commissionBps: number;
-  onSaved: (saved: StoreItem) => void;
+  onSaved: (saved: ManagedStoreItem) => void;
   onCancel: () => void;
 }) {
   const [kind, setKind] = useState<StoreItemKind>(item?.kind ?? "digital");
   const [title, setTitle] = useState(item?.title ?? "");
   const [excerpt, setExcerpt] = useState(item?.excerpt ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
-  const [price, setPrice] = useState(String(item?.price_minor ?? ""));
+  const [price, setPrice] = useState(item?.price ?? "");
   const [stock, setStock] = useState(item?.stock === null ? "" : String(item?.stock ?? ""));
-  const [shipping, setShipping] = useState(
-    item?.shipping_fee_minor === null ? "" : String(item?.shipping_fee_minor ?? ""),
-  );
-  /*
-   * ⚠️ ALWAYS EMPTY, AND THE SERVER IS WHAT MAKES THAT SAFE.
-   * `StoreItemResource` deliberately does not send `media_asset_uuid` — the same
-   * payload reaches a buyer, and a raw asset identifier there is the leak FR-011
-   * forbids — so there is nothing to prefill. `SaveStoreItem` keeps the existing
-   * file when the field arrives null, which is what lets a teacher fix a typo in
-   * a title without re-typing a uuid they cannot see.
-   */
-  const [assetUuid, setAssetUuid] = useState("");
+  const [shipping, setShipping] = useState(item?.shipping_fee ?? "");
+  const [courseUuid, setCourseUuid] = useState(item?.course?.uuid ?? "");
+  const [courses, setCourses] = useState<Array<{ value: string; label: string }>>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [cover, setCover] = useState<File | null>(null);
   const [isActive, setIsActive] = useState(item?.is_active ?? true);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [step, setStep] = useState<string | null>(null);
+  /** The row a first save created, kept for a retry after a failed upload. */
+  const [draft, setDraft] = useState<ManagedStoreItem | null>(null);
 
-  const priceMinor = Number.parseInt(price, 10);
-  const netMinor = Number.isFinite(priceMinor) ? teacherNetMinor(priceMinor, commissionBps) : null;
+  useEffect(() => {
+    // The same call the plans and announcements screens make; the server's
+    // assistant scope narrows it, and a failure leaves «بدون كورس» only.
+    api
+      .get<{ data: Array<{ uuid: string; title: string }> }>("/courses?per_page=200")
+      .then((res) => setCourses(res.data.map((course) => ({ value: course.uuid, label: course.title }))))
+      .catch(() => setCourses([]));
+  }, []);
+
+  const priceMinor = majorToMinor(price);
+  const netMinor = priceMinor === null ? null : teacherNetMinor(priceMinor, commissionBps);
   const currency = item?.currency ?? "QAR";
+  const hasFile = item?.file != null;
+
+  async function uploadFile(target: ManagedStoreItem, chosen: File): Promise<string> {
+    setStep("جارٍ رفع الملف… لا تغلق الصفحة.");
+    const { asset, upload } = await store.requestFile(target.uuid, { filename: chosen.name, size_bytes: chosen.size });
+    await media.uploadTo(upload, chosen);
+    const settled = await store.completeFile(target.uuid, asset.uuid);
+
+    // `failed` is an answer, not an error: a type the server refused, say so
+    // here rather than as «الملف المختار غير موجود» from the save after it.
+    if (settled.status !== "ready") {
+      throw new Error("store-file-not-ready");
+    }
+
+    return asset.uuid;
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setSaving(true);
     setErrors({});
     setProblem(null);
 
     const body: StoreItemInput = {
       kind,
       title,
-      price_minor: priceMinor,
+      price,
       description: description || null,
       excerpt: excerpt || null,
+      course_uuid: courseUuid || null,
       is_active: isActive,
-      // ⚠️ SENT AS `null` FOR THE OTHER TYPE, NOT OMITTED AND NOT ZERO. `null` is
-      // what «cannot run out» means; a zero would make every digital item read
-      // as sold out for ever.
+      // `null` for the other type, never zero: `null` is «cannot run out».
       stock: kind === "physical" ? Number.parseInt(stock, 10) : null,
-      shipping_fee_minor: kind === "physical" ? Number.parseInt(shipping, 10) : null,
-      media_asset_uuid: kind === "digital" ? assetUuid || null : null,
+      shipping_fee: kind === "physical" ? shipping : null,
     };
 
+    const needsUpload = kind === "digital" && file !== null;
+
+    // Nothing to sell yet: refused here, under the field, rather than saved
+    // hidden behind the teacher's back.
+    if (kind === "digital" && !needsUpload && !hasFile && isActive) {
+      setErrors({ media_asset_uuid: "اختر ملف المنتج قبل عرضه للبيع." });
+      return;
+    }
+
     try {
-      onSaved(item ? await store.updateItem(item.uuid, body) : await store.createItem(body));
+      setStep("جارٍ الحفظ…");
+
+      /*
+       * A NEW product that will get a file now is saved hidden first, and the
+       * last save puts it on sale. An existing one keeps selling on its current
+       * file while the new one uploads (`SaveStoreItem` keeps the file a save
+       * does not name). And a retry after a failed upload reuses the hidden row
+       * this form already created — deleting is refused, so a second create is
+       * an orphan for ever.
+       */
+      const existing = item ?? draft;
+      const hide = needsUpload && !hasFile;
+      let saved = existing
+        ? await store.updateItem(existing.uuid, hide ? { ...body, is_active: false } : body)
+        : await store.createItem(hide ? { ...body, is_active: false } : body);
+      setDraft(saved);
+
+      if (needsUpload && file !== null) {
+        const assetUuid = await uploadFile(saved, file);
+        setStep("جارٍ الحفظ…");
+        saved = await store.updateItem(saved.uuid, { ...body, media_asset_uuid: assetUuid });
+      }
+
+      if (cover !== null) {
+        setStep("جارٍ رفع صورة الغلاف…");
+        saved = await store.uploadCover(saved.uuid, cover);
+      }
+
+      onSaved(saved);
     } catch (error) {
       // 422 lands under its field; everything else becomes one Arabic sentence.
-      // A raw error never reaches the teacher.
       const fields = fieldErrors(error);
 
       if (Object.keys(fields).length > 0) {
         setErrors(fields);
+      } else if (error instanceof Error && error.message === "store-file-not-ready") {
+        setErrors({ media_asset_uuid: "لم يُقبل الملف. ارفع ملف PDF أو عرضاً تقديمياً سليماً." });
       } else {
         setProblem(userMessage(error));
       }
     } finally {
-      setSaving(false);
+      setStep(null);
     }
   }
 
@@ -132,14 +191,7 @@ export function StoreItemForm({
         required
       />
 
-      <TextField
-        id="title"
-        label="العنوان"
-        value={title}
-        onChange={setTitle}
-        error={errors.title}
-        required
-      />
+      <TextField id="title" label="العنوان" value={title} onChange={setTitle} error={errors.title} required />
 
       <TextField
         id="excerpt"
@@ -153,23 +205,34 @@ export function StoreItemForm({
       <TextareaField
         id="description"
         label="الوصف"
+        hint="ما يجده الطالب في صفحة المنتج: المحتوى، عدد الصفحات، لمن يناسب."
         value={description}
         onChange={setDescription}
         error={errors.description}
       />
 
+      <SelectField
+        id="course_uuid"
+        label="الكورس المرتبط (اختياري)"
+        value={courseUuid}
+        onChange={setCourseUuid}
+        options={[{ value: "", label: "بدون كورس" }, ...courses]}
+        error={errors.course_uuid}
+      />
+
       <NumberField
-        id="price_minor"
+        id="price"
         label="سعر البيع"
-        hint="بالدرهم — أصغر وحدة من العملة."
+        hint="بالعملة كاملة، مثل 150 أو 150.50."
         value={price}
         onChange={setPrice}
-        min={1}
-        error={errors.price_minor}
+        min={0}
+        step={0.01}
+        error={errors.price}
         required
       />
 
-      {netMinor !== null && priceMinor >= 1 && (
+      {netMinor !== null && netMinor > 0 && (
         <Alert tone="info" title={`نصيبك من كل نسخة: ${formatMinorMoney(netMinor, currency)}`}>
           {`عمولة المنصّة ${(commissionBps / 100).toFixed(1)}% تُقتطع من سعر البيع الذي كتبتَه، ولا تُضاف فوقه.`}
         </Alert>
@@ -189,41 +252,72 @@ export function StoreItemForm({
           />
 
           <NumberField
-            id="shipping_fee_minor"
+            id="shipping_fee"
             label="رسم الشحن"
             value={shipping}
             onChange={setShipping}
             min={0}
-            error={errors.shipping_fee_minor}
+            step={0.01}
+            error={errors.shipping_fee}
             required
           />
         </>
       ) : (
-        <TextField
-          id="media_asset_uuid"
-          label="الملف المرفق"
-          hint={
-            item
-              ? "اتركه فارغاً للإبقاء على الملف الحالي، أو اكتب معرّف ملف آخر من ملفاتك."
-              : "معرّف ملف رفعتَه أنت. الملفات المرفوعة عند مدرّس آخر لا تُقبل."
-          }
-          value={assetUuid}
-          onChange={setAssetUuid}
-          error={errors.media_asset_uuid}
-          required={!item}
-        />
+        <div className="space-y-1">
+          <label htmlFor="store-file" className="block text-sm font-medium text-ink">
+            ملف المنتج
+          </label>
+          <input
+            id="store-file"
+            type="file"
+            accept={FILE_ACCEPT}
+            disabled={step !== null}
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            className="w-full rounded-xl border border-line bg-surface-raised p-2 text-sm text-ink file:me-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:text-primary-ink disabled:opacity-60"
+          />
+          <p className="text-xs text-ink-muted">
+            {hasFile
+              ? `الملف الحالي: ${item?.file?.name ?? "مرفوع"}. اختر ملفاً آخر لاستبداله.`
+              : "PDF أو ملف عرض. يُسلَّم للطالب بعد اعتماد دفعته."}
+          </p>
+          {errors.media_asset_uuid && (
+            <p role="alert" className="text-xs font-medium text-danger-ink">
+              {errors.media_asset_uuid}
+            </p>
+          )}
+        </div>
       )}
 
-      <CheckboxField
-        id="is_active"
-        label="معروض للبيع"
-        checked={isActive}
-        onChange={setIsActive}
-      />
+      <div className="space-y-1">
+        <label htmlFor="store-cover" className="block text-sm font-medium text-ink">
+          صورة الغلاف (اختياري)
+        </label>
+        {item?.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element -- a stored upload, not a build asset
+          <img src={item.cover_url} alt="" className="h-28 w-20 rounded-lg border border-line object-cover" />
+        )}
+        <input
+          id="store-cover"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          disabled={step !== null}
+          onChange={(event) => setCover(event.target.files?.[0] ?? null)}
+          className="w-full rounded-xl border border-line bg-surface-raised p-2 text-sm text-ink file:me-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-1.5 file:text-sm file:text-primary-ink disabled:opacity-60"
+        />
+        <p className="text-xs text-ink-muted">صورة طولية تظهر في المتجر وصفحة المنتج.</p>
+      </div>
+
+      <CheckboxField id="is_active" label="معروض للبيع" checked={isActive} onChange={setIsActive} />
+
+      {step !== null && (
+        <p className="text-xs text-ink-muted" role="status">
+          {step}
+        </p>
+      )}
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? "جارٍ الحفظ…" : "حفظ"}
+        <Button type="submit" disabled={step !== null}>
+          {step !== null ? "جارٍ الحفظ…" : "حفظ"}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
           إلغاء

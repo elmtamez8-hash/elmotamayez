@@ -7,6 +7,7 @@ namespace App\Modules\Store\Data;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Store\Enums\StoreItemKind;
 use App\Shared\Data\DataTransferObject;
+use App\Shared\Support\MinorUnits;
 
 /**
  * What a teacher submits to create or edit a product.
@@ -39,7 +40,7 @@ final class StoreItemData extends DataTransferObject
         return new self(
             kind: StoreItemKind::from((string) $data['kind']),
             title: (string) $data['title'],
-            priceMinor: (int) $data['price_minor'],
+            priceMinor: (int) MinorUnits::fromMajorOrFail((string) $data['price']),
             // The platform currency, read where every reader reads it — never a
             // literal here (owner decision 2026-09-27: one source).
             currency: (string) ($data['currency'] ?? app(BillingSettings::class)->currency()),
@@ -47,7 +48,7 @@ final class StoreItemData extends DataTransferObject
             excerpt: isset($data['excerpt']) ? (string) $data['excerpt'] : null,
             mediaAssetUuid: isset($data['media_asset_uuid']) ? (string) $data['media_asset_uuid'] : null,
             stock: isset($data['stock']) ? (int) $data['stock'] : null,
-            shippingFeeMinor: isset($data['shipping_fee_minor']) ? (int) $data['shipping_fee_minor'] : null,
+            shippingFeeMinor: MinorUnits::fromMajorOrFail(isset($data['shipping_fee']) ? (string) $data['shipping_fee'] : null),
             courseUuid: isset($data['course_uuid']) ? (string) $data['course_uuid'] : null,
             isActive: (bool) ($data['is_active'] ?? true),
         );

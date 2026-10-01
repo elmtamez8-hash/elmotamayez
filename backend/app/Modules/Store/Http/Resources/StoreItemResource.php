@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Store\Http\Resources;
 
 use App\Modules\Store\Models\StoreItem;
-use App\Modules\Store\Support\StoreSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -41,10 +40,7 @@ class StoreItemResource extends JsonResource
             // as sold out.
             'stock' => $this->stock,
             'is_active' => $this->is_active,
-            // The published rate, so the teacher's screen can show what they
-            // will keep without the server sending a number that also answers
-            // the platform's side of the price.
-            'commission_bps' => StoreSettings::commissionBps(),
+            'cover_url' => $this->coverUrl(),
             'course' => $this->whenLoaded('course', fn (): array => [
                 'uuid' => $this->course?->uuid,
                 'title' => $this->course?->title,

@@ -6,6 +6,7 @@ namespace App\Modules\Store\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Store\Data\StoreItemData;
 use App\Modules\Store\Enums\StoreItemKind;
@@ -67,7 +68,7 @@ class SaveStoreItem extends Action
         */
         $assetId = $data->mediaAssetUuid === null
             ? $item?->media_asset_id
-            : $this->resolveAssetId($data, $workspaceId);
+            : $this->resolveAssetId($data, $workspaceId, $item);
 
         // Same rule for the two printed fields: what the payload does not
         // mention, the row keeps.
@@ -121,8 +122,10 @@ class SaveStoreItem extends Action
         }
 
         if ($data->kind === StoreItemKind::Digital) {
-            if ($assetId === null) {
-                throw new DomainException('المنتج الرقمي يحتاج ملفاً مرفوعاً.');
+            // A new digital product is saved hidden first, so it exists to own its
+            // upload (`RequestStoreFile`); it goes on sale once the file is in.
+            if ($assetId === null && $data->isActive) {
+                throw new DomainException('ارفع ملف المنتج قبل عرضه للبيع.');
             }
 
             return;
@@ -137,16 +140,26 @@ class SaveStoreItem extends Action
         }
     }
 
-    private function resolveAssetId(StoreItemData $data, int $workspaceId): ?int
+    /**
+     * ⚠️ THE FILE MUST BE THIS PRODUCT'S OWN UPLOAD, AND FINISHED. Any asset of the
+     * workspace used to pass — so a lesson's paid video could be sold as a
+     * product, and a half-uploaded file put on sale. Only an asset uploaded
+     * through `/store/items/{item}/file` (owner = this item) and `Ready` counts,
+     * which also means a NEW item names no file: it is created first.
+     */
+    private function resolveAssetId(StoreItemData $data, int $workspaceId, ?StoreItem $item): ?int
     {
         if ($data->mediaAssetUuid === null) {
             return null;
         }
 
-        $asset = MediaAsset::query()
+        $asset = $item === null ? null : MediaAsset::query()
             ->withoutWorkspaceScope()
             ->where('uuid', $data->mediaAssetUuid)
             ->where('workspace_id', $workspaceId)
+            ->where('owner_type', StoreItem::class)
+            ->where('owner_id', $item->getKey())
+            ->where('status', MediaAssetStatus::Ready)
             ->first();
 
         if ($asset === null) {

@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StoreIcon } from "@/components/icons";
 import { Table, type Column } from "@/components/ui/Table";
 import { formatMinorMoney } from "@/lib/labels";
-import { store, teacherNetMinor, type StoreItem } from "@/lib/store";
+import { store, teacherNetMinor, type ManagedStoreItem } from "@/lib/store";
 
 /**
  * The teacher's shelf (spec 011 · US1 · FR-001 · FR-002).
@@ -19,9 +19,9 @@ import { store, teacherNetMinor, type StoreItem } from "@/lib/store";
  * every file they sell is sold out.
  */
 export default function ManageStorePage() {
-  const [items, setItems] = useState<StoreItem[]>([]);
+  const [items, setItems] = useState<ManagedStoreItem[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  const [editing, setEditing] = useState<StoreItem | null>(null);
+  const [editing, setEditing] = useState<ManagedStoreItem | null>(null);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(() => {
@@ -43,7 +43,7 @@ export default function ManageStorePage() {
   // form re-reads from the server the moment one is saved.
   const commissionBps = items[0]?.commission_bps ?? 1000;
 
-  const columns: Column<StoreItem>[] = [
+  const columns: Column<ManagedStoreItem>[] = [
     { key: "title", header: "المنتَج", render: (row) => row.title },
     { key: "kind", header: "النوع", render: (row) => row.kind_label },
     {

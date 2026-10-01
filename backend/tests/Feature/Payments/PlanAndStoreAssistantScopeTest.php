@@ -123,9 +123,9 @@ function psCreateItem(User $actor, ?Course $course): int
     return test()->postJson('/api/v1/store/items', array_filter([
         'kind' => 'physical',
         'title' => 'مذكّرة',
-        'price_minor' => 5000,
+        'price' => '50',
         'stock' => 5,
-        'shipping_fee_minor' => 500,
+        'shipping_fee' => '5',
         'course_uuid' => $course?->uuid,
     ], fn ($value) => $value !== null))->getStatusCode();
 }
@@ -137,9 +137,9 @@ function psUpdateItem(User $actor, StoreItem $item, ?Course $course): int
     return test()->putJson("/api/v1/store/items/{$item->uuid}", array_filter([
         'kind' => 'physical',
         'title' => 'مذكّرة معدّلة',
-        'price_minor' => 6000,
+        'price' => '60',
         'stock' => 5,
-        'shipping_fee_minor' => 500,
+        'shipping_fee' => '5',
         'course_uuid' => $course?->uuid,
     ], fn ($value) => $value !== null))->getStatusCode();
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PurchaseDialog } from "@/components/store/PurchaseDialog";
 import { StoreItemCard } from "@/components/store/StoreItemCard";
@@ -21,6 +22,9 @@ import { api } from "@/lib/api";
 import { SelectField } from "@/components/ui/Field";
 import type { Enrollment } from "@/lib/types";
 
+/** The note after a purchase, which carries the way to pay. */
+const PURCHASED = "purchased";
+
 /**
  * The buyer's store: what they have bought, and what they can buy.
  *
@@ -34,6 +38,7 @@ import type { Enrollment } from "@/lib/types";
  * clock and a flag; a button enabled by a client-side guess is a button the
  * server then refuses, with the buyer reading a failure they were invited into.
  */
+
 export default function StorePage() {
   const [purchases, setPurchases] = useState<StorePurchase[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -52,6 +57,7 @@ export default function StorePage() {
   const [catalogue, setCatalogue] = useState<StoreItem[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [fileLinks, setFileLinks] = useState<Record<string, string>>({});
 
   const load = useCallback(() => {
     setState("loading");
@@ -102,8 +108,23 @@ export default function StorePage() {
     setNote(null);
 
     try {
-      await store.open(purchase.uuid);
-      setNote("فُتِح الملف. تجده الآن في مكتبتك.");
+      const { grant_uuid } = await store.open(purchase.uuid);
+      /*
+       * ⚠️ THE GRANT IS THE FILE, AND IT USED TO BE THROWN AWAY. This said «تجده
+       * الآن في مكتبتك» about a library that does not exist, so a paid book was
+       * never shown to its buyer. The grant streams through our own route
+       * (`/playback/{grant}/stream`, relative — the same door a lesson's file
+       * uses), and the buyer opens it with a click of their own: a tab opened
+       * after an `await` is what popup blockers stop.
+       */
+      setFileLinks((links) => ({ ...links, [purchase.uuid]: `/api/v1/playback/${grant_uuid}/stream` }));
+      // The grant lives `media.grant_ttl_seconds` (300 by default); take the link
+      // down before it would answer a raw refusal. «افتح الملف» issues a new one.
+      window.setTimeout(
+        () => setFileLinks((links) => Object.fromEntries(Object.entries(links).filter(([key]) => key !== purchase.uuid))),
+        240_000,
+      );
+      setNote("الملف جاهز. اضغط «اعرض الملف» لفتحه.");
       load();
     } catch (error) {
       setProblem(userMessage(error));
@@ -129,7 +150,7 @@ export default function StorePage() {
         item={buying}
         onDone={() => {
           setBuying(null);
-          setNote("سُجِّل طلبك. يبدأ التسليم فور اعتماد دفعتك.");
+          setNote(PURCHASED);
           load();
         }}
         onCancel={() => setBuying(null)}
@@ -146,7 +167,16 @@ export default function StorePage() {
       />
 
       {problem && <Alert tone="danger" title={problem} />}
-      {note && <Alert tone="success" title={note} />}
+      {note === PURCHASED ? (
+        // The next step is paying, and it lives on «الطلبات» — say where, with the link.
+        <Alert tone="success" title="سُجِّل طلبك. الخطوة التالية: ادفع وارفع صورة الإيصال.">
+          <Link href="/orders" className="font-medium text-primary-ink underline underline-offset-4">
+            ادفع الآن من صفحة الطلبات
+          </Link>
+        </Alert>
+      ) : (
+        note && <Alert tone="success" title={note} />
+      )}
 
       {state === "loading" && <RowsSkeleton count={4} />}
       {state === "error" && <ErrorState onRetry={load} />}
@@ -183,6 +213,14 @@ export default function StorePage() {
                     {purchase.quantity > 1 ? ` · ${purchase.quantity} نسخ` : ""}
                   </p>
 
+                  {/* Every unpaid row says where paying happens — not only the one
+                      just bought. */}
+                  {!purchase.is_fulfilled && purchase.refunded_at === null && (
+                    <Link href="/orders" className="text-sm font-medium text-primary-ink underline underline-offset-4">
+                      ادفع الآن
+                    </Link>
+                  )}
+
                   {purchase.shipment && (
                     <p className="text-sm text-ink">
                       الشحنة: {purchase.shipment.status_label}
@@ -203,6 +241,17 @@ export default function StorePage() {
                         افتح الملف
                       </ConfirmButton>
                     )}
+
+                  {fileLinks[purchase.uuid] && (
+                    <a
+                      href={fileLinks[purchase.uuid]}
+                      target="_blank"
+                      rel="noopener"
+                      className="text-sm font-medium text-primary-ink underline underline-offset-4"
+                    >
+                      اعرض الملف
+                    </a>
+                  )}
 
                   {purchase.is_refundable && (
                     <Button variant="ghost" size="sm" onClick={() => refund(purchase)}>
