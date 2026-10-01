@@ -50,6 +50,16 @@
 نُزّلت جميعها في **٢٠٢٦-٠٨-١٢** بصيغة WebP وجودة 80، مقصوصة على مقاس الحاوية
 النهائي (`fit=crop`) حتى لا يقفز التخطيط أثناء التحميل.
 
+### فواصل الصفحة الرئيسية — `PhotoDivider` (1800×600)
+
+نُزّلت في **٢٠٢٦-١٠-٠١** بصيغة WebP وجودة 78، من `images.unsplash.com` وصفحاتها تقول «Free Photo».
+
+| الملف | الموضع | المصوّر | الصفحة الأصلية |
+|---|---|---|---|
+| `divider-chalkboard.webp` | قبل «أفضل المدرّسين» | Vitaly Gariev | https://unsplash.com/photos/teacher-writing-mathematical-formulas-on-a-blackboard-NpHSRakEYPM |
+| `divider-library.webp` | قبل «ماذا كتب الطلاب» | Dallas Penner | https://unsplash.com/photos/a-globe-sitting-on-a-table-in-a-library-eeGPD_ESYMA |
+| `divider-studying.webp` | قبل «المواد الدراسية» | Julio Lopez | https://unsplash.com/photos/young-woman-wearing-headphones-studying-at-desk-Imz-pn2LMbg |
+
 ### شاشات الحساب — `AuthShell` (1200×1600، عمودية)
 
 | الملف | الشاشة | المصوّر | الصفحة الأصلية |

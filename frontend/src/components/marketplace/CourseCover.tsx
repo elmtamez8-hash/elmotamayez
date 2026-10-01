@@ -77,9 +77,15 @@ export function CourseCover({
         variant === "card" ? "bg-primary-soft" : "bg-primary"
       }`}
     >
-      <Mark
-        className={variant === "card" ? "h-14 w-14 text-primary-ink/30" : "h-24 w-24 text-white/25"}
-      />
+      {variant === "card" ? (
+        // A disc, not a bare faded glyph: on its own the mark read as an image
+        // that failed to load rather than a course with no cover yet.
+        <span className="grid h-20 w-20 place-items-center rounded-full bg-surface-raised text-primary-ink shadow-sm transition duration-300 ease-out group-hover:scale-110">
+          <Mark className="h-10 w-10" />
+        </span>
+      ) : (
+        <Mark className="h-24 w-24 text-white/25" />
+      )}
 
       {/*
         ⛔ **ولا اسمَ للمادّةِ هنا، وقد كانَ.** الكارتُ يحملُ شريحةَ المادّةِ

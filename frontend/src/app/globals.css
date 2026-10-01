@@ -388,6 +388,23 @@ dialog[open] {
   animation-delay: calc(min(var(--stagger-i, 0), 8) * 40ms);
 }
 
+/* A home-page block rising as it scrolls into view — the browser's own scroll
+   timeline, no observer. Where `view()` is unsupported (Firefox today) the rule
+   never applies and the block is simply there. Only `animation-*` here, for the
+   unlayered-rule reason `.stagger-item` gives. */
+@supports (animation-timeline: view()) {
+  /* Gated on no-preference, not left to the reduced-motion block below: a
+     scroll-driven animation ignores `animation-duration`, so zeroing it would
+     still move the block with the scroll. */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: banner-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
