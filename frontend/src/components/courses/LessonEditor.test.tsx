@@ -30,6 +30,28 @@ vi.mock("@/lib/courses", () => ({
 // يرفعُ ملفّاً ويطرقُ الشبكة، ولا شأنَ له بقائمةِ الأنواع.
 vi.mock("./AttachmentsPanel", () => ({ AttachmentsPanel: () => null }));
 
+// The rich editor (Tiptap) is its own chunk with its own tests
+// (`RichMarkdownEditor.test.tsx`); here it is a labelled field that, like the
+// real one, reads `value` once on mount and hands Markdown back.
+vi.mock("@/components/ui/RichMarkdownEditor", () => ({
+  RichMarkdownEditor: ({
+    id,
+    label,
+    value,
+    onChange,
+  }: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (markdown: string) => void;
+  }) => (
+    <div>
+      <label htmlFor={id}>{label}</label>
+      <textarea id={id} defaultValue={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  ),
+}));
+
 const BASE = {
   uuid: "l-1",
   chapter_uuid: "c-1",
@@ -302,6 +324,41 @@ describe("a publish from the tree", () => {
     expect(screen.getByText(/مقالة — منشور/)).toBeTruthy();
     expect((screen.getByLabelText(/نصّ المقالة/) as HTMLTextAreaElement).value).toBe(
       "نصّ لم يُحفظ بعد",
+    );
+  });
+});
+
+/*
+| ⛔ A TOGGLE MUST NOT TAKE BACK WHAT IS BEING TYPED (review of #310). The body
+| editor reads its value once; `run()` used to write the server's OLD body into
+| state after ANY save — so ticking «متاح بلا تسجيل» mid-edit left the new words
+| on screen and the old ones in state, and the next «حفظ» sent the old ones.
+*/
+describe("a toggle while the body is being edited", () => {
+  it("keeps the typed body for the next save", async () => {
+    await open();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/نصّ المقالة/), { target: { value: "نصّ جديد لم يُحفظ" } });
+    });
+
+    // The server answers the toggle with the body it still holds.
+    updateLesson.mockResolvedValue({ ...BASE, is_preview: true });
+
+    await act(async () => {
+      fireEvent.click(document.getElementById("preview-l-1") as HTMLElement);
+    });
+
+    updateLesson.mockResolvedValue({ ...BASE, content: "نصّ جديد لم يُحفظ" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "حفظ" }));
+    });
+
+    expect(updateLesson).toHaveBeenLastCalledWith(
+      "c",
+      "l-1",
+      expect.objectContaining({ content: "نصّ جديد لم يُحفظ" }),
     );
   });
 });
