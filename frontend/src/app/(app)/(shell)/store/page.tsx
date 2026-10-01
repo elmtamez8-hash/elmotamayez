@@ -118,6 +118,12 @@ export default function StorePage() {
        * after an `await` is what popup blockers stop.
        */
       setFileLinks((links) => ({ ...links, [purchase.uuid]: `/api/v1/playback/${grant_uuid}/stream` }));
+      // The grant lives `media.grant_ttl_seconds` (300 by default); take the link
+      // down before it would answer a raw refusal. «افتح الملف» issues a new one.
+      window.setTimeout(
+        () => setFileLinks((links) => Object.fromEntries(Object.entries(links).filter(([key]) => key !== purchase.uuid))),
+        240_000,
+      );
       setNote("الملف جاهز. اضغط «اعرض الملف» لفتحه.");
       load();
     } catch (error) {
