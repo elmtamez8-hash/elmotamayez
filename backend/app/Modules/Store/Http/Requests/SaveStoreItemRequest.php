@@ -31,7 +31,9 @@ class SaveStoreItemRequest extends FormRequest
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:20000'],
             'excerpt' => ['nullable', 'string', 'max:200'],
-            'price_minor' => ['required', 'integer', 'min:1'],
+            // MAJOR units, as typed («150» or «150.50») — the money rule in
+            // docs/gotchas/billing.md. `StoreItemData` converts through `MinorUnits`.
+            'price' => ['required', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
             'currency' => ['sometimes', 'string', 'size:3'],
             'course_uuid' => ['nullable', 'uuid', WorkspaceRules::exists('courses', 'uuid')],
             'media_asset_uuid' => ['nullable', 'uuid', WorkspaceRules::exists('media_assets', 'uuid')],
@@ -39,7 +41,7 @@ class SaveStoreItemRequest extends FormRequest
             // unbounded one is a number that overflows the column MySQL will
             // reject in strict mode while SQLite stores it happily.
             'stock' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'shipping_fee_minor' => ['nullable', 'integer', 'min:0'],
+            'shipping_fee' => ['nullable', 'regex:/^\d{1,9}(\.\d{1,2})?$/'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

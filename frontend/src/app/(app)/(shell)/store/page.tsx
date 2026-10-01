@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { PurchaseDialog } from "@/components/store/PurchaseDialog";
 import { StoreItemCard } from "@/components/store/StoreItemCard";
@@ -21,6 +22,9 @@ import { api } from "@/lib/api";
 import { SelectField } from "@/components/ui/Field";
 import type { Enrollment } from "@/lib/types";
 
+/** The note after a purchase, which carries the way to pay. */
+const PURCHASED = "purchased";
+
 /**
  * The buyer's store: what they have bought, and what they can buy.
  *
@@ -34,6 +38,7 @@ import type { Enrollment } from "@/lib/types";
  * clock and a flag; a button enabled by a client-side guess is a button the
  * server then refuses, with the buyer reading a failure they were invited into.
  */
+
 export default function StorePage() {
   const [purchases, setPurchases] = useState<StorePurchase[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -129,7 +134,7 @@ export default function StorePage() {
         item={buying}
         onDone={() => {
           setBuying(null);
-          setNote("سُجِّل طلبك. يبدأ التسليم فور اعتماد دفعتك.");
+          setNote(PURCHASED);
           load();
         }}
         onCancel={() => setBuying(null)}
@@ -146,7 +151,16 @@ export default function StorePage() {
       />
 
       {problem && <Alert tone="danger" title={problem} />}
-      {note && <Alert tone="success" title={note} />}
+      {note === PURCHASED ? (
+        // The next step is paying, and it lives on «الطلبات» — say where, with the link.
+        <Alert tone="success" title="سُجِّل طلبك. الخطوة التالية: ادفع وارفع صورة الإيصال.">
+          <Link href="/orders" className="font-medium text-primary-ink underline underline-offset-4">
+            ادفع الآن من صفحة الطلبات
+          </Link>
+        </Alert>
+      ) : (
+        note && <Alert tone="success" title={note} />
+      )}
 
       {state === "loading" && <RowsSkeleton count={4} />}
       {state === "error" && <ErrorState onRetry={load} />}
@@ -182,6 +196,14 @@ export default function StorePage() {
                     {formatMinorMoney(purchase.total_minor, purchase.currency)}
                     {purchase.quantity > 1 ? ` · ${purchase.quantity} نسخ` : ""}
                   </p>
+
+                  {/* Every unpaid row says where paying happens — not only the one
+                      just bought. */}
+                  {!purchase.is_fulfilled && purchase.refunded_at === null && (
+                    <Link href="/orders" className="text-sm font-medium text-primary-ink underline underline-offset-4">
+                      ادفع الآن
+                    </Link>
+                  )}
 
                   {purchase.shipment && (
                     <p className="text-sm text-ink">

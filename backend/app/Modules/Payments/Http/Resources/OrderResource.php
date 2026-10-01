@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payments\Http\Resources;
 
 use App\Modules\Payments\Data\SubscriptionIntent;
+use App\Modules\Payments\Enums\OrderKind;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Permissions;
@@ -27,6 +28,10 @@ class OrderResource extends JsonResource
             'rejection_reason' => $this->rejection_reason,
             'approved_at' => $this->approved_at,
             'kind' => $this->kind,
+            // The store snapshot written at purchase (`PurchaseStoreItem`); null otherwise.
+            'store_item_title' => $this->kind === OrderKind::Store && is_string($this->metadata['store_item_title'] ?? null)
+                ? $this->metadata['store_item_title']
+                : null,
             'course_title' => $this->course?->title,
             /*
             | Who paid — and it was ABSENT, which made the approval screen a

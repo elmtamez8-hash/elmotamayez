@@ -8,9 +8,11 @@ use App\Models\BaseModel;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Store\Enums\StoreItemKind;
+use App\Shared\Support\MinorUnits;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Database\Factories\Modules\Store\StoreItemFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -30,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $price_minor
  * @property int|null $stock
  * @property int|null $shipping_fee_minor
+ * @property string|null $cover_path
  * @property bool $is_active
  */
 class StoreItem extends BaseModel
@@ -48,6 +51,7 @@ class StoreItem extends BaseModel
         'currency',
         'shipping_fee_minor',
         'media_asset_id',
+        'cover_path',
         'is_active',
     ];
 
@@ -61,6 +65,29 @@ class StoreItem extends BaseModel
             'shipping_fee_minor' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * The price in major units («150.00») over `price_minor` — the money rule in
+     * docs/gotchas/billing.md. Not fillable and not appended, like `Plan::price`.
+     *
+     * @return Attribute<string|null, mixed>
+     */
+    protected function price(): Attribute
+    {
+        return MinorUnits::attribute('price_minor');
+    }
+
+    /** @return Attribute<string|null, mixed> */
+    protected function shippingFee(): Attribute
+    {
+        return MinorUnits::attribute('shipping_fee_minor');
+    }
+
+    /** The cover's public url, or null — served like `courses.cover_path`. */
+    public function coverUrl(): ?string
+    {
+        return $this->cover_path === null ? null : asset('storage/'.$this->cover_path);
     }
 
     /** @return BelongsTo<Course, $this> */

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StoreItemForm } from "./StoreItemForm";
 import { StoreItemCard } from "./StoreItemCard";
-import type { StoreItem } from "@/lib/store";
+import type { ManagedStoreItem } from "@/lib/store";
 
 /*
 | ⚠️ NEITHER OF THESE IS REACHABLE FROM THE BACKEND SUITE. «Does this component
@@ -16,7 +16,7 @@ import type { StoreItem } from "@/lib/store";
 
 afterEach(cleanup);
 
-const digital: StoreItem = {
+const digital: ManagedStoreItem = {
   uuid: "d-1",
   kind: "digital",
   kind_label: "نسخة رقمية",
@@ -28,16 +28,20 @@ const digital: StoreItem = {
   shipping_fee_minor: null,
   stock: null,
   is_active: true,
+  cover_url: null,
   commission_bps: 1000,
+  price: "50.00",
+  shipping_fee: null,
   created_at: null,
 };
 
-const printed: StoreItem = {
+const printed: ManagedStoreItem = {
   ...digital,
   uuid: "p-1",
   kind: "physical",
   kind_label: "نسخة مطبوعة",
   shipping_fee_minor: 1500,
+  shipping_fee: "15.00",
   stock: 3,
 };
 
@@ -52,7 +56,7 @@ describe("StoreItemForm", () => {
       />,
     );
 
-    expect(screen.getByLabelText(/الملف المرفق/)).toBeTruthy();
+    expect(screen.getByLabelText(/ملف المنتج/)).toBeTruthy();
     expect(screen.queryByLabelText(/المخزون/)).toBeNull();
   });
 
@@ -73,13 +77,13 @@ describe("StoreItemForm", () => {
     // screen invented.
     expect(screen.getByLabelText(/المخزون/)).toBeTruthy();
     expect(screen.getByLabelText(/رسم الشحن/)).toBeTruthy();
-    expect(screen.queryByLabelText(/الملف المرفق/)).toBeNull();
+    expect(screen.queryByLabelText(/ملف المنتج/)).toBeNull();
   });
 
   it("shows the teacher what they keep, floored exactly as the server floors it", () => {
     render(
       <StoreItemForm
-        item={{ ...digital, price_minor: 5555 }}
+        item={{ ...digital, price_minor: 5555, price: "55.55" }}
         commissionBps={1000}
         onSaved={vi.fn()}
         onCancel={vi.fn()}
@@ -88,7 +92,30 @@ describe("StoreItemForm", () => {
 
     // 5555 − floor(5555 × 1000 / 10000) = 5555 − 555 = 5000.
     // A `Math.round` here would show 4999 — a riyal the teacher never receives.
-    expect(screen.getByText(/نصيبك من كل نسخة/)).toBeTruthy();
+    expect(screen.getByText(/نصيبك من كل نسخة/).textContent).toContain("50.00");
+  });
+
+  it("refuses to put a new digital product on sale with no file chosen", () => {
+    const onSaved = vi.fn();
+    render(<StoreItemForm commissionBps={1000} onSaved={onSaved} onCancel={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/العنوان/), { target: { value: "ملخّص" } });
+    fireEvent.change(screen.getByLabelText(/سعر البيع/), { target: { value: "40" } });
+    fireEvent.click(screen.getByRole("button", { name: "حفظ" }));
+
+    expect(screen.getByText("اختر ملف المنتج قبل عرضه للبيع.")).toBeTruthy();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+});
+
+describe("majorToMinor", () => {
+  it("parses the typed amount as text, never by multiplying a float", async () => {
+    const { majorToMinor } = await import("@/lib/store");
+
+    expect(majorToMinor("150")).toBe(15000);
+    expect(majorToMinor("0.29")).toBe(29);
+    expect(majorToMinor("150.5")).toBe(15050);
+    expect(majorToMinor("150.005")).toBeNull();
   });
 });
 

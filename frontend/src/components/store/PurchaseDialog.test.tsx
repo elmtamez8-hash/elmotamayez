@@ -35,7 +35,7 @@ const ITEM: StoreItem = {
   shipping_fee_minor: null,
   stock: null,
   is_active: true,
-  commission_bps: 1000,
+  cover_url: null,
   created_at: null,
 } as StoreItem;
 

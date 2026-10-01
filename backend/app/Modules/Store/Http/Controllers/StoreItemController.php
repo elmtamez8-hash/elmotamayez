@@ -8,7 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Store\Actions\SaveStoreItem;
 use App\Modules\Store\Data\StoreItemData;
 use App\Modules\Store\Http\Requests\SaveStoreItemRequest;
-use App\Modules\Store\Http\Resources\StoreItemResource;
+use App\Modules\Store\Http\Resources\ManageStoreItemResource;
 use App\Modules\Store\Models\StoreItem;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -48,11 +48,11 @@ class StoreItemController extends Controller
             // Dropping this makes the page one query CHEAPER and the course name
             // absent, so a budget test measuring queries alone reads the
             // regression as an improvement.
-            ->with('course:id,uuid,title')
+            ->with(['course:id,uuid,title', 'mediaAsset'])
             ->orderByDesc('id')
             ->paginate(20);
 
-        return StoreItemResource::collection($items);
+        return ManageStoreItemResource::collection($items);
     }
 
     public function store(SaveStoreItemRequest $request, SaveStoreItem $save): JsonResponse
@@ -66,19 +66,19 @@ class StoreItemController extends Controller
             $this->currentUser($request),
         );
 
-        return (new StoreItemResource($item))->response()->setStatusCode(201);
+        return (new ManageStoreItemResource($item->load(['course:id,uuid,title', 'mediaAsset'])))->response()->setStatusCode(201);
     }
 
-    public function update(SaveStoreItemRequest $request, StoreItem $item, SaveStoreItem $save): StoreItemResource
+    public function update(SaveStoreItemRequest $request, StoreItem $item, SaveStoreItem $save): ManageStoreItemResource
     {
         $this->authorize('update', $item);
 
-        return new StoreItemResource($save->handle(
+        return new ManageStoreItemResource($save->handle(
             StoreItemData::fromArray($request->validated()),
             $this->workspaceId(),
             $item,
             $this->currentUser($request),
-        ));
+        )->load(['course:id,uuid,title', 'mediaAsset']));
     }
 
     private function workspaceId(): int

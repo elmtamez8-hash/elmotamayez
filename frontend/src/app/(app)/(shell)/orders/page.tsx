@@ -187,6 +187,10 @@ function bought(order: Order): { title: string; detail: string | null } {
     return { title: sessions(order.credits), detail: KIND_LABELS.credits };
   }
 
+  if (order.kind === "store" && order.store_item_title) {
+    return { title: order.store_item_title, detail: KIND_LABELS.store };
+  }
+
   return { title: KIND_LABELS[order.kind] ?? "—", detail: null };
 }
 

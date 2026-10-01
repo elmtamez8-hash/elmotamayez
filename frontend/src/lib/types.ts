@@ -424,6 +424,8 @@ export interface Order {
   /** `course` | `credits` | … — what was bought. */
   kind: string;
   course_title: string | null;
+  /** A store order's product name, snapshotted at purchase; null for every other kind. */
+  store_item_title?: string | null;
   /**
    * Who paid. Present ONLY for a reader holding `orders.view_all`; the buyer's
    * own list omits both keys, so absent means "not staff", never "unknown".
