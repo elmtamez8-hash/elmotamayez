@@ -44,11 +44,9 @@ export function PageCover({ api, background, template }: { api: BoardApi; backgr
     };
   }, [api]);
 
-  useEffect(() => {
-    // Excalidraw's own root is the containing block the scroll numbers are in.
-    const id = requestAnimationFrame(() => setRoot(document.querySelector(".wb-board .excalidraw")));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  // Excalidraw's own root is the containing block the scroll numbers are in; it
+  // exists once the api does (no frame wait — a background tab runs no frames).
+  useEffect(() => setRoot(document.querySelector(".wb-board .excalidraw")), [api]);
 
   useEffect(() => {
     if (!template) return setImage(null);
