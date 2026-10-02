@@ -67,9 +67,18 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
       for (let i = 0, x = 0; x <= W; x += 24, i++) lines.push([x, 0, x, H, i % 5 === 0 ? STRONG : LINE, i % 5 === 0 ? 2 : 1]);
       for (let i = 0, y = 0; y <= H; y += 24, i++) lines.push([0, y, W, y, i % 5 === 0 ? STRONG : LINE, i % 5 === 0 ? 2 : 1]);
       break;
-    case "dotted":
-      for (let x = 24; x < W; x += 48) for (let y = 24; y < H; y += 48) dots.push([x, y]);
+    case "dotted": {
+      // Centred on BOTH axes: 1080 is not a multiple of 48, so starting both at 24
+      // left 24 above and 48 below (caught in review).
+      const step = 48;
+      const centred = (span: number) => {
+        const count = Math.floor(span / step);
+        const first = (span - (count - 1) * step) / 2;
+        return Array.from({ length: count }, (_, i) => first + i * step);
+      };
+      for (const x of centred(W)) for (const y of centred(H)) dots.push([x, y]);
       break;
+    }
     case "isometric": {
       // Triangles: horizontal-free lattice at ±30°, the usual isometric paper.
       const step = 60;

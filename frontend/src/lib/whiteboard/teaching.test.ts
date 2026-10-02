@@ -45,7 +45,9 @@ describe("page templates fill the page", () => {
       }
       if (dots.length > 0) {
         const xs = dots.map(([x]) => x);
+        const ys = dots.map(([, y]) => y);
         expect(Math.min(...xs), name).toBeCloseTo(PAGE_WIDTH - Math.max(...xs), 5);
+        expect(Math.min(...ys), name).toBeCloseTo(PAGE_HEIGHT - Math.max(...ys), 5);
       }
     }
   });
