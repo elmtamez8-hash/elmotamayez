@@ -6,6 +6,10 @@ import { STUNT_MS, type Stunt as StuntKind } from "@/lib/whiteboard/effects";
 import { WB } from "@/lib/whiteboard/strings";
 
 /**
+ * ⚠️ A figure centred by `centre` gets its `translate(-50%, -50%)` from its
+ * keyframes, so its LAST animation must keep `forwards` — without it the figure
+ * jumps by half its size the moment the motion ends (caught in review).
+ *
  * One large figure acting a short scene over the board — a plane dropping a
  * gift, an egg or a tomato splatting on the «glass», a brick cracking it, a
  * whistle, the teacher's stick, a warning, a «wrong», a yellow or a red card.
@@ -53,6 +57,7 @@ const KEYFRAMES = `
   @keyframes wb-tap { 0%, 30%, 60%, 90% { transform: rotate(-38deg); } 15%, 45%, 75% { transform: rotate(0deg); } 100% { transform: rotate(-38deg); } }
   @keyframes wb-blow { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 20%, 60% { transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); }
     40%, 80% { transform: translate(-50%, -50%) scale(1.04) rotate(3deg); } }
+  @keyframes wb-jolt { 0%, 100% { transform: rotate(0); } 25%, 75% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
   @keyframes wb-fade-out { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 `;
 
@@ -97,7 +102,7 @@ function Splat({ fill, centreFill }: { fill: string; centreFill?: string }) {
 function Crack() {
   const rays = [0, 40, 95, 150, 205, 250, 300, 335];
   return (
-    <svg width="70vh" height="70vh" viewBox="-100 -100 200 200" style={{ animation: "wb-shake .4s linear" }}>
+    <svg width="70vh" height="70vh" viewBox="-100 -100 200 200" style={{ animation: "wb-jolt .4s linear .55s" }}>
       {rays.map((deg) => {
         const a = (deg * Math.PI) / 180;
         const mid = 40;
@@ -133,7 +138,7 @@ const SCENES: Record<StuntKind, React.ReactNode> = {
   tomato: <Thrown glyph="🍅" mark={<Splat fill="#dc2626" />} />,
   brick: <Thrown glyph="🧱" mark={<Crack />} />,
   whistle: (
-    <svg className={centre} width="46vh" height="28vh" viewBox="-30 0 230 140" style={{ animation: `wb-blow .5s ease-in-out 3` }}>
+    <svg className={centre} width="46vh" height="28vh" viewBox="-30 0 230 140" style={{ animation: `wb-blow .5s ease-in-out 3 forwards` }}>
       <rect x="10" y="40" width="70" height="26" rx="6" fill="#64748b" />
       <circle cx="120" cy="80" r="52" fill="#94a3b8" />
       <circle cx="120" cy="80" r="20" fill="#475569" />
@@ -142,10 +147,10 @@ const SCENES: Record<StuntKind, React.ReactNode> = {
     </svg>
   ),
   stick: (
-    <div className="absolute bottom-[8%] left-1/2 h-[60vh] w-[2.2vh] origin-bottom rounded-full" style={{ background: "linear-gradient(90deg,#92400e,#b45309,#78350f)", animation: `wb-tap 1.35s ease-in-out .2s` }} />
+    <div className="absolute bottom-[8%] left-1/2 h-[60vh] w-[2.2vh] origin-bottom rounded-full" style={{ background: "linear-gradient(90deg,#92400e,#b45309,#78350f)", animation: `wb-tap 1.35s ease-in-out .2s both` }} />
   ),
   warning: (
-    <div className={`${centre} flex flex-col items-center`} style={{ animation: `wb-pop-in .25s ease-out, wb-pulse .6s ease-in-out .25s 4` }}>
+    <div className={`${centre} flex flex-col items-center`} style={{ animation: `wb-pop-in .25s ease-out, wb-pulse .6s ease-in-out .25s 4 forwards` }}>
       <span className="text-[28vh] leading-none">⚠️</span>
       <span className="rounded-xl px-6 py-1 text-[6vh] font-bold" style={{ background: "#facc15", color: "#1c1917" }}>
         {WB.effects.warning}
@@ -153,7 +158,7 @@ const SCENES: Record<StuntKind, React.ReactNode> = {
     </div>
   ),
   wrong: (
-    <span className={`${centre} text-[34vh] leading-none`} style={{ animation: `wb-pop-in .2s ease-out, wb-shake .5s linear .2s 2` }}>
+    <span className={`${centre} text-[34vh] leading-none`} style={{ animation: `wb-pop-in .2s ease-out, wb-shake .5s linear .2s 2 forwards` }}>
       ❌
     </span>
   ),

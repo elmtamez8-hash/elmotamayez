@@ -100,11 +100,13 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
  */
 
 const REVEAL_TOP_PX = 48;
+/** The aeroplane's late chime, cancelled when another stunt starts first. */
+let landing = 0;
 /** Each stunt's sound (synthesised: no file to fetch, nothing to license). */
 const STUNT_SOUNDS: Record<StuntKind, () => void> = {
   airplane: () => {
     playWhoosh();
-    window.setTimeout(playChime, 1700); // the gift lands
+    landing = window.setTimeout(playChime, 1700); // the gift lands
   },
   egg: playSplat,
   tomato: playSplat,
@@ -282,6 +284,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       case "yellowCard":
       case "redCard":
         setStunt({ kind, id: Date.now() });
+        window.clearTimeout(landing);
         if (sound) STUNT_SOUNDS[kind]();
         return;
       case "balloons":

@@ -139,13 +139,13 @@ export const WB = {
       attention: "🔨",
       hearts: "❤️",
       thumbs: "👍",
-      bubbles: "🫧",
+      bubbles: "🔵", // not 🫧: Unicode 14, a blank box on Windows 10
       airplane: "✈️",
       egg: "🥚",
       tomato: "🍅",
       brick: "🧱",
       whistle: "📯",
-      stick: "🪄",
+      stick: "👨‍🏫", // not 🪄: Unicode 13
       warning: "⚠️",
       wrong: "❌",
       yellowCard: "🟨",
