@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { BoardSettings } from "@/components/whiteboard/BoardSettings";
 import { ExportMenu } from "@/components/whiteboard/ExportMenu";
@@ -82,6 +83,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
       {props.screen && props.onScreen && (
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
+            <ArrowUpIcon className="h-4 w-4" />
             {WB.screenUp}
           </Button>
           <span className="text-sm tabular-nums" aria-live="polite">
@@ -93,6 +95,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
             disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
             onClick={() => props.onScreen?.(1)}
           >
+            <ArrowDownIcon className="h-4 w-4" />
             {props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
           </Button>
         </div>

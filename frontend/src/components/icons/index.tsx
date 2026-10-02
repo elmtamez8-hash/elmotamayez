@@ -138,6 +138,23 @@ import {
   IconListNumbers,
   IconSeparatorHorizontal,
   IconSourceCode,
+  IconArrowDown,
+  IconBalloon,
+  IconCircleX,
+  IconCircles,
+  IconConfetti,
+  IconEgg,
+  IconApple,
+  IconGavel,
+  IconHeart,
+  IconMoodHappy,
+  IconMusic,
+  IconPlane,
+  IconRectangleVerticalFilled,
+  IconSpeakerphone,
+  IconThumbUp,
+  IconWall,
+  IconWand,
 } from "@tabler/icons-react";
 
 export type IconProps = {
@@ -488,3 +505,26 @@ export const CodeBlockIcon = wrap(IconSourceCode, "h-4 w-4");
 export const DividerIcon = wrap(IconSeparatorHorizontal, "h-4 w-4");
 export const UndoIcon = wrap(IconArrowBackUp, "h-4 w-4");
 export const RedoIcon = wrap(IconArrowForwardUp, "h-4 w-4");
+
+/*
+ * The whiteboard's effects (spec 039 · US10): drawn icons, not emoji — an emoji
+ * is whatever the teacher's system font draws (or a blank box on an older one).
+ */
+export const ApplauseIcon = wrap(IconMoodHappy, "h-4 w-4");
+export const BalloonIcon = wrap(IconBalloon, "h-4 w-4");
+export const ConfettiIcon = wrap(IconConfetti, "h-4 w-4");
+export const DrumrollIcon = wrap(IconMusic, "h-4 w-4");
+export const GavelIcon = wrap(IconGavel, "h-4 w-4");
+export const HeartIcon = wrap(IconHeart, "h-4 w-4");
+export const ThumbUpIcon = wrap(IconThumbUp, "h-4 w-4");
+export const BubblesIcon = wrap(IconCircles, "h-4 w-4");
+export const PlaneIcon = wrap(IconPlane, "h-4 w-4");
+export const EggIcon = wrap(IconEgg, "h-4 w-4");
+export const TomatoIcon = wrap(IconApple, "h-4 w-4");
+export const BrickIcon = wrap(IconWall, "h-4 w-4");
+export const WhistleIcon = wrap(IconSpeakerphone, "h-4 w-4");
+export const StickIcon = wrap(IconWand, "h-4 w-4");
+export const WarningIcon = wrap(IconAlertTriangle, "h-4 w-4");
+export const WrongIcon = wrap(IconCircleX, "h-4 w-4");
+export const CardIcon = wrap(IconRectangleVerticalFilled, "h-4 w-4");
+export const ArrowDownIcon = wrap(IconArrowDown, "h-4 w-4");

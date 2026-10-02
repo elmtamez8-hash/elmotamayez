@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { WB } from "@/lib/whiteboard/strings";
@@ -131,11 +132,11 @@ export function PagesSidebar(props: PagesSidebarProps) {
               <div className="flex flex-wrap items-center gap-1">
                 <Button size="sm" variant="ghost" disabled={busy || index === 0} onClick={() => move(index, index - 1)}>
                   {/* `Button` takes no aria-label, so the name is text a screen reader reads. */}
-                  <span aria-hidden>↑</span>
+                  <ArrowUpIcon className="h-4 w-4" />
                   <span className="sr-only">{WB.moveUp}</span>
                 </Button>
                 <Button size="sm" variant="ghost" disabled={busy || index === pages.length - 1} onClick={() => move(index, index + 1)}>
-                  <span aria-hidden>↓</span>
+                  <ArrowDownIcon className="h-4 w-4" />
                   <span className="sr-only">{WB.moveDown}</span>
                 </Button>
                 <Button size="sm" variant="ghost" disabled={busy} onClick={() => props.onDuplicate(page.uuid)}>

@@ -106,13 +106,13 @@ describe("the screens of a page", () => {
     const onScreen = vi.fn();
     const { rerender } = render(<BoardToolbar {...props({ screen: { index: 0, count: 1 }, onScreen })} />);
 
-    expect((screen.getByRole("button", { name: "↑ أعلى" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "↓ مكان فارغ" }));
+    expect((screen.getByRole("button", { name: "أعلى" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "مكان فارغ" }));
     expect(onScreen).toHaveBeenCalledWith(1);
 
     rerender(<BoardToolbar {...props({ screen: { index: 0, count: 3 }, onScreen })} />);
     expect(screen.getByText("شاشة ١ من ٣")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "↓ أسفل" }));
+    fireEvent.click(screen.getByRole("button", { name: "أسفل" }));
     expect(onScreen).toHaveBeenLastCalledWith(1);
   });
 });

@@ -1,5 +1,26 @@
 "use client";
 
+import {
+  ApplauseIcon,
+  BalloonIcon,
+  BrickIcon,
+  BubblesIcon,
+  CardIcon,
+  ConfettiIcon,
+  DrumrollIcon,
+  EggIcon,
+  GavelIcon,
+  HeartIcon,
+  PlaneIcon,
+  StarIcon,
+  StickIcon,
+  ThumbUpIcon,
+  TomatoIcon,
+  WarningIcon,
+  WhistleIcon,
+  WrongIcon,
+  type IconProps,
+} from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { EFFECT_GROUPS, TRAIL_STYLES, type Effect, type TrailStyle } from "@/lib/whiteboard/effects";
 import { STICKERS, stickerText, type StickerName } from "@/lib/whiteboard/stickers";
@@ -27,7 +48,7 @@ export function EffectsBar(props: EffectsBarProps) {
           <span className="text-xs text-ink-muted">{WB.effects.groups[group.id]}</span>
           {group.effects.map((kind) => (
             <Button key={kind} size="sm" variant="ghost" onClick={() => props.onEffect(kind)}>
-              <span aria-hidden>{WB.effects.icons[kind]}</span>
+              <EffectIcon kind={kind} />
               {WB.effects.names[kind]}
             </Button>
           ))}
@@ -67,4 +88,33 @@ export function EffectsBar(props: EffectsBarProps) {
       {props.sound && <p className="text-xs text-ink-muted">{WB.effects.soundHint}</p>}
     </div>
   );
+}
+
+const ICONS: Record<Effect, (props: IconProps) => React.ReactElement> = {
+  applause: ApplauseIcon,
+  balloons: BalloonIcon,
+  party: ConfettiIcon,
+  stars: StarIcon,
+  drumroll: DrumrollIcon,
+  attention: GavelIcon,
+  hearts: HeartIcon,
+  thumbs: ThumbUpIcon,
+  bubbles: BubblesIcon,
+  airplane: PlaneIcon,
+  egg: EggIcon,
+  tomato: TomatoIcon,
+  brick: BrickIcon,
+  whistle: WhistleIcon,
+  stick: StickIcon,
+  warning: WarningIcon,
+  wrong: WrongIcon,
+  yellowCard: CardIcon,
+  redCard: CardIcon,
+};
+
+/** A drawn icon, not an emoji: the same on every system. The cards wear their colour. */
+function EffectIcon({ kind }: { kind: Effect }) {
+  const Icon = ICONS[kind];
+  const colour = kind === "yellowCard" ? " text-star" : kind === "redCard" ? " text-danger" : "";
+  return <Icon className={`h-4 w-4${colour}`} />;
 }
