@@ -13,18 +13,21 @@ import { boards, parseScene, type BoardDetail, type BoardPagePayload } from "@/l
 import {
   addPictures,
   applyBackground,
+  applyPen,
   exportPage,
   fitToFrame,
   initialAppState,
   installTextMetrics,
   loadPage,
   pageDocument,
+  pageTemplate,
   pageThumbnail,
   pictureIds,
   placeSticker,
   reframe,
   restorePage,
   sceneVersion,
+  setPageTemplate,
   startLaser,
   type BoardApi,
   type BoardElement,
@@ -32,7 +35,9 @@ import {
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
 import { playChime, playFanfare, playGavel, playRecording } from "@/lib/whiteboard/effect-sounds";
 import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
+import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
+import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
 import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
@@ -41,13 +46,17 @@ import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
 import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
 import { EffectsBar } from "@/components/whiteboard/EffectsBar";
 import { PresenterBar } from "@/components/whiteboard/PresenterBar";
+import { TeachingBar, type PassingTool } from "@/components/whiteboard/TeachingBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
 import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
 import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
+import { Curtain } from "@/components/whiteboard/overlays/Curtain";
+import { Magnifier } from "@/components/whiteboard/overlays/Magnifier";
 import { Spotlight } from "@/components/whiteboard/overlays/Spotlight";
+import { Wheel } from "@/components/whiteboard/overlays/Wheel";
 import { Timer } from "@/components/whiteboard/overlays/Timer";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
@@ -146,6 +155,32 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [spotlight, setSpotlight] = useState(false);
   const [timer, setTimer] = useState<{ minutes: number; id: number } | null>(null);
   const endSpotlight = useCallback(() => setSpotlight(false), []);
+  // Teaching tools (US9).
+  const [passing, setPassing] = useState<PassingTool | null>(null);
+  const [template, setTemplate] = useState<TemplateName | null>(null);
+  const endPassing = useCallback(() => setPassing(null), []);
+
+  const chooseTemplate = async (name: TemplateName | null) => {
+    if (!api) return;
+    if (name === null) {
+      setPageTemplate(api, null, null);
+    } else {
+      const id = templateFileId(name);
+      addPictures(api, await pictures.take([id]));
+      setPageTemplate(api, name, id);
+    }
+    setTemplate(name);
+  };
+
+  // The template buttons show the page shown, read from the page itself.
+  useEffect(() => {
+    if (api) setTemplate(pageTemplate(api) as TemplateName | null);
+  }, [api, pageIndex]);
+
+  const choosePen = (id: PenId) => {
+    const pen = PENS.find((p) => p.id === id);
+    if (api && pen) applyPen(api, pen);
+  };
   const [trail, setTrail] = useState<TrailStyle>("off");
   const [sound, setSound] = useState(readSound);
 
@@ -210,7 +245,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       createPictureCache((id) => {
         // A sticker is drawn from its name; only real files come from the server.
         const sticker = stickerOf(id);
-        return sticker ? renderSticker(sticker) : boards.fileBytes(boardUuid, id);
+        if (sticker) return renderSticker(sticker);
+        const template = templateOf(id);
+        return template ? renderTemplate(template) : boards.fileBytes(boardUuid, id);
       }),
     [boardUuid],
   );
@@ -528,7 +565,25 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
-            presenter={
+            menus={[
+              {
+                id: "tools",
+                label: WB.menus.tools,
+                content: (
+                  <TeachingBar
+                    canEdit={session.held}
+                    template={template}
+                    open={passing}
+                    onTemplate={chooseTemplate}
+                    onPen={choosePen}
+                    onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
+                  />
+                ),
+              },
+              {
+                id: "present",
+                label: WB.menus.present,
+                content: (
               <PresenterBar
                 spotlight={spotlight}
                 timerRunning={timer !== null}
@@ -536,8 +591,12 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                 onSpotlight={() => setSpotlight((on) => !on)}
                 onTimer={(minutes) => setTimer({ minutes, id: Date.now() })}
               />
-            }
-            effects={
+                ),
+              },
+              {
+                id: "encourage",
+                label: WB.menus.encourage,
+                content: (
               <EffectsBar
                 sound={sound}
                 trail={trail}
@@ -546,7 +605,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                 onSound={changeSound}
                 onTrail={setTrail}
               />
-            }
+                ),
+              },
+            ]}
             pagesOpen={showPages}
             onTogglePages={() => setShowPages((value) => !value)}
             status={
@@ -616,6 +677,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
       {spotlight && <Spotlight onClose={endSpotlight} />}
+      {passing === "magnifier" && <Magnifier onClose={endPassing} />}
+      {passing === "curtain" && <Curtain onClose={endPassing} />}
+      {passing === "wheel" && <Wheel sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
       {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
       {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}

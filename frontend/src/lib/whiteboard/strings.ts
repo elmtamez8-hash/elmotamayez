@@ -44,6 +44,36 @@ export const WB = {
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
+  /** The toolbar's menus. */
+  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع" },
+
+  /** Teaching tools (US9). */
+  tools: {
+    template: "خلفية الصفحة:",
+    templates: {
+      none: "بلا",
+      lined: "مسطّرة",
+      grid: "مربّعات",
+      dotted: "منقّطة",
+      isometric: "متساوية القياس",
+      graph: "رسم بياني",
+      "arabic-lines": "كرّاسة عربية",
+    },
+    pen: "القلم:",
+    pens: { marker: "ماركر", brush: "فرشاة عريضة", highlighter: "قلم تظليل" },
+    passing: "أدوات مؤقّتة:",
+    names: { magnifier: "عدسة", curtain: "ستارة", wheel: "عجلة الاختيار" },
+    curtain: "حافة الستارة: اسحبها لكشف ما تحتها",
+    reveal: "اكشف قليلاً",
+    closeCurtain: "إزالة الستارة",
+    wheelNames: "الأسماء، اسم في كل سطر (أو رقم واحد مثل ٣٠):",
+    wheelPlaceholder: "أحمد\nمريم\nيوسف",
+    wheelRemove: "احذف الاسم بعد اختياره",
+    spin: "أدر العجلة",
+    closeWheel: "إغلاق",
+    geometry: "هندسة:",
+  },
+
   /** The presenter's tools (US8). */
   presenter: {
     title: "عرض:",

@@ -12,6 +12,7 @@ import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/exca
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
+import type { Pen } from "@/lib/whiteboard/pens";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
 
 /**
@@ -253,4 +254,63 @@ export function placeSticker(api: BoardApi, fileId: string, name: string, offset
   ]);
 
   api.updateScene({ elements: [...elements, sticker], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/** A ready pen (US9): the freehand tool with that pen's width, opacity and colour. */
+export function applyPen(api: BoardApi, pen: Pen): void {
+  const colour = pen.colour ?? api.getAppState().currentItemStrokeColor;
+  api.updateScene({
+    appState: {
+      currentItemStrokeWidth: pen.strokeWidth,
+      currentItemOpacity: pen.opacity,
+      currentItemStrokeColor: colour,
+    },
+    captureUpdate: CaptureUpdateAction.NEVER,
+  });
+  api.setActiveTool({ type: "freedraw" });
+}
+
+/**
+ * Put a background template under the page shown (US9, FR-030), replacing any
+ * it had — or remove it (`null`). One locked image the size of the page, FIRST
+ * in the scene so everything drawn sits above it. One undoable step.
+ */
+export function setPageTemplate(api: BoardApi, name: string | null, fileId: string | null): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const rest = elements.map((element) =>
+    (element.customData as { kind?: string } | undefined)?.kind === "template" && !element.isDeleted
+      ? ({ ...element, isDeleted: true, version: element.version + 1 } as BoardElement)
+      : element,
+  );
+
+  if (name === null || fileId === null) {
+    api.updateScene({ elements: rest, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+    return;
+  }
+
+  const [template] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x: frame?.x ?? 0,
+      y: frame?.y ?? 0,
+      width: frame?.width ?? PAGE_WIDTH,
+      height: frame?.height ?? PAGE_HEIGHT,
+      status: "saved",
+      locked: true,
+      frameId: frame?.id ?? null,
+      customData: { kind: "template", v: 1, name },
+    },
+  ]);
+
+  api.updateScene({ elements: [template, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/** The template the page shown uses, if any. */
+export function pageTemplate(api: BoardApi): string | null {
+  const found = api
+    .getSceneElements()
+    .find((element) => (element.customData as { kind?: string } | undefined)?.kind === "template");
+  return (found?.customData as { name?: string } | undefined)?.name ?? null;
 }
