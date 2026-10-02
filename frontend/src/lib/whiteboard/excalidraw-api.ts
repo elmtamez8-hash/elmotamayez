@@ -13,7 +13,17 @@ import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomVa
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import type { Pen } from "@/lib/whiteboard/pens";
-import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
+import {
+  BACKGROUNDS,
+  PAGE_HEIGHT,
+  PAGE_WIDTH,
+  STREAM_DEFAULTS,
+  fitViewport,
+  recolorForBackground,
+  screenAt,
+  screensIn,
+  type BoardBackground,
+} from "@/lib/whiteboard/page-model";
 
 /**
  * THE door to Excalidraw (spec 039, R-02). Every call into the library goes through
@@ -93,9 +103,12 @@ export function initialAppState(background: BoardBackground, width: number, heig
   };
 }
 
-/** Fill the canvas with the 16:9 frame (`scrollToContent` caps the zoom at 1 and floors it). */
-export function fitToFrame(api: BoardApi, width: number, height: number): void {
-  const view = fitViewport(width, height);
+/**
+ * Fill the canvas with one 16:9 screen of the page — the first by default
+ * (`scrollToContent` caps the zoom at 1 and floors it).
+ */
+export function fitToFrame(api: BoardApi, width: number, height: number, screen = 0): void {
+  const view = fitViewport(width, height, screen);
   api.updateScene({
     appState: { zoom: { value: view.zoom as NormalizedZoomValue }, scrollX: view.scrollX, scrollY: view.scrollY },
     captureUpdate: CaptureUpdateAction.NEVER,
@@ -289,22 +302,74 @@ export function setPageTemplate(api: BoardApi, name: string | null, fileId: stri
     return;
   }
 
-  const [template] = convertToExcalidrawElements([
+  const screens = screensIn(frame?.height ?? PAGE_HEIGHT);
+  const templates = Array.from({ length: screens }, (_, screen) => templateImage(frame, name, fileId, screen));
+  api.updateScene({ elements: [...templates, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/**
+ * One screen's copy of a template: the page grows downward in screens, and a
+ * template is a screen-sized picture — repeated, never stretched.
+ */
+function templateImage(frame: ExcalidrawFrameElement | null, name: string, fileId: string, screen: number): BoardElement {
+  const [image] = convertToExcalidrawElements([
     {
       type: "image",
       fileId: fileId as BinaryFileData["id"],
       x: frame?.x ?? 0,
-      y: frame?.y ?? 0,
+      y: (frame?.y ?? 0) + screen * PAGE_HEIGHT,
       width: frame?.width ?? PAGE_WIDTH,
-      height: frame?.height ?? PAGE_HEIGHT,
+      height: PAGE_HEIGHT,
       status: "saved",
       locked: true,
       frameId: frame?.id ?? null,
       customData: { kind: "template", v: 1, name },
     },
   ]);
+  return image;
+}
 
-  api.updateScene({ elements: [template, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+/** How many screens the page shown holds. */
+export function pageScreens(api: BoardApi): number {
+  return screensIn(pageFrame(api.getSceneElements())?.height ?? PAGE_HEIGHT);
+}
+
+/** The screen the teacher is on now. */
+export function currentScreen(api: BoardApi, viewportHeight: number): number {
+  const state = api.getAppState();
+  return screenAt(state.scrollY, state.zoom.value, viewportHeight, pageScreens(api));
+}
+
+/**
+ * Show screen `index` of the page — growing the page downward first when it has
+ * fewer screens (owner, 2026-10-02: «move down to keep explaining in empty
+ * space»). The frame gets taller and the template, if any, repeats on the new
+ * screens. Growing is not an undo step: undo is for what the teacher drew.
+ * Answers the screen shown.
+ */
+export function showScreen(api: BoardApi, width: number, height: number, index: number): number {
+  const target = Math.max(0, index);
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const screens = screensIn(frame?.height ?? PAGE_HEIGHT);
+
+  if (frame && target >= screens) {
+    const grown = { ...frame, height: (target + 1) * PAGE_HEIGHT, version: frame.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) } as BoardElement;
+    const template = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template") as
+      | (BoardElement & { fileId?: string; customData?: { name?: string } })
+      | undefined;
+    const added =
+      template?.fileId && template.customData?.name
+        ? Array.from({ length: target + 1 - screens }, (_, i) => templateImage(frame, template.customData!.name!, template.fileId!, screens + i))
+        : [];
+    api.updateScene({
+      elements: [...added, ...elements.map((e) => (e.id === frame.id ? grown : e))],
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+  }
+
+  fitToFrame(api, width, height, target);
+  return target;
 }
 
 /** The template the page shown uses, if any. */

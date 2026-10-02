@@ -7,6 +7,8 @@ import {
   STREAM_DEFAULTS,
   contrastRatio,
   fitViewport,
+  screenAt,
+  screensIn,
   pageFrameId,
   penFor,
   recolorForBackground,
@@ -39,6 +41,30 @@ describe("fitViewport", () => {
 
   it("zooms past 1 on a large screen, which scrollToContent refuses to do", () => {
     expect(fitViewport(3840, 2160).zoom).toBeCloseTo(2, 6);
+  });
+
+  it("fills the canvas with any one screen of a page that has grown downward", () => {
+    const v = fitViewport(1366, 600, 2);
+    const top = (2 * PAGE_HEIGHT + v.scrollY) * v.zoom;
+    const bottom = (3 * PAGE_HEIGHT + v.scrollY) * v.zoom;
+    expect(top).toBeCloseTo(600 - bottom, 6); // the third screen, centred like the first
+  });
+});
+
+describe("the screens of a page", () => {
+  it("counts the screens a page holds", () => {
+    expect(screensIn(PAGE_HEIGHT)).toBe(1);
+    expect(screensIn(3 * PAGE_HEIGHT)).toBe(3);
+    expect(screensIn(0)).toBe(1);
+  });
+
+  it("finds the screen the teacher is on from Excalidraw's scroll, and never one the page lacks", () => {
+    for (const screen of [0, 1, 4]) {
+      const v = fitViewport(1366, 600, screen);
+      expect(screenAt(v.scrollY, v.zoom, 600, 5)).toBe(screen);
+    }
+    const far = fitViewport(1366, 600, 9);
+    expect(screenAt(far.scrollY, far.zoom, 600, 5)).toBe(4);
   });
 });
 

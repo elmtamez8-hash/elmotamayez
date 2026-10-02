@@ -15,12 +15,14 @@ import {
   addStroke,
   applyBackground,
   applyPen,
+  currentScreen,
   exportPage,
   fitToFrame,
   initialAppState,
   installTextMetrics,
   loadPage,
   pageDocument,
+  pageScreens,
   pageTemplate,
   pageThumbnail,
   pictureIds,
@@ -29,6 +31,7 @@ import {
   restorePage,
   sceneVersion,
   setPageTemplate,
+  showScreen,
   startLaser,
   type BoardApi,
   type BoardElement,
@@ -112,6 +115,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [presenting, setPresenting] = useState(false);
   const [reveal, setReveal] = useState(false);
   const [frameRect, setFrameRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const [screen, setScreen] = useState({ index: 0, count: 1 });
   const containerRef = useRef<HTMLDivElement>(null);
   const pages = useRef<Pages>(new Map());
   const { user } = useAuth();
@@ -283,22 +287,37 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     };
   }, [boardUuid, pictures]);
 
-  const fit = useCallback(() => {
-    const box = containerRef.current?.getBoundingClientRect();
-    if (api && box) fitToFrame(api, box.width, box.height);
-  }, [api]);
+  /** Fit one screen of the page: `screen`, or the one the teacher is on (a resize keeps it). */
+  const fit = useCallback(
+    (screen?: number) => {
+      const box = containerRef.current?.getBoundingClientRect();
+      if (api && box) fitToFrame(api, box.width, box.height, screen ?? currentScreen(api, box.height));
+    },
+    [api],
+  );
 
   // Excalidraw settles its own viewport after mount, so fit on the next frame too.
   useEffect(() => {
     if (!api) return;
-    fit();
-    const frame = requestAnimationFrame(fit);
-    window.addEventListener("resize", fit);
+    const refit = () => fit();
+    refit();
+    const frame = requestAnimationFrame(refit);
+    window.addEventListener("resize", refit);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("resize", fit);
+      window.removeEventListener("resize", refit);
     };
   }, [api, fit]);
+
+  /** Down (or up) a screen — growing the page when the teacher goes past its end. */
+  const moveScreen = useCallback(
+    (delta: number) => {
+      const box = containerRef.current?.getBoundingClientRect();
+      if (!api || !box) return;
+      showScreen(api, box.width, box.height, currentScreen(api, box.height) + delta);
+    },
+    [api],
+  );
 
   // The mask follows the frame on every scroll and zoom.
   useEffect(() => {
@@ -307,11 +326,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     setView({ scrollX, scrollY, zoom: zoom.value });
     return api.onScrollChange((scrollX, scrollY, zoom) => {
       setView({ scrollX, scrollY, zoom: zoom.value });
+      // The page's REAL height: it grows downward in screens.
+      const screens = pageScreens(api);
+      const box = containerRef.current?.getBoundingClientRect();
+      setScreen({ index: box ? currentScreen(api, box.height) : 0, count: screens });
       setFrameRect({
         left: scrollX * zoom.value,
         top: scrollY * zoom.value,
         width: PAGE_WIDTH * zoom.value,
-        height: PAGE_HEIGHT * zoom.value,
+        height: screens * PAGE_HEIGHT * zoom.value,
       });
     });
   }, [api]);
@@ -343,7 +366,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (!api) return;
       loadPage(api, pages.current.get(list[index].uuid) ?? []);
       setPageIndex(index);
-      fit();
+      fit(0);
     },
     [api, fit],
   );
@@ -368,11 +391,14 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (api && Object.keys(api.getAppState().selectedElementIds).length === 0) {
         if (event.key === "ArrowLeft") goTo(pageIndex + 1);
         if (event.key === "ArrowRight") goTo(pageIndex - 1);
+        // Up and down: the screens of this page, growing it past its end.
+        if (event.key === "ArrowDown") moveScreen(1);
+        if (event.key === "ArrowUp") moveScreen(-1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [api, goTo, pageIndex]);
+  }, [api, goTo, pageIndex, moveScreen]);
 
   // The app keeps a scrollbar on <html> on every page; on the tab the class watches
   // it is a grey strip down the side of the board. Removed while the board is open.
@@ -627,6 +653,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                 ),
               },
             ]}
+            screen={screen}
+            onScreen={moveScreen}
             pagesOpen={showPages}
             onTogglePages={() => setShowPages((value) => !value)}
             status={
@@ -701,7 +729,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             key={instrument.id}
             kind={instrument.kind}
             view={view}
-            centre={[PAGE_WIDTH / 2, PAGE_HEIGHT / 2]}
+            centre={[PAGE_WIDTH / 2, screen.index * PAGE_HEIGHT + PAGE_HEIGHT / 2]}
             onDraw={drawAlong}
             onClose={endInstrument}
           />
