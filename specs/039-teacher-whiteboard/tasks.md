@@ -275,34 +275,34 @@
 
 **الاختبار المستقل:** إنشاء سبّورة ثم فتحها ثم الكتابة والتصدير، بلا حفظ على الخادم ولا استيراد.
 
-- [ ] T040 [US1] اكتب في `backend/app/Modules/Whiteboard/Actions/` الـ Actions `CreateBoard` و`UpdateBoard` و`ListBoards`، ومعها `BoardData` في `Data/`:
+- [x] T040 [US1] اكتب في `backend/app/Modules/Whiteboard/Actions/` الـ Actions `CreateBoard` و`UpdateBoard` و`ListBoards`، ومعها `BoardData` في `Data/`:
   - تحقّق `WorkspaceRules::exists(…,'uuid')`؛
   - الدرس من المقرّر نفسه، أو يُشتقّ المقرّر من الدرس؛
   - المساعد المحصور يسمّي مقرّراً في نطاقه، ولا ينقل السبّورة إلى مقرّر خارج نطاقه ولا إلى «بلا مقرّر»؛
   - تغيير `course`/`lesson` لصاحب السبّورة الحالي وحده (D1)، ثم يُعاد فحص `update` على الحالة الجديدة قبل الالتزام؛
   - `CreateBoard` يُنشئ صفحة أولى فارغة فيها إطارها؛
   - `ListBoards`: الاستعلام مضيَّق بمحمول `view`، ومرشّحاته `q` (العنوان) و`course` و`lesson` و`mine`. (`class_session` و`session=` في T108.)
-- [ ] T041 [US1] اكتب `BoardController` بالدوالّ `index` و`store` و`show` و`update` في `backend/app/Modules/Whiteboard/Http/Controllers/`، والطلبات `StoreBoardRequest` و`UpdateBoardRequest` و`ListBoardsRequest`، وثلاثة Resources:
+- [x] T041 [US1] اكتب `BoardController` بالدوالّ `index` و`store` و`show` و`update` في `backend/app/Modules/Whiteboard/Http/Controllers/`، والطلبات `StoreBoardRequest` و`UpdateBoardRequest` و`ListBoardsRequest`، وثلاثة Resources:
   - `BoardResource` و`BoardDetailResource` و`PageResource`؛
   - `scene` يُرجَع **نصّاً خاماً بلا فكّ**؛
   - `can` محسوب من بيانات مهيّأة مسبقاً؛
   - القائمة: `with()` لكل العلاقات، وأعمدة المستخدم `id,uuid,first_name,last_name`، والصفحات عبر `toResponse`.
 
   ثم الطرق في `routes/api.php` بحدودها المسمّاة.
-- [ ] T042 [US1] اكتب `backend/tests/Feature/Whiteboard/BoardCrudTest.php`:
+- [x] T042 [US1] اكتب `backend/tests/Feature/Whiteboard/BoardCrudTest.php`:
   - إنشاء وقراءة وتعديل؛
   - القائمة لا تُظهر لمساعد محصور سبّورات خارج نطاقه، وعدد الصفحات في القائمة يطابق ذلك؛
   - سبّورة من مساحة أخرى تعطي 404 مطابقاً لسبّورة غير موجودة؛
   - PATCH `course`/`lesson` من غير صاحب السبّورة يُرفض، ونقل يُفقد المستدعي `update` يُرفض، والمساعد المحصور لا ينقل إلى مقرّر خارج نطاقه ولا إلى null؛
   - **تطابق `can`:** `can.*` في الـ Resource يساوي `Gate::allows` على عيّنة من الممثّلين؛
   - ميزانية الاستعلامات للقائمة ثابتة مع 20 صفاً، بعد تسخين حتى الاستقرار.
-- [ ] T043 [US1] اكتب `backend/tests/Feature/Whiteboard/BoardIsolationTest.php`، مصفوفة بيانات على كل طريق للسبّورة × الممثّلين، بالرموز الدقيقة:
+- [x] T043 [US1] اكتب `backend/tests/Feature/Whiteboard/BoardIsolationTest.php`، مصفوفة بيانات على كل طريق للسبّورة × الممثّلين، بالرموز الدقيقة:
   - مساحة عمل أخرى؛ uuid متداخل من سبّورة أخرى في المساحة نفسها؛ عضو أُزيل؛ طالب يحمل `LESSONS_MANAGE`؛ مساعد محصور خارج نطاقه؛ مدير ليس صاحب السبّورة (للكتابة)؛
   - يؤكّد أن عدد الطرق في المصفوفة يساوي عدد الطرق المسجّلة (method × URI) التي يبدأ `uri` فيها بـ `api/v1/boards`، فالطريق الجديد بلا صفّ يُحمِّره.
 
   تُكتب اليوم بطرق القصة ١، **وكل مهمة طرق بعدها تضيف صفوفها**.
-- [ ] T044 [US1] ابنِ `frontend/src/app/(app)/whiteboard/[board]/page.tsx`: صفحة خادم **تفكّ `params` فقط** (وعد في Next 15) وتعرض `<BoardCanvasClient boardUuid=…/>`. الجلب يحدث في المتصفّح خلف حارس T035، لا على الخادم (لا توكن هناك)
-- [ ] T045 [US1] أكمل `frontend/src/components/whiteboard/BoardCanvas.tsx` حسب R-04 وR-05 وR-07:
+- [x] T044 [US1] ابنِ `frontend/src/app/(app)/whiteboard/[board]/page.tsx`: صفحة خادم **تفكّ `params` فقط** (وعد في Next 15) وتعرض `<BoardCanvasClient boardUuid=…/>`. الجلب يحدث في المتصفّح خلف حارس T035، لا على الخادم (لا توكن هناك)
+- [x] T045 [US1] أكمل `frontend/src/components/whiteboard/BoardCanvas.tsx` حسب R-04 وR-05 وR-07:
   - يجلب السبّورة عبر `lib/whiteboard/api.ts`؛
   - `await ensureArabicFont()` قبل التركيب؛
   - المشاهد المحمّلة تمرّ على `restoreElements(…,{refreshDimensions:true})`؛
@@ -312,15 +312,15 @@
   ومعها وضع عرض نظيف:
   - `zenModeEnabled`؛
   - إخفاء ما لا يهمّ الطالب عبر `UIOptions`، فشريط الأدوات يُطوى ويبقى زرّ يعيده.
-- [ ] T046 [P] [US1] أضف إلى `frontend/src/lib/whiteboard/page-model.test.ts`: تغيير الخلفية يغيّر لون القلم الافتراضي (`penFor(background)`، US1-3)، و`refitOnResize` الخالصة التي يستدعيها `BoardCanvas` تعيد الملاءمة عند تغيير الحجم (US1-5)
-- [ ] T047 [P] [US1] اكتب `frontend/src/components/whiteboard/ExportMenu.tsx`: تصدير الصفحة PNG وSVG عبر `excalidraw-api.ts`، وكل نصوصها من `strings.ts`
-- [ ] T048 [US1] اكتب `frontend/src/components/whiteboard/BoardSettings.tsx`: إعادة تسمية السبّورة واختيار خلفيتها (PATCH)، في السبّورة نفسها
-- [ ] T049 [US1] ركّب `ExportMenu` و`BoardSettings` على الشاشة عبر `renderTopRightUI` في `BoardCanvas.tsx`، ومعه `frontend/src/components/whiteboard/BoardToolbar.test.tsx` يضغط كل زرّ ويرى أثره
-- [ ] T050 [US1] ابنِ صفحة القائمة `frontend/src/app/(app)/(shell)/manage/boards/page.tsx`:
+- [x] T046 [P] [US1] أضف إلى `frontend/src/lib/whiteboard/page-model.test.ts`: تغيير الخلفية يغيّر لون القلم الافتراضي (`penFor(background)`، US1-3)، و`refitOnResize` الخالصة التي يستدعيها `BoardCanvas` تعيد الملاءمة عند تغيير الحجم (US1-5)
+- [x] T047 [P] [US1] اكتب `frontend/src/components/whiteboard/ExportMenu.tsx`: تصدير الصفحة PNG وSVG عبر `excalidraw-api.ts`، وكل نصوصها من `strings.ts`
+- [x] T048 [US1] اكتب `frontend/src/components/whiteboard/BoardSettings.tsx`: إعادة تسمية السبّورة واختيار خلفيتها (PATCH)، في السبّورة نفسها
+- [x] T049 [US1] ركّب `ExportMenu` و`BoardSettings` على الشاشة عبر `renderTopRightUI` في `BoardCanvas.tsx`، ومعه `frontend/src/components/whiteboard/BoardToolbar.test.tsx` يضغط كل زرّ ويرى أثره
+- [x] T050 [US1] ابنِ صفحة القائمة `frontend/src/app/(app)/(shell)/manage/boards/page.tsx`:
   - محروسة بـ `lessonsManage`؛
   - إنشاء ثم فتح في تبويب جديد بـ `target="_blank"`، لأن CSS الخاص بـ Excalidraw بلا طبقات ويبقى بعد التنقّل؛
   - عنصر في `frontend/src/lib/panel-nav.tsx` (يحتاجه `panel-nav.test.ts`) ومعه `layout.tsx` بعنوان (يحتاجه `frontend/src/app/(app)/(shell)/route-titles.test.ts`).
-- [ ] T051 [US1] اكتب `frontend/e2e/whiteboard.spec.ts` › «النصّ العربي»، على مشروع واحد فقط: `test.skip(testInfo.project.name !== 'desktop-light')` (`frontend/playwright.config.ts`):
+- [x] T051 [US1] اكتب `frontend/e2e/whiteboard.spec.ts` › «النصّ العربي»، على مشروع واحد فقط: `test.skip(testInfo.project.name !== 'desktop-light')` (`frontend/playwright.config.ts`):
   - الكتابة: أداة النصّ ثم `textarea.excalidraw-wysiwyg` ثم `keyboard.type('الماء H₂O يغلي عند 100 درجة')` ثم Escape؛
   - SVG: فيه `@font-face` لـ `Segoe UI Emoji` بمصدر `data:font/woff2;base64` و`unicode-range` العربي، ونصّ `direction="rtl"` بقيمة `text-anchor` المصحّحة كما ثبتت في T011؛
   - PNG: `toHaveScreenshot` على هذا المشروع وحده.
@@ -339,7 +339,7 @@
 
 **الاختبار المستقل:** ارسم ثم اقطع الشبكة، ثم ارسم ثم أغلق التبويب وافتحه، فلا يضيع شيء.
 
-- [ ] T052 [US2] اكتب `SaveBoardScene` في `backend/app/Modules/Whiteboard/Actions/`، ومعه `SaveSceneRequest` (يفحص `Content-Length` قبل الفكّ) و`SceneData`:
+- [x] T052 [US2] اكتب `SaveBoardScene` في `backend/app/Modules/Whiteboard/Actions/`، ومعه `SaveSceneRequest` (يفحص `Content-Length` قبل الفكّ) و`SceneData`:
   1. فحص الشكل؛
   2. لا `dataURL`، ولا عناصر `embeddable` أو `iframe` (422 `bad_element`)؛
   3. `fileIds` إمّا قوالب بالتعبير الصارم المثبَّت (`\z` والمعدِّل `D`) وإمّا ملفات `Ready` من نوع `image/png|jpeg` لهذه السبّورة؛
@@ -348,12 +348,12 @@
   6. **جملة واحدة** تجمع الإصدار والقفل (R-09)، بساعة PHP ووسائط موضعية؛
   7. مفتاح الأثر الواحد `(tab, client_rev)`: يُعدّ مطبَّقاً فقط إن طابق الاثنان **و** الإصدار المرسَل = المخزَّن − 1؛
   8. التمييز بين `lock_lost` و`version_conflict` والإعادة المطبَّقة بقراءة بعد الفشل.
-- [ ] T053 [US2] اكتب `AcquireBoardLock` و`TakeBoardLock` و`ReleaseBoardLock`، وكلها تمرّ بـ `BoardLock`، ومعها `LockRequest` (`tab`). ثم `BoardLockController` بالدوالّ `store` (اكتساب ونبضة) و`destroy` و`take`، و`BoardPageController@scene`، بحدّ `whiteboard-autosave`:
+- [x] T053 [US2] اكتب `AcquireBoardLock` و`TakeBoardLock` و`ReleaseBoardLock`، وكلها تمرّ بـ `BoardLock`، ومعها `LockRequest` (`tab`). ثم `BoardLockController` بالدوالّ `store` (اكتساب ونبضة) و`destroy` و`take`، و`BoardPageController@scene`، بحدّ `whiteboard-autosave`:
   - كل طلب كتابة يسأل `update` من جديد؛
   - `take` يسأل `takeLock` لا `update`.
 
   وأضف صفوف الطرق الأربعة إلى `BoardIsolationTest`.
-- [ ] T054 [US2] اكتب `backend/tests/Feature/Whiteboard/SaveBoardSceneTest.php`:
+- [x] T054 [US2] اكتب `backend/tests/Feature/Whiteboard/SaveBoardSceneTest.php`:
   - إصدار قديم يعطي 409، ولا كتابة؛
   - الحفظ بلا قفل يعطي `lock_lost`؛
   - **السباق:** بـ `DB::beforeExecuting` على جملة الحفظ وحارس مرّة واحدة، يُكتب أخذ القفل المنقضي داخل الفجوة، ثم يُؤكَّد أنه جرى وأن الحفظ أعطى `lock_lost` بلا كتابة؛
@@ -365,13 +365,13 @@
   - تجاوز سقف السبّورة يعطي `board_too_large`؛
   - مدير ليس صاحب السبّورة: `POST /lock` يعطي 403؛ ومساعد يستدعي `/lock/take` يعطي 403؛
   - سحب النطاق أو الصلاحية من حامل القفل ثم الحفظ يعطي 403.
-- [ ] T055 [P] [US2] اكتب `frontend/src/lib/whiteboard/draft-store.ts`، IndexedDB خاماً:
+- [x] T055 [P] [US2] اكتب `frontend/src/lib/whiteboard/draft-store.ts`، IndexedDB خاماً:
   - المفتاح `board:{b}:page:{p}:user:{u}`، والقيمة `{scene, ackedVersion, rev, dirty}`؛
   - كل قراءة وكتابة داخل `try/catch`، وفي الفشل يُبلَّغ `unavailable`؛
   - `classifyDraft(draft, serverVersion)` دالّة خالصة: `restore`، أو `ask`، أو `discard`.
 
-  ومعه `draft-store.test.ts`: فرع `unavailable` يُختبر اليوم في jsdom (لا `indexedDB` فيها)، و`classifyDraft` بحالاتها. المسار السعيد يحتاج `fake-indexeddb`: **بموافقة المالك على الاعتماد**، ولا يُثبَّت قبلها.
-- [ ] T056 [US2] اكتب `frontend/src/lib/whiteboard/autosave.ts`، حسب R-08 بعد المراجعة، وكل اعتماد يُحقن (`requestIdleCallback`، و`fetch` عبر `lib/whiteboard/api.ts`، والمخزن، و`getSceneVersion`):
+  ومعه `draft-store.test.ts`: فرع `unavailable` يُختبر اليوم في jsdom (لا `indexedDB` فيها)، و`classifyDraft` بحالاتها. المسار السعيد يحتاج `fake-indexeddb`: **بموافقة المالك على الاعتماد**، ولا يُثبَّت قبلها. _(لم يُثبَّت؛ المسار السعيد يغطّيه اختبار المتصفّح «الاستعادة من الجهاز»)_
+- [x] T056 [US2] اكتب `frontend/src/lib/whiteboard/autosave.ts`، حسب R-08 بعد المراجعة، وكل اعتماد يُحقن (`requestIdleCallback`، و`fetch` عبر `lib/whiteboard/api.ts`، والمخزن، و`getSceneVersion`):
   - `onChange` يعلّم الصفحة `dirty` فقط إن تغيّر `getSceneVersion`؛
   - الكتابة المحلية للصفحة المتّسخة بعد انتهاء الضربة، في `requestIdleCallback` بحدّ أقصى ثانيتين (وإلا `setTimeout`)، وأثناء حمل القفل فقط؛
   - طلب PUT واحد قيد التنفيذ لكل صفحة، وآخر نسخة تنتظر دورها؛
@@ -382,7 +382,7 @@
   - 422 دائم: لا إعادة؛ وانقطاع الشبكة و429 و5xx: تراجع متزايد بالمفتاح نفسه، واستئناف عند `online`؛
   - `pagehide`: يُرسل فقط إن لم يكن PUT جارياً، وفقط إن كان المشهد ≤ 64 KB (حدّ `keepalive`)؛ و`visibilitychange` على أفضل جهد؛
   - حذف صفحة يلغي مؤقّتها ومسودّتها.
-- [ ] T057 [P] [US2] اكتب `frontend/src/lib/whiteboard/autosave.test.ts` بمؤقّتات وهمية واعتمادات محقونة:
+- [x] T057 [P] [US2] اكتب `frontend/src/lib/whiteboard/autosave.test.ts` بمؤقّتات وهمية واعتمادات محقونة:
   - ثلاثة تغييرات أثناء PUT لم يُجب = طلب واحد إضافي فقط، يحمل آخر مشهد؛
   - بعد 409 لا تستأنف التغييرات اللاحقة الحفظ؛
   - `dirty` لا يُعلَّم إلا بتغيّر إصدار المشهد؛
@@ -390,7 +390,7 @@
   - التفريغ في `pagehide`، ولا يُرسل إن كان PUT جارياً أو المشهد أكبر من 64 KB؛
   - `lock_lost` يكتب المسودّة ويوقف الحفظ؛ و`handover_requested` ينهي الجاري ثم يحرّر؛
   - تبويب للقراءة فقط لا يكتب المسودّة.
-- [ ] T058 [US2] اكتب `SaveIndicator.tsx` بخمس حالات من `strings.ts` (محفوظ، جارٍ الحفظ، بدون اتصال ومحفوظ على الجهاز، فشل الحفظ، «الحماية من الانقطاع غير متاحة»)، و`LockBanner.tsx`:
+- [x] T058 [US2] اكتب `SaveIndicator.tsx` بخمس حالات من `strings.ts` (محفوظ، جارٍ الحفظ، بدون اتصال ومحفوظ على الجهاز، فشل الحفظ، «الحماية من الانقطاع غير متاحة»)، و`LockBanner.tsx`:
   - من يحرّر الآن، ونصّ «للقراءة فقط»؛
   - زرّ «خُذ التحرير» إن كان `can.take_lock`؛
   - تنبيه التسليم للحامل.
@@ -400,8 +400,8 @@
   - التحرير عند الإغلاق عبر `lib/api.ts` بخيار `keepalive`؛
   - حوار الاستعادة عند الفتح حسب `classifyDraft`؛
   - حوار التعارض `ConflictDialog.tsx`: «احفظ نسختي كصفحة جديدة» أو «خذ نسخة الخادم».
-- [ ] T059 [P] [US2] اكتب `frontend/src/components/whiteboard/SaveIndicator.test.tsx` و`ConflictDialog.test.tsx`: المؤشّر يقول «جارٍ الحفظ» أثناء الطلب (US2-1)، وحوار التعارض يظهر بخياريه عند 409 وكل خيار يستدعي ما يخصّه (US2-4)
-- [ ] T060 [US2] أضف إلى `frontend/e2e/whiteboard.spec.ts` › «الحفظ والاستعادة» (المشروع نفسه وحده):
+- [x] T059 [P] [US2] اكتب `frontend/src/components/whiteboard/SaveIndicator.test.tsx` و`ConflictDialog.test.tsx`: المؤشّر يقول «جارٍ الحفظ» أثناء الطلب (US2-1)، وحوار التعارض يظهر بخياريه عند 409 وكل خيار يستدعي ما يخصّه (US2-4)
+- [x] T060 [US2] أضف إلى `frontend/e2e/whiteboard.spec.ts` › «الحفظ والاستعادة» (المشروع نفسه وحده):
   - `context.setOffline(true)` ثم رسم ثم المؤشّر يقول «بدون اتصال»، ثم عودة الشبكة فيقول «محفوظ»، ثم قراءة الصفحة عبر الواجهة البرمجية تُظهر الإصدار أعلى والعنصر موجوداً. وراقب أن عامل الخدمة (`src/lib/service-worker.ts`) لا يحوّل إلى `/offline` أثناء الانقطاع؛
   - الاستعادة: `page.route('**/scene', r => r.abort())` ثم رسم ثم إغلاق ثم فتح، فيظهر حوار الاستعادة وتُستعاد المسودّة؛
   - التبويب الأوّل ليس للقراءة فقط، والتبويب الثاني يرى «للقراءة فقط».
@@ -412,7 +412,7 @@
 
 **الاختبار المستقل:** أضف وكرّر واحذف ورتّب، وتنقّل بالاختصارات، فيكون التنقّل فورياً وتملأ الصفحة الإطار.
 
-- [ ] T061 [US3] اكتب `AddBoardPage` و`DeleteBoardPage` و`ReorderBoardPages`، ومعها `AddPageRequest` و`ReorderPagesRequest`، و`BoardPageController` بالدوالّ `store` و`order` و`destroy`:
+- [x] T061 [US3] اكتب `AddBoardPage` و`DeleteBoardPage` و`ReorderBoardPages`، ومعها `AddPageRequest` و`ReorderPagesRequest`، و`BoardPageController` بالدوالّ `store` و`order` و`destroy`:
   - كلها تبدأ ببوابة الصف `BoardPageGate` (الإضافة `open`، والترتيب `lock`، والحذف `close`)، وتتطلّب القفل؛
   - `duplicate_of` و`after` من السبّورة نفسها؛
   - `pages[]` يجب أن يساوي مجموعة صفحات السبّورة كاملة، وإلا 409 `pages_changed`؛
@@ -420,18 +420,18 @@
   - الركن عند `max+1` ثم الضغط.
 
   وأضف صفوف الطرق إلى `BoardIsolationTest`.
-- [ ] T062 [US3] اكتب `RequestBoardFile` و`CompleteBoardFile` في `backend/app/Modules/Whiteboard/Actions/`، ومعهما `RequestBoardFileRequest` و`BoardFileController` بالدوالّ `store` و`complete` و`show`:
+- [x] T062 [US3] اكتب `RequestBoardFile` و`CompleteBoardFile` في `backend/app/Modules/Whiteboard/Actions/`، ومعهما `RequestBoardFileRequest` و`BoardFileController` بالدوالّ `store` و`complete` و`show`:
   - على نمط `RequestStoreFile` و`CompleteStoreFile`، والبحث بالمالك يدوياً؛
   - القائمة `['image/png','image/jpeg']` وحدها؛
   - `show`: للملفات `Ready` من نوع `image/png|jpeg` فقط (الملف الأصلي المستورَد لا يُقدَّم من هنا)، و`nosniff`، و`private, max-age=86400`، و`throttle:whiteboard-files` مع `withoutMiddleware('throttle:api')`.
 
   ومعه اختبار: ملف من سبّورة أخرى يعطي 404، وملف `Pending` يعطي 404، وملف PDF للسبّورة يعطي 404. وأضف صفوف الطرق إلى `BoardIsolationTest`.
-- [ ] T063 [US3] أضف إلى `backend/config/horizon.php` مشرفاً `supervisor-whiteboard-ops`: الاتصال `redis-long`، والطابور `whiteboard-ops`، و`timeout` = 300، و`maxProcesses` = 1، في `defaults` و`environments.production` و`environments.local` و`waits`. ثم وسّع `backend/tests/Unit/QueueTimeoutInvariantTest.php`:
+- [x] T063 [US3] أضف إلى `backend/config/horizon.php` مشرفاً `supervisor-whiteboard-ops`: الاتصال `redis-long`، والطابور `whiteboard-ops`، و`timeout` = 300، و`maxProcesses` = 1، في `defaults` و`environments.production` و`environments.local` و`waits`. ثم وسّع `backend/tests/Unit/QueueTimeoutInvariantTest.php`:
   - يؤكّد وجود المشرف **باسمه**؛
   - يؤكّد أن `DuplicateBoardJob` و`DeleteBoardJob` في المجموعة المفحوصة (التعبير في `:94` يطلب `public int $timeout = 300;` و`onQueue('whiteboard-ops')` نصّاً)؛
   - يؤكّد أن كل مشرف في `defaults` موجود في `environments.production`.
-- [ ] T064 [US3] اكتب `backend/app/Modules/Media/Actions/CopyLocalMediaAsset.php`: ينسخ بايتات ملف `Ready` على قرص `config('media.disk')` إلى ملف جديد `Ready` لمالك جديد، للمزوّد المحلي وحده، ويرفض غيره صراحةً. عقود المزوّد لا تعرف النسخ (`ingestFromUrl` وحده). ومعه اختبار
-- [ ] T065 [US3] اكتب `DuplicateBoard` و`DeleteBoard` ومهمّتيهما `Jobs/DuplicateBoardJob.php` و`Jobs/DeleteBoardJob.php`:
+- [x] T064 [US3] اكتب `backend/app/Modules/Media/Actions/CopyLocalMediaAsset.php`: ينسخ بايتات ملف `Ready` على قرص `config('media.disk')` إلى ملف جديد `Ready` لمالك جديد، للمزوّد المحلي وحده، ويرفض غيره صراحةً. عقود المزوّد لا تعرف النسخ (`ingestFromUrl` وحده). ومعه اختبار
+- [x] T065 [US3] اكتب `DuplicateBoard` و`DeleteBoard` ومهمّتيهما `Jobs/DuplicateBoardJob.php` و`Jobs/DeleteBoardJob.php`:
   - `pending_operation` بتحديث شرطي، وإلا 409 `operation_pending`؛
   - الإرسال بـ `DB::afterCommit(fn () => …::dispatch())` (سابقة `backend/app/Modules/Gamification/Actions/AwardPoints.php:138`)، لأن `after_commit` = false؛
   - في المُنشئ `onQueue('whiteboard-ops')` حرفياً، و`public int $timeout = 300;`، و`$this->connection = 'redis-long'`؛
@@ -444,12 +444,12 @@
   - `failed()` يفرّغ `pending_operation`؛
   - المهام تختم `workspace_id` صراحةً؛
   - الطرق `POST /boards/{board}/duplicate` و`DELETE /boards/{board}` (تحت `2fa.required`)، وصفوفهما في `BoardIsolationTest`.
-- [ ] T066 [US3] اكتب `backend/app/Modules/Whiteboard/Jobs/SweepWhiteboardJob.php` وجدوِله في `backend/routes/console.php`: `Schedule::job(new SweepWhiteboardJob, 'maintenance')->everyFiveMinutes()`، والمهمّة بـ `RunsAlone` (يطلبه `ScheduledSweepsRunAloneTest`) و`lazyById`:
+- [x] T066 [US3] اكتب `backend/app/Modules/Whiteboard/Jobs/SweepWhiteboardJob.php` وجدوِله في `backend/routes/console.php`: `Schedule::job(new SweepWhiteboardJob, 'maintenance')->everyFiveMinutes()`، والمهمّة بـ `RunsAlone` (يطلبه `ScheduledSweepsRunAloneTest`) و`lazyById`:
   - السبّورة العالقة على `deleting` تُعاد مهمّة حذفها؛
   - العالقة على `building` تُحذف (نسخ لم يكتمل).
 
   ومعه اختبار أنه مجدول، وأن كل فرع يعمل. فروع الاستيراد في T084.
-- [ ] T067 [US3] اكتب `backend/tests/Feature/Whiteboard/BoardPagesTest.php`:
+- [x] T067 [US3] اكتب `backend/tests/Feature/Whiteboard/BoardPagesTest.php`:
   - إعادة ترتيب تنتهي بالمواضع الصحيحة، و**القيم المربوطة في الركن لا تكون سالبة أبداً** (تُلتقط بـ `DB::beforeExecuting`)؛
   - **البوابة أوّل جملة:** بـ `DB::listen` مع حدث `TransactionBeginning` (لا `BEGIN` في `QueryExecuted`، وتحت `RefreshDatabase` المعاملة نقطة حفظ)، يُؤكَّد أن أوّل جملة بعد بداية كل معاملة تمسّ الصفحات (إضافة، ترتيب، حذف، استيراد) هي جملة البوابة؛
   - إعادة الترتيب لا تعتمد على عدد الصفوف: تنجح وصفّ السبّورة لم يتغيّر؛
@@ -458,28 +458,28 @@
   - **IDOR:**
     - `duplicate_of` من سبّورة خاصة أخرى في المساحة نفسها يعطي 404؛
     - `DELETE /boards/{mine}/pages/{theirs}` يعطي 404.
-- [ ] T068 [US3] اكتب `backend/tests/Feature/Whiteboard/BoardDuplicateTest.php` مع `Queue::fake([DuplicateBoardJob::class])` حين يُختبر الإرسال (الطابور في phpunit متزامن):
+- [x] T068 [US3] اكتب `backend/tests/Feature/Whiteboard/BoardDuplicateTest.php` مع `Queue::fake([DuplicateBoardJob::class])` حين يُختبر الإرسال (الطابور في phpunit متزامن):
   - النسخة لا تشير إلى ملف من الأصل: حذف الأصل يُبقي صور النسخة، وتعديل النسخة يُبقي الأصل كما هو (US3-3)؛
   - نقرة ثانية على النسخ تعطي 409، والنقرة الثانية داخل الفجوة (بـ `DB::beforeExecuting`) تعطي 409 أيضاً؛
   - السبّورة `building` لا تظهر في القائمة ولا في `view`؛
   - `failed()` يفرّغ `pending_operation`، والحذف المكرّر لا يفشل؛
   - مدرّس بلا تحقّق ثنائي مُفعَّل يُرفض على `DELETE /boards/{board}`.
-- [ ] T069 [US3] أضف إلى `BoardCrudTest`: القائمة تُظهر اسم المقرّر والدرس لكل سبّورة (المقرّر المحذوف ناعماً باسمه ومعه `deleted:true`)، والمرشّح `q` يجد بالعنوان (US3-5)
-- [ ] T070 [P] [US3] اكتب `frontend/src/components/whiteboard/PagesSidebar.tsx`:
+- [x] T069 [US3] أضف إلى `BoardCrudTest`: القائمة تُظهر اسم المقرّر والدرس لكل سبّورة (المقرّر المحذوف ناعماً باسمه ومعه `deleted:true`)، والمرشّح `q` يجد بالعنوان (US3-5)
+- [x] T070 [P] [US3] اكتب `frontend/src/components/whiteboard/PagesSidebar.tsx`:
   - إضافة وتكرار وحذف عبر `ConfirmButton`، وسحب لإعادة الترتيب؛
   - صور مصغّرة كسولة: `exportToCanvas({maxWidthOrHeight:320})` في `requestIdleCallback`، للظاهر فقط عبر `IntersectionObserver`، ومخبّأة بإصدار الصفحة.
-- [ ] T071 [P] [US3] اكتب `frontend/src/components/whiteboard/PagesSidebar.test.tsx`: الصورة المصغّرة تُطلب للصفحات الظاهرة وحدها، ولا تُطلب ثانيةً للإصدار نفسه (US3-1)
-- [ ] T072 [US3] اكتب في `BoardCanvas.tsx`:
+- [x] T071 [P] [US3] اكتب `frontend/src/components/whiteboard/PagesSidebar.test.tsx`: الصورة المصغّرة تُطلب للصفحات الظاهرة وحدها، ولا تُطلب ثانيةً للإصدار نفسه (US3-1)
+- [ ] T072 [US3] اكتب في `BoardCanvas.tsx`: _(تمّ: الاختصارات والتحميل المسبق. **مؤجَّل:** إعادة تركيب اللوحة بعد ~40 صفحة، حتى يُقاس نموّ الذاكرة فعلاً)_
   - اختصارات «التالية» و«السابقة» (PageDown/PageUp و← →)، ولا تعمل أثناء تحرير النصّ؛
   - **التحميل المسبق:** كل البايتات تُجلب Blob عبر `api.blob` عند الفتح؛ `addFiles` للصفحة الحالية ±٢ فقط، و`dataURL` عند الطلب؛
   - إعادة التركيب في لحظة هادئة بعد حوالي 40 صفحة مُزارة (R-07، مراجعة الخطة: ب، الواجهة).
-- [ ] T073 [US3] اكتب `frontend/src/lib/whiteboard/image-insert.ts` ووصله بأداة الصورة في شريط الأدوات، ولصق ملف صورة، والسحب والإفلات:
+- [x] T073 [US3] اكتب `frontend/src/lib/whiteboard/image-insert.ts` ووصله بأداة الصورة في شريط الأدوات، ولصق ملف صورة، والسحب والإفلات:
   - كلها تمرّ بـ `RequestBoardFile`، بعد تصغير في المتصفّح إلى 2560 px كحدّ أقصى؛
   - العنصر يُدرج **بعد** `Ready` فقط، والرفع الفاشل يُزال برسالة من `strings.ts`؛
   - ومعه `image-insert.test.ts` للتصغير والترتيب.
-- [ ] T074 [US3] أضف النسخ والحذف (بـ `ConfirmButton`) في `manage/boards` وفي قائمة السبّورة نفسها، والحذف يقرأ `can.delete`
-- [ ] T075 [US3] ركّب `PagesSidebar` في `Sidebar` الخاصّ باللوحة، وأزرار النسخ والحذف، ومعه اختبار يضغط «إضافة صفحة» و«حذف» ويرى أثرهما
-- [ ] T076 [US3] أضف إلى `frontend/e2e/whiteboard.spec.ts` › «الصفحات»: إنشاء 10 صفحات، والتنقّل بالاختصار، وكل انتقال تظهر صفحته في أقل من ثانية (`performance.now`)، وإعادة الترتيب تبقى بعد إعادة التحميل
+- [x] T074 [US3] أضف النسخ والحذف (بـ `ConfirmButton`) في `manage/boards` وفي قائمة السبّورة نفسها، والحذف يقرأ `can.delete`
+- [x] T075 [US3] ركّب `PagesSidebar` في `Sidebar` الخاصّ باللوحة، وأزرار النسخ والحذف، ومعه اختبار يضغط «إضافة صفحة» و«حذف» ويرى أثرهما
+- [x] T076 [US3] أضف إلى `frontend/e2e/whiteboard.spec.ts` › «الصفحات»: إنشاء 10 صفحات، والتنقّل بالاختصار، وكل انتقال تظهر صفحته في أقل من ثانية (`performance.now`)، وإعادة الترتيب تبقى بعد إعادة التحميل
 
 ---
 
