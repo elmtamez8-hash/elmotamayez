@@ -465,7 +465,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     const near = board.pages.slice(Math.max(0, pageIndex - PICTURE_REACH), pageIndex + PICTURE_REACH + 1);
     void pictures
       .take(near.flatMap((page) => pictureIds(pages.current.get(page.uuid) ?? [])))
-      .then((found) => alive && addPictures(api, found));
+      // Dropped by a page that moved on, they would read as handed over for ever:
+      // an empty picture box on that page until the board was reopened.
+      .then((found) => (alive ? addPictures(api, found) : pictures.release(found.map((picture) => picture.id))));
     return () => {
       alive = false;
     };

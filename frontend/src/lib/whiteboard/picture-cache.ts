@@ -29,6 +29,8 @@ function toDataURL(blob: Blob): Promise<string> {
 export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | null>) {
   const bytes = new Map<string, Promise<Blob | null>>();
   const given = new Set<string>();
+  // Bumped by `forget()`: a `take` begun for the canvas before is not this one's.
+  let generation = 0;
 
   const fetchOnce = (id: string) => {
     let pending = bytes.get(id);
@@ -46,11 +48,12 @@ export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | nu
 
     /** The pictures among `ids` the canvas does not have yet; each is handed over once. */
     async take(ids: Iterable<string>): Promise<Picture[]> {
+      const started = generation;
       const fresh = [...new Set(ids)].filter((id) => !given.has(id));
       const found = await Promise.all(
         fresh.map(async (id): Promise<Picture | null> => {
           const blob = await fetchOnce(id);
-          if (!blob || given.has(id)) return null;
+          if (!blob || given.has(id) || started !== generation) return null;
           given.add(id);
           return { id, dataURL: await toDataURL(blob), mimeType: blob.type === "image/jpeg" ? "image/jpeg" : "image/png" };
         }),
@@ -81,7 +84,13 @@ export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | nu
 
     /** A new canvas holds none. */
     forget(): void {
+      generation++;
       given.clear();
+    },
+
+    /** Taken, then never handed over (the page moved on first): the next `take` gives them again. */
+    release(ids: Iterable<string>): void {
+      for (const id of ids) given.delete(id);
     },
   };
 }

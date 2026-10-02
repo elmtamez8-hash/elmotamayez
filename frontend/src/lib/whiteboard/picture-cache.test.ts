@@ -17,4 +17,17 @@ describe("createPictureCache", () => {
     expect(cache.held()).toBe(0);
     expect(await cache.take(["a"])).toHaveLength(1); // the new canvas gets it again
   });
+
+  it("a take dropped by a page that moved on, or begun for the canvas before, hands nothing over for good", async () => {
+    const cache = createPictureCache(async () => new Blob(["x"], { type: "image/png" }));
+
+    const taken = await cache.take(["a"]);
+    cache.release(taken.map((p) => p.id));
+    expect(await cache.take(["a"])).toHaveLength(1);
+
+    const stale = cache.take(["b"]);
+    cache.forget();
+    expect(await stale).toHaveLength(0);
+    expect(await cache.take(["b"])).toHaveLength(1);
+  });
 });

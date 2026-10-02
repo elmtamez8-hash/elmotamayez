@@ -85,12 +85,6 @@ export function loadPage(api: BoardApi, elements: readonly BoardElement[]): void
   api.history.clear();
 }
 
-/**
- * The board's first app state: already fitted to the window (so the first paint
- * is the page, not a jump), the streaming defaults, right-aligned text for Arabic,
- * and the frame drawn without its name or outline — the student sees the page,
- * not Excalidraw's chrome around it.
- */
 /** What a canvas mounted afresh keeps from the one it replaces: the theme, the tool and the pen. */
 export function carriedState(api: BoardApi): Partial<AppState> {
   const state = api.getAppState();
@@ -100,6 +94,12 @@ export function carriedState(api: BoardApi): Partial<AppState> {
 }
 export type CarriedState = Partial<AppState>;
 
+/**
+ * The board's first app state: already fitted to the window (so the first paint
+ * is the page, not a jump), the streaming defaults, right-aligned text for Arabic,
+ * and the frame drawn without its name or outline — the student sees the page,
+ * not Excalidraw's chrome around it.
+ */
 export function initialAppState(background: BoardBackground, width: number, height: number) {
   const view = fitViewport(width, height);
 
@@ -199,10 +199,7 @@ export function pageDocument(elements: readonly BoardElement[], background: Boar
 
 /**
  * A page's small picture for the pages strip (US3): ≤ 320 px, from the elements
- * in memory — no request, no stored thumbnail (R-07).
- */
-/**
- * A page's picture at 320 px. Its pictures are passed IN, never added to the
+ * in memory — no request, no stored thumbnail (R-07). Its pictures are passed IN, never added to the
  * canvas: scrolling the pages of a 100-page PDF used to load all 100 into it.
  */
 export async function pageThumbnail(elements: readonly BoardElement[], pictures: PictureData[], background: BoardBackground): Promise<string> {
