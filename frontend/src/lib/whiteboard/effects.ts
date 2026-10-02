@@ -12,17 +12,33 @@
  */
 
 /** The effects drawn on the celebration canvas. */
-export type Celebration = "applause" | "party" | "stars";
+export type Celebration = "applause" | "party" | "stars" | "hearts" | "thumbs" | "bubbles";
 /**
- * Every encouragement the teacher can start. Three are canvas celebrations; the
- * balloons are popped by hand, the drum roll ends in stars, and «انتباه!» calls
- * the class to attention (ideas taken from the reference board the owner chose).
+ * One large figure acting a short scene over the board (`overlays/Stunt.tsx`):
+ * thrown, splatted, blown, tapped or held up — the reference board's paid
+ * effects, drawn our own way and free (owner, 2026-10-02).
  */
-export type Effect = Celebration | "balloons" | "drumroll" | "attention";
+export type Stunt = "airplane" | "egg" | "tomato" | "brick" | "whistle" | "stick" | "warning" | "wrong" | "yellowCard" | "redCard";
+/**
+ * Every encouragement the teacher can start. The celebrations are canvas
+ * particles; the balloons are popped by hand, the drum roll ends in stars,
+ * «انتباه!» calls the class to attention, and the stunts are one-figure scenes.
+ */
+export type Effect = Celebration | Stunt | "balloons" | "drumroll" | "attention";
 export type TrailStyle = "off" | "neon" | "sparks" | "rainbow";
 
-export const CELEBRATIONS: Celebration[] = ["applause", "party", "stars"];
-export const EFFECTS: Effect[] = ["applause", "balloons", "party", "stars", "drumroll", "attention"];
+export const CELEBRATIONS: Celebration[] = ["applause", "party", "stars", "hearts", "thumbs", "bubbles"];
+export const STUNTS: Stunt[] = ["airplane", "egg", "tomato", "brick", "whistle", "stick", "warning", "wrong", "yellowCard", "redCard"];
+/** The effects bar, in rows: praise, a call to order, and fun. */
+export const EFFECT_GROUPS: { id: "praise" | "order" | "fun"; effects: Effect[] }[] = [
+  { id: "praise", effects: ["applause", "balloons", "party", "stars", "hearts", "thumbs", "bubbles", "airplane", "drumroll"] },
+  { id: "order", effects: ["attention", "whistle", "stick", "warning", "wrong", "yellowCard", "redCard"] },
+  { id: "fun", effects: ["egg", "tomato", "brick"] },
+];
+export const EFFECTS: Effect[] = EFFECT_GROUPS.flatMap((group) => group.effects);
+
+/** How long a stunt stays on screen. */
+export const STUNT_MS = 2800;
 export const TRAIL_STYLES: TrailStyle[] = ["off", "neon", "sparks", "rainbow"];
 
 /** How long a celebration lasts on screen. */
@@ -43,7 +59,7 @@ export interface Particle {
   spin: number;
   /** Seconds left; the particle fades over its last second. */
   life: number;
-  shape: "confetti" | "star" | "glyph";
+  shape: "confetti" | "star" | "glyph" | "bubble";
   glyph?: string;
 }
 
@@ -112,6 +128,40 @@ export function spawn(kind: Celebration, width: number, height: number, rand: Ra
           shape: "star" as const,
         };
       });
+
+    case "hearts":
+    case "thumbs":
+      // Hearts or thumbs floating up from the bottom, swaying a little.
+      return Array.from({ length: 22 }, () => ({
+        x: between(rand, width * 0.1, width * 0.9),
+        y: height + between(rand, 20, 160),
+        vx: between(rand, -40, 40),
+        vy: between(rand, -height * 0.5, -height * 0.3),
+        gravity: -height * 0.02,
+        size: between(rand, 30, 46),
+        colour: "#000",
+        rotation: between(rand, -0.25, 0.25),
+        spin: between(rand, -0.6, 0.6),
+        life: between(rand, life * 0.7, life),
+        shape: "glyph" as const,
+        glyph: kind === "hearts" ? pick(rand, ["❤️", "💖", "💕", "💗"]) : pick(rand, ["👍", "👍", "👏", "✨"]),
+      }));
+
+    case "bubbles":
+      // Soap bubbles drifting up and sideways.
+      return Array.from({ length: 26 }, () => ({
+        x: between(rand, width * 0.05, width * 0.95),
+        y: height + between(rand, 20, 200),
+        vx: between(rand, -50, 50),
+        vy: between(rand, -height * 0.35, -height * 0.18),
+        gravity: -height * 0.01,
+        size: between(rand, 24, 64),
+        colour: pick(rand, ["#7dd3fc", "#c4b5fd", "#f9a8d4", "#86efac"]),
+        rotation: 0,
+        spin: 0,
+        life: between(rand, life * 0.8, life),
+        shape: "bubble" as const,
+      }));
   }
 }
 

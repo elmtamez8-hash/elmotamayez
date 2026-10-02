@@ -38,8 +38,21 @@ import {
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
-import { playChime, playFanfare, playGavel, playRecording } from "@/lib/whiteboard/effect-sounds";
-import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
+import {
+  playAlarm,
+  playBubbles,
+  playBuzzer,
+  playChime,
+  playCrash,
+  playFanfare,
+  playGavel,
+  playRecording,
+  playSplat,
+  playTaps,
+  playWhistle,
+  playWhoosh,
+} from "@/lib/whiteboard/effect-sounds";
+import type { Celebration, Effect, Stunt as StuntKind, TrailStyle } from "@/lib/whiteboard/effects";
 import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
@@ -60,6 +73,7 @@ import { PageCover } from "@/components/whiteboard/PageCover";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
+import { Stunt } from "@/components/whiteboard/overlays/Stunt";
 import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
 import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
 import { Curtain } from "@/components/whiteboard/overlays/Curtain";
@@ -86,6 +100,24 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
  */
 
 const REVEAL_TOP_PX = 48;
+/** The aeroplane's late chime, cancelled when another stunt starts first. */
+let landing = 0;
+/** Each stunt's sound (synthesised: no file to fetch, nothing to license). */
+const STUNT_SOUNDS: Record<StuntKind, () => void> = {
+  airplane: () => {
+    playWhoosh();
+    landing = window.setTimeout(playChime, 1700); // the gift lands
+  },
+  egg: playSplat,
+  tomato: playSplat,
+  brick: playCrash,
+  whistle: () => playWhistle(),
+  stick: playTaps,
+  warning: playAlarm,
+  wrong: playBuzzer,
+  yellowCard: () => playWhistle(true),
+  redCard: () => playWhistle(true),
+};
 /**
  * The canvas is transparent over the board's own colour layer (PageCover):
  * Excalidraw's own background picker would paint over it. A constant, so the
@@ -174,6 +206,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [celebration, setCelebration] = useState<{ kind: Celebration; id: number } | null>(null);
   const [balloons, setBalloons] = useState<number | null>(null);
   const [attention, setAttention] = useState<number | null>(null);
+  const [stunt, setStunt] = useState<{ kind: StuntKind; id: number } | null>(null);
   // Presenter tools (US8): display layers too.
   const [spotlight, setSpotlight] = useState(false);
   const [timer, setTimer] = useState<{ minutes: number; id: number } | null>(null);
@@ -231,6 +264,29 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         celebrate("stars");
         if (sound) playChime();
         return;
+      case "hearts":
+      case "thumbs":
+        celebrate(kind);
+        if (sound) playChime();
+        return;
+      case "bubbles":
+        celebrate("bubbles");
+        if (sound) playBubbles();
+        return;
+      case "airplane":
+      case "egg":
+      case "tomato":
+      case "brick":
+      case "whistle":
+      case "stick":
+      case "warning":
+      case "wrong":
+      case "yellowCard":
+      case "redCard":
+        setStunt({ kind, id: Date.now() });
+        window.clearTimeout(landing);
+        if (sound) STUNT_SOUNDS[kind]();
+        return;
       case "balloons":
         setBalloons(Date.now());
         return;
@@ -247,6 +303,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   };
 
   const endBalloons = useCallback(() => setBalloons(null), []);
+  const endStunt = useCallback(() => setStunt(null), []);
   const endAttention = useCallback(() => setAttention(null), []);
 
   /** Stamp a sticker on the page shown — saved with it, like anything drawn. */
@@ -782,6 +839,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
       {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
+      {stunt && <Stunt key={stunt.id} kind={stunt.kind} onDone={endStunt} />}
       {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}
       {trail !== "off" && <PointerTrail style={trail} />}
       <ConflictDialog
