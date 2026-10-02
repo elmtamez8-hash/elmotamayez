@@ -12,6 +12,7 @@ import { ensureArabicFont } from "@/lib/whiteboard/arabic-font";
 import { boards, parseScene, type BoardDetail, type BoardPagePayload } from "@/lib/whiteboard/api";
 import {
   addPictures,
+  addStroke,
   applyBackground,
   applyPen,
   exportPage,
@@ -35,6 +36,7 @@ import {
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
 import { playChime, playFanfare, playGavel, playRecording } from "@/lib/whiteboard/effect-sounds";
 import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
+import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
 import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
@@ -54,6 +56,7 @@ import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
 import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
 import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
 import { Curtain } from "@/components/whiteboard/overlays/Curtain";
+import { GeometryTool, OverlayLayer, type View } from "@/components/whiteboard/overlays/GeometryTool";
 import { Magnifier } from "@/components/whiteboard/overlays/Magnifier";
 import { Spotlight } from "@/components/whiteboard/overlays/Spotlight";
 import { Wheel } from "@/components/whiteboard/overlays/Wheel";
@@ -159,6 +162,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [passing, setPassing] = useState<PassingTool | null>(null);
   const [template, setTemplate] = useState<TemplateName | null>(null);
   const endPassing = useCallback(() => setPassing(null), []);
+  // Geometry instruments (US9, FR-029) — in page units, so they need the view.
+  const [view, setView] = useState<View>({ scrollX: 0, scrollY: 0, zoom: 1 });
+  const [instrument, setInstrument] = useState<{ kind: InstrumentKind; id: number } | null>(null);
+  const endInstrument = useCallback(() => setInstrument(null), []);
+  const drawAlong = useCallback((points: [number, number][]) => {
+    if (apiRef.current) addStroke(apiRef.current, points);
+  }, []);
 
   const chooseTemplate = async (name: TemplateName | null) => {
     if (!api) return;
@@ -293,14 +303,17 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   // The mask follows the frame on every scroll and zoom.
   useEffect(() => {
     if (!api) return;
-    return api.onScrollChange((scrollX, scrollY, zoom) =>
+    const { scrollX, scrollY, zoom } = api.getAppState();
+    setView({ scrollX, scrollY, zoom: zoom.value });
+    return api.onScrollChange((scrollX, scrollY, zoom) => {
+      setView({ scrollX, scrollY, zoom: zoom.value });
       setFrameRect({
         left: scrollX * zoom.value,
         top: scrollY * zoom.value,
         width: PAGE_WIDTH * zoom.value,
         height: PAGE_HEIGHT * zoom.value,
-      }),
-    );
+      });
+    });
   }, [api]);
 
   const pageIds = board?.pages.map((page) => page.uuid) ?? [];
@@ -577,6 +590,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onTemplate={chooseTemplate}
                     onPen={choosePen}
                     onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
+                    instrument={instrument?.kind ?? null}
+                    onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
                   />
                 ),
               },
@@ -676,6 +691,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </div>
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
+      {instrument && session.held && (
+        <OverlayLayer view={view}>
+          <GeometryTool
+            key={instrument.id}
+            kind={instrument.kind}
+            view={view}
+            centre={[PAGE_WIDTH / 2, PAGE_HEIGHT / 2]}
+            onDraw={drawAlong}
+            onClose={endInstrument}
+          />
+        </OverlayLayer>
+      )}
       {spotlight && <Spotlight onClose={endSpotlight} />}
       {passing === "magnifier" && <Magnifier onClose={endPassing} />}
       {passing === "curtain" && <Curtain onClose={endPassing} />}

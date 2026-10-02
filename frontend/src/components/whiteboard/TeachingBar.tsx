@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { WB } from "@/lib/whiteboard/strings";
 import { TEMPLATES, type TemplateName } from "@/lib/whiteboard/templates";
@@ -15,8 +16,8 @@ export interface TeachingBarProps {
   onTemplate: (name: TemplateName | null) => void;
   onPen: (pen: PenId) => void;
   onTool: (tool: PassingTool) => void;
-  /** Geometry instruments (ruler, protractor…) — slotted in by their own component. */
-  geometry?: React.ReactNode;
+  instrument: InstrumentKind | null;
+  onInstrument: (kind: InstrumentKind) => void;
 }
 
 /** The «أدوات» menu (US9): page templates, ready pens, and the passing tools. */
@@ -44,7 +45,14 @@ export function TeachingBar(props: TeachingBarProps) {
               </Button>
             ))}
           </div>
-          {props.geometry}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="text-xs text-ink-muted">{WB.tools.geometry}</span>
+            {(["ruler", "set-square", "protractor", "compass"] as const).map((kind) => (
+              <Button key={kind} size="sm" variant={props.instrument === kind ? "secondary" : "ghost"} expanded={props.instrument === kind} onClick={() => props.onInstrument(kind)}>
+                {WB.tools.instruments[kind]}
+              </Button>
+            ))}
+          </div>
         </>
       )}
       <div className="flex flex-wrap items-center gap-1">

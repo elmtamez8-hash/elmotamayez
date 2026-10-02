@@ -72,6 +72,11 @@ export const WB = {
     spin: "أدر العجلة",
     closeWheel: "إغلاق",
     geometry: "هندسة:",
+    instruments: { ruler: "مسطرة", protractor: "منقلة", compass: "فرجار", "set-square": "مثلث قائم" },
+    turn: "اسحب لتدوير الأداة",
+    open: "اسحب لفتح الفرجار",
+    cm: "سم",
+    closeInstrument: "إزالة الأداة",
   },
 
   /** The presenter's tools (US8). */

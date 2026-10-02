@@ -66,6 +66,8 @@ describe("TeachingBar", () => {
     onTemplate: vi.fn(),
     onPen: vi.fn(),
     onTool: vi.fn(),
+    instrument: null,
+    onInstrument: vi.fn(),
     ...over,
   });
 

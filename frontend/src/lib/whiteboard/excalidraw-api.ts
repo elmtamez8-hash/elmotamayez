@@ -314,3 +314,32 @@ export function pageTemplate(api: BoardApi): string | null {
     .find((element) => (element.customData as { kind?: string } | undefined)?.kind === "template");
   return (found?.customData as { name?: string } | undefined)?.name ?? null;
 }
+
+/**
+ * A line drawn along a geometry instrument (US9, FR-029): an ordinary line on the
+ * page shown — a straight segment, or an arc as many points — in the pen's
+ * current colour and width, with no hand-drawn wobble. One undoable step.
+ * The instrument itself is never saved.
+ */
+export function addStroke(api: BoardApi, points: [number, number][]): void {
+  if (points.length < 2) return;
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const state = api.getAppState();
+  const [x, y] = points[0];
+
+  const [line] = convertToExcalidrawElements([
+    {
+      type: "line",
+      x,
+      y,
+      points: points.map(([px, py]) => [px - x, py - y] as [number, number]),
+      strokeColor: state.currentItemStrokeColor,
+      strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, state.currentItemStrokeWidth),
+      roughness: 0,
+      frameId: frame?.id ?? null,
+    },
+  ]);
+
+  api.updateScene({ elements: [...elements, line], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}

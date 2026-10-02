@@ -656,7 +656,7 @@
 
 ## الطور ١٠: القصة ٨ (P3): الليزر والكشّاف والمؤقّت
 
-- [ ] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`: _(مؤجَّل إلى القصة ٩: الكشّاف والمؤقّت لا يحتاجان إحداثيات المشهد، وأدوات الهندسة هي أوّل من يحتاجها)_
+- [x] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`: _(تمّ في القصة ٩: `OverlayLayer` في `GeometryTool.tsx`، تحويل CSS بالتمرير والتكبير)_
   - طبقة واحدة فوق اللوحة مربوطة بـ `sceneCoordsToViewportCoords` و`onScrollChange`؛
   - لا تكتب في المشهد أبداً، وهي أساس القصص ٩ و١٠ و١٢.
 - [x] T114 [P] [US8] اكتب `overlays/Spotlight.tsx` و`overlays/Timer.tsx`. والليزر مدمج (`setActiveTool({type:'laser'})`) وله زرّ واختصار
@@ -668,19 +668,19 @@
 
 ## الطور ١١: القصة ٩ (P2): أدوات التدريس
 
-- [ ] T118 [P] [US9] اكتب `overlays/Ruler.tsx` و`Protractor.tsx` و`Compass.tsx` و`SetSquare.tsx`:
+- [x] T118 [P] [US9] اكتب `overlays/Ruler.tsx` و`Protractor.tsx` و`Compass.tsx` و`SetSquare.tsx`:
   - تُنتج عناصر `line` و`arrow` وأقواساً كنقاط `line` عبر `updateScene(IMMEDIATELY)`؛
   - الأداة نفسها لا تُحفظ.
-- [ ] T119 [P] [US9] اكتب `frontend/src/lib/whiteboard/templates.ts`، ستة قوالب:
+- [x] T119 [P] [US9] اكتب `frontend/src/lib/whiteboard/templates.ts`، ستة قوالب:
   - مسطّرة، ومربّعات، ومنقّطة، ومتساوية القياس، ورسم بياني، وسطور كرّاسة عربية؛
   - كلها SVG تُحوَّل PNG مرة واحدة بمعرّف ثابت `template:<name>:v1`؛
   - عنصر مقفل أسفل الصفحة.
-- [ ] T120 [US9] أضف إعدادات الأقلام الجاهزة (ماركر وفرشاة، وما يقرّره المالك في الطباشير والبخّاخ) كلها فوق الحدّ الأدنى للبثّ، ثم `overlays/Magnifier.tsx` و`Curtain.tsx` و`Wheel.tsx`
-- [ ] T121 [US9] اختبر `templates.test.ts` و`overlays/geometry.test.ts`:
+- [x] T120 _(الأقلام: ماركر وفرشاة عريضة وقلم تظليل؛ الطباشير والبخّاخ لا يرسمهما القلم الحرّ في Excalidraw — يحتاجان رسّاماً خاصاً إن طلبهما المالك)_ أضف إعدادات الأقلام الجاهزة (ماركر وفرشاة، وما يقرّره المالك في الطباشير والبخّاخ) كلها فوق الحدّ الأدنى للبثّ، ثم `overlays/Magnifier.tsx` و`Curtain.tsx` و`Wheel.tsx`
+- [x] T121 [US9] اختبر `templates.test.ts` و`overlays/geometry.test.ts`:
   - خطّ المسطرة يُحفظ ويُعاد فتحه في مكانه (SC-011)؛
   - القالب عنصر مقفل بمعرّف ثابت. وظهوره في التصدير يُفحص في Playwright.
-- [ ] T122 [P] [US9] اكتب اختبار vitest: كل قلم جاهز فوق الحدّ الأدنى للسُمك، والمكبّر والستارة والعجلة تستدعي `updateScene` صفر مرّة (SC-010)
-- [ ] T123 [US9] ركّب منتقي القوالب وأدوات الهندسة والأقلام والمكبّر والستارة والعجلة على الشاشة، ومعه اختبار يضغطها
+- [x] T122 [P] [US9] اكتب اختبار vitest: كل قلم جاهز فوق الحدّ الأدنى للسُمك، والمكبّر والستارة والعجلة تستدعي `updateScene` صفر مرّة (SC-010)
+- [x] T123 [US9] ركّب منتقي القوالب وأدوات الهندسة والأقلام والمكبّر والستارة والعجلة على الشاشة، ومعه اختبار يضغطها
 
 ---
 
