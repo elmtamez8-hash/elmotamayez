@@ -226,7 +226,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       case "drumroll":
         // The roll builds the suspense; the stars land when it stops.
         if (!sound) return startEffect("stars");
-        void playRecording("drumroll").then(() => startEffect("stars"));
+        void playRecording("drumroll").then((ended) => ended && startEffect("stars"));
         return;
     }
   };
@@ -555,6 +555,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           }
         }}
         onChange={(elements, appState) => {
+          // The template buttons follow the page, an undo included (a cheap find;
+          // React skips the render when the name is unchanged).
+          const shownTemplate = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template");
+          setTemplate(((shownTemplate?.customData as { name?: string } | undefined)?.name ?? null) as TemplateName | null);
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
           const shown = board.pages[pageIndex]?.uuid;
@@ -706,7 +710,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       {spotlight && <Spotlight onClose={endSpotlight} />}
       {passing === "magnifier" && <Magnifier onClose={endPassing} />}
       {passing === "curtain" && <Curtain onClose={endPassing} />}
-      {passing === "wheel" && <Wheel sound={sound} onClose={endPassing} />}
+      {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
       {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
       {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}

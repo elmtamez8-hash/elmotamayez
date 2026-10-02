@@ -147,3 +147,21 @@ export function lineSkeleton(points: Point[]): { x: number; y: number; points: P
 export function centimetres(length: number): number {
   return Math.round((length / CM) * 10) / 10;
 }
+
+/** How far past the protractor's rim an angle's sides reach, as a share of its radius. */
+export const ANGLE_REACH = 1.5;
+/** The radius of the small arc that marks an angle at its vertex. */
+export const ANGLE_MARK = 46;
+
+/**
+ * An angle drawn with the protractor, as it is drawn on paper (owner's request):
+ * its two sides meeting at the vertex — along the base, and at the printed
+ * angle — reaching past the rim, plus a small arc marking it.
+ */
+export function protractorAngleStrokes(inst: Instrument, angle: number): Point[][] {
+  const reach = { ...inst, size: inst.size * ANGLE_REACH };
+  const sides: Point[] = [protractorRim(reach, 0), [inst.x, inst.y], protractorRim(reach, angle)];
+  // On screen, the printed angle runs ANTI-clockwise from the base.
+  const mark = arcPoints([inst.x, inst.y], ANGLE_MARK, inst.rotation, -angle);
+  return angle === 0 ? [sides] : [sides, mark];
+}

@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BoardToolbar, type BoardToolbarProps } from "../BoardToolbar";
 import { TeachingBar, type TeachingBarProps } from "../TeachingBar";
@@ -25,25 +25,48 @@ describe("Curtain", () => {
 });
 
 describe("Wheel", () => {
-  it("spins to one of the names, and can take the winner off the wheel", () => {
-    vi.useFakeTimers();
-    render(<Wheel sound={false} onClose={vi.fn()} />);
-    const names = screen.getByRole("textbox");
-    fireEvent.change(names, { target: { value: "أحمد\nمريم\nيوسف" } });
-    fireEvent.click(screen.getByRole("checkbox"));
+  beforeEach(() => localStorage.clear());
 
+  const spinOnce = () => {
     fireEvent.click(screen.getByRole("button", { name: "أدر العجلة" }));
     act(() => vi.advanceTimersByTime(5000));
+    return screen.getByRole("status").textContent ?? "";
+  };
+  const order = () => [...document.querySelectorAll("[data-wheel-order] li")].map((li) => li.textContent?.replace(/^[٠-٩]+\./, ""));
 
-    const winner = screen.getByRole("status").textContent ?? "";
-    expect(["أحمد", "مريم", "يوسف"]).toContain(winner);
-    expect((names as HTMLTextAreaElement).value.split("\n")).not.toContain(winner);
-    expect((names as HTMLTextAreaElement).value.split("\n")).toHaveLength(2);
+  it("records the order of the picks, never repeats in a round, and never edits the names", () => {
+    vi.useFakeTimers();
+    render(<Wheel board="b1" sound={false} onClose={vi.fn()} />);
+    const names = screen.getByRole("textbox") as HTMLTextAreaElement;
+    fireEvent.change(names, { target: { value: "أحمد\nمريم\nيوسف" } });
+
+    const picked = [spinOnce(), spinOnce()];
+    // The last one left needs no spin.
+    fireEvent.click(screen.getByRole("button", { name: /^الأخير:/ }));
+    picked.push(screen.getByRole("status").textContent ?? "");
+
+    expect([...picked].sort()).toEqual(["أحمد", "مريم", "يوسف"].sort()); // each exactly once
+    expect(order()).toEqual(picked); // in the order they were picked
+    expect(names.value).toBe("أحمد\nمريم\nيوسف"); // the names themselves untouched
   });
 
-  it("will not spin with fewer than two names", () => {
-    render(<Wheel sound={false} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "أحمد" } });
+  it("keeps the names and the order after the wheel is closed and opened again", () => {
+    vi.useFakeTimers();
+    const first = render(<Wheel board="b2" sound={false} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "سارة\nعمر\nنور" } });
+    const picked = spinOnce();
+    first.unmount();
+
+    render(<Wheel board="b2" sound={false} onClose={vi.fn()} />);
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("سارة\nعمر\nنور");
+    expect(order()).toEqual([picked]);
+
+    fireEvent.click(screen.getByRole("button", { name: "جولة جديدة" }));
+    expect(order()).toEqual([]);
+  });
+
+  it("will not spin with no names", () => {
+    render(<Wheel board="b3" sound={false} onClose={vi.fn()} />);
     expect((screen.getByRole("button", { name: "أدر العجلة" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

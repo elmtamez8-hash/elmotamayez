@@ -25,13 +25,20 @@ const RECORDINGS = {
 export type Recording = keyof typeof RECORDINGS;
 
 const players = new Map<Recording, HTMLAudioElement>();
+/** The playback of each recording now running, to stop before it starts again. */
+const playing = new Map<Recording, () => void>();
 
 /**
  * Play a recording from its start, faded out after its allotted time. Resolves
- * when it stops — the drum roll's end is what releases the stars.
+ * `true` when it ends (or is cut on time) — the drum roll's end is what releases
+ * the stars — and `false` when a second press interrupted it.
+ *
+ * ⚠️ ONE PLAYBACK PER RECORDING: a press while it plays stops the first one and
+ * its timers, or the first one's fade would cut the second short.
  */
-export function playRecording(name: Recording): Promise<void> {
-  if (typeof window === "undefined" || typeof window.Audio !== "function") return Promise.resolve();
+export function playRecording(name: Recording): Promise<boolean> {
+  if (typeof window === "undefined" || typeof window.Audio !== "function") return Promise.resolve(false);
+  playing.get(name)?.();
   const { file, seconds, volume } = RECORDINGS[name];
 
   let audio = players.get(name);
@@ -45,15 +52,19 @@ export function playRecording(name: Recording): Promise<void> {
   player.currentTime = 0;
   player.volume = volume;
 
-  return new Promise<void>((resolve) => {
+  return new Promise<boolean>((resolve) => {
     let fade = 0;
-    const stop = () => {
+    const finish = (ended: boolean) => {
       window.clearInterval(fade);
       window.clearTimeout(cut);
       player.pause();
       player.removeEventListener("ended", stop);
-      resolve();
+      if (playing.get(name) === interrupt) playing.delete(name);
+      resolve(ended);
     };
+    const stop = () => finish(true);
+    const interrupt = () => finish(false);
+    playing.set(name, interrupt);
     // The last half second fades out, so a cut never clicks.
     const cut = window.setTimeout(() => {
       fade = window.setInterval(() => {
@@ -63,7 +74,7 @@ export function playRecording(name: Recording): Promise<void> {
     }, Math.max(0, seconds - 0.5) * 1000);
     player.addEventListener("ended", stop);
     // A refused play (no user gesture yet, or audio blocked) is silence, not an error.
-    player.play().catch(stop);
+    player.play().catch(interrupt);
   });
 }
 

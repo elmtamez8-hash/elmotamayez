@@ -8,6 +8,7 @@ import {
   lineSkeleton,
   projectOntoSegment,
   protractorAngle,
+  protractorAngleStrokes,
   protractorRim,
   snapToEdge,
   sweep,
@@ -89,5 +90,25 @@ describe("what is saved", () => {
   it("measures in centimetres on the instruments' scale", () => {
     expect(centimetres(5 * CM)).toBe(5);
     expect(centimetres(123)).toBe(3.1);
+  });
+});
+
+describe("an angle drawn with the protractor", () => {
+  it("draws both sides from the vertex past the rim, and a mark between them", () => {
+    const protractor: Instrument = { kind: "protractor", x: 500, y: 500, rotation: 0, size: 200 };
+    const [sides, mark] = protractorAngleStrokes(protractor, 90);
+
+    close(sides[1], [500, 500]); // the vertex
+    close(sides[0], [800, 500]); // along the base, 1.5 × the radius
+    close(sides[2], [500, 200]); // straight up
+    close(mark[0], [546, 500]);
+    close(mark[mark.length - 1], [500, 454]); // the mark ends on the upright side
+  });
+
+  it("turns with the protractor", () => {
+    const turned: Instrument = { kind: "protractor", x: 0, y: 0, rotation: 90, size: 100 };
+    const [sides] = protractorAngleStrokes(turned, 90);
+    close(sides[0], [0, 150]);
+    close(sides[2], [150, 0]);
   });
 });

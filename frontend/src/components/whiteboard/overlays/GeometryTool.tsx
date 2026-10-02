@@ -11,6 +11,7 @@ import {
   distance,
   INSTRUMENT_SIZE,
   protractorAngle,
+  protractorAngleStrokes,
   protractorRim,
   RULER_WIDTH,
   snapToEdge,
@@ -145,7 +146,7 @@ export function GeometryTool({
   const onUp = () => {
     if (!gesture) return;
     if (gesture.type === "line" && distance(gesture.from, gesture.to) > 4) onDraw([gesture.from, gesture.to]);
-    if (gesture.type === "ray") onDraw([[inst.x, inst.y], protractorRim(inst, gesture.angle)]);
+    if (gesture.type === "ray") for (const stroke of protractorAngleStrokes(inst, gesture.angle)) onDraw(stroke);
     if (gesture.type === "arc" && Math.abs(gesture.span) > 2) onDraw(arcPoints([inst.x, inst.y], inst.size, gesture.start, gesture.span));
     setGesture(null);
   };
@@ -219,10 +220,22 @@ export function GeometryTool({
               return (
                 <g key={a} pointerEvents="none">
                   <line x1={inner[0]} y1={inner[1]} x2={outer[0]} y2={outer[1]} stroke={INK} strokeWidth={a % 10 === 0 ? 2 : 1} />
-                  {a % 30 === 0 && (
-                    <text x={label[0]} y={label[1]} textAnchor="middle" dominantBaseline="middle" fontSize={14} fill={INK}>
-                      {arabicDigits(a)}
-                    </text>
+                  {a % 10 === 0 && (
+                    <>
+                      <text x={label[0]} y={label[1]} textAnchor="middle" dominantBaseline="middle" fontSize={13} fontWeight={700} fill={INK}>
+                        {arabicDigits(a)}
+                      </text>
+                      <text
+                        x={protractorRim({ ...inst, rotation: 0, size: s - 58 }, a)[0]}
+                        y={protractorRim({ ...inst, rotation: 0, size: s - 58 }, a)[1]}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize={11}
+                        fill="#b45309"
+                      >
+                        {arabicDigits(180 - a)}
+                      </text>
+                    </>
                   )}
                 </g>
               );
@@ -256,8 +269,10 @@ export function GeometryTool({
       )}
       {gesture?.type === "ray" && (
         <g pointerEvents="none">
-          <line x1={inst.x} y1={inst.y} x2={protractorRim(inst, gesture.angle)[0]} y2={protractorRim(inst, gesture.angle)[1]} stroke="#d62828" strokeWidth={4} />
-          <Badge at={protractorRim(inst, gesture.angle)} text={`${arabicDigits(gesture.angle)}°`} />
+          {protractorAngleStrokes(inst, gesture.angle).map((stroke, i) => (
+            <polyline key={i} points={stroke.map((p) => p.join(",")).join(" ")} fill="none" stroke="#d62828" strokeWidth={4} />
+          ))}
+          <Badge at={protractorRim(inst, gesture.angle)} text={`${arabicDigits(gesture.angle)}° / ${arabicDigits(180 - gesture.angle)}°`} />
         </g>
       )}
       {gesture?.type === "arc" && (
@@ -288,8 +303,8 @@ function Handle({
 function Badge({ at, text }: { at: Point; text: string }) {
   return (
     <g transform={`translate(${at[0] + 16} ${at[1] - 36})`}>
-      <rect width={110} height={32} rx={8} fill="#111827" />
-      <text x={55} y={21} textAnchor="middle" fontSize={18} fontWeight={700} fill="#fff">
+      <rect width={140} height={32} rx={8} fill="#111827" />
+      <text x={70} y={21} textAnchor="middle" fontSize={18} fontWeight={700} fill="#fff">
         {text}
       </text>
     </g>

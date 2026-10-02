@@ -37,8 +37,9 @@ export function Spotlight({ onClose }: { onClose: () => void }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.target instanceof Element && event.target.closest("textarea, input, select, [contenteditable]")) return;
       if (event.key === "Escape") onClose();
-      if (event.key === "]") setRadius((r) => resizeSpotlight(r, true));
-      if (event.key === "[") setRadius((r) => resizeSpotlight(r, false));
+      // `code`, not `key`: on an Arabic keyboard these two keys type «د» and «ج».
+      if (event.code === "BracketRight") setRadius((r) => resizeSpotlight(r, true));
+      if (event.code === "BracketLeft") setRadius((r) => resizeSpotlight(r, false));
     };
     paint(radius);
     window.addEventListener("pointermove", onMove, { passive: true });

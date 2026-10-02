@@ -28,6 +28,8 @@ export function Timer({ minutes, sound, onClose }: { minutes: number; sound: boo
     if (done && sound) playGavel();
   }, [done, sound]);
 
+  // ⚠️ Fixed colours, not theme tokens, on purpose: this sits ON the board the
+  // class watches, and must read the same on white, black and green boards.
   return (
     <div className="absolute inset-x-0 bottom-6 mx-auto w-fit" style={{ zIndex: 6 }} data-effect="timer">
       <style>{`@keyframes wb-flash { 50% { opacity: 0.35; } }`}</style>

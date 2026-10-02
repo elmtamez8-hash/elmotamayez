@@ -16,9 +16,10 @@ describe("Spotlight", () => {
     const layer = container.querySelector("[data-effect='spotlight']");
     expect(layer).not.toBeNull();
 
-    fireEvent.keyDown(window, { key: "]" });
+    // By position: on an Arabic keyboard this key types «د».
+    fireEvent.keyDown(window, { key: "د", code: "BracketRight" });
     expect(layer?.getAttribute("data-radius")).toBe(String(SPOTLIGHT.initial + SPOTLIGHT.step));
-    fireEvent.keyDown(window, { key: "[" });
+    fireEvent.keyDown(window, { key: "ج", code: "BracketLeft" });
     expect(layer?.getAttribute("data-radius")).toBe(String(SPOTLIGHT.initial));
 
     fireEvent.keyDown(window, { key: "Escape" });

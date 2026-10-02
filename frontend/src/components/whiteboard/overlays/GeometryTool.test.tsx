@@ -55,14 +55,16 @@ describe("geometry instruments", () => {
     near(to, [900, 540]);
   });
 
-  it("the protractor draws a ray from its centre at the angle under the pen", () => {
+  it("the protractor draws the whole angle under the pen: both sides from the vertex, and its mark", () => {
     const { onDraw, lane } = mount("protractor");
     fireEvent.pointerDown(lane, { clientX: 960, clientY: 330, pointerId: 1 });
     fireEvent.pointerUp(lane, { clientX: 960, clientY: 330, pointerId: 1 });
 
-    const [from, to] = drawn(onDraw);
-    near(from, CENTRE);
-    near(to, [960, 540 - 220]); // straight up: 90°, on the rim
+    expect(onDraw).toHaveBeenCalledTimes(2); // the sides, then the mark
+    const [base, vertex, side] = drawn(onDraw);
+    near(vertex, CENTRE);
+    near(base, [960 + 330, 540]); // along the base, past the rim (1.5 × 220)
+    near(side, [960, 540 - 330]); // straight up: 90°
   });
 
   it("the compass draws an arc on its radius", () => {
