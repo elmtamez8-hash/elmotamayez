@@ -115,6 +115,6 @@ const ICONS: Record<Effect, (props: IconProps) => React.ReactElement> = {
 /** A drawn icon, not an emoji: the same on every system. The cards wear their colour. */
 function EffectIcon({ kind }: { kind: Effect }) {
   const Icon = ICONS[kind];
-  const colour = kind === "yellowCard" ? " text-star" : kind === "redCard" ? " text-danger" : "";
+  const colour = kind === "yellowCard" ? " text-star" : kind === "redCard" ? " text-danger-ink" : "";
   return <Icon className={`h-4 w-4${colour}`} />;
 }
