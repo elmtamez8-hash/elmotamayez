@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\Whiteboard\Support;
 
 use App\Modules\Whiteboard\Models\Board;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,7 +28,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class BoardPageGate
 {
-    /** @throws DomainException `too_many_pages` */
+    /** @throws WhiteboardRefusal `too_many_pages` */
     public function open(Board $board, int $delta): void
     {
         $changed = DB::update(
@@ -38,7 +37,7 @@ final class BoardPageGate
         );
 
         if ($changed !== 1) {
-            throw new DomainException('too_many_pages');
+            throw new WhiteboardRefusal('too_many_pages');
         }
     }
 
@@ -47,7 +46,7 @@ final class BoardPageGate
         DB::update('UPDATE boards SET id = id WHERE id = ?', [$board->id]);
     }
 
-    /** @throws DomainException `last_page` when it would leave the board with none */
+    /** @throws WhiteboardRefusal `last_page` when it would leave the board with none */
     public function close(Board $board, int $count): void
     {
         $changed = DB::update(
@@ -56,7 +55,7 @@ final class BoardPageGate
         );
 
         if ($changed !== 1) {
-            throw new DomainException('last_page');
+            throw new WhiteboardRefusal('last_page');
         }
     }
 

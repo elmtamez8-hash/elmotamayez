@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Support\BoardLock;
+use App\Modules\Whiteboard\Support\WhiteboardRefusal;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -84,8 +85,13 @@ it('hands the lock to the owning teacher after a 10-second grace, and the old ta
         ->and(wbLockRow($this->board)->editor_user_id)->toBe($this->owner->id)
         ->and(wbLockRow($this->board)->editor_handover_tab)->toBeNull();
 
-    expect(fn () => $this->lock->assertHeldBy($this->board, $this->assistant->id, $this->assistantTab))
-        ->toThrow(DomainException::class, 'lock_lost');
+    try {
+        $this->lock->assertHeldBy($this->board, $this->assistant->id, $this->assistantTab);
+        $this->fail('The old tab still held the lock.');
+    } catch (WhiteboardRefusal $refusal) {
+        expect($refusal->reason)->toBe('lock_lost')
+            ->and($refusal->status())->toBe(409);
+    }
 });
 
 it('passes the lock straight to the waiting tab when the holder releases during a handover', function (): void {

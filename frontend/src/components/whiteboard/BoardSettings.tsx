@@ -50,10 +50,12 @@ export function BoardSettings({
   };
 
   return (
-    <div className="flex items-end gap-2">
+    <div className="flex items-center gap-2">
       {renaming ? (
         <>
-          <TextField id="wb-title" label={WB.title} value={draft} onChange={setDraft} maxLength={160} />
+          <div className="min-w-0 flex-1">
+            <TextField id="wb-title" label={WB.title} labelHidden value={draft} onChange={setDraft} maxLength={160} />
+          </div>
           <Button size="sm" loading={saving} onClick={save}>
             {WB.save}
           </Button>
@@ -66,15 +68,17 @@ export function BoardSettings({
           {WB.rename}
         </Button>
       )}
-      <SelectField
+      <div className="w-40 shrink-0">
+        <SelectField
         id="wb-background"
         label={WB.background}
         labelHidden
         value={background}
         disabled={disabled}
         options={BACKGROUND_OPTIONS}
-        onChange={(value) => onBackground(value as BoardBackground)}
-      />
+          onChange={(value) => onBackground(value as BoardBackground)}
+        />
+      </div>
     </div>
   );
 }

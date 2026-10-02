@@ -30,16 +30,26 @@ export function BoardToolbar(props: BoardToolbarProps) {
   const { pageIndex, pageCount } = props;
 
   return (
-    <div className="flex flex-wrap items-center gap-2" dir="rtl">
-      <Button size="sm" variant="ghost" disabled={pageIndex === 0} onClick={props.onPrevious}>
-        {WB.previousPage}
-      </Button>
-      <span className="text-sm tabular-nums" aria-live="polite">
-        {WB.pageOf(pageIndex + 1, pageCount)}
-      </span>
-      <Button size="sm" variant="ghost" disabled={pageIndex >= pageCount - 1} onClick={props.onNext}>
-        {WB.nextPage}
-      </Button>
+    // Its own light panel: the toolbar sits ON the canvas, and dark ink on the
+    // blackboard or the green board is unreadable (seen in the browser). Two rows,
+    // so the rename field never squeezes the background picker to nothing.
+    <div className="flex w-[26rem] max-w-[60vw] flex-col gap-1.5 rounded-xl border border-line bg-surface-raised px-3 py-2 text-ink shadow-sm" dir="rtl">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" disabled={pageIndex === 0} onClick={props.onPrevious}>
+            {WB.previousPage}
+          </Button>
+          <span className="text-sm tabular-nums" aria-live="polite">
+            {WB.pageOf(pageIndex + 1, pageCount)}
+          </span>
+          <Button size="sm" variant="ghost" disabled={pageIndex >= pageCount - 1} onClick={props.onNext}>
+            {WB.nextPage}
+          </Button>
+        </div>
+        <Button size="sm" variant={props.presenting ? "secondary" : "primary"} onClick={props.onTogglePresenting}>
+          {props.presenting ? WB.stopPresenting : WB.present}
+        </Button>
+      </div>
       <BoardSettings
         title={props.title}
         background={props.background}
@@ -48,9 +58,6 @@ export function BoardToolbar(props: BoardToolbarProps) {
         onBackground={props.onBackground}
       />
       <ExportMenu onExport={props.onExport} />
-      <Button size="sm" variant={props.presenting ? "secondary" : "primary"} onClick={props.onTogglePresenting}>
-        {props.presenting ? WB.stopPresenting : WB.present}
-      </Button>
     </div>
   );
 }

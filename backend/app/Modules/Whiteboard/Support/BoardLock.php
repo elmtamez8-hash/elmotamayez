@@ -6,7 +6,6 @@ namespace App\Modules\Whiteboard\Support;
 
 use App\Modules\Whiteboard\Models\Board;
 use Carbon\CarbonImmutable;
-use DomainException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -159,14 +158,14 @@ final class BoardLock
      * Every writing Action calls this first. Holding the lock is not permission —
      * the Action still asks the policy on every request.
      *
-     * @throws DomainException `lock_lost`
+     * @throws WhiteboardRefusal `lock_lost`
      */
     public function assertHeldBy(Board $board, int $userId, string $tab): void
     {
         $graceEnds = self::stamp(CarbonImmutable::now()->subSeconds(self::HANDOVER_GRACE_SECONDS));
 
         if (! $this->holdsWithinGrace($board->id, $userId, $tab, $graceEnds)) {
-            throw new DomainException('lock_lost');
+            throw new WhiteboardRefusal('lock_lost');
         }
     }
 

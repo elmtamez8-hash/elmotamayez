@@ -12,6 +12,7 @@ use App\Modules\Tenancy\Support\StaffAccounts;
 use App\Modules\Whiteboard\Enums\BoardPendingOperation;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Support\BoardOwnership;
+use App\Modules\Whiteboard\Support\MemberRoles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Auth\Access\Response;
@@ -97,14 +98,19 @@ class BoardPolicy
 
         // The course's other authors, and only while the course is live: a board
         // whose course was deleted belongs to its owning teacher alone.
+        //
+        // ⚠️ A REFUSAL HERE IS A 404, NOT A 403. Whoever fails this branch is neither
+        // the owning teacher nor the manager, so they cannot VIEW the board either —
+        // and a 403 on the write door beside a 404 on the read door would tell them
+        // the board exists (caught by BoardIsolationTest).
         $course = $board->course_id === null ? null : $board->course;
         if (! $course instanceof Course || $course->trashed()) {
-            return Response::deny();
+            return Response::denyAsNotFound();
         }
 
         return app(AssistantScopeDirectory::class)->mayActOnCourse($user, $board->workspace_id, (int) $course->getKey())
             ? Response::allow()
-            : Response::deny('هذه السبّورة خارج نطاق عملك.');
+            : Response::denyAsNotFound();
     }
 
     /** «خُذ التحرير» — the owning teacher alone (Q3, D1). */
@@ -181,8 +187,6 @@ class BoardPolicy
 
     private function roleIn(User $user, int $workspaceId): ?string
     {
-        $role = $user->workspaces()->where('workspaces.id', $workspaceId)->value('workspace_members.role');
-
-        return is_string($role) ? $role : null;
+        return app(MemberRoles::class)->roleIn($user, $workspaceId);
     }
 }

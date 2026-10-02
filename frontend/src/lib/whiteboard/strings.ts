@@ -33,8 +33,9 @@ export const WB = {
   pages: (n: number) => counted(n, NOUNS.pages),
   boardsCount: (n: number) => counted(n, NOUNS.boards),
 
-  exportPng: "تصدير الصفحة صورة PNG",
-  exportSvg: "تصدير الصفحة SVG",
+  export: "تصدير الصفحة:",
+  exportPng: "PNG",
+  exportSvg: "SVG",
   exporting: "جارٍ التصدير…",
   exportFailed: "تعذّر التصدير. أعد المحاولة.",
 

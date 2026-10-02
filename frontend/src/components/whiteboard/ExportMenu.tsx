@@ -23,7 +23,10 @@ export function ExportMenu({ onExport }: { onExport: (kind: "png" | "svg") => Pr
   };
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1" role="group" aria-label={WB.export}>
+      <span className="text-xs text-ink-muted" aria-hidden="true">
+        {WB.export}
+      </span>
       <Button size="sm" variant="ghost" loading={busy === "png"} loadingLabel={WB.exporting} onClick={() => run("png")}>
         {WB.exportPng}
       </Button>

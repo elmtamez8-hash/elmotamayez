@@ -323,6 +323,11 @@ export const mainNav: NavItem[] = [
     permission: P.announcementsManage,
   },
   /*
+   * Spec 039 — the teacher's whiteboard: prepared here, opened in its own tab,
+   * shared through the live session's screen share.
+   */
+  { href: "/manage/boards", label: "السبّورات", Icon: DocumentIcon, permission: P.lessonsManage },
+  /*
    * ⛔ المدوّنةُ كانت قدرةً بلا باب. `cms.*` في دورَي المدرّسِ والمساعدِ منذُ
    * ٠١١ — بموديلٍ وسياسةٍ وتوليدِ رابطٍ عربيٍّ وإعلانِ IndexNow وحقولِ سيو
    * وخريطةِ موقعٍ ومدوّنةٍ عامّةٍ كلُّها مبنيّةٌ حولَ ما يكتبُه المدرّس — ولم يكنْ

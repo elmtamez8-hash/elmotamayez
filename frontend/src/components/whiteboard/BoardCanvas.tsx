@@ -135,6 +135,19 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [goTo, pageIndex]);
 
+  // The app keeps a scrollbar on <html> on every page; on the tab the class watches
+  // it is a grey strip down the side of the board. Removed while the board is open.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = { overflow: root.style.overflow, gutter: root.style.scrollbarGutter };
+    root.style.overflow = "hidden";
+    root.style.scrollbarGutter = "auto";
+    return () => {
+      root.style.overflow = previous.overflow;
+      root.style.scrollbarGutter = previous.gutter;
+    };
+  }, []);
+
   // «عرض»: the tools come back only while the pointer is near the top edge.
   useEffect(() => {
     if (!presenting) {
@@ -188,7 +201,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     >
       {/* «عرض» hides Excalidraw's whole UI layer; scoped to this board only. */}
       <style>{`
-        .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper { visibility: hidden; }
+        .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
+        .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
       `}</style>
       <Excalidraw
         excalidrawAPI={setApi}

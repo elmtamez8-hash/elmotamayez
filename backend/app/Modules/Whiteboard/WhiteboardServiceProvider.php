@@ -6,6 +6,7 @@ namespace App\Modules\Whiteboard;
 
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Policies\BoardPolicy;
+use App\Modules\Whiteboard\Support\MemberRoles;
 use App\Modules\Whiteboard\Support\WhiteboardPersonalData;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
@@ -31,6 +32,9 @@ class WhiteboardServiceProvider extends Module
         parent::register();
 
         $this->app->tag([WhiteboardPersonalData::class], 'compliance.personal_data');
+
+        // One answer per request or job — see MemberRoles.
+        $this->app->scoped(MemberRoles::class);
     }
 
     public function boot(): void
