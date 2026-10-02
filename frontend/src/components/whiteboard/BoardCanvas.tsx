@@ -24,6 +24,7 @@ import {
   frameTemplate,
   pageScreens,
   pageTemplate,
+  useBoardLibrary,
   pageThumbnail,
   pictureIds,
   placeSticker,
@@ -159,6 +160,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     [],
   );
   const session = useBoardSession(board, user?.uuid ?? null, access);
+  // The element library: kept in this browser, and filled from libraries.excalidraw.com.
+  useBoardLibrary(api);
+  useEffect(() => {
+    // That site sends a library back to the window it was opened from BY NAME;
+    // unnamed, it opened the board again in a new tab and the library went there.
+    if (!window.name) window.name = "whiteboard";
+  }, []);
   const [showPages, setShowPages] = useState(true);
   const [pagesBusy, setPagesBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
