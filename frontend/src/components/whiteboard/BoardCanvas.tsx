@@ -42,6 +42,7 @@ import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
 import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
+import { readPanelModes, writePanelModes, type PanelId, type PanelMode } from "@/lib/whiteboard/panels";
 import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
 import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
@@ -53,6 +54,7 @@ import { EffectsBar } from "@/components/whiteboard/EffectsBar";
 import { PresenterBar } from "@/components/whiteboard/PresenterBar";
 import { TeachingBar, type PassingTool } from "@/components/whiteboard/TeachingBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
+import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
@@ -451,6 +453,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return () => window.removeEventListener("pointermove", onMove);
   }, [presenting]);
 
+  // Each panel shown, folded or hidden until the pointer nears it — this browser only.
+  const [panelModes, setPanelModes] = useState(readPanelModes);
+  const changePanelMode = (id: PanelId, mode: PanelMode) =>
+    setPanelModes((current) => {
+      const next = { ...current, [id]: mode };
+      writePanelModes(next);
+      return next;
+    });
+
   const changeBackground = (next: BoardBackground) => {
     if (!api || !board || next === background) return;
     applyBackground(api, background, next);
@@ -594,6 +605,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
       `}</style>
+      {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} />}
       <Excalidraw
         excalidrawAPI={setApi}
         langCode="ar-SA"
@@ -683,6 +695,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
               />
                 ),
               },
+              { id: "layout", label: WB.menus.layout, content: <PanelModesMenu modes={panelModes} onMode={changePanelMode} /> },
             ]}
             screen={screen}
             onScreen={moveScreen}
@@ -738,7 +751,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         )}
       {showPages && !presenting && (
         // Over the canvas, on the side the toolbar is not, and hidden for «عرض»: the class sees the whole tab.
-        <div className="absolute bottom-16 start-2 top-16" style={{ zIndex: 5 }}>
+        <div data-panel="pages" className="absolute bottom-16 start-2 top-16" style={{ zIndex: 5 }}>
           <PagesSidebar
             pages={board.pages.map((page, index) => ({
               uuid: page.uuid,

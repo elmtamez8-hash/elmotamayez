@@ -55,7 +55,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
     // Its own light panel: the toolbar sits ON the canvas, and dark ink on the
     // blackboard or the green board is unreadable (seen in the browser). Two rows,
     // so the rename field never squeezes the background picker to nothing.
-    <div className="flex w-[26rem] max-w-[60vw] flex-col gap-1.5 rounded-xl border border-line bg-surface-raised px-3 py-2 text-ink shadow-sm" dir="rtl">
+    <div data-panel="board" className="flex w-[26rem] max-w-[60vw] flex-col gap-1.5 rounded-xl border border-line bg-surface-raised px-3 py-2 text-ink shadow-sm" dir="rtl">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" disabled={pageIndex === 0} onClick={props.onPrevious}>
