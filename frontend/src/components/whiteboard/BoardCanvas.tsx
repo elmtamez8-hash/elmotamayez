@@ -204,6 +204,12 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   }, []);
   const [showPages, setShowPages] = useState(true);
   const [pagesBusy, setPagesBusy] = useState(false);
+  // An import keeps adding pages after the teacher leaves the board unless it asks.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true; // again after React's dev double mount
+    return () => void (mounted.current = false);
+  }, []);
   // Story 4: the import the teacher started, followed here so closing the menu never stops it.
   const [importView, setImportView] = useState<ImportView>({ phase: "idle" });
   const [notice, setNotice] = useState<string | null>(null);
@@ -475,11 +481,14 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const goTo = useCallback(
     (target: number) => {
-      if (!api || !board || target < 0 || target >= board.pages.length || target === pageIndex) return;
+      // Not while pages change: an import adds pages for a minute and shows the
+      // first at the end, keeping the page it started on — moving meanwhile
+      // filed one page's drawing under another (caught in review).
+      if (!api || !board || pagesBusy || target < 0 || target >= board.pages.length || target === pageIndex) return;
       keepShown();
       showPage(board.pages, target);
     },
-    [api, board, pageIndex, keepShown, showPage],
+    [api, board, pageIndex, pagesBusy, keepShown, showPage],
   );
 
   // Next / previous page from the keyboard — never while typing.
@@ -661,6 +670,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       let added = 0;
       let capped: number | undefined;
       const addPage = async (picture: File, width: number, height: number) => {
+        if (!mounted.current) throw new Error("The board was closed.");
         const id = await uploadBoardImage(board.uuid, session.tab(), picture);
         const page = await boards.addPage(board.uuid, { tab: session.tab(), after: list[at + added - 1].uuid });
         const blank = restorePage(parseScene(page).elements);
@@ -701,7 +711,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       } finally {
         if (added > 0) {
           keepShown();
-          setBoard({ ...board, pages: list });
+          setBoard((current) => current && { ...current, pages: list }); // a rename meanwhile stays
           showPage(list, at);
         }
       }

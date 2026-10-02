@@ -15,11 +15,24 @@ export type PdfPage = { number: number; total: number; inFile: number; file: Fil
 export async function* pdfPages(file: File): AsyncGenerator<PdfPage> {
   const pdfjs = await import("pdfjs-dist");
   // One worker for the tab; `destroy()` below leaves a port it was given alive.
-  pdfjs.GlobalWorkerOptions.workerPort ??= new Worker(new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url), {
-    type: "module",
-  });
+  // PDF.js skips its own handshake for a port it is given, so a worker that
+  // fails to load (a stale chunk after a deploy) left the import «opening» for
+  // ever: its error is listened for here, and the next import builds a new one.
+  const worker = (pdfjs.GlobalWorkerOptions.workerPort ??= new Worker(
+    new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url),
+    { type: "module" },
+  ));
+  const failed = new Promise<never>((_, reject) =>
+    worker.addEventListener("error", () => {
+      pdfjs.GlobalWorkerOptions.workerPort = null;
+      reject(new Error("The PDF worker did not load."));
+    }),
+  );
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const pdf = await task.promise;
+  const pdf = await Promise.race([task.promise, failed]).catch(async (error: unknown) => {
+    await task.destroy();
+    throw error;
+  });
   const name = file.name.replace(/\.pdf$/i, "");
   try {
     const total = Math.min(pdf.numPages, IMPORT_MAX_PAGES);
