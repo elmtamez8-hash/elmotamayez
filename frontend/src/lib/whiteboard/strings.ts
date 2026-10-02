@@ -49,7 +49,16 @@ export const WB = {
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
   /** The toolbar's menus. */
-  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة" },
+  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد" },
+  /** Story 4 — a PDF or a picture added as pages after the page shown. */
+  importing: {
+    choose: "اختر ملف PDF أو صورة",
+    hint: "تُضاف بعد الصفحة الحالية: كل صفحة من الـ PDF صفحة، والصورة صفحة.",
+    uploading: "جارٍ رفع الملف…",
+    queued: (place: number) => (place <= 1 ? "دورك التالي في التحويل…" : `في الانتظار: قبلك ${arabicNumber(place - 1)} في التحويل.`),
+    converting: "جارٍ تحويل الصفحات… يمكنك الشرح على الصفحات الأخرى في الأثناء.",
+    done: (n: number) => `أُضيف ${counted(n, NOUNS.pages)}.`,
+  },
   panels: { board: "لوحة السبّورة", tools: "أدوات الرسم", pages: "الصفحات", zoom: "التكبير والتراجع", library: "المكتبة والقائمة" },
   panelModes: { shown: "ظاهرة", folded: "مطويّة", auto: "تظهر لما تقرّب" },
   panelUnfold: (name: string) => `▾ ${name}`,
@@ -188,8 +197,8 @@ export const WB = {
   errors: {
     too_large: "الملف أكبر من الحدّ المسموح.",
     too_many_pages: "عدد الصفحات أكبر من الحدّ المسموح لهذه السبّورة.",
-    unsupported: "صيغة الملف غير مدعومة. المدعوم: PDF وPowerPoint وWord وصور PNG وJPEG.",
-    corrupt: "الملف تالف أو لا يُقرأ.",
+    unsupported: "صيغة الملف غير مدعومة. المقبول: PDF أو صورة PNG أو JPEG. احفظ العرض أو المستند PDF أولاً.",
+    corrupt: "تعذّرت قراءة الملف. تأكّد أنه PDF سليم وغير محمي بكلمة سر.",
     timeout: "استغرق تحويل الملف وقتاً أطول من المسموح. جرّب ملفاً أصغر.",
     board_deleted: "حُذفت السبّورة أثناء التحويل.",
     scene_too_large: "محتوى هذه الصفحة أكبر من الحدّ المسموح. قسّمه على صفحتين.",

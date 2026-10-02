@@ -7,7 +7,7 @@ declare(strict_types=1);
 |
 | Defaults only: every number here is a `platform_settings` row the operator edits
 | from the panel («السبّورة» in ManagePlatformSettings), read through
-| `WhiteboardSettings`. The import keys arrive with story 4.
+| `WhiteboardSettings`.
 */
 return [
     // One page's scene document. A scene with no images is a few KB; freehand
@@ -18,4 +18,11 @@ return [
     'max_board_bytes' => 50 * 1024 * 1024,
 
     'max_pages_per_board' => 300,
+
+    // Story 4 — a PDF turned into pages (owner, 2026-10-02: PDF and pictures
+    // only; no Office conversion service). One page per PDF page, as a picture.
+    'import_max_bytes' => 50 * 1024 * 1024,
+    'import_max_pages' => 100,
+    // Where `pdfinfo` and `pdftoppm` (poppler-utils) live; empty = on PATH.
+    'poppler_path' => env('WHITEBOARD_POPPLER_PATH', ''),
 ];
