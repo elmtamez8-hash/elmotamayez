@@ -12,7 +12,7 @@ import type { DraftStore, PageDraft } from "@/lib/whiteboard/draft-store";
 
 type Pending = { body: ScenePut; resolve: (v: { version: number; client_rev: number }) => void; reject: (e: unknown) => void };
 
-function harness(options: { drafts?: DraftStore } = {}) {
+function harness(options: { drafts?: DraftStore; idleMs?: number } = {}) {
   const calls: Pending[] = [];
   const drafts = new Map<string, PageDraft>();
   const store: DraftStore = options.drafts ?? {
@@ -34,7 +34,7 @@ function harness(options: { drafts?: DraftStore } = {}) {
     putKeepalive: vi.fn(),
     drafts: store,
     idle: (fn) => {
-      const t = setTimeout(fn, 0);
+      const t = setTimeout(fn, options.idleMs ?? 0);
       return () => clearTimeout(t);
     },
     onState: vi.fn(),
@@ -220,5 +220,16 @@ describe("autosave", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(lastState(deps)).toBe("unprotected");
+  });
+
+  it("leaves no «unsaved» draft when the idle write runs after the server acknowledged", async () => {
+    // The browser was busy: the idle callback fires at its 2-second timeout, after the PUT.
+    const { save, calls, drafts } = harness({ idleMs: 2000 });
+    save.change("p1", 1, () => "a");
+    await vi.advanceTimersByTimeAsync(SERVER_DEBOUNCE_MS);
+    calls[0].resolve({ version: 2, client_rev: 1 });
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(drafts.size).toBe(0);
   });
 });

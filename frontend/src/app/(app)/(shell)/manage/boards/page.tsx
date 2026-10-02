@@ -5,12 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { DocumentIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RecordList, RecordRow } from "@/components/ui/RecordList";
 import { RequirePermission } from "@/components/ui/states/RefusedState";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, errorMessage } from "@/lib/api";
 import { P } from "@/lib/permissions";
 import { boards, type BoardSummary } from "@/lib/whiteboard/api";
 import { WB } from "@/lib/whiteboard/strings";
@@ -38,6 +39,7 @@ function BoardsScreen() {
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(() => {
     boards
@@ -71,9 +73,33 @@ function BoardsScreen() {
     }
   };
 
+  // A copy is built in the queue: say so, and look again shortly.
+  const duplicate = async (uuid: string) => {
+    setError(null);
+    try {
+      await boards.duplicate(uuid);
+      setNotice(WB.copying);
+      window.setTimeout(load, 3000);
+    } catch (failure) {
+      setError(errorMessage(failure, WB.pagesFailed));
+    }
+  };
+
+  // Gone from the list at once; the files are removed in the queue.
+  const remove = async (uuid: string) => {
+    setError(null);
+    try {
+      await boards.remove(uuid);
+      setList((rows) => rows?.filter((row) => row.uuid !== uuid) ?? null);
+    } catch (failure) {
+      setError(errorMessage(failure, WB.pagesFailed));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title={WB.boards} Icon={DocumentIcon} description={WB.shareHint} />
+      {notice && <Alert tone="info" title={notice} />}
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -107,12 +133,22 @@ function BoardsScreen() {
               key={board.uuid}
               Icon={DocumentIcon}
               title={board.title}
-              description={[board.course?.title, board.lesson?.title].filter(Boolean).join(" · ") || undefined}
+              description={[board.course && (board.course.deleted ? `${board.course.title} (محذوف)` : board.course.title), board.lesson?.title].filter(Boolean).join(" · ") || undefined}
               meta={[{ key: "pages", label: "عدد الصفحات", value: WB.pages(board.pages_count), labelHidden: true }]}
               actions={
-                <Button size="sm" href={boardHref(board.uuid)} external>
-                  افتح
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" href={boardHref(board.uuid)} external>
+                    افتح
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => duplicate(board.uuid)}>
+                    {WB.duplicateBoard}
+                  </Button>
+                  {board.can.delete && (
+                    <ConfirmButton size="sm" variant="danger" confirmLabel={WB.confirmDeleteBoard} onConfirm={() => remove(board.uuid)}>
+                      {WB.deleteBoard}
+                    </ConfirmButton>
+                  )}
+                </div>
               }
             />
           ))}

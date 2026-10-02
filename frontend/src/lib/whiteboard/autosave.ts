@@ -103,7 +103,10 @@ export function createAutosave(deps: AutosaveDeps) {
   }
 
   async function writeDraft(page: string, slot: PageSlot): Promise<void> {
-    if (!slot.build) return;
+    // ⚠️ Asked when the write RUNS, not when it was scheduled: an idle callback can
+    // fire after the server already acknowledged this scene, and writing then
+    // leaves a «not saved» draft of saved work that asks to be restored on reopen.
+    if (!slot.build || !slot.dirty) return;
     const result = await deps.drafts.put(key(page), { scene: slot.build(), ackedVersion: slot.version, rev, dirty: true });
     if (result === "unavailable" && !unprotected) {
       unprotected = true;

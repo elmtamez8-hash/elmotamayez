@@ -304,6 +304,44 @@ export function errorMessage(err: unknown, fallback: string): string {
   return mapped === UNKNOWN_MESSAGE ? fallback : mapped;
 }
 
+/**
+ * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
+ *
+ * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
+ * fetching it from the browser answers **419**. The whole frontend reaches the
+ * API through the same-origin rewrite; an absolute URL steps outside it, the
+ * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
+ * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
+ * because `curl` sends no cookies and no `Origin`, so the one client that proved
+ * the endpoint was the one client that could not reproduce the fault.
+ *
+ * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
+ * genuinely remote URL — that is the entire point of `SC-001`, zero video
+ * bandwidth through our own server — and rewriting it to a local path would send
+ * the bytes to a route that does not exist. Only a URL whose path is already
+ * ours is folded back onto this origin.
+ */
+export function sameOriginIfOurs(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+
+    return parsed.pathname.startsWith("/api/") ? parsed.pathname + parsed.search : url;
+  } catch {
+    return url;
+  }
+}
+
+/** PUT a file to the URL an upload ticket named — signed, so no session headers. */
+export async function uploadToTicket(upload: { url: string; method: string; headers: Record<string, string> }, file: Blob): Promise<void> {
+  const response = await fetch(sameOriginIfOurs(upload.url), {
+    method: upload.method,
+    headers: { ...upload.headers, "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+
+  if (!response.ok) throw new Error("upload-failed");
+}
+
 /** What a completed sign-in hands back, whichever door it came through. */
 export type SignedIn = { user: User; token: string; session_uuid: string };
 

@@ -9,8 +9,9 @@ import { createPortal } from "react-dom";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { ensureArabicFont } from "@/lib/whiteboard/arabic-font";
-import { boards, parseScene, type BoardDetail } from "@/lib/whiteboard/api";
+import { boards, parseScene, type BoardDetail, type BoardPagePayload } from "@/lib/whiteboard/api";
 import {
+  addPictures,
   applyBackground,
   exportPage,
   fitToFrame,
@@ -18,17 +19,23 @@ import {
   installTextMetrics,
   loadPage,
   pageDocument,
+  pageThumbnail,
+  pictureIds,
+  reframe,
   restorePage,
   sceneVersion,
   type BoardApi,
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
+import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
+import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
 import { Modal } from "@/components/ui/Modal";
 import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
 import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
+import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
 
@@ -47,6 +54,8 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
  */
 
 const REVEAL_TOP_PX = 48;
+/** Pictures handed to the canvas: the page shown and this many either side. */
+const PICTURE_REACH = 2;
 
 type Pages = Map<string, readonly BoardElement[]>;
 
@@ -103,6 +112,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     [],
   );
   const session = useBoardSession(board, user?.uuid ?? null, access);
+  const [showPages, setShowPages] = useState(true);
+  const [pagesBusy, setPagesBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const pictures = useMemo(() => createPictureCache((id) => boards.fileBytes(boardUuid, id)), [boardUuid]);
 
   // The face first, then the pages: text measured before Cairo loads is clipped.
   useEffect(() => {
@@ -112,6 +125,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       .then(([, detail]) => {
         if (!alive) return;
         pages.current = new Map(detail.pages.map((page) => [page.uuid, restorePage(parseScene(page).elements)]));
+        // Every picture's bytes now, before the class needs them (T072).
+        pictures.prefetch([...pages.current.values()].flatMap((elements) => pictureIds(elements)));
         setBackground(detail.background);
         setBoard(detail);
       })
@@ -121,7 +136,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return () => {
       alive = false;
     };
-  }, [boardUuid]);
+  }, [boardUuid, pictures]);
 
   const fit = useCallback(() => {
     const box = containerRef.current?.getBoundingClientRect();
@@ -155,15 +170,43 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const pageIds = board?.pages.map((page) => page.uuid) ?? [];
 
+  // The pictures of the page shown and its neighbours, handed to the canvas.
+  useEffect(() => {
+    if (!api || !board) return;
+    let alive = true;
+    const near = board.pages.slice(Math.max(0, pageIndex - PICTURE_REACH), pageIndex + PICTURE_REACH + 1);
+    void pictures
+      .take(near.flatMap((page) => pictureIds(pages.current.get(page.uuid) ?? [])))
+      .then((found) => alive && addPictures(api, found));
+    return () => {
+      alive = false;
+    };
+  }, [api, board, pageIndex, pictures]);
+
+  /** Keep what is on screen in the page map before anything replaces it. */
+  const keepShown = useCallback(() => {
+    const shown = board?.pages[pageIndex]?.uuid;
+    if (api && shown) pages.current.set(shown, api.getSceneElementsIncludingDeleted());
+  }, [api, board, pageIndex]);
+
+  /** Show `index` of `list` (a list that may have just changed). */
+  const showPage = useCallback(
+    (list: BoardPagePayload[], index: number) => {
+      if (!api) return;
+      loadPage(api, pages.current.get(list[index].uuid) ?? []);
+      setPageIndex(index);
+      fit();
+    },
+    [api, fit],
+  );
+
   const goTo = useCallback(
     (target: number) => {
       if (!api || !board || target < 0 || target >= board.pages.length || target === pageIndex) return;
-      pages.current.set(board.pages[pageIndex].uuid, api.getSceneElementsIncludingDeleted());
-      loadPage(api, pages.current.get(board.pages[target].uuid) ?? []);
-      setPageIndex(target);
-      fit();
+      keepShown();
+      showPage(board.pages, target);
     },
-    [api, board, pageIndex, fit],
+    [api, board, pageIndex, keepShown, showPage],
   );
 
   // Next / previous page from the keyboard — never while typing.
@@ -172,10 +215,16 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (event.target instanceof Element && event.target.closest("textarea, input, select, [contenteditable]")) return;
       if (event.key === "PageDown") goTo(pageIndex + 1);
       if (event.key === "PageUp") goTo(pageIndex - 1);
+      // The arrows move a SELECTED element in Excalidraw; with nothing selected they
+      // turn the page, in reading order: left (where an Arabic line ends) is next.
+      if (api && Object.keys(api.getAppState().selectedElementIds).length === 0) {
+        if (event.key === "ArrowLeft") goTo(pageIndex + 1);
+        if (event.key === "ArrowRight") goTo(pageIndex - 1);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goTo, pageIndex]);
+  }, [api, goTo, pageIndex]);
 
   // The app keeps a scrollbar on <html> on every page; on the tab the class watches
   // it is a grey strip down the side of the board. Removed while the board is open.
@@ -220,6 +269,99 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     download(blob, `${board.title} - ${pageIndex + 1}.${kind}`);
   };
 
+  /** One page change at a time; a refused order means another tab moved pages, so they are reloaded. */
+  const pageChange = async (change: () => Promise<void>) => {
+    setPagesBusy(true);
+    setNotice(null);
+    try {
+      await session.settle();
+      await change();
+    } catch (error) {
+      const code = error instanceof ApiError ? (error.body as { code?: string } | null)?.code : undefined;
+      if (code === "pages_changed" && board) access.reload(await boards.show(board.uuid));
+      setNotice(code && code in WB.errors ? WB.errors[code as keyof typeof WB.errors] : WB.pagesFailed);
+    } finally {
+      setPagesBusy(false);
+    }
+  };
+
+  /** A page the server made, shown right after `afterUuid`. */
+  const insertPage = (page: BoardPagePayload, afterUuid: string, elements = restorePage(parseScene(page).elements)) => {
+    if (!board) return;
+    keepShown();
+    pages.current.set(page.uuid, elements);
+    session.track(page.uuid, page.version, elements);
+    const list = [...board.pages];
+    const at = list.findIndex((p) => p.uuid === afterUuid) + 1;
+    list.splice(at, 0, page);
+    setBoard({ ...board, pages: list });
+    showPage(list, at);
+  };
+
+  const addPage = (after: string) =>
+    pageChange(async () => {
+      if (!board) return;
+      insertPage(await boards.addPage(board.uuid, { tab: session.tab(), after }), after);
+    });
+
+  const duplicatePage = (uuid: string) =>
+    pageChange(async () => {
+      if (!board) return;
+      insertPage(await boards.addPage(board.uuid, { tab: session.tab(), duplicate_of: uuid }), uuid);
+    });
+
+  const deletePage = (uuid: string) =>
+    pageChange(async () => {
+      if (!board) return;
+      keepShown();
+      session.pageRemoved(uuid);
+      await boards.deletePage(board.uuid, session.tab(), uuid);
+      pages.current.delete(uuid);
+      const shown = board.pages[pageIndex].uuid;
+      const list = board.pages.filter((p) => p.uuid !== uuid);
+      setBoard({ ...board, pages: list });
+      showPage(list, shown === uuid ? Math.min(pageIndex, list.length - 1) : list.findIndex((p) => p.uuid === shown));
+    });
+
+  const reorderPages = (order: string[]) =>
+    pageChange(async () => {
+      if (!board) return;
+      const shown = board.pages[pageIndex].uuid;
+      await boards.reorderPages(board.uuid, session.tab(), order);
+      const byUuid = new Map(board.pages.map((p) => [p.uuid, p]));
+      const list = order.flatMap((uuid, i) => {
+        const page = byUuid.get(uuid);
+        return page ? [{ ...page, position: i + 1 }] : [];
+      });
+      setBoard({ ...board, pages: list });
+      setPageIndex(list.findIndex((p) => p.uuid === shown));
+    });
+
+  /** After a conflict: the teacher's copy becomes a new page after the contested one, which takes the server's copy. */
+  const keepMineAsNewPage = () =>
+    pageChange(async () => {
+      if (!board || !session.conflict) return;
+      const contested = session.conflict.page;
+      keepShown();
+      const mine = pages.current.get(contested) ?? [];
+      session.takeServer();
+      const page = await boards.addPage(board.uuid, { tab: session.tab(), after: contested });
+      const elements = reframe(mine, page.uuid);
+      insertPage(page, contested, elements);
+      session.adopt(page.uuid, elements);
+    });
+
+  const thumbnail = useCallback(
+    async (uuid: string) => {
+      if (!api) throw new Error("no canvas");
+      const shownUuid = board?.pages[pageIndex]?.uuid;
+      const elements = uuid === shownUuid ? api.getSceneElements() : (pages.current.get(uuid) ?? []);
+      addPictures(api, await pictures.take(pictureIds(elements)));
+      return pageThumbnail(api, elements, backgroundRef.current);
+    },
+    [api, board, pageIndex, pictures],
+  );
+
   if (failure) {
     return (
       <p role="alert" className="p-6 text-sm text-danger-ink">
@@ -250,6 +392,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         excalidrawAPI={setApi}
         langCode="ar-SA"
         viewModeEnabled={!session.held}
+        // Every way a picture arrives (tool, paste, drop) asks for its id here: it
+        // is uploaded first, and the page names OUR file (T073).
+        generateIdForFile={async (file: File) => {
+          try {
+            const id = await uploadBoardImage(board.uuid, session.tab(), file);
+            pictures.given(id);
+            return id;
+          } catch (error) {
+            setNotice(WB.imageFailed);
+            throw error;
+          }
+        }}
         onChange={(elements, appState) => {
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
@@ -274,6 +428,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
+            pagesOpen={showPages}
+            onTogglePages={() => setShowPages((value) => !value)}
             status={
               <>
                 {session.held && !session.handoverRequested ? (
@@ -286,6 +442,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     handoverRequested={session.handoverRequested}
                     onTake={session.take}
                   />
+                )}
+                {notice && (
+                  <p role="alert" className="text-xs text-danger-ink">
+                    {notice}
+                  </p>
                 )}
                 {session.refusal && (
                   <p role="alert" className="text-xs text-danger-ink">
@@ -313,9 +474,31 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           />,
           excalidrawRoot,
         )}
+      {showPages && !presenting && (
+        // Over the canvas, on the side the toolbar is not, and hidden for «عرض»: the class sees the whole tab.
+        <div className="absolute bottom-16 start-2 top-16" style={{ zIndex: 5 }}>
+          <PagesSidebar
+            pages={board.pages.map((page, index) => ({
+              uuid: page.uuid,
+              // The page shown is read live, so its picture follows the drawing.
+              version: sceneVersion(index === pageIndex && api ? api.getSceneElementsIncludingDeleted() : (pages.current.get(page.uuid) ?? [])),
+            }))}
+            current={pageIndex}
+            canEdit={session.held}
+            busy={pagesBusy}
+            thumbnail={thumbnail}
+            onSelect={goTo}
+            onAdd={addPage}
+            onDuplicate={duplicatePage}
+            onDelete={deletePage}
+            onReorder={reorderPages}
+          />
+        </div>
+      )}
       <ConflictDialog
         open={session.conflict !== null}
         onTakeServer={session.takeServer}
+        onKeepMine={keepMineAsNewPage}
         onCancel={session.dismissConflict}
       />
       <Modal

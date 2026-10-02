@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, sameOriginIfOurs } from "./api";
 import type { Workspace } from "./types";
 
 /**
@@ -114,33 +114,6 @@ export class AttachmentRefused extends Error {
         : "لم نتمكّن من قبول هذا التسجيل الصوتي. سجّله من جديد وأعد الإرسال.",
     );
     this.name = "AttachmentRefused";
-  }
-}
-
-/**
- * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
- *
- * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
- * fetching it from the browser answers **419**. The whole frontend reaches the
- * API through the same-origin rewrite; an absolute URL steps outside it, the
- * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
- * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
- * because `curl` sends no cookies and no `Origin`, so the one client that proved
- * the endpoint was the one client that could not reproduce the fault.
- *
- * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
- * genuinely remote URL — that is the entire point of `SC-001`, zero video
- * bandwidth through our own server — and rewriting it to a local path would send
- * the bytes to a route that does not exist. Only a URL whose path is already
- * ours is folded back onto this origin.
- */
-function sameOriginIfOurs(url: string): string {
-  try {
-    const parsed = new URL(url, window.location.origin);
-
-    return parsed.pathname.startsWith("/api/") ? parsed.pathname + parsed.search : url;
-  } catch {
-    return url;
   }
 }
 

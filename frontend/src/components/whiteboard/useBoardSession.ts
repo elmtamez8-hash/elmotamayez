@@ -113,7 +113,8 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
         board.pages.map(async (page) => {
           const draft = await indexedDbDrafts.get(draftKey(board.uuid, page.uuid, userUuid));
           if (draft === "unavailable" || draft === null) return null;
-          const verdict = classifyDraft(draft, page.version);
+          // A draft identical to what the server holds has nothing to restore.
+          const verdict = draft.scene === page.scene ? "discard" : classifyDraft(draft, page.version);
           if (verdict === "discard") {
             void indexedDbDrafts.remove(draftKey(board.uuid, page.uuid, userUuid));
             return null;
@@ -255,5 +256,20 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
     takeServer,
     dismissConflict: () => setConflict(null),
     pageRemoved: (page: string) => save.current?.remove(page),
+    /** This tab's id — every structural request carries it. */
+    tab: () => tab.current,
+    /** Send what is waiting and let it land — before a page is copied, moved or deleted. */
+    settle: async () => {
+      save.current?.saveNow();
+      await save.current?.drain();
+    },
+    /** A page the server just made (added, or a copy). */
+    track: (page: string, version: number, elements: readonly BoardElement[]) =>
+      save.current?.track(page, version, pagesRef.current.hash(elements)),
+    /** A page whose elements this tab set itself and the server has not seen. */
+    adopt: (page: string, elements: readonly BoardElement[]) => {
+      const p = pagesRef.current;
+      save.current?.restored(page, p.hash(elements), () => p.document(elements));
+    },
   };
 }

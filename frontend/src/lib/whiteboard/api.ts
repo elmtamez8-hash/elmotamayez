@@ -100,4 +100,29 @@ export const boards = {
 
   saveSceneKeepalive: (uuid: string, page: string, body: ScenePut) =>
     void api.putKeepalive(`/boards/${uuid}/pages/${page}/scene`, body).catch(() => undefined),
+
+  addPage: (uuid: string, body: { tab: string; after?: string; duplicate_of?: string }) =>
+    api.post<BoardPagePayload>(`/boards/${uuid}/pages`, body),
+
+  reorderPages: (uuid: string, tab: string, pages: string[]) =>
+    api.put<{ pages: { uuid: string; position: number }[] }>(`/boards/${uuid}/pages/order`, { tab, pages }),
+
+  deletePage: (uuid: string, tab: string, page: string) => api.delete<void>(`/boards/${uuid}/pages/${page}`, { tab }),
+
+  duplicate: (uuid: string) => api.post<{ status: "copying"; uuid: string }>(`/boards/${uuid}/duplicate`),
+
+  remove: (uuid: string) => api.delete<{ status: "deleting" }>(`/boards/${uuid}`),
+
+  /** Reserve an upload for a picture (the lock holder only). */
+  requestFile: (uuid: string, body: { tab: string; filename: string; size: number }) =>
+    api.post<{ file: { uuid: string }; upload: { url: string; method: string; headers: Record<string, string> } }>(
+      `/boards/${uuid}/files`,
+      body,
+    ),
+
+  completeFile: (uuid: string, file: string) =>
+    api.post<{ uuid: string; status: "ready" | "failed" | "pending" | "processing" }>(`/boards/${uuid}/files/${file}/complete`),
+
+  /** A picture's bytes, with the session's headers (an <img src> cannot carry them). */
+  fileBytes: (uuid: string, file: string) => api.blob(`/boards/${uuid}/files/${file}`),
 };

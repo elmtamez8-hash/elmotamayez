@@ -19,6 +19,8 @@ export interface BoardToolbarProps {
   onBackground: (background: BoardBackground) => void;
   onExport: (kind: "png" | "svg") => Promise<void>;
   onTogglePresenting: () => void;
+  pagesOpen?: boolean;
+  onTogglePages?: () => void;
   /** Who edits and whether the work is saved (story 2). */
   status?: React.ReactNode;
 }
@@ -48,9 +50,16 @@ export function BoardToolbar(props: BoardToolbarProps) {
             {WB.nextPage}
           </Button>
         </div>
-        <Button size="sm" variant={props.presenting ? "secondary" : "primary"} onClick={props.onTogglePresenting}>
-          {props.presenting ? WB.stopPresenting : WB.present}
-        </Button>
+        <div className="flex items-center gap-1">
+          {props.onTogglePages && (
+            <Button size="sm" variant="ghost" expanded={props.pagesOpen} onClick={props.onTogglePages}>
+              {WB.showPages}
+            </Button>
+          )}
+          <Button size="sm" variant={props.presenting ? "secondary" : "primary"} onClick={props.onTogglePresenting}>
+            {props.presenting ? WB.stopPresenting : WB.present}
+          </Button>
+        </div>
       </div>
       <BoardSettings
         title={props.title}

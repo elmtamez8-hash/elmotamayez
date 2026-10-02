@@ -1,13 +1,14 @@
 import {
   CaptureUpdateAction,
   exportToBlob,
+  exportToCanvas,
   exportToSvg,
   hashElementsVersion,
   restoreElements,
   setCustomTextMetricsProvider,
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
-import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { BACKGROUNDS, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
@@ -163,4 +164,58 @@ export function pageDocument(elements: readonly BoardElement[], background: Boar
   const fileIds = [...new Set(live.flatMap((element) => (element.type === "image" && element.fileId ? [element.fileId] : [])))];
 
   return JSON.stringify({ v: 1, elements: live, appState: { viewBackgroundColor: BACKGROUNDS[background].canvas }, fileIds });
+}
+
+/**
+ * A page's small picture for the pages strip (US3): ≤ 320 px, from the elements
+ * in memory — no request, no stored thumbnail (R-07).
+ */
+export async function pageThumbnail(api: BoardApi, elements: readonly BoardElement[], background: BoardBackground): Promise<string> {
+  const live = elements.filter((element) => !element.isDeleted);
+  const canvas = await exportToCanvas({
+    elements: live,
+    files: api.getFiles(),
+    appState: { exportBackground: true, viewBackgroundColor: BACKGROUNDS[background].canvas },
+    exportingFrame: pageFrame(live),
+    maxWidthOrHeight: 320,
+  });
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Hand pictures to the canvas by OUR file id — a page names them, the bytes stay out of the scene. */
+export function addPictures(api: BoardApi, pictures: { id: string; dataURL: string; mimeType: "image/png" | "image/jpeg" }[]): void {
+  if (pictures.length === 0) return;
+  const now = Date.now();
+  api.addFiles(
+    pictures.map(
+      (picture): BinaryFileData => ({
+        id: picture.id as BinaryFileData["id"],
+        dataURL: picture.dataURL as DataURL,
+        mimeType: picture.mimeType,
+        created: now,
+      }),
+    ),
+  );
+}
+
+/** The ids of the pictures a page shows. */
+export function pictureIds(elements: readonly BoardElement[]): string[] {
+  return elements.flatMap((element) => (element.type === "image" && !element.isDeleted && element.fileId ? [element.fileId] : []));
+}
+
+/**
+ * Move a page's elements onto another page: the frame takes the new page's id
+ * and every element inside it follows (`frameId`). Used to keep the teacher's
+ * copy as a new page after a conflict.
+ */
+export function reframe(elements: readonly BoardElement[], pageUuid: string): BoardElement[] {
+  const from = pageFrame(elements)?.id;
+  const to = `frame:${pageUuid}`;
+
+  return elements.map((element) => {
+    if (element.id === from) return { ...element, id: to } as BoardElement;
+    if (from && element.frameId === from) return { ...element, frameId: to } as BoardElement;
+    return element;
+  });
 }

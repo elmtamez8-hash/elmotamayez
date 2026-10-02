@@ -44,6 +44,24 @@ export const WB = {
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
+  /** The pages strip (US3). */
+  pagesTitle: "صفحات السبّورة",
+  showPages: "الصفحات",
+  pageNumber: (n: number) => `صفحة ${arabicNumber(n)}`,
+  addPage: "صفحة جديدة",
+  duplicatePage: "نسخ",
+  deletePage: "حذف",
+  confirmDeletePage: "تأكيد الحذف",
+  moveUp: "انقل الصفحة لأعلى",
+  moveDown: "انقل الصفحة لأسفل",
+  imageFailed: "تعذّر رفع الصورة. الصيغ المقبولة: PNG وJPEG، وحاول مرة أخرى.",
+  pagesFailed: "تعذّر تعديل الصفحات. أعد المحاولة.",
+
+  duplicateBoard: "نسخ السبّورة",
+  copying: "جارٍ النسخ… ستظهر النسخة في القائمة بعد لحظات.",
+  deleteBoard: "حذف السبّورة",
+  confirmDeleteBoard: "اضغط مرة أخرى لحذف السبّورة نهائياً",
+
   /** The save indicator's five states (US2). */
   saveState: {
     saved: "محفوظ",
