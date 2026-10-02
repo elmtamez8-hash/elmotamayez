@@ -7,6 +7,7 @@ import {
   hashElementsVersion,
   restoreElements,
   setCustomTextMetricsProvider,
+  useHandleLibrary,
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
@@ -437,4 +438,45 @@ export function addStroke(api: BoardApi, points: [number, number][]): void {
   ]);
 
   api.updateScene({ elements: [...elements, line], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+const LIBRARY_KEY = "whiteboard.library";
+
+/**
+ * The teacher's element library, kept in THIS browser (owner, 2026-10-02):
+ * what Excalidraw's library sidebar holds, and what «تصفّح المكتبات» adds.
+ * `save` may throw (storage full or blocked) — Excalidraw then says so.
+ */
+const libraryAdapter = {
+  load: () => {
+    try {
+      const raw = localStorage.getItem(LIBRARY_KEY);
+      return raw ? { libraryItems: portableItems(JSON.parse(raw)) } : null;
+    } catch {
+      return null;
+    }
+  },
+  save: ({ libraryItems }: { libraryItems: unknown }) => localStorage.setItem(LIBRARY_KEY, JSON.stringify(portableItems(libraryItems))),
+};
+
+/**
+ * Only items that work on ANY board are kept: an uploaded picture belongs to the
+ * board it was uploaded to, and the server refuses it on another (`unknown_file`)
+ * — every save of that page would fail. A sticker or template (`template:` id) is
+ * drawn from its name everywhere, so it stays.
+ */
+function portableItems<T>(items: T): T {
+  if (!Array.isArray(items)) return [] as T;
+  return items.filter((item: { elements?: { type?: string; fileId?: string | null }[] }) =>
+    (item?.elements ?? []).every((e) => e.type !== "image" || (e.fileId ?? "").startsWith("template:")),
+  ) as T;
+}
+
+/**
+ * Takes a library sent back from libraries.excalidraw.com (`#addLibrary=…`)
+ * and keeps the library between visits. Without it the «add» on that site
+ * reached the board and nothing read it.
+ */
+export function useBoardLibrary(api: BoardApi | null): void {
+  useHandleLibrary({ excalidrawAPI: api, adapter: libraryAdapter });
 }
