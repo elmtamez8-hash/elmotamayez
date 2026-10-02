@@ -219,6 +219,12 @@ final class PlatformSettings
         // the list of what an operator may change, and these two are on it.
         'store.commission_bps' => 'store.commission_bps',
         'store.refund_window_hours' => 'store.refund_window_hours',
+        // The whiteboard (spec 039), read through `WhiteboardSettings`. All three,
+        // not the one a screen happens to show first — a key missing here is
+        // invisible to the panel and survives a cache flush.
+        'whiteboard.max_scene_bytes' => 'whiteboard.max_scene_bytes',
+        'whiteboard.max_board_bytes' => 'whiteboard.max_board_bytes',
+        'whiteboard.max_pages_per_board' => 'whiteboard.max_pages_per_board',
         /*
         | Subscriptions (spec 011 · FR-027 — «مع إبلاغ الطالب قبله بمهلة
         | معلنة»). The notice period is the «معلنة» half: a number an operator

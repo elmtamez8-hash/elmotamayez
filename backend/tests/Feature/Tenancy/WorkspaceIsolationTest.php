@@ -83,6 +83,10 @@ use App\Modules\Store\Models\StoreItem;
 use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
+use App\Modules\Whiteboard\Models\Board;
+use App\Modules\Whiteboard\Models\BoardImport;
+use App\Modules\Whiteboard\Models\BoardLessonExport;
+use App\Modules\Whiteboard\Models\BoardPage;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use App\Shared\Traits\BelongsToWorkspace;
@@ -1408,4 +1412,46 @@ describe('a certificate design is workspace-scoped', function (): void {
             ->and($context->forWorkspace($workspaceB, fn () => CertificateDesign::query()->sole()->system_key))
             ->toBe('students');
     });
+});
+
+/*
+| Spec 039 — the whiteboard's four tables. Boards are a teacher's preparation for a
+| lesson, and an imported page is often the teacher's own worksheet: a missing
+| `BelongsToWorkspace` would put one academy's boards in another's list, and no
+| other test would say so.
+*/
+it('scopes the four whiteboard tables to the workspace that owns them', function (): void {
+    [$workspaceA, $ownerA] = $this->createWorkspaceWithOwner(['name' => 'Academy A']);
+    [$workspaceB, $ownerB] = $this->createWorkspaceWithOwner(['name' => 'Academy B']);
+
+    $context = app(WorkspaceContext::class);
+
+    $seed = fn ($workspace, $owner) => $context->forWorkspace($workspace, function () use ($workspace, $owner): void {
+        $board = Board::factory()->withPages(1)->create([
+            'workspace_id' => $workspace->getKey(),
+            'owner_user_id' => $owner->getKey(),
+        ]);
+
+        BoardImport::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'board_id' => $board->getKey(),
+            'user_id' => $owner->getKey(),
+        ]);
+
+        BoardLessonExport::factory()->create([
+            'workspace_id' => $workspace->getKey(),
+            'board_id' => $board->getKey(),
+            'lesson_id' => Lesson::factory()->create(['workspace_id' => $workspace->getKey()])->getKey(),
+        ]);
+    });
+
+    $seed($workspaceA, $ownerA);
+    $seed($workspaceB, $ownerB);
+
+    foreach ([Board::class, BoardPage::class, BoardImport::class, BoardLessonExport::class] as $model) {
+        expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
+            ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
+            ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)
+            ->and(in_array(BelongsToWorkspace::class, class_uses_recursive($model), true))->toBeTrue();
+    }
 });

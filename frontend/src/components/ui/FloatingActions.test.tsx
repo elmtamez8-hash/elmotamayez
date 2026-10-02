@@ -83,6 +83,8 @@ describe("where it deliberately does not appear", () => {
     // ٢٠٢٦-٠٩-٢٨)، والقائمةُ على الهاتفِ هي اللوحةُ نفسُها بارتفاعِها الكامل.
     "/messages",
     "/messages/abc-123",
+    // السبّورةُ هي التبويبُ الذي يُشارَكُ مع الصفّ: زرٌّ عليها يُرسَمُ في فيديو كلِّ طالب.
+    "/whiteboard/abc-123",
   ])(
     "draws nothing on %s",
     (path) => {

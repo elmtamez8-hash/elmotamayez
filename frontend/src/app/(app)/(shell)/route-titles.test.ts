@@ -27,6 +27,7 @@ const ROUTES = [
   "notifications",
   "manage/courses",
   "manage/sessions",
+  "manage/boards",
   "manage/cohorts",
   "manage/assignments",
   "manage/payments/reconciliation",

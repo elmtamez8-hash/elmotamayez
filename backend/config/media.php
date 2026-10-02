@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Store\Models\StoreItem;
+use App\Modules\Whiteboard\Models\Board;
 
 /*
 | Defaults only. Every value here can be overridden at runtime by a row in
@@ -149,11 +150,13 @@ return [
     | (`MediaLimits::uploadCeilingFor()`); every other owner — a chat thread —
     | gets the smaller chat allowance. Listed here, not in Media's code, because
     | Media may not import the modules that own these files. A store product's
-    | book is a document like a lesson's, and 10 MB refused a real PDF.
+    | book is a document like a lesson's, and 10 MB refused a real PDF. A
+    | whiteboard's file (spec 039) is a page background or an inserted picture.
     */
     'full_allowance_owners' => [
         Lesson::class,
         StoreItem::class,
+        Board::class,
     ],
 
     'chat_allowed_mime_types' => [

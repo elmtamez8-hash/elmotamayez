@@ -11,14 +11,28 @@ import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
+import { PhotoDivider } from "@/components/marketplace/PhotoDivider";
+import { FeatureSection, type Feature } from "@/components/marketplace/FeatureSection";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { arabicNumber } from "@/lib/numerals";
 import {
   AcademicCapIcon,
+  AlertIcon,
+  CoursesIcon,
+  FamilyIcon,
+  HumanReviewIcon,
+  MembersIcon,
+  MessagesIcon,
+  PlayIcon,
+  ProgressIcon,
+  QuestionIcon,
+  ScheduleIcon,
   SessionsIcon,
+  SettlementIcon,
   StarIcon,
+  TrustShieldIcon,
   UsersIcon,
 } from "@/components/icons";
 
@@ -86,6 +100,106 @@ const STEPS = [
   {
     title: "ابدأ التعلّم",
     body: "احضر الحصة مباشرة أو شاهد المسجّلة في وقتك، وتابع تقدّمك أولاً بأول.",
+  },
+];
+
+/*
+ | ⚠️ EVERY POINT BELOW IS A FEATURE THAT SHIPS, checked against the code on
+ | 2026-10-01: the trust factors (`teacher_profiles` attendance · punctuality ·
+ | rating · response rate), the room's «ارفع يدك» / «لم أفهم» / screen share,
+ | `GUARDIAN_PERMISSIONS` (attendance · schedule · results · payments ·
+ | academic warnings) and the report cards. Add a point only for something a
+ | visitor can use today.
+*/
+const TRUST_FEATURES: Feature[] = [
+  {
+    Icon: HumanReviewIcon,
+    title: "مراجعة قبل الانضمام",
+    body: "كل مدرّس يمرّ بمراجعة أكاديمية قبل أن يظهر في المنصة.",
+  },
+  {
+    Icon: TrustShieldIcon,
+    title: "درجة ثقة من أداء فعلي",
+    body: "تُحسب من الحضور والالتزام بالمواعيد والتقييم وسرعة الرد.",
+  },
+  {
+    Icon: StarIcon,
+    title: "تقييمات الطلاب",
+    body: "اقرأ ما كتبه الطلاب عن كل مدرّس قبل أن تقرّر.",
+  },
+  {
+    Icon: SessionsIcon,
+    title: "حصة تجريبية أولاً",
+    body: "جرّب المدرّس في حصة واحدة قبل أن تشترك في باقة.",
+  },
+];
+
+const LIVE_FEATURES: Feature[] = [
+  {
+    Icon: UsersIcon,
+    title: "فردية أو جماعية",
+    body: "حصة لك وحدك، أو مع مجموعة صغيرة بنفس المستوى.",
+  },
+  {
+    Icon: QuestionIcon,
+    title: "زرّا «لم أفهم» و«ارفع يدك»",
+    body: "تنبّه المدرّس بضغطة دون أن تقاطع الشرح.",
+  },
+  {
+    Icon: MessagesIcon,
+    title: "دردشة ومشاركة شاشة",
+    body: "اسأل كتابةً، وشاهد ما يشرحه المدرّس على شاشته.",
+  },
+  {
+    Icon: PlayIcon,
+    title: "راجع بعد الحصة",
+    body: "الكورسات المسجّلة متاحة لك تشاهدها في وقتك.",
+  },
+];
+
+const PARENT_FEATURES: Feature[] = [
+  {
+    Icon: FamilyIcon,
+    title: "اربط حساب ابنك",
+    body: "برمز من حسابه، ولا ترى شيئاً قبل موافقته.",
+  },
+  {
+    Icon: ScheduleIcon,
+    title: "الحضور والمواعيد",
+    body: "تعرف متى حصته القادمة، وهل حضر الحصة الماضية.",
+  },
+  {
+    Icon: ProgressIcon,
+    title: "النتائج وكشف الدرجات",
+    body: "تقدير كل فترة، بمساهمة كل مدرّس على حدة.",
+  },
+  {
+    Icon: AlertIcon,
+    title: "المدفوعات والإنذارات",
+    body: "ما عليه من مستحقات، وأي إنذار أكاديمي في وقته.",
+  },
+];
+
+const TEACHER_FEATURES: Feature[] = [
+  {
+    Icon: SessionsIcon,
+    title: "حصص مباشرة بجدولك",
+    body: "فردية وجماعية، في الأوقات التي تحدّدها أنت.",
+  },
+  {
+    Icon: CoursesIcon,
+    title: "كورسات واختبارات",
+    body: "دروس مسجّلة، وبنك أسئلة، واختبارات تُصحَّح تلقائياً.",
+  },
+  {
+    Icon: MembersIcon,
+    title: "مساعدون معك",
+    body: "أضف مساعدين يتابعون طلابك ومجموعاتك.",
+  },
+  {
+    Icon: SettlementIcon,
+    title: "مستحقات واضحة",
+    body: "كشف بكل حصة درّستها وما يقابلها.",
   },
 ];
 
@@ -213,7 +327,7 @@ export default async function HomePage() {
               reads as one when neither is first. `justify-center` and not
               `mx-auto` — the row is a flex container, so centring belongs to
               how it distributes its children, not to a width it does not set. */}
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/signup/student"
               className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -335,6 +449,22 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <FeatureSection
+        raised
+        eyebrow="لماذا نحن"
+        title="تعرف المدرّس قبل أن تحجز معه"
+        body="لا نطلب منك أن تثق بالاسم. كل مدرّس عندنا له سجلّ واضح تقرؤه قبل الحصة الأولى."
+        image="/marketplace/section-trust.webp"
+        imageAlt="مدرّسة تشرح لطالب صغير على طاولته"
+        features={TRUST_FEATURES}
+        action={{ href: "/teachers", label: "قارن بين المدرّسين" }}
+      />
+
+      <PhotoDivider
+        src="/marketplace/divider-chalkboard.webp"
+        line="كل مسألة صعبة لها مدرّس يعرف كيف يبسّطها."
+      />
+
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="mb-8 flex items-end justify-between gap-4">
           <h2 className="text-2xl font-extrabold text-ink sm:text-3xl">أفضل المدرّسين</h2>
@@ -364,6 +494,17 @@ export default async function HomePage() {
           </div>
         )}
       </section>
+
+      <FeatureSection
+        reverse
+        raised
+        eyebrow="الحصص المباشرة"
+        title="فصل حقيقي، من بيتك"
+        body="تدخل الحصة من المتصفّح دون تثبيت أي برنامج، وتتفاعل مع المدرّس كأنك في الفصل."
+        image="/marketplace/section-live.webp"
+        imageAlt="طالبة تلوّح لمدرّسها في حصة مباشرة على جهازها اللوحي"
+        features={LIVE_FEATURES}
+      />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="mb-8 flex items-end justify-between gap-4">
@@ -397,6 +538,11 @@ export default async function HomePage() {
         )}
       </section>
 
+      <PhotoDivider
+        src="/marketplace/divider-library.webp"
+        line="حصة مباشرة اليوم، وكورس مسجّل تراجعه متى شئت."
+      />
+
       {/* Absent until a student writes one — the carousel returns null on an
           empty list, so a launch-day page simply does not carry this section
           rather than carrying invented quotes. */}
@@ -411,12 +557,39 @@ export default async function HomePage() {
         </section>
       )}
 
+      <FeatureSection
+        eyebrow="لأولياء الأمور"
+        title="تابع ابنك دون أن تسأله كل يوم"
+        body="حساب خاص بك تربطه بحساب ابنك، وترى منه ما يهمّك فقط."
+        image="/marketplace/section-parents.webp"
+        imageAlt="أمّ تذاكر مع ابنتها على طاولة الدراسة"
+        features={PARENT_FEATURES}
+        action={{ href: "/signup/parent", label: "سجّل كوليّ أمر" }}
+      />
+
+      <PhotoDivider
+        src="/marketplace/divider-studying.webp"
+        line="من النحو إلى الفيزياء — لكل مادة أهلها."
+      />
+
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
           المواد الدراسية
         </h2>
         <SubjectsGrid subjects={home.subjects} />
       </section>
+
+      <FeatureSection
+        reverse
+        raised
+        eyebrow="للمدرّسين"
+        title="درّس طلابك، ونحن نرتّب الباقي"
+        body="الجدول والحجز والحصص المباشرة والكورسات والمستحقات في مكان واحد."
+        image="/marketplace/section-teachers.webp"
+        imageAlt="مدرّس يشرح لطالبته في حصة عبر الإنترنت"
+        features={TEACHER_FEATURES}
+        action={{ href: "/signup/teacher", label: "انضمّ كمدرّس" }}
+      />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <FaqAccordion items={home.faqs} heading="الأسئلة الشائعة" />

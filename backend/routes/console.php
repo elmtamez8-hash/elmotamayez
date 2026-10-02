@@ -32,6 +32,7 @@ use App\Modules\Payments\Jobs\ReconcilePaymentsJob;
 use App\Modules\Payments\Jobs\SweepStaleCreditHoldsJob;
 use App\Modules\Settlement\Jobs\CloseDueSettlementPeriodsJob;
 use App\Modules\Settlement\Jobs\ReleasePendingUnitsJob;
+use App\Modules\Whiteboard\Jobs\SweepWhiteboardJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -593,3 +594,6 @@ Schedule::job(new SendScheduledReportsJob, 'maintenance')
     ->dailyAt('06:00')
     ->timezone($platformTimezone)
     ->withoutOverlapping();
+
+// Spec 039 — finish a whiteboard copy or deletion whose job died.
+Schedule::job(new SweepWhiteboardJob, 'maintenance')->everyFiveMinutes();

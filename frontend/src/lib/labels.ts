@@ -615,6 +615,9 @@ export const NOUNS = {
   points: { one: "درجة واحدة", two: "درجتان", few: "درجات", many: "درجة", other: "درجة" },
   students: { one: "طالب واحد", two: "طالبان", few: "طلاب", many: "طالباً", other: "طالب" },
   assistants: { one: "مساعد واحد", two: "مساعدان", few: "مساعدين", many: "مساعداً", other: "مساعد" },
+  /** Whiteboard pages and boards (spec 039). */
+  pages: { one: "صفحة واحدة", two: "صفحتان", few: "صفحات", many: "صفحة", other: "صفحة" },
+  boards: { one: "سبّورة واحدة", two: "سبّورتان", few: "سبّورات", many: "سبّورة", other: "سبّورة" },
   seatsAvailable: {
     one: "مقعد واحد متاح",
     two: "مقعدان متاحان",

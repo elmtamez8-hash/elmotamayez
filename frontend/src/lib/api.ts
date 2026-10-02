@@ -157,14 +157,13 @@ function downloadTarget(path: string): string {
 }
 
 /**
- * Fetch a file and hand it to the browser's downloader.
+ * Fetch a file's bytes with the session's headers — the token, the device and the
+ * workspace this page draws. The whiteboard reads every page image this way
+ * (spec 039): an `<img src>` cannot carry the `Authorization` header either.
  *
- * A plain `<a href>` cannot be used for these: the token lives in localStorage
- * and goes out as an `Authorization` header, which an anchor never sends — the
- * link would simply 401. So the file is fetched like any other request and
- * turned into a blob URL, revoked immediately after the click it triggers.
+ * Resolves `null` only when a workspace switch is already reloading the page.
  */
-async function download(path: string, filename: string): Promise<void> {
+async function blob(path: string): Promise<Blob | null> {
   const token = getToken();
   const device = deviceId();
   const headers: Record<string, string> = { Accept: "*/*" };
@@ -181,12 +180,27 @@ async function download(path: string, filename: string): Promise<void> {
     const body: unknown =
       res.status === 409 ? await res.json().catch(() => null) : null;
 
-    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) return;
+    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) return null;
 
     throw new ApiError(`Request failed (${res.status})`, res.status, null);
   }
 
-  const url = URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+/**
+ * Fetch a file and hand it to the browser's downloader.
+ *
+ * A plain `<a href>` cannot be used for these: the token lives in localStorage
+ * and goes out as an `Authorization` header, which an anchor never sends — the
+ * link would simply 401. So the file is fetched like any other request and
+ * turned into a blob URL, revoked immediately after the click it triggers.
+ */
+async function download(path: string, filename: string): Promise<void> {
+  const file = await blob(path);
+  if (file === null) return;
+
+  const url = URL.createObjectURL(file);
   const link = document.createElement("a");
 
   link.href = url;
@@ -290,6 +304,44 @@ export function errorMessage(err: unknown, fallback: string): string {
   return mapped === UNKNOWN_MESSAGE ? fallback : mapped;
 }
 
+/**
+ * Send OUR upload URLs through the Next rewrite; leave a provider's alone.
+ *
+ * ⚠️ THE LOCAL PROVIDER'S TICKET IS AN ABSOLUTE `http://localhost:8000/...`, and
+ * fetching it from the browser answers **419**. The whole frontend reaches the
+ * API through the same-origin rewrite; an absolute URL steps outside it, the
+ * request stops matching what `statefulApi()` expects, and CSRF refuses it. It
+ * cost a «حدث خطأ غير متوقّع» on a picture that had uploaded fine by `curl` —
+ * because `curl` sends no cookies and no `Origin`, so the one client that proved
+ * the endpoint was the one client that could not reproduce the fault.
+ *
+ * ⚠️ AND IT IS CONDITIONAL, NOT A BLANKET STRIP. A commercial provider signs a
+ * genuinely remote URL — that is the entire point of `SC-001`, zero video
+ * bandwidth through our own server — and rewriting it to a local path would send
+ * the bytes to a route that does not exist. Only a URL whose path is already
+ * ours is folded back onto this origin.
+ */
+export function sameOriginIfOurs(url: string): string {
+  try {
+    const parsed = new URL(url, window.location.origin);
+
+    return parsed.pathname.startsWith("/api/") ? parsed.pathname + parsed.search : url;
+  } catch {
+    return url;
+  }
+}
+
+/** PUT a file to the URL an upload ticket named — signed, so no session headers. */
+export async function uploadToTicket(upload: { url: string; method: string; headers: Record<string, string> }, file: Blob): Promise<void> {
+  const response = await fetch(sameOriginIfOurs(upload.url), {
+    method: upload.method,
+    headers: { ...upload.headers, "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+
+  if (!response.ok) throw new Error("upload-failed");
+}
+
 /** What a completed sign-in hands back, whichever door it came through. */
 export type SignedIn = { user: User; token: string; session_uuid: string };
 
@@ -320,6 +372,17 @@ export const api = {
   // has to carry the password and code that authorise it.
   delete: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "DELETE", body: data ? JSON.stringify(data) : undefined }),
+  /**
+   * A DELETE that must outlive the page — the whiteboard releasing its edit lock
+   * as the tab closes. `keepalive` keeps the request alive after unload (bodies
+   * up to 64 KB), and unlike `navigator.sendBeacon` it carries the bearer header.
+   */
+  deleteKeepalive: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "DELETE", keepalive: true, body: data ? JSON.stringify(data) : undefined }),
+  /** The same, for the whiteboard's last save as the tab closes. The caller keeps the body under 64 KB. */
+  putKeepalive: <T>(path: string, data: unknown) =>
+    request<T>(path, { method: "PUT", keepalive: true, body: JSON.stringify(data) }),
+  blob,
   download,
 };
 

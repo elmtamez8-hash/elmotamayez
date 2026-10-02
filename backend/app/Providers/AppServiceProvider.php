@@ -521,6 +521,18 @@ class AppServiceProvider extends ServiceProvider
             ->by('user:'.(string) $request->user()?->getKey()));
 
         /*
+         * The whiteboard (spec 039). Autosave writes a page 1.5 s after drawing
+         * stops and the edit lock beats every 5 s, per open tab — about 52 a
+         * minute for one tab at full speed, so three tabs fit under 240.
+         * Files: opening a board fetches every page's background at once, up to
+         * the 300-page ceiling, so the floor is generous and keyed by user.
+         */
+        RateLimiter::for('whiteboard-autosave', fn (Request $request) => Limit::perMinute(240)
+            ->by('user:'.(string) $request->user()?->getKey()));
+        RateLimiter::for('whiteboard-files', fn (Request $request) => Limit::perMinute(600)
+            ->by('user:'.(string) $request->user()?->getKey()));
+
+        /*
          * Self-generated practice exams (spec 008, FR-026). Keyed by user and NOT
          * by ip, which matters more here than anywhere else in this file: the
          * people hitting it are students, and students sit in classrooms behind

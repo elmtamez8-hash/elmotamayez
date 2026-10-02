@@ -31,7 +31,12 @@ const NO_FLOATING_CHROME_SUFFIXES = ["/room", "/take"];
  * whole job is sending messages. The list (`/messages`) goes too: on a phone it
  * is the same full-height pane, and the button would cover its last row.
  */
-const NO_FLOATING_CHROME_PREFIXES = ["/messages"];
+const NO_FLOATING_CHROME_PREFIXES = [
+  "/messages",
+  // The whiteboard (spec 039) is the tab a teacher SHARES with the class: a
+  // WhatsApp button on it is painted into every student's video and the recording.
+  "/whiteboard",
+];
 
 /** Whether this screen keeps the bottom corner for its own controls. */
 export function hidesFloatingChrome(pathname: string): boolean {
