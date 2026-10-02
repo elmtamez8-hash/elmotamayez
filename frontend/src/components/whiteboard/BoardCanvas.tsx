@@ -3,10 +3,11 @@
 import "@excalidraw/excalidraw/index.css";
 
 import { Excalidraw } from "@excalidraw/excalidraw";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { ensureArabicFont } from "@/lib/whiteboard/arabic-font";
 import { boards, parseScene, type BoardDetail } from "@/lib/whiteboard/api";
 import {
@@ -16,13 +17,20 @@ import {
   initialAppState,
   installTextMetrics,
   loadPage,
+  pageDocument,
   restorePage,
+  sceneVersion,
   type BoardApi,
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
 import { WB } from "@/lib/whiteboard/strings";
+import { Modal } from "@/components/ui/Modal";
 import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
+import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
+import { LockBanner } from "@/components/whiteboard/LockBanner";
+import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
+import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
 
 /**
  * The teacher's board (spec 039 · US1): Excalidraw, one 16:9 page at a time.
@@ -34,7 +42,8 @@ import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
  * painted over (the mask), and «عرض» hides every tool until the pointer nears the
  * top edge (owner decision on phase 0 — Excalidraw's zen mode keeps its toolbar).
  *
- * Saving to the server is story 2: this version keeps edits in memory.
+ * Saving is story 2 (`useBoardSession`): one editor at a time, a draft on this
+ * device, and the server 1.5 s after drawing stops.
  */
 
 const REVEAL_TOP_PX = 48;
@@ -61,6 +70,39 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [frameRect, setFrameRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const pages = useRef<Pages>(new Map());
+  const { user } = useAuth();
+  const apiRef = useRef<BoardApi | null>(null);
+  apiRef.current = api;
+  const pageIndexRef = useRef(0);
+  pageIndexRef.current = pageIndex;
+  const backgroundRef = useRef(background);
+  backgroundRef.current = background;
+  const boardRef = useRef<BoardDetail | null>(null);
+  boardRef.current = board;
+
+  const access = useMemo<PageAccess>(
+    () => ({
+      read: (page) => pages.current.get(page) ?? [],
+      replace: (page, scene) => {
+        const elements = restorePage(parseScene({ uuid: page, position: 0, version: 0, scene, background_file: null }).elements);
+        pages.current.set(page, elements);
+        const shown = boardRef.current?.pages[pageIndexRef.current]?.uuid;
+        if (apiRef.current && shown === page) loadPage(apiRef.current, elements);
+        return elements;
+      },
+      hash: sceneVersion,
+      document: (elements) => pageDocument(elements, backgroundRef.current),
+      reload: (fresh) => {
+        pages.current = new Map(fresh.pages.map((page) => [page.uuid, restorePage(parseScene(page).elements)]));
+        const index = Math.min(pageIndexRef.current, fresh.pages.length - 1);
+        if (apiRef.current) loadPage(apiRef.current, pages.current.get(fresh.pages[index].uuid) ?? []);
+        setPageIndex(index);
+        setBoard(fresh);
+      },
+    }),
+    [],
+  );
+  const session = useBoardSession(board, user?.uuid ?? null, access);
 
   // The face first, then the pages: text measured before Cairo loads is clipped.
   useEffect(() => {
@@ -207,7 +249,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       <Excalidraw
         excalidrawAPI={setApi}
         langCode="ar-SA"
-        viewModeEnabled={!board.can.edit}
+        viewModeEnabled={!session.held}
+        onChange={(elements, appState) => {
+          // Mid-stroke changes wait for the stroke to end (R-08).
+          if (!session.held || appState.cursorButton === "down") return;
+          const shown = board.pages[pageIndex]?.uuid;
+          if (shown) session.changed(shown, elements);
+        }}
         initialData={{
           elements: pages.current.get(pageIds[0]) ?? [],
           appState: initialAppState(background, window.innerWidth, window.innerHeight),
@@ -216,7 +264,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           <BoardToolbar
             title={board.title}
             background={background}
-            canEdit={board.can.edit}
+            canEdit={session.held}
             pageIndex={pageIndex}
             pageCount={board.pages.length}
             presenting={presenting}
@@ -226,6 +274,26 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
+            status={
+              <>
+                {session.held && !session.handoverRequested ? (
+                  <SaveIndicator state={session.saveState} />
+                ) : (
+                  <LockBanner
+                    heldBy={session.heldBy}
+                    canTake={board.can.take_lock && !session.held}
+                    taking={session.taking}
+                    handoverRequested={session.handoverRequested}
+                    onTake={session.take}
+                  />
+                )}
+                {session.refusal && (
+                  <p role="alert" className="text-xs text-danger-ink">
+                    {WB.errors[session.refusal as keyof typeof WB.errors] ?? WB.saveState.failed}
+                  </p>
+                )}
+              </>
+            }
           />
         )}
       />
@@ -245,6 +313,19 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           />,
           excalidrawRoot,
         )}
+      <ConflictDialog
+        open={session.conflict !== null}
+        onTakeServer={session.takeServer}
+        onCancel={session.dismissConflict}
+      />
+      <Modal
+        open={session.restore !== null}
+        title={WB.restoreTitle}
+        message={session.restore?.verdict === "ask" ? WB.restoreAskMessage : WB.restoreMessage}
+        confirmLabel={WB.restoreMine}
+        onConfirm={() => session.answerRestore(true)}
+        onCancel={() => session.answerRestore(false)}
+      />
     </div>
   );
 }

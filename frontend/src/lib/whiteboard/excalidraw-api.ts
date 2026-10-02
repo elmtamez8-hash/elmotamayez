@@ -2,6 +2,7 @@ import {
   CaptureUpdateAction,
   exportToBlob,
   exportToSvg,
+  hashElementsVersion,
   restoreElements,
   setCustomTextMetricsProvider,
 } from "@excalidraw/excalidraw";
@@ -141,4 +142,25 @@ export async function exportPage(api: BoardApi, kind: "png" | "svg", background:
   await injectFontsIntoSvg(svg);
 
   return new Blob([svg.outerHTML], { type: "image/svg+xml" });
+}
+
+/**
+ * A number that changes when any element changes — the autosave's «is this page
+ * dirty?». `hashElementsVersion`, not `getSceneVersion`: 0.18.1 marks the latter
+ * «@deprecated unsafe» (a sum of versions, so two edits can cancel out).
+ */
+export function sceneVersion(elements: readonly BoardElement[]): number {
+  return hashElementsVersion(elements);
+}
+
+/**
+ * The page document exactly as the server stores it (data-model.md): live
+ * elements only — deleted ones are dropped, as Excalidraw's own export drops them
+ * — the files they reference by id, and the one app-state field a page carries.
+ */
+export function pageDocument(elements: readonly BoardElement[], background: BoardBackground): string {
+  const live = elements.filter((element) => !element.isDeleted);
+  const fileIds = [...new Set(live.flatMap((element) => (element.type === "image" && element.fileId ? [element.fileId] : [])))];
+
+  return JSON.stringify({ v: 1, elements: live, appState: { viewBackgroundColor: BACKGROUNDS[background].canvas }, fileIds });
 }

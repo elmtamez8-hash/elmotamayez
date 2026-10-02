@@ -341,6 +341,9 @@ export const api = {
    */
   deleteKeepalive: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "DELETE", keepalive: true, body: data ? JSON.stringify(data) : undefined }),
+  /** The same, for the whiteboard's last save as the tab closes. The caller keeps the body under 64 KB. */
+  putKeepalive: <T>(path: string, data: unknown) =>
+    request<T>(path, { method: "PUT", keepalive: true, body: JSON.stringify(data) }),
   blob,
   download,
 };

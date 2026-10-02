@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import type { ScenePut } from "@/lib/whiteboard/autosave";
 import type { BoardBackground } from "@/lib/whiteboard/page-model";
 
 /**
@@ -84,4 +85,19 @@ export const boards = {
 
   update: (uuid: string, data: { title?: string; course?: string | null; lesson?: string | null; background?: BoardBackground }) =>
     api.patch<BoardSummary>(`/boards/${uuid}`, data),
+
+  /** Acquire or renew the edit lock — the 5-second heartbeat. A 423 `locked` carries `held_by`. */
+  lock: (uuid: string, tab: string) => api.post<{ held: boolean; handover_requested: boolean }>(`/boards/${uuid}/lock`, { tab }),
+
+  /** «خُذ التحرير»: the owning teacher; the lock moves after the grace. */
+  takeLock: (uuid: string, tab: string) => api.post<{ handover_at: string }>(`/boards/${uuid}/lock/take`, { tab }),
+
+  /** Released as the tab closes, so `keepalive`. */
+  releaseLock: (uuid: string, tab: string) => api.deleteKeepalive<void>(`/boards/${uuid}/lock`, { tab }).catch(() => undefined),
+
+  saveScene: (uuid: string, page: string, body: ScenePut) =>
+    api.put<{ version: number; client_rev: number }>(`/boards/${uuid}/pages/${page}/scene`, body),
+
+  saveSceneKeepalive: (uuid: string, page: string, body: ScenePut) =>
+    void api.putKeepalive(`/boards/${uuid}/pages/${page}/scene`, body).catch(() => undefined),
 };

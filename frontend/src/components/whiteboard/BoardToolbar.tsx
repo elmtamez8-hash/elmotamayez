@@ -19,6 +19,8 @@ export interface BoardToolbarProps {
   onBackground: (background: BoardBackground) => void;
   onExport: (kind: "png" | "svg") => Promise<void>;
   onTogglePresenting: () => void;
+  /** Who edits and whether the work is saved (story 2). */
+  status?: React.ReactNode;
 }
 
 /**
@@ -58,6 +60,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
         onBackground={props.onBackground}
       />
       <ExportMenu onExport={props.onExport} />
+      {props.status && <div className="flex flex-col gap-1 border-t border-line pt-1.5">{props.status}</div>}
     </div>
   );
 }
