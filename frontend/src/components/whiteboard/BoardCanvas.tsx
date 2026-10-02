@@ -27,6 +27,8 @@ import {
   pageScreens,
   pageTemplate,
   useBoardLibrary,
+  pageImage,
+  pagePictureIds,
   pageThumbnail,
   pictureIds,
   placeSticker,
@@ -62,6 +64,7 @@ import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib
 import { readPanelModes, writePanelModes, type PanelId, type PanelMode } from "@/lib/whiteboard/panels";
 import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
 import { ImageRefused, uploadBoardImage } from "@/lib/whiteboard/image-insert";
+import { boardPdf } from "@/lib/whiteboard/pdf-export";
 import { pdfPages } from "@/lib/whiteboard/pdf-pages";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
@@ -74,6 +77,7 @@ import { TeachingBar, type PassingTool } from "@/components/whiteboard/TeachingB
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
 import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
+import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
 import { PageCover } from "@/components/whiteboard/PageCover";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
@@ -742,6 +746,21 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       }
     });
 
+  /** Story 5: every page, drawn off the canvas from the page map, into one PDF. */
+  const renderBoardPdf = async (onPage: (done: number) => void): Promise<Blob> => {
+    if (!board) throw new Error("no board");
+    keepShown(); // what is on screen now is in the PDF
+    const list = board.pages;
+    return boardPdf(
+      list.length,
+      async (index) => {
+        const elements = pages.current.get(list[index].uuid) ?? [];
+        return pageImage(elements, await pictures.peek(pagePictureIds(elements)), background);
+      },
+      onPage,
+    );
+  };
+
   const thumbnail = useCallback(
     async (uuid: string) => {
       const shownUuid = board?.pages[pageIndex]?.uuid;
@@ -868,6 +887,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
               },
               { id: "layout", label: WB.menus.layout, content: <PanelModesMenu modes={panelModes} onMode={changePanelMode} /> },
               ...(session.held ? [{ id: "import", label: WB.menus.import, content: <ImportPanel view={importView} onFile={importFile} /> }] : []),
+              ...(board.can.export
+                ? [{ id: "lesson", label: WB.menus.lesson, content: <LessonExportPanel board={board} pageCount={board.pages.length} renderPdf={renderBoardPdf} /> }]
+                : []),
             ]}
             screen={screen}
             onScreen={moveScreen}

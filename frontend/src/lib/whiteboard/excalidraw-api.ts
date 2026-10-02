@@ -152,6 +152,31 @@ function pageFrame(elements: readonly BoardElement[]): ExcalidrawFrameElement | 
  * with fonts inlined by us — Excalidraw's own inlining runs WebAssembly the
  * production CSP does not allow, and its failure path points at esm.sh.
  */
+/**
+ * Every picture a page needs drawn on its own: its pictures and its template's
+ * (the template goes in AS pictures, `withTemplateImages`).
+ */
+export function pagePictureIds(elements: readonly BoardElement[]): string[] {
+  return pictureIds(withTemplateImages(elements.filter((element) => !element.isDeleted)));
+}
+
+/**
+ * One page as a JPEG for the board's PDF (story 5), its pictures passed in —
+ * the canvas is not touched, so any page is drawn, not only the one shown.
+ * JPEG at 1920 wide: a 100-page board stays a file a phone opens.
+ */
+export function pageImage(elements: readonly BoardElement[], pictures: PictureData[], background: BoardBackground): Promise<Blob> {
+  const live = withTemplateImages(elements.filter((element) => !element.isDeleted));
+  return exportToBlob({
+    elements: live,
+    files: Object.fromEntries(binaryFiles(pictures).map((file) => [file.id, file])),
+    appState: { exportBackground: true, viewBackgroundColor: BACKGROUNDS[background].canvas },
+    exportingFrame: pageFrame(live),
+    mimeType: "image/jpeg",
+    quality: 0.85,
+  });
+}
+
 export async function exportPage(api: BoardApi, kind: "png" | "svg", background: BoardBackground): Promise<Blob> {
   // The template's picture must already be in the canvas's files (the caller adds it).
   const elements = withTemplateImages(api.getSceneElements());
