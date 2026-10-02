@@ -157,14 +157,13 @@ function downloadTarget(path: string): string {
 }
 
 /**
- * Fetch a file and hand it to the browser's downloader.
+ * Fetch a file's bytes with the session's headers — the token, the device and the
+ * workspace this page draws. The whiteboard reads every page image this way
+ * (spec 039): an `<img src>` cannot carry the `Authorization` header either.
  *
- * A plain `<a href>` cannot be used for these: the token lives in localStorage
- * and goes out as an `Authorization` header, which an anchor never sends — the
- * link would simply 401. So the file is fetched like any other request and
- * turned into a blob URL, revoked immediately after the click it triggers.
+ * Resolves `null` only when a workspace switch is already reloading the page.
  */
-async function download(path: string, filename: string): Promise<void> {
+async function blob(path: string): Promise<Blob | null> {
   const token = getToken();
   const device = deviceId();
   const headers: Record<string, string> = { Accept: "*/*" };
@@ -181,12 +180,27 @@ async function download(path: string, filename: string): Promise<void> {
     const body: unknown =
       res.status === 409 ? await res.json().catch(() => null) : null;
 
-    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) return;
+    if (isWorkspaceChanged(res.status, body) && reloadForWorkspaceChange()) return null;
 
     throw new ApiError(`Request failed (${res.status})`, res.status, null);
   }
 
-  const url = URL.createObjectURL(await res.blob());
+  return res.blob();
+}
+
+/**
+ * Fetch a file and hand it to the browser's downloader.
+ *
+ * A plain `<a href>` cannot be used for these: the token lives in localStorage
+ * and goes out as an `Authorization` header, which an anchor never sends — the
+ * link would simply 401. So the file is fetched like any other request and
+ * turned into a blob URL, revoked immediately after the click it triggers.
+ */
+async function download(path: string, filename: string): Promise<void> {
+  const file = await blob(path);
+  if (file === null) return;
+
+  const url = URL.createObjectURL(file);
   const link = document.createElement("a");
 
   link.href = url;
@@ -320,6 +334,14 @@ export const api = {
   // has to carry the password and code that authorise it.
   delete: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: "DELETE", body: data ? JSON.stringify(data) : undefined }),
+  /**
+   * A DELETE that must outlive the page — the whiteboard releasing its edit lock
+   * as the tab closes. `keepalive` keeps the request alive after unload (bodies
+   * up to 64 KB), and unlike `navigator.sendBeacon` it carries the bearer header.
+   */
+  deleteKeepalive: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: "DELETE", keepalive: true, body: data ? JSON.stringify(data) : undefined }),
+  blob,
   download,
 };
 

@@ -1,0 +1,12 @@
+cairo-arabic.woff2 — the Arabic subset of Cairo (variable, weights 200–1000),
+exactly as Google Fonts serves it to next/font for this app
+(unicode-range U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFC …).
+
+Cairo, by its authors as listed at https://fonts.google.com/specimen/Cairo/about
+Licensed under the SIL Open Font License, Version 1.1
+(https://fonts.google.com/specimen/Cairo/license · https://openfontlicense.org)
+The font is redistributed unmodified; OFL permits bundling it with software.
+
+Why a copy beside next/font: next/font serves the same file under a hashed,
+build-specific name, so neither a stable @font-face url nor a file to embed in an
+exported SVG exists. The whiteboard registers this copy itself (lib/whiteboard/arabic-font.ts).

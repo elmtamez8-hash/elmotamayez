@@ -15,6 +15,7 @@ use App\Modules\LiveSessions\Enums\ClassSessionType;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\TransferInstructions;
 use App\Modules\Tenancy\Support\PlatformSettings;
+use App\Modules\Whiteboard\Support\WhiteboardSettings;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -98,6 +99,10 @@ class ManagePlatformSettings extends Page
             'session_idle_days' => PlatformSettings::get('auth.session_idle_days'),
             // `CommunitySettings` carries the fallback and the clamp.
             'prospect_message_cap' => CommunitySettings::prospectMessageCap(),
+            // `WhiteboardSettings` carries the config fallback and the floor of one.
+            'whiteboard_max_scene_mb' => round(WhiteboardSettings::maxSceneBytes() / self::BYTES_PER_MEGABYTE, 2),
+            'whiteboard_max_board_mb' => round(WhiteboardSettings::maxBoardBytes() / self::BYTES_PER_MEGABYTE, 2),
+            'whiteboard_max_pages_per_board' => WhiteboardSettings::maxPagesPerBoard(),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
@@ -253,6 +258,22 @@ class ManagePlatformSettings extends Page
                                 ->helperText('من لا يدرس عند المدرّس يرسل هذا العدد ثمّ ينتظر الردّ؛ الطالب ووليّ أمره يتشاركان العدد، وأوّل ردّ من فريق المدرّس يرفع الحدّ نهائياً.')
                                 ->integer()->minValue(1)->maxValue(50)->required(),
                         ]),
+                    Section::make('السبّورة')
+                        ->description('حدود سبّورة المدرّس: حجم الصفحة الواحدة، ومجموع صفحات السبّورة، وعدد صفحاتها.')
+                        ->schema([
+                            TextInput::make('whiteboard_max_scene_mb')
+                                ->label('أقصى حجم لمحتوى الصفحة الواحدة')
+                                ->suffix('ميغابايت')
+                                ->numeric()->minValue(0.1)->step(0.1)->required(),
+                            TextInput::make('whiteboard_max_board_mb')
+                                ->label('أقصى حجم لكل صفحات السبّورة معاً')
+                                ->helperText('تُحمَّل الصفحات كلّها عند فتح السبّورة، فهذا الرقم هو ما ينتظره المدرّس.')
+                                ->suffix('ميغابايت')
+                                ->numeric()->minValue(1)->step(1)->required(),
+                            TextInput::make('whiteboard_max_pages_per_board')
+                                ->label('أقصى عدد صفحات في السبّورة الواحدة')
+                                ->integer()->minValue(1)->maxValue(1000)->required(),
+                        ]),
                     Section::make('الفيديو')
                         ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
                         ->schema([
@@ -406,6 +427,9 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('auth.session_idle_days', (int) $data['session_idle_days'], $userId);
         $this->saveSessionRetention((int) $data['auth_session_retain_days']);
         PlatformSettings::set('community.chat.prospect_message_cap', max(1, (int) $data['prospect_message_cap']), $userId);
+        PlatformSettings::set('whiteboard.max_scene_bytes', (int) round((float) $data['whiteboard_max_scene_mb'] * self::BYTES_PER_MEGABYTE), $userId);
+        PlatformSettings::set('whiteboard.max_board_bytes', (int) round((float) $data['whiteboard_max_board_mb'] * self::BYTES_PER_MEGABYTE), $userId);
+        PlatformSettings::set('whiteboard.max_pages_per_board', (int) $data['whiteboard_max_pages_per_board'], $userId);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);

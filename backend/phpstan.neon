@@ -30,3 +30,4 @@ parameters:
         - app/Modules/Settlement/Database/Migrations
         - app/Modules/Store/Database/Migrations
         - app/Modules/Tenancy/Database/Migrations
+        - app/Modules/Whiteboard/Database/Migrations

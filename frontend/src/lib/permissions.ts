@@ -26,6 +26,9 @@ export const P = {
   // Removing a section, chapter or item from the tree: `CoursePolicy::deleteLessons`.
   // Building the tree is `lessons.manage`, which the assistant keeps.
   lessonsDelete: "lessons.delete",
+  // Building the tree — and preparing a whiteboard (spec 039), which every
+  // teaching role holds and no student or guardian does.
+  lessonsManage: "lessons.manage",
   /*
    * ⚠️ THE READ, AND IT IS A DIFFERENT QUESTION FROM THE TWO BELOW.
    * `ExamController::index()` asks `exams.view` to decide whether the list is

@@ -124,3 +124,49 @@ it('always names its select list before grouping', function (): void {
     */
     expect($checked)->toBeGreaterThan(0, 'The scan matched no grouped query at all — the filter has drifted.');
 });
+
+/*
+| ⛔ SPEC 039's WHITEBOARD, WHICH LEANS ON CONDITIONAL UPDATES MORE THAN ANY MODULE
+| BEFORE IT — the edit lock, the page gate, the export swap — and so on exactly
+| the forms that pass here and break there:
+|
+|   `<=>`, `INTERVAL`   MySQL syntax; a syntax error on SQLite (so at least that one
+|                       is loud) — but the honest reason is the next one.
+|   `NOW(`              the database's clock: `travel()` cannot move it, so a test
+|                       of a 120-second expiry is vacuous or impossible. Time is
+|                       bound from PHP as a string with milliseconds (`BoardLock`).
+|   a named parameter used twice in one statement
+|                       pdo_mysql with native prepares refuses it (HY093); SQLite
+|                       accepts it. Positional `?` only.
+|
+| The scan reads every file of the module, so a new one is covered the day it lands,
+| and it asserts it read at least one — a scan of nothing passes for ever.
+*/
+it('keeps the whiteboard module to SQL both engines read the same way', function (): void {
+    $files = iterator_to_array(
+        new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path('Modules/Whiteboard'), FilesystemIterator::SKIP_DOTS)),
+    );
+    $php = array_filter($files, fn (SplFileInfo $file): bool => $file->getExtension() === 'php');
+
+    expect(count($php))->toBeGreaterThan(0);
+
+    foreach ($php as $file) {
+        $code = retentionSourceWithoutComments((string) file_get_contents($file->getPathname()));
+        $name = $file->getFilename();
+
+        // Inside a string literal only — PHP's own `||` between two strings is not SQL.
+        preg_match_all('/\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*"/s', $code, $literals);
+        foreach ($literals[0] as $literal) {
+            expect(str_contains($literal, '||'))->toBeFalse("{$name} passes `||` into SQL; it is logical OR on MySQL.");
+
+            foreach (['<=>', 'INTERVAL', 'NOW('] as $form) {
+                expect(str_contains(strtoupper($literal), $form))->toBeFalse("{$name} uses {$form} in SQL, which MySQL and SQLite read differently.");
+            }
+
+            // A named parameter twice inside ONE statement.
+            preg_match_all('/(?<![:\w]):([a-z_][a-z0-9_]*)/i', $literal, $params);
+            $repeated = array_keys(array_filter(array_count_values($params[1]), fn (int $n): bool => $n > 1));
+            expect($repeated)->toBe([], "{$name} binds :".implode(', :', $repeated).' twice in one statement (HY093 on MySQL).');
+        }
+    }
+});

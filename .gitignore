@@ -27,3 +27,6 @@ docker/.nginx.prod.conf.sha256
 # علامتانِ يكتبُهما `scripts/deploy.sh` على الخادم.
 docker/.reverb-image.sha
 docker/.meilisearch-indexed
+
+# Excalidraw fonts, copied from node_modules by frontend/scripts/copy-excalidraw-fonts.mjs (predev/prebuild).
+frontend/public/excalidraw/

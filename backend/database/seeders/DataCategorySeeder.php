@@ -911,6 +911,28 @@ class DataCategorySeeder extends Seeder
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
 
+            // ── Whiteboard (spec 039) ─────────────────────────────────
+            /*
+            | Who authored a board. The drawings are the academy's teaching
+            | material (constitution I), so nothing sweeps them and erasure
+            | re-points the author to the workspace owner rather than deleting a
+            | lesson's preparation (`WhiteboardPersonalData`).
+            */
+            [
+                'key' => 'whiteboard_board',
+                'subject_roles' => ['teacher'],
+                'label' => 'السبّورات التي أعددتَها',
+                'purpose' => 'لتعرفَ الأكاديميةُ مَن أعدَّ كلَّ سبّورة، ومَن يعدّلُها الآن.',
+                'audience' => 'الأكاديمية التي تدرّس فيها',
+                'is_required' => true,
+                'owning_module' => 'whiteboard',
+                'table_name' => 'boards',
+                'column_name' => 'owner_user_id',
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
+
             // ── Analytics (spec 011 · US6) ────────────────────────────
             /*
             | ⚠️ ONE ROW FOR ONE TABLE, AND IT IS WHAT TAKES `Analytics` OFF
