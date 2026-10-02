@@ -29,8 +29,15 @@ function wbDoors(): array
     return [
         ['GET', '/api/v1/boards/{board}', []],
         ['PATCH', '/api/v1/boards/{board}', ['title' => 'اختراق']],
+        // US2 — the edit lock and autosave.
+        ['POST', '/api/v1/boards/{board}/lock', ['tab' => WB_TAB]],
+        ['DELETE', '/api/v1/boards/{board}/lock', ['tab' => WB_TAB]],
+        ['POST', '/api/v1/boards/{board}/lock/take', ['tab' => WB_TAB]],
+        ['PUT', '/api/v1/boards/{board}/pages/{page}/scene', ['tab' => WB_TAB, 'version' => 1, 'client_rev' => 1, 'scene' => '{"v":1,"elements":[],"appState":{},"fileIds":[]}']],
     ];
 }
+
+const WB_TAB = '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 
 /** The list is a door too, but it answers 200 with what the reader may see — checked apart. */
 const WB_LIST_ROUTES = ['GET api/v1/boards', 'POST api/v1/boards'];
@@ -61,7 +68,9 @@ function wbCall(string $method, string $uri, array $body, User $as, ?Workspace $
     }
     Sanctum::actingAs($as);
 
-    return test()->json($method, str_replace('{board}', (string) test()->board->uuid, $uri), $body)->status();
+    $page = (string) test()->board->pages()->value('uuid');
+
+    return test()->json($method, str_replace(['{board}', '{page}'], [(string) test()->board->uuid, $page], $uri), $body)->status();
 }
 
 it('hides every board door from another workspace — 404, as if it did not exist', function (): void {

@@ -120,11 +120,13 @@ class BoardPolicy
             return Response::denyAsNotFound();
         }
 
-        return $this->isStaff($user, $board->workspace_id)
+        if ($this->isStaff($user, $board->workspace_id)
             && $user->can(Permissions::LESSONS_MANAGE)
-            && $this->isOwningTeacher($user, $board)
-            ? Response::allow()
-            : Response::deny();
+            && $this->isOwningTeacher($user, $board)) {
+            return Response::allow();
+        }
+
+        return $this->refusal($user, $board);
     }
 
     public function export(User $user, Board $board): Response
@@ -138,10 +140,21 @@ class BoardPolicy
             return Response::denyAsNotFound();
         }
 
-        return $this->isStaff($user, $board->workspace_id)
-            && ($this->isOwningTeacher($user, $board) || $this->isManager($user, $board->workspace_id))
-            ? Response::allow()
-            : Response::deny();
+        if ($this->isStaff($user, $board->workspace_id)
+            && ($this->isOwningTeacher($user, $board) || $this->isManager($user, $board->workspace_id))) {
+            return Response::allow();
+        }
+
+        return $this->refusal($user, $board);
+    }
+
+    /**
+     * A 403 only to someone who can SEE the board; to anyone else a 404, exactly as
+     * on the read door — a 403 beside a 404 tells a stranger the board exists.
+     */
+    private function refusal(User $user, Board $board): Response
+    {
+        return $this->view($user, $board)->allowed() ? Response::deny() : Response::denyAsNotFound();
     }
 
     private function context(): ?int

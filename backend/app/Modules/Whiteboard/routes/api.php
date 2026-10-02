@@ -17,6 +17,8 @@ declare(strict_types=1);
 */
 
 use App\Modules\Whiteboard\Http\Controllers\BoardController;
+use App\Modules\Whiteboard\Http\Controllers\BoardLockController;
+use App\Modules\Whiteboard\Http\Controllers\BoardPageController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -24,4 +26,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/boards', [BoardController::class, 'store'])->middleware('throttle:authoring');
     Route::get('/boards/{board}', [BoardController::class, 'show']);
     Route::patch('/boards/{board}', [BoardController::class, 'update'])->middleware('throttle:authoring');
+
+    // The edit lock and autosave beat every few seconds per tab — their own limiter.
+    Route::middleware('throttle:whiteboard-autosave')->group(function (): void {
+        Route::post('/boards/{board}/lock', [BoardLockController::class, 'store']);
+        Route::delete('/boards/{board}/lock', [BoardLockController::class, 'destroy']);
+        Route::post('/boards/{board}/lock/take', [BoardLockController::class, 'take']);
+        Route::put('/boards/{board}/pages/{page}/scene', [BoardPageController::class, 'scene']);
+    });
 });
