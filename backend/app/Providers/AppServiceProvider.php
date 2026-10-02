@@ -531,10 +531,6 @@ class AppServiceProvider extends ServiceProvider
             ->by('user:'.(string) $request->user()?->getKey()));
         RateLimiter::for('whiteboard-files', fn (Request $request) => Limit::perMinute(600)
             ->by('user:'.(string) $request->user()?->getKey()));
-        // Starting a PDF import (story 4): one conversion per user runs at a time
-        // anyway (`import_in_progress`); this only stops a retry storm.
-        RateLimiter::for('whiteboard-import', fn (Request $request) => Limit::perMinute(6)
-            ->by('user:'.(string) $request->user()?->getKey()));
 
         /*
          * Self-generated practice exams (spec 008, FR-026). Keyed by user and NOT

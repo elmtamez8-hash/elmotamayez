@@ -5,10 +5,10 @@ import "@excalidraw/excalidraw/index.css";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ApiError, uploadToTicket } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { ensureArabicFont } from "@/lib/whiteboard/arabic-font";
-import { boards, parseScene, type BoardDetail, type BoardPagePayload, type ImportState } from "@/lib/whiteboard/api";
+import { boards, parseScene, type BoardDetail, type BoardPagePayload } from "@/lib/whiteboard/api";
 import {
   addPictures,
   addStroke,
@@ -24,13 +24,13 @@ import {
   frameTemplate,
   pageScreens,
   pageTemplate,
-  placePagePicture,
   useBoardLibrary,
   pageThumbnail,
   pictureIds,
   placeSticker,
   reframe,
   restorePage,
+  withPagePicture,
   sceneVersion,
   setPageTemplate,
   showScreen,
@@ -60,6 +60,7 @@ import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib
 import { readPanelModes, writePanelModes, type PanelId, type PanelMode } from "@/lib/whiteboard/panels";
 import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
 import { ImageRefused, uploadBoardImage } from "@/lib/whiteboard/image-insert";
+import { pdfPages } from "@/lib/whiteboard/pdf-pages";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
 import { Modal } from "@/components/ui/Modal";
@@ -203,9 +204,14 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   }, []);
   const [showPages, setShowPages] = useState(true);
   const [pagesBusy, setPagesBusy] = useState(false);
+  // An import keeps adding pages after the teacher leaves the board unless it asks.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true; // again after React's dev double mount
+    return () => void (mounted.current = false);
+  }, []);
   // Story 4: the import the teacher started, followed here so closing the menu never stops it.
   const [importView, setImportView] = useState<ImportView>({ phase: "idle" });
-  const [following, setFollowing] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // Effects (US10, US12): a display layer, never the page.
   const [celebration, setCelebration] = useState<{ kind: Celebration; id: number } | null>(null);
@@ -475,11 +481,14 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const goTo = useCallback(
     (target: number) => {
-      if (!api || !board || target < 0 || target >= board.pages.length || target === pageIndex) return;
+      // Not while pages change: an import adds pages for a minute and shows the
+      // first at the end, keeping the page it started on — moving meanwhile
+      // filed one page's drawing under another (caught in review).
+      if (!api || !board || pagesBusy || target < 0 || target >= board.pages.length || target === pageIndex) return;
       keepShown();
       showPage(board.pages, target);
     },
-    [api, board, pageIndex, keepShown, showPage],
+    [api, board, pageIndex, pagesBusy, keepShown, showPage],
   );
 
   // Next / previous page from the keyboard — never while typing.
@@ -644,112 +653,69 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       session.adopt(page.uuid, elements);
     });
 
-  /** A refusal in the teacher's words: the contract's code, or the import's failure reason. */
-  const importError = (error: unknown): string => {
-    const body = error instanceof ApiError ? (error.body as { code?: string; failure_reason?: string } | null) : null;
-    const code = body?.failure_reason ?? body?.code;
-    return code && code in WB.errors ? WB.errors[code as keyof typeof WB.errors] : WB.pagesFailed;
-  };
-
   /**
-   * Reads the board through REFS only — it is called from a poll that outlives
-   * the render that set it up.
-   *
-   * The pages an import added, taken into this tab WITHOUT reloading the board:
-   * only pages it does not know yet are read and tracked, so nothing unsaved on
-   * the others is touched. The page shown stays shown.
+   * A picture, or every page of a PDF read IN THIS BROWSER (the server converts
+   * nothing — owner, 2026-10-02), added as pages after the page shown. For each
+   * page the picture is uploaded FIRST, so a refused upload leaves no empty page;
+   * the page is then made and saved with the picture on it, off screen. The
+   * first new page is shown at the end, after whatever the teacher drew
+   * meanwhile on the page shown is kept.
    */
-  const adoptNewPages = async () => {
-    const current = boardRef.current;
-    if (!current) return;
-    const fresh = await boards.show(current.uuid);
-    // ⚠️ No `keepShown()` here: this runs from a poll set up when the import
-    // STARTED, so its `keepShown` still names the page shown back then and would
-    // file today's canvas under it (caught in review). The page shown is not
-    // replaced, so nothing needs keeping.
-    for (const page of fresh.pages) {
-      if (pages.current.has(page.uuid)) continue;
-      const elements = restorePage(parseScene(page).elements);
-      pages.current.set(page.uuid, elements);
-      session.track(page.uuid, page.version, elements);
-    }
-    const shown = current.pages[pageIndexRef.current]?.uuid;
-    setBoard({ ...current, pages: fresh.pages });
-    setPageIndex(Math.max(0, fresh.pages.findIndex((page) => page.uuid === shown)));
-  };
-
-  const showImport = (state: ImportState) => {
-    if (state.status === "queued") setImportView({ phase: "queued", position: state.position ?? 1 });
-    else if (state.status === "converting") setImportView({ phase: "converting" });
-    else if (state.status === "done") {
-      setFollowing(null);
-      setImportView({ phase: "done", pages: state.pages_count ?? 0 });
-      void adoptNewPages();
-    } else if (state.status === "failed") {
-      setFollowing(null);
-      setImportView({
-        phase: "failed",
-        message: state.failure_reason ? WB.errors[state.failure_reason] : WB.pagesFailed,
-      });
-    }
-  };
-
-  // Every 3 s while an import is on its way (contracts/api.md).
-  useEffect(() => {
-    if (!following || !board) return;
-    const boardUuid = board.uuid;
-    let alive = true;
-    const timer = window.setInterval(() => {
-      boards
-        .importState(boardUuid, following)
-        .then((state) => alive && showImport(state))
-        .catch(() => undefined); // a missed poll is retried at the next tick
-    }, 3000);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [following, board?.uuid]);
-
-  /** A PDF goes to the server and comes back as pages; a picture becomes one page here. */
-  const importFile = async (file: File) => {
-    if (!board || !api) return;
-    const after = board.pages[pageIndex]?.uuid ?? null;
-    setImportView({ phase: "uploading" });
-
-    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+  const importFile = (file: File) =>
+    pageChange(async () => {
+      if (!board || !api) return;
+      const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+      const list = [...board.pages];
+      const at = pageIndex + 1;
+      let added = 0;
+      let capped: number | undefined;
+      const addPage = async (picture: File, width: number, height: number) => {
+        if (!mounted.current) throw new Error("The board was closed.");
+        const id = await uploadBoardImage(board.uuid, session.tab(), picture);
+        const page = await boards.addPage(board.uuid, { tab: session.tab(), after: list[at + added - 1].uuid });
+        const blank = restorePage(parseScene(page).elements);
+        session.track(page.uuid, page.version, blank);
+        const elements = withPagePicture(blank, id, width, height);
+        pages.current.set(page.uuid, elements);
+        session.adopt(page.uuid, elements);
+        list.splice(at + added, 0, page);
+        added++;
+      };
+      setImportView({ phase: "reading" });
       try {
-        await session.settle();
-        const started = await boards.requestImport(board.uuid, { tab: session.tab(), filename: file.name, size: file.size, after });
-        await uploadToTicket(started.upload, file);
-        const state = await boards.completeImport(board.uuid, started.import.uuid);
-        setFollowing(started.import.uuid);
-        showImport(state);
+        if (isPdf) {
+          for await (const page of pdfPages(file)) {
+            setImportView({ phase: "converting", page: page.number, total: page.total });
+            await addPage(page.file, page.width, page.height);
+            if (page.inFile > page.total) capped = page.total;
+          }
+        } else {
+          const bitmap = await createImageBitmap(file);
+          const size = { width: bitmap.width, height: bitmap.height };
+          bitmap.close();
+          await addPage(file, size.width, size.height);
+        }
+        setImportView({ phase: "done", pages: added, capped });
       } catch (error) {
-        setFollowing(null);
-        setImportView({ phase: "failed", message: importError(error) });
-      }
-      return;
-    }
-
-    await pageChange(async () => {
-      try {
-        const bitmap = await createImageBitmap(file);
-        const size = { width: bitmap.width, height: bitmap.height };
-        bitmap.close();
-        // The picture first: a refused upload must not leave an empty page behind.
-        const id = await uploadBoardImage(board.uuid, session.tab(), file);
-        const page = await boards.addPage(board.uuid, { tab: session.tab(), after: after ?? undefined });
-        insertPage(page, after ?? "");
-        addPictures(api, await pictures.take([id]));
-        placePagePicture(api, id, size.width, size.height);
-        setImportView({ phase: "done", pages: 1 });
-      } catch (error) {
-        setImportView({ phase: "failed", message: error instanceof ImageRefused ? WB.imageFailed : importError(error) });
-        throw error;
+        const message =
+          error instanceof ApiError
+            ? (WB.errors[(error.body as { code?: string } | null)?.code as keyof typeof WB.errors] ?? WB.pagesFailed)
+            : error instanceof ImageRefused
+              ? WB.imageFailed
+              : isPdf
+                ? WB.errors.corrupt
+                : WB.errors.unsupported;
+        setImportView({ phase: "failed", message });
+        // A server refusal also goes to the page notice (and reloads on `pages_changed`).
+        if (error instanceof ApiError) throw error;
+      } finally {
+        if (added > 0) {
+          keepShown();
+          setBoard((current) => current && { ...current, pages: list }); // a rename meanwhile stays
+          showPage(list, at);
+        }
       }
     });
-  };
 
   const thumbnail = useCallback(
     async (uuid: string) => {

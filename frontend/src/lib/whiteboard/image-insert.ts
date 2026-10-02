@@ -44,17 +44,27 @@ async function loadImage(file: Blob): Promise<HTMLImageElement> {
 
 /** A PNG or JPEG of at most `MAX_SIDE` px a side. A JPEG already small enough is sent as it is. */
 export async function prepareImage(file: Blob): Promise<Blob> {
-  const image = await loadImage(file);
-  const size = fitWithin(image.naturalWidth || 1, image.naturalHeight || 1);
+  // `createImageBitmap`, not `img.decode()`: decode waits for a rendered frame,
+  // which a hidden tab never gives, so an import stalled behind another tab.
+  // An SVG keeps `<img>`: Firefox refuses it to `createImageBitmap`.
+  const image = await (file.type === "image/svg+xml" ? loadImage(file) : createImageBitmap(file)).catch(() => {
+    throw new ImageRefused();
+  });
+  const done = () => void ("close" in image && image.close());
+  const size = fitWithin(image.width || 1, image.height || 1);
   const isJpeg = file.type === "image/jpeg";
-  const fits = size.width === image.naturalWidth && size.height === image.naturalHeight;
+  const fits = size.width === image.width && size.height === image.height;
 
-  if (fits && (isJpeg || file.type === "image/png")) return file;
+  if (fits && (isJpeg || file.type === "image/png")) {
+    done();
+    return file;
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = size.width;
   canvas.height = size.height;
   canvas.getContext("2d")?.drawImage(image, 0, 0, size.width, size.height);
+  done();
 
   const out = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, isJpeg ? "image/jpeg" : "image/png", 0.9));
   if (!out) throw new ImageRefused();

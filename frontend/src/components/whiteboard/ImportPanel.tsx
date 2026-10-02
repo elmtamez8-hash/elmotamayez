@@ -5,19 +5,18 @@ import { WB } from "@/lib/whiteboard/strings";
 /** Where an import the teacher started stands, as the panel shows it. */
 export type ImportView =
   | { phase: "idle" }
-  | { phase: "uploading" }
-  | { phase: "queued"; position: number }
-  | { phase: "converting" }
-  | { phase: "done"; pages: number }
+  | { phase: "reading" }
+  | { phase: "converting"; page: number; total: number }
+  | { phase: "done"; pages: number; capped?: number }
   | { phase: "failed"; message: string };
 
 /**
  * «استيراد» (story 4): a PDF or a picture, added as pages after the page shown.
- * Pure — the board owns the upload and the polling, so closing this menu never
- * stops an import, and the teacher keeps drawing on other pages meanwhile.
+ * Pure — the board reads the file and adds the pages, so closing this menu
+ * never stops an import.
  */
 export function ImportPanel({ view, onFile }: { view: ImportView; onFile: (file: File) => void }) {
-  const busy = view.phase === "uploading" || view.phase === "queued" || view.phase === "converting";
+  const busy = view.phase === "reading" || view.phase === "converting";
 
   return (
     <div className="flex flex-col gap-1.5 border-t border-line pt-1.5 text-sm">
@@ -38,10 +37,10 @@ export function ImportPanel({ view, onFile }: { view: ImportView; onFile: (file:
       <p className="text-xs text-ink-muted">{WB.importing.hint}</p>
       {view.phase !== "idle" && view.phase !== "failed" && (
         <p role="status" className="text-xs">
-          {view.phase === "uploading" && WB.importing.uploading}
-          {view.phase === "queued" && WB.importing.queued(view.position)}
-          {view.phase === "converting" && WB.importing.converting}
+          {view.phase === "reading" && WB.importing.reading}
+          {view.phase === "converting" && WB.importing.converting(view.page, view.total)}
           {view.phase === "done" && WB.importing.done(view.pages)}
+          {view.phase === "done" && view.capped !== undefined && ` ${WB.importing.capped(view.capped)}`}
         </p>
       )}
       {view.phase === "failed" && (

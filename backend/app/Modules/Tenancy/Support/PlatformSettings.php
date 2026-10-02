@@ -225,8 +225,6 @@ final class PlatformSettings
         'whiteboard.max_scene_bytes' => 'whiteboard.max_scene_bytes',
         'whiteboard.max_board_bytes' => 'whiteboard.max_board_bytes',
         'whiteboard.max_pages_per_board' => 'whiteboard.max_pages_per_board',
-        'whiteboard.import_max_bytes' => 'whiteboard.import_max_bytes',
-        'whiteboard.import_max_pages' => 'whiteboard.import_max_pages',
         /*
         | Subscriptions (spec 011 · FR-027 — «مع إبلاغ الطالب قبله بمهلة
         | معلنة»). The notice period is the «معلنة» half: a number an operator

@@ -65,14 +65,6 @@ export function parseScene(page: BoardPagePayload): SceneDocument {
   };
 }
 
-/** Where an import stands (story 4). `position` is the place in line while queued. */
-export interface ImportState {
-  status: "uploading" | "queued" | "converting" | "done" | "failed";
-  failure_reason: "too_many_pages" | "unsupported" | "corrupt" | "timeout" | "board_deleted" | null;
-  pages_count: number | null;
-  position: number | null;
-}
-
 export const boards = {
   list: (params: { page?: number; q?: string; course?: string; lesson?: string; mine?: boolean } = {}) => {
     const query = new URLSearchParams();
@@ -130,17 +122,6 @@ export const boards = {
 
   completeFile: (uuid: string, file: string) =>
     api.post<{ uuid: string; status: "ready" | "failed" | "pending" | "processing" }>(`/boards/${uuid}/files/${file}/complete`),
-
-  /** Story 4: start a PDF import after a page (the lock holder only). */
-  requestImport: (uuid: string, body: { tab: string; filename: string; size: number; after: string | null }) =>
-    api.post<{ import: { uuid: string }; upload: { url: string; method: string; headers: Record<string, string> } }>(
-      `/boards/${uuid}/imports`,
-      body,
-    ),
-
-  completeImport: (uuid: string, importUuid: string) => api.post<ImportState>(`/boards/${uuid}/imports/${importUuid}/complete`),
-
-  importState: (uuid: string, importUuid: string) => api.get<ImportState>(`/boards/${uuid}/imports/${importUuid}`),
 
   /** A picture's bytes, with the session's headers (an <img src> cannot carry them). */
   fileBytes: (uuid: string, file: string) => api.blob(`/boards/${uuid}/files/${file}`),

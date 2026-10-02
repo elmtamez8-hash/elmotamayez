@@ -18,7 +18,6 @@ declare(strict_types=1);
 
 use App\Modules\Whiteboard\Http\Controllers\BoardController;
 use App\Modules\Whiteboard\Http\Controllers\BoardFileController;
-use App\Modules\Whiteboard\Http\Controllers\BoardImportController;
 use App\Modules\Whiteboard\Http\Controllers\BoardLockController;
 use App\Modules\Whiteboard\Http\Controllers\BoardPageController;
 use Illuminate\Support\Facades\Route;
@@ -50,10 +49,4 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/boards/{board}/files/{file}', [BoardFileController::class, 'show'])
         ->middleware('throttle:whiteboard-files')
         ->withoutMiddleware('throttle:api');
-
-    // PDF imports (story 4). The dialog asks for progress every 3 s, so reading
-    // shares the autosave's per-user limiter.
-    Route::post('/boards/{board}/imports', [BoardImportController::class, 'store'])->middleware('throttle:whiteboard-import');
-    Route::post('/boards/{board}/imports/{import}/complete', [BoardImportController::class, 'complete'])->middleware('throttle:upload');
-    Route::get('/boards/{board}/imports/{import}', [BoardImportController::class, 'show'])->middleware('throttle:whiteboard-autosave');
 });
