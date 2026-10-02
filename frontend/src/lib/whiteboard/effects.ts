@@ -11,10 +11,18 @@
  * saturated ones that survive on white, black and green boards alike.
  */
 
-export type Celebration = "applause" | "balloons" | "party" | "stars";
+/** The effects drawn on the celebration canvas. */
+export type Celebration = "applause" | "party" | "stars";
+/**
+ * Every encouragement the teacher can start. Three are canvas celebrations; the
+ * balloons are popped by hand, the drum roll ends in stars, and «انتباه!» calls
+ * the class to attention (ideas taken from the reference board the owner chose).
+ */
+export type Effect = Celebration | "balloons" | "drumroll" | "attention";
 export type TrailStyle = "off" | "neon" | "sparks" | "rainbow";
 
-export const CELEBRATIONS: Celebration[] = ["applause", "balloons", "party", "stars"];
+export const CELEBRATIONS: Celebration[] = ["applause", "party", "stars"];
+export const EFFECTS: Effect[] = ["applause", "balloons", "party", "stars", "drumroll", "attention"];
 export const TRAIL_STYLES: TrailStyle[] = ["off", "neon", "sparks", "rainbow"];
 
 /** How long a celebration lasts on screen. */
@@ -35,7 +43,7 @@ export interface Particle {
   spin: number;
   /** Seconds left; the particle fades over its last second. */
   life: number;
-  shape: "confetti" | "balloon" | "star" | "glyph";
+  shape: "confetti" | "star" | "glyph";
   glyph?: string;
 }
 
@@ -64,21 +72,6 @@ export function spawn(kind: Celebration, width: number, height: number, rand: Ra
         life: between(rand, life * 0.7, life),
         shape: "glyph" as const,
         glyph: "👏",
-      }));
-
-    case "balloons":
-      return Array.from({ length: 22 }, () => ({
-        x: between(rand, 0, width),
-        y: height + between(rand, 20, height * 0.4),
-        vx: between(rand, -20, 20),
-        vy: between(rand, -height * 0.45, -height * 0.28),
-        gravity: -height * 0.02,
-        size: between(rand, 28, 42),
-        colour: pick(rand, COLOURS),
-        rotation: 0,
-        spin: between(rand, -0.4, 0.4),
-        life,
-        shape: "balloon" as const,
       }));
 
     case "party":

@@ -22,7 +22,8 @@ export type WbCustomData =
       colWidths: number[];
     }
   | { kind: "math"; v: 1; latex: string; display: boolean }
-  | { kind: "quran"; v: 1; surah: number; from: number; to: number; edition: "tanzil-uthmani-1.1" };
+  | { kind: "quran"; v: 1; surah: number; from: number; to: number; edition: "tanzil-uthmani-1.1" }
+  | { kind: "sticker"; v: 1; name: string };
 
 export type WbKind = WbCustomData["kind"];
 
@@ -30,6 +31,7 @@ const CURRENT: Record<WbKind, number> = {
   frame: 1,
   "doc-background": 1,
   template: 1,
+  sticker: 1,
   table: 1,
   math: 1,
   quran: 1,

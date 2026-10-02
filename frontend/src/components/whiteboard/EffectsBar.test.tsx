@@ -9,7 +9,8 @@ import { Celebrate } from "./overlays/Celebrate";
 const props = (over: Partial<EffectsBarProps> = {}): EffectsBarProps => ({
   sound: true,
   trail: "off",
-  onCelebrate: vi.fn(),
+  onEffect: vi.fn(),
+  onSticker: vi.fn(),
   onSound: vi.fn(),
   onTrail: vi.fn(),
   ...over,
@@ -24,8 +25,18 @@ describe("EffectsBar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /تصفيق/ }));
     fireEvent.click(screen.getByRole("button", { name: /نجوم/ }));
-    expect(p.onCelebrate).toHaveBeenNthCalledWith(1, "applause");
-    expect(p.onCelebrate).toHaveBeenNthCalledWith(2, "stars");
+    expect(p.onEffect).toHaveBeenNthCalledWith(1, "applause");
+    expect(p.onEffect).toHaveBeenNthCalledWith(2, "stars");
+  });
+
+  it("offers the stickers only to the editor, and stamps the one pressed", () => {
+    const p = props();
+    const { rerender } = render(<EffectsBar {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: "ممتاز" }));
+    expect(p.onSticker).toHaveBeenCalledWith("excellent");
+
+    rerender(<EffectsBar {...props({ onSticker: undefined })} />);
+    expect(screen.queryByRole("button", { name: "ممتاز" })).toBeNull();
   });
 
   it("says the sound reaches students only with the tab's audio, whenever sound is on (US10-2)", () => {

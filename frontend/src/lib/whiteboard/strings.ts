@@ -47,8 +47,11 @@ export const WB = {
   /** Encouragement and pointer effects (US10, US12). */
   effects: {
     title: "تشجيع:",
-    names: { applause: "تصفيق", balloons: "بالونات", party: "احتفال", stars: "نجوم" },
-    icons: { applause: "👏", balloons: "🎈", party: "🎉", stars: "⭐" },
+    names: { applause: "تصفيق", balloons: "بالونات", party: "احتفال", stars: "نجوم", drumroll: "طبلة", attention: "انتباه" },
+    icons: { applause: "👏", balloons: "🎈", party: "🎉", stars: "⭐", drumroll: "🥁", attention: "🔨" },
+    attention: "انتباه!",
+    popBalloon: "فرقع البالونة",
+    stickers: "ملصق:",
     sound: "صوت المؤثرات",
     soundHint: "يسمعه الطلاب فقط إذا شاركت صوت التبويب مع الشاشة.",
     trail: "أثر المؤشّر:",

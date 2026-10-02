@@ -21,6 +21,7 @@ import {
   pageDocument,
   pageThumbnail,
   pictureIds,
+  placeSticker,
   reframe,
   restorePage,
   sceneVersion,
@@ -28,8 +29,9 @@ import {
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
-import { playCelebration } from "@/lib/whiteboard/effect-sounds";
-import type { Celebration, TrailStyle } from "@/lib/whiteboard/effects";
+import { playChime, playFanfare, playGavel, playRecording } from "@/lib/whiteboard/effect-sounds";
+import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
+import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
 import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
@@ -39,6 +41,8 @@ import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
 import { EffectsBar } from "@/components/whiteboard/EffectsBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
+import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
+import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
 import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
 import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
@@ -132,13 +136,57 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   // Effects (US10, US12): a display layer, never the page.
   const [celebration, setCelebration] = useState<{ kind: Celebration; id: number } | null>(null);
+  const [balloons, setBalloons] = useState<number | null>(null);
+  const [attention, setAttention] = useState<number | null>(null);
   const [trail, setTrail] = useState<TrailStyle>("off");
   const [sound, setSound] = useState(readSound);
 
   const celebrate = (kind: Celebration) => {
     // A new id restarts the effect even when the same button is pressed twice.
     setCelebration({ kind, id: Date.now() });
-    if (sound) playCelebration(kind);
+  };
+
+  const startEffect = (kind: Effect) => {
+    switch (kind) {
+      case "applause":
+        celebrate("applause");
+        if (sound) void playRecording("hurray");
+        return;
+      case "party":
+        celebrate("party");
+        if (sound) {
+          void playRecording("blower");
+          playFanfare();
+        }
+        return;
+      case "stars":
+        celebrate("stars");
+        if (sound) playChime();
+        return;
+      case "balloons":
+        setBalloons(Date.now());
+        return;
+      case "attention":
+        setAttention(Date.now());
+        if (sound) playGavel();
+        return;
+      case "drumroll":
+        // The roll builds the suspense; the stars land when it stops.
+        if (!sound) return startEffect("stars");
+        void playRecording("drumroll").then(() => startEffect("stars"));
+        return;
+    }
+  };
+
+  const endBalloons = useCallback(() => setBalloons(null), []);
+  const endAttention = useCallback(() => setAttention(null), []);
+
+  /** Stamp a sticker on the page shown — saved with it, like anything drawn. */
+  const stamp = async (name: StickerName) => {
+    if (!api) return;
+    const id = stickerFileId(name);
+    addPictures(api, await pictures.take([id]));
+    placeSticker(api, id, name, (Math.random() - 0.5) * 120);
   };
 
   const changeSound = (on: boolean) => {
@@ -149,7 +197,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       // A private window: the choice lasts this visit only.
     }
   };
-  const pictures = useMemo(() => createPictureCache((id) => boards.fileBytes(boardUuid, id)), [boardUuid]);
+  const pictures = useMemo(
+    () =>
+      createPictureCache((id) => {
+        // A sticker is drawn from its name; only real files come from the server.
+        const sticker = stickerOf(id);
+        return sticker ? renderSticker(sticker) : boards.fileBytes(boardUuid, id);
+      }),
+    [boardUuid],
+  );
 
   // The face first, then the pages: text measured before Cairo loads is clipped.
   useEffect(() => {
@@ -464,7 +520,16 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
-            effects={<EffectsBar sound={sound} trail={trail} onCelebrate={celebrate} onSound={changeSound} onTrail={setTrail} />}
+            effects={
+              <EffectsBar
+                sound={sound}
+                trail={trail}
+                onEffect={startEffect}
+                onSticker={session.held ? stamp : undefined}
+                onSound={changeSound}
+                onTrail={setTrail}
+              />
+            }
             pagesOpen={showPages}
             onTogglePages={() => setShowPages((value) => !value)}
             status={
@@ -533,6 +598,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </div>
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
+      {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
+      {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}
       {trail !== "off" && <PointerTrail style={trail} />}
       <ConflictDialog
         open={session.conflict !== null}

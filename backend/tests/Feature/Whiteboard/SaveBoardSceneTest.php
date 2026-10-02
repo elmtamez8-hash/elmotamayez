@@ -188,7 +188,7 @@ it('accepts a template id and a ready picture of this board, and refuses any oth
     wbSaveAs($this->teacher, $this->workspace);
     wbHold($this->tab);
 
-    wbSave($this->tab, 1, 1, wbScene([['id' => 'i', 'type' => 'image', 'fileId' => (string) $ready->uuid]], [(string) $ready->uuid, 'template:grid:v1']))->assertOk();
+    wbSave($this->tab, 1, 1, wbScene([['id' => 'i', 'type' => 'image', 'fileId' => (string) $ready->uuid]], [(string) $ready->uuid, 'template:grid:v1', 'template:sticker-excellent:v1']))->assertOk();
     wbSave($this->tab, 2, 2, wbScene([], [(string) $pending->uuid]))->assertStatus(422)->assertJsonPath('code', 'unknown_file');
     wbSave($this->tab, 2, 3, wbScene([], [(string) $foreign->uuid]))->assertStatus(422)->assertJsonPath('code', 'unknown_file');
 });

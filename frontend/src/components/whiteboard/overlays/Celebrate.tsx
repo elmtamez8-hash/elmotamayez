@@ -60,17 +60,6 @@ function paint(ctx: CanvasRenderingContext2D, p: Particle) {
     case "confetti":
       ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
       break;
-    case "balloon":
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size * 0.42, p.size / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,0.45)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(0, p.size / 2);
-      ctx.lineTo(0, p.size * 1.3);
-      ctx.stroke();
-      break;
     case "star":
       ctx.beginPath();
       for (let i = 0; i < 10; i++) {

@@ -1,5 +1,6 @@
 import {
   CaptureUpdateAction,
+  convertToExcalidrawElements,
   exportToBlob,
   exportToCanvas,
   exportToSvg,
@@ -11,7 +12,7 @@ import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/exca
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
-import { BACKGROUNDS, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
+import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
 
 /**
  * THE door to Excalidraw (spec 039, R-02). Every call into the library goes through
@@ -218,4 +219,33 @@ export function reframe(elements: readonly BoardElement[], pageUuid: string): Bo
     if (from && element.frameId === from) return { ...element, frameId: to } as BoardElement;
     return element;
   });
+}
+
+/**
+ * Stamp a sticker on the page shown (US10): an image element inside the page's
+ * frame, near its centre, as ONE undoable step. Its file is a `template:` id the
+ * caller has already handed to the canvas (`addPictures`).
+ */
+export function placeSticker(api: BoardApi, fileId: string, name: string, offset: number): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const size = 220;
+  const x = (frame?.x ?? 0) + (frame?.width ?? PAGE_WIDTH) / 2 - size / 2 + offset;
+  const y = (frame?.y ?? 0) + (frame?.height ?? PAGE_HEIGHT) / 2 - size / 2 + offset;
+
+  const [sticker] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x,
+      y,
+      width: size,
+      height: size,
+      status: "saved",
+      frameId: frame?.id ?? null,
+      customData: { kind: "sticker", v: 1, name },
+    },
+  ]);
+
+  api.updateScene({ elements: [...elements, sticker], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }

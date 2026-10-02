@@ -21,10 +21,7 @@ describe("celebrations", () => {
     }
   });
 
-  it("balloons rise and confetti falls back", () => {
-    const balloon = spawn("balloons", 1600, 900, seeded())[0];
-    expect(step([balloon], 0.5)[0].y).toBeLessThan(balloon.y);
-
+  it("confetti falls back after its throw", () => {
     const confetti = spawn("party", 1600, 900, seeded())[0];
     let p = [confetti];
     for (let i = 0; i < 40; i++) p = step(p, 0.05);
