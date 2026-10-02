@@ -17,7 +17,9 @@ import {
   currentScreen,
   exportPage,
   fitToFrame,
+  carriedState,
   initialAppState,
+  type CarriedState,
   installTextMetrics,
   loadPage,
   pageDocument,
@@ -129,6 +131,14 @@ const STUNT_SOUNDS: Record<StuntKind, () => void> = {
 const UI_OPTIONS = { canvasActions: { changeViewBackgroundColor: false } };
 /** Pictures handed to the canvas: the page shown and this many either side. */
 const PICTURE_REACH = 2;
+/**
+ * Excalidraw frees a picture only when it unmounts (no public API removes
+ * one), so a lesson that walks a 100-page PDF ended holding every page's
+ * picture, decoded. Past this many the canvas is mounted afresh on the next
+ * page change, keeping the page, the theme and the pen.
+ * ponytail: a count, not measured memory; lower it if long boards are still heavy.
+ */
+const MAX_HELD_PICTURES = 24;
 const SOUND_KEY = "whiteboard.effects.sound";
 
 /** A per-viewer convenience, so storage may be absent: on by default. */
@@ -155,6 +165,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [board, setBoard] = useState<BoardDetail | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [api, setApi] = useState<BoardApi | null>(null);
+  // A new key mounts a new canvas; `carried` is what it starts with besides the page.
+  const [canvas, setCanvas] = useState<{ key: number; carried: CarriedState }>({ key: 0, carried: {} });
   const [pageIndex, setPageIndex] = useState(0);
   const [background, setBackground] = useState<BoardBackground>("white");
   const [presenting, setPresenting] = useState(false);
@@ -486,9 +498,20 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       // filed one page's drawing under another (caught in review).
       if (!api || !board || pagesBusy || target < 0 || target >= board.pages.length || target === pageIndex) return;
       keepShown();
+      if (pictures.held() > MAX_HELD_PICTURES) {
+        const carried = carriedState(api);
+        pictures.forget();
+        setApi(null);
+        setPageIndex(target);
+        setCanvas(({ key }) => ({
+          key: key + 1,
+          carried,
+        }));
+        return;
+      }
       showPage(board.pages, target);
     },
-    [api, board, pageIndex, pagesBusy, keepShown, showPage],
+    [api, board, pageIndex, pagesBusy, keepShown, showPage, pictures],
   );
 
   // Next / previous page from the keyboard — never while typing.
@@ -719,11 +742,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const thumbnail = useCallback(
     async (uuid: string) => {
-      if (!api) throw new Error("no canvas");
       const shownUuid = board?.pages[pageIndex]?.uuid;
-      const elements = uuid === shownUuid ? api.getSceneElements() : (pages.current.get(uuid) ?? []);
-      addPictures(api, await pictures.take(pictureIds(elements)));
-      return pageThumbnail(api, elements, backgroundRef.current);
+      const elements = api && uuid === shownUuid ? api.getSceneElements() : (pages.current.get(uuid) ?? []);
+      return pageThumbnail(elements, await pictures.peek(pictureIds(elements)), backgroundRef.current);
     },
     [api, board, pageIndex, pictures],
   );
@@ -754,6 +775,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       `}</style>
       {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
       <Excalidraw
+        key={canvas.key}
         excalidrawAPI={setApi}
         UIOptions={UI_OPTIONS}
         langCode="ar-SA"
@@ -781,8 +803,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           if (shown) session.changed(shown, elements);
         }}
         initialData={{
-          elements: pages.current.get(pageIds[0]) ?? [],
-          appState: initialAppState(background, window.innerWidth, window.innerHeight),
+          elements: pages.current.get(pageIds[pageIndex] ?? pageIds[0]) ?? [],
+          appState: { ...initialAppState(background, window.innerWidth, window.innerHeight), ...canvas.carried },
         }}
         renderTopRightUI={() => (
           <BoardToolbar

@@ -62,5 +62,26 @@ export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | nu
     given(id: string): void {
       given.add(id);
     },
+
+    /** The pictures among `ids`, for a drawing OFF the canvas (a thumbnail): none is handed over. */
+    async peek(ids: Iterable<string>): Promise<Picture[]> {
+      const found = await Promise.all(
+        [...new Set(ids)].map(async (id): Promise<Picture | null> => {
+          const blob = await fetchOnce(id);
+          return blob && { id, dataURL: await toDataURL(blob), mimeType: blob.type === "image/jpeg" ? "image/jpeg" : "image/png" };
+        }),
+      );
+      return found.filter((picture): picture is Picture => picture !== null);
+    },
+
+    /** How many pictures the canvas holds. */
+    held(): number {
+      return given.size;
+    },
+
+    /** A new canvas holds none. */
+    forget(): void {
+      given.clear();
+    },
   };
 }
