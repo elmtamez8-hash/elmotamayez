@@ -26,16 +26,4 @@ final class WhiteboardSettings
     {
         return max(1, (int) PlatformSettings::get('whiteboard.max_pages_per_board', config('whiteboard.max_pages_per_board')));
     }
-
-    /** The largest PDF a teacher may import (story 4). */
-    public static function importMaxBytes(): int
-    {
-        return max(1, (int) PlatformSettings::get('whiteboard.import_max_bytes', config('whiteboard.import_max_bytes')));
-    }
-
-    /** The most pages one import may add. */
-    public static function importMaxPages(): int
-    {
-        return max(1, (int) PlatformSettings::get('whiteboard.import_max_pages', config('whiteboard.import_max_pages')));
-    }
 }

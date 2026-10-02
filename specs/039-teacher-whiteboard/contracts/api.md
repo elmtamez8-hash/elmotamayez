@@ -103,6 +103,8 @@
 
 | Method | Path | ملاحظة |
 |---|---|---|
+> ⛔ **أُلغي (2026-10-02، قرار المالك):** الاستيراد صار في متصفّح المدرّس (PDF.js يرسم كل صفحة صورة، تُرفع بتذاكر الملفات العاديّة وتُضاف صفحةً بـ`POST /pages`). المسارات الثلاثة أدناه وpoppler وطابور `whiteboard-import` حُذفت؛ الجدول باقٍ للتاريخ فقط.
+
 | POST | `/boards/{board}/imports` | `update` + القفل. `{filename, size, mime, insert_after?: page uuid}` → 422 `too_large` قبل التذكرة · 429 `import_in_progress` إن كان للمستخدم استيراد `uploading`/`queued`/`converting` (قفل صفّ المستخدم ثم فحص وإدراج في معاملة واحدة) · `throttle:whiteboard-import`. وإلا `{import:{uuid}, upload:{…}}`، والصفّ يولد `uploading` |
 | POST | `/boards/{board}/imports/{import}/complete` | `CompleteBoardImport`: يطلب الملف المصدر `Ready`، ويفحص نوعه (pdf/docx/pptx/png/jpeg) و`size_bytes` **الفعلي** ≤ `import_max_bytes` (وإلا 422 `too_large`)، ثم `queued`، ثم يرسل `ConvertBoardImportJob` بعد الالتزام على `supervisor-whiteboard` (واحد في كل مرّة). 202 `{status:"queued", position}` |
 | GET | `/boards/{board}/imports/{import}` | `view`. `{status, failure_reason?, pages_count?, position?}`. يستعلم المتصفّح كل 3 ثوانٍ؛ وحدث مقبس حيّ ترقية لاحقة. `position` يُعَدّ `withoutWorkspaceScope()` على الفهرس `(status, created_at)`، مرتّباً بـ `(created_at, id)` |

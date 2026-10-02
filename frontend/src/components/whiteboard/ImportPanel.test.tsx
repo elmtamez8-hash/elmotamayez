@@ -15,19 +15,19 @@ describe("ImportPanel", () => {
     fireEvent.change(input, { target: { files: [pdf] } });
     expect(onFile).toHaveBeenCalledWith(pdf);
 
-    rerender(<ImportPanel view={{ phase: "queued", position: 3 }} onFile={onFile} />);
-    expect(screen.getByRole("status").textContent).toContain("٢");
+    rerender(<ImportPanel view={{ phase: "converting", page: 3, total: 12 }} onFile={onFile} />);
+    expect(screen.getByRole("status").textContent).toBe(WB.importing.converting(3, 12));
     expect(input.disabled).toBe(true); // one import at a time
 
     rerender(<ImportPanel view={{ phase: "done", pages: 5 }} onFile={onFile} />);
     expect(screen.getByRole("status").textContent).toBe(WB.importing.done(5));
     expect(input.disabled).toBe(false);
+
+    rerender(<ImportPanel view={{ phase: "done", pages: 100, capped: 100 }} onFile={onFile} />);
+    expect(screen.getByRole("status").textContent).toContain(WB.importing.capped(100));
   });
 
-  it("says why it failed, in Arabic, for every reason the server gives (US4-4)", () => {
-    for (const reason of ["too_many_pages", "unsupported", "corrupt", "timeout", "board_deleted", "too_large", "import_in_progress"] as const) {
-      expect(WB.errors[reason], reason).toMatch(/[؀-ۿ]/);
-    }
+  it("says why it failed, in Arabic (US4-4)", () => {
     render(<ImportPanel view={{ phase: "failed", message: WB.errors.corrupt }} onFile={vi.fn()} />);
     expect(screen.getByRole("alert").textContent).toBe(WB.errors.corrupt);
   });

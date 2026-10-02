@@ -54,9 +54,9 @@ export const WB = {
   importing: {
     choose: "اختر ملف PDF أو صورة",
     hint: "تُضاف بعد الصفحة الحالية: كل صفحة من الـ PDF صفحة، والصورة صفحة.",
-    uploading: "جارٍ رفع الملف…",
-    queued: (place: number) => (place <= 1 ? "دورك التالي في التحويل…" : `في الانتظار: قبلك ${arabicNumber(place - 1)} في التحويل.`),
-    converting: "جارٍ تحويل الصفحات… يمكنك الشرح على الصفحات الأخرى في الأثناء.",
+    reading: "جارٍ فتح الملف…",
+    converting: (n: number, total: number) => `جارٍ إضافة الصفحة ${arabicNumber(n)} من ${arabicNumber(total)}…`,
+    capped: (max: number) => `الملف أطول من ذلك، فأُضيفت أول ${counted(max, NOUNS.pages)} منه فقط.`,
     done: (n: number) => `أُضيف ${counted(n, NOUNS.pages)}.`,
   },
   panels: { board: "لوحة السبّورة", tools: "أدوات الرسم", pages: "الصفحات", zoom: "التكبير والتراجع", library: "المكتبة والقائمة" },

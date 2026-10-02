@@ -27,14 +27,3 @@ it('registers the whiteboard limiters, keyed by user', function (string $name): 
     expect($limit->key)->toBe('user:'.$teacher->getKey())
         ->and($limit->maxAttempts)->toBeGreaterThanOrEqual(240);
 })->with(['whiteboard-autosave', 'whiteboard-files']);
-
-it('keys the import limiter by user too — a small number on purpose (one conversion runs at a time anyway)', function (): void {
-    $teacher = User::factory()->create();
-    $request = Request::create('/api/v1/boards');
-    $request->setUserResolver(fn () => $teacher);
-
-    /** @var Limit $limit */
-    $limit = RateLimiter::limiter('whiteboard-import')($request);
-
-    expect($limit->key)->toBe('user:'.$teacher->getKey())->and($limit->maxAttempts)->toBeGreaterThanOrEqual(1);
-});

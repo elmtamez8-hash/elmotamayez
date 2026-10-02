@@ -482,15 +482,14 @@ export function useBoardLibrary(api: BoardApi | null): void {
 }
 
 /**
- * A picture imported as the page shown (story 4): 1920 wide, locked UNDER
- * everything drawn, and the frame as many screens tall as the picture needs —
- * the same shape the server gives a PDF's pages (`BoardScene::withPicture`).
- * Not an undo step: the page simply starts this way.
+ * A new page's elements with an imported picture on it (story 4 — a picture,
+ * or one page of a PDF read in the browser): 1920 wide, locked UNDER everything
+ * drawn, and the frame as many screens tall as the picture needs. Pure, so a
+ * PDF's pages are built without being shown one by one.
  */
-export function placePagePicture(api: BoardApi, fileId: string, width: number, height: number): void {
-  const elements = api.getSceneElementsIncludingDeleted();
+export function withPagePicture(elements: readonly BoardElement[], fileId: string, width: number, height: number): BoardElement[] {
   const frame = pageFrame(elements);
-  if (!frame) return;
+  if (!frame) return [...elements];
   const scaled = Math.round((height * PAGE_WIDTH) / Math.max(1, width));
   const screens = Math.max(1, Math.ceil(scaled / PAGE_HEIGHT));
   const [picture] = convertToExcalidrawElements([
@@ -511,8 +510,5 @@ export function placePagePicture(api: BoardApi, fileId: string, width: number, h
     screens * PAGE_HEIGHT > frame.height
       ? ({ ...frame, height: screens * PAGE_HEIGHT, version: frame.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) } as BoardElement)
       : frame;
-  api.updateScene({
-    elements: [picture, ...elements.map((e) => (e.id === frame.id ? grown : e))],
-    captureUpdate: CaptureUpdateAction.NEVER,
-  });
+  return [picture as BoardElement, ...elements.map((e) => (e.id === frame.id ? grown : e))];
 }

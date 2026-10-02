@@ -7,8 +7,6 @@ namespace App\Modules\Whiteboard;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Policies\BoardPolicy;
 use App\Modules\Whiteboard\Support\MemberRoles;
-use App\Modules\Whiteboard\Support\PdfPages;
-use App\Modules\Whiteboard\Support\PopplerPdfPages;
 use App\Modules\Whiteboard\Support\WhiteboardPersonalData;
 use App\Shared\Modules\Module;
 use App\Shared\Modules\ModulesServiceProvider;
@@ -37,8 +35,6 @@ class WhiteboardServiceProvider extends Module
 
         // One answer per request or job — see MemberRoles.
         $this->app->scoped(MemberRoles::class);
-        // Story 4: poppler in production; the tests bind FakePdfPages.
-        $this->app->bind(PdfPages::class, PopplerPdfPages::class);
     }
 
     public function boot(): void
