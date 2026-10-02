@@ -15,12 +15,14 @@ import {
   addStroke,
   applyBackground,
   applyPen,
+  currentScreen,
   exportPage,
   fitToFrame,
   initialAppState,
   installTextMetrics,
   loadPage,
   pageDocument,
+  pageScreens,
   pageTemplate,
   pageThumbnail,
   pictureIds,
@@ -29,6 +31,7 @@ import {
   restorePage,
   sceneVersion,
   setPageTemplate,
+  showScreen,
   startLaser,
   type BoardApi,
   type BoardElement,
@@ -112,6 +115,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [presenting, setPresenting] = useState(false);
   const [reveal, setReveal] = useState(false);
   const [frameRect, setFrameRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const [screen, setScreen] = useState({ index: 0, count: 1 });
   const containerRef = useRef<HTMLDivElement>(null);
   const pages = useRef<Pages>(new Map());
   const { user } = useAuth();
@@ -283,38 +287,67 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     };
   }, [boardUuid, pictures]);
 
-  const fit = useCallback(() => {
-    const box = containerRef.current?.getBoundingClientRect();
-    if (api && box) fitToFrame(api, box.width, box.height);
-  }, [api]);
+  /** Fit one screen of the page: `screen`, or the one the teacher is on (a resize keeps it). */
+  const fit = useCallback(
+    (screen?: number) => {
+      const box = containerRef.current?.getBoundingClientRect();
+      if (api && box) fitToFrame(api, box.width, box.height, screen ?? currentScreen(api, box.height));
+    },
+    [api],
+  );
 
   // Excalidraw settles its own viewport after mount, so fit on the next frame too.
   useEffect(() => {
     if (!api) return;
-    fit();
-    const frame = requestAnimationFrame(fit);
-    window.addEventListener("resize", fit);
+    const refit = () => fit();
+    refit();
+    const frame = requestAnimationFrame(refit);
+    window.addEventListener("resize", refit);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("resize", fit);
+      window.removeEventListener("resize", refit);
     };
   }, [api, fit]);
 
-  // The mask follows the frame on every scroll and zoom.
-  useEffect(() => {
+  /** Down (or up) a screen — growing the page when the teacher goes past its end. */
+  const moveScreen = useCallback(
+    (delta: number) => {
+      const box = containerRef.current?.getBoundingClientRect();
+      if (!api || !box) return;
+      const target = currentScreen(api, box.height) + delta;
+      // Only the lock holder grows a page; anyone else just looks through it.
+      showScreen(api, box.width, box.height, session.held ? target : Math.min(target, pageScreens(api) - 1));
+    },
+    [api, session.held],
+  );
+
+  /**
+   * The mask, the screen counter and the view follow the page. Called on every
+   * scroll AND every scene change: switching to a page of another height scrolls
+   * to the same spot, and Excalidraw sends no scroll event for that.
+   */
+  const syncFrame = useCallback(() => {
     if (!api) return;
     const { scrollX, scrollY, zoom } = api.getAppState();
-    setView({ scrollX, scrollY, zoom: zoom.value });
-    return api.onScrollChange((scrollX, scrollY, zoom) => {
-      setView({ scrollX, scrollY, zoom: zoom.value });
-      setFrameRect({
-        left: scrollX * zoom.value,
-        top: scrollY * zoom.value,
-        width: PAGE_WIDTH * zoom.value,
-        height: PAGE_HEIGHT * zoom.value,
-      });
-    });
+    // The page's REAL height: it grows downward in screens.
+    const screens = pageScreens(api);
+    const box = containerRef.current?.getBoundingClientRect();
+    const next = {
+      view: { scrollX, scrollY, zoom: zoom.value },
+      screen: { index: box ? currentScreen(api, box.height) : 0, count: screens },
+      frame: { left: scrollX * zoom.value, top: scrollY * zoom.value, width: PAGE_WIDTH * zoom.value, height: screens * PAGE_HEIGHT * zoom.value },
+    };
+    // Unchanged state keeps its object, so React skips the render.
+    setView((v) => (sameFields(v, next.view) ? v : next.view));
+    setScreen((s) => (sameFields(s, next.screen) ? s : next.screen));
+    setFrameRect((f) => (sameFields(f, next.frame) ? f : next.frame));
   }, [api]);
+
+  useEffect(() => {
+    if (!api) return;
+    syncFrame();
+    return api.onScrollChange(syncFrame);
+  }, [api, syncFrame]);
 
   const pageIds = board?.pages.map((page) => page.uuid) ?? [];
 
@@ -343,7 +376,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (!api) return;
       loadPage(api, pages.current.get(list[index].uuid) ?? []);
       setPageIndex(index);
-      fit();
+      fit(0);
     },
     [api, fit],
   );
@@ -368,11 +401,14 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (api && Object.keys(api.getAppState().selectedElementIds).length === 0) {
         if (event.key === "ArrowLeft") goTo(pageIndex + 1);
         if (event.key === "ArrowRight") goTo(pageIndex - 1);
+        // Up and down: the screens of this page, growing it past its end.
+        if (event.key === "ArrowDown") moveScreen(1);
+        if (event.key === "ArrowUp") moveScreen(-1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [api, goTo, pageIndex]);
+  }, [api, goTo, pageIndex, moveScreen]);
 
   // The app keeps a scrollbar on <html> on every page; on the tab the class watches
   // it is a grey strip down the side of the board. Removed while the board is open.
@@ -559,6 +595,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           const shownTemplate = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template");
           setTemplate(((shownTemplate?.customData as { name?: string } | undefined)?.name ?? null) as TemplateName | null);
+          syncFrame();
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
           const shown = board.pages[pageIndex]?.uuid;
@@ -627,6 +664,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                 ),
               },
             ]}
+            screen={screen}
+            onScreen={moveScreen}
             pagesOpen={showPages}
             onTogglePages={() => setShowPages((value) => !value)}
             status={
@@ -701,7 +740,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             key={instrument.id}
             kind={instrument.kind}
             view={view}
-            centre={[PAGE_WIDTH / 2, PAGE_HEIGHT / 2]}
+            centre={[PAGE_WIDTH / 2, screen.index * PAGE_HEIGHT + PAGE_HEIGHT / 2]}
             onDraw={drawAlong}
             onClose={endInstrument}
           />
@@ -731,4 +770,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       />
     </div>
   );
+}
+
+/** Same values in every field — lets a state setter keep the old object. */
+function sameFields<T extends object>(a: T, b: T): boolean {
+  return (Object.keys(b) as (keyof T)[]).every((key) => a[key] === b[key]);
 }

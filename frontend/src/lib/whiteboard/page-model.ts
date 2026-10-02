@@ -38,15 +38,34 @@ export interface Viewport {
  * Excalidraw maps scene → viewport as `(sceneX + scrollX) * zoom`, so centring the
  * frame's middle (960, 540) on the window's middle gives the scroll below.
  */
-export function fitViewport(viewportWidth: number, viewportHeight: number): Viewport {
+/**
+ * The view that fills the canvas with ONE SCREEN of the page: a page grows
+ * downward in screens of PAGE_WIDTH × PAGE_HEIGHT (owner, 2026-10-02: «I move down
+ * to keep explaining in empty space»), and the class always sees one screen.
+ */
+export function fitViewport(viewportWidth: number, viewportHeight: number, screen = 0): Viewport {
   const raw = Math.min(viewportWidth / PAGE_WIDTH, viewportHeight / PAGE_HEIGHT);
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, raw));
 
   return {
     zoom,
     scrollX: viewportWidth / (2 * zoom) - PAGE_WIDTH / 2,
-    scrollY: viewportHeight / (2 * zoom) - PAGE_HEIGHT / 2,
+    scrollY: viewportHeight / (2 * zoom) - (screen * PAGE_HEIGHT + PAGE_HEIGHT / 2),
   };
+}
+
+/** How many screens a page of this height holds (at least one). */
+export function screensIn(pageHeight: number): number {
+  return Math.max(1, Math.round(pageHeight / PAGE_HEIGHT));
+}
+
+/**
+ * The screen nearest the middle of the canvas — where the teacher is now — from
+ * Excalidraw's own scroll: the page point at the centre is `height / (2·zoom) − scrollY`.
+ */
+export function screenAt(scrollY: number, zoom: number, viewportHeight: number, screens: number): number {
+  const centre = viewportHeight / (2 * zoom) - scrollY;
+  return Math.min(screens - 1, Math.max(0, Math.round((centre - PAGE_HEIGHT / 2) / PAGE_HEIGHT)));
 }
 
 /**

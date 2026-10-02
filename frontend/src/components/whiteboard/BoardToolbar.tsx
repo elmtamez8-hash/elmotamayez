@@ -21,6 +21,9 @@ export interface BoardToolbarProps {
   onBackground: (background: BoardBackground) => void;
   onExport: (kind: "png" | "svg") => Promise<void>;
   onTogglePresenting: () => void;
+  /** The screen of the page shown, and how many it has (a page grows downward). */
+  screen?: { index: number; count: number };
+  onScreen?: (delta: number) => void;
   pagesOpen?: boolean;
   onTogglePages?: () => void;
   /**
@@ -76,6 +79,24 @@ export function BoardToolbar(props: BoardToolbarProps) {
           </Button>
         </div>
       </div>
+      {props.screen && props.onScreen && (
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
+            {WB.screenUp}
+          </Button>
+          <span className="text-sm tabular-nums" aria-live="polite">
+            {WB.screenOf(props.screen.index + 1, props.screen.count)}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
+            onClick={() => props.onScreen?.(1)}
+          >
+            {props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
+          </Button>
+        </div>
+      )}
       <BoardSettings
         title={props.title}
         background={props.background}
