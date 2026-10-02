@@ -62,7 +62,7 @@ export function BalloonPop({ onDone, sound }: { onDone: () => void; sound: boole
     <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: 6 }} data-effect="balloons">
       <style>{`
         @keyframes wb-rise { from { transform: translateY(0); } to { transform: translateY(calc(-100dvh - 220px)); } }
-        @keyframes wb-sway { 0%, 100% { margin-inline-start: 0; } 50% { margin-inline-start: 24px; } }
+        @keyframes wb-sway { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(24px); } }
         @keyframes wb-burst { to { transform: scale(1.8); opacity: 0; } }
       `}</style>
       {balloons.map((b) => (
@@ -78,12 +78,13 @@ export function BalloonPop({ onDone, sound }: { onDone: () => void; sound: boole
             bottom: -b.size * 1.6,
             width: b.size,
             height: b.size * 1.5,
-            animation: `wb-rise ${b.duration}s linear ${b.delay}s forwards, wb-sway 2.5s ease-in-out ${b.delay}s infinite`,
+            animation: `wb-rise ${b.duration}s linear ${b.delay}s forwards`,
             visibility: popped.has(b.id) ? "hidden" : undefined,
           }}
           data-balloon={b.id}
         >
-          <svg viewBox="0 0 60 90" width="100%" height="100%" aria-hidden>
+          {/* The sway is a transform on the picture, not a margin: a margin re-laid out twelve balloons every frame. */}
+          <svg viewBox="0 0 60 90" width="100%" height="100%" aria-hidden style={{ animation: `wb-sway 2.5s ease-in-out ${b.delay}s infinite` }}>
             <ellipse cx="30" cy="30" rx="26" ry="30" fill={b.colour} />
             <ellipse cx="21" cy="20" rx="6" ry="9" fill="#fff" opacity="0.45" />
             <path d="M27 59 L33 59 L30 64 Z" fill={b.colour} />

@@ -68,6 +68,15 @@ interface PageSlot {
   cancelIdle: (() => void) | null;
 }
 
+/**
+ * One serialisation per scene: the draft and the PUT share it (a large page is
+ * megabytes of JSON, and it was stringified twice).
+ */
+function once(build: () => string): () => string {
+  let scene: string | undefined;
+  return () => (scene ??= build());
+}
+
 function codeOf(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
   const body = error.body as { code?: unknown } | null;
@@ -151,6 +160,7 @@ export function createAutosave(deps: AutosaveDeps) {
         backoff = 1000;
         if (slot.hash === payload.hash) {
           slot.dirty = false;
+          slot.build = null; // saved: let go of the scene (and the page's elements)
           void deps.drafts.remove(key(page));
         } else {
           send(page); // the latest scene, waiting behind this one
@@ -219,7 +229,7 @@ export function createAutosave(deps: AutosaveDeps) {
       const slot = pages.get(page);
       if (!slot) return;
       slot.hash = hash;
-      slot.build = build;
+      slot.build = once(build);
       slot.dirty = true;
       send(page);
       report();
@@ -230,7 +240,7 @@ export function createAutosave(deps: AutosaveDeps) {
       const slot = pages.get(page);
       if (!slot || ended || !holding || slot.stopped || slot.hash === hash) return;
       slot.hash = hash;
-      slot.build = build;
+      slot.build = once(build);
       slot.dirty = true;
 
       slot.cancelIdle ??= deps.idle(() => {
@@ -285,7 +295,7 @@ export function createAutosave(deps: AutosaveDeps) {
       slot.stopped = false;
       slot.version = version;
       slot.hash = hash;
-      slot.build = build;
+      slot.build = build && once(build);
       slot.dirty = build !== null;
       if (!slot.dirty) void deps.drafts.remove(key(page));
       send(page);

@@ -25,7 +25,10 @@ export function PointerTrail({ style }: { style: Exclude<TrailStyle, "off"> }) {
       canvas.width = box.width * ratio;
       canvas.height = box.height * ratio;
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      size = { left: box.left, top: box.top, width: box.width, height: box.height };
     };
+    // Measured on resize, not on every frame and every pointer move.
+    let size = { left: 0, top: 0, width: 0, height: 0 };
     resize();
 
     let points: TrailPoint[] = [];
@@ -35,8 +38,10 @@ export function PointerTrail({ style }: { style: Exclude<TrailStyle, "off"> }) {
     const draw = (now: number) => {
       points = ageTrail(points, last ? (now - last) / 1000 : 0);
       last = now;
-      const box = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, box.width, box.height);
+      ctx.clearRect(0, 0, size.width, size.height);
+      // A blur is the costliest thing a canvas draws, and this runs while the
+      // teacher writes: only «neon» glows.
+      ctx.shadowBlur = style === "neon" ? 12 : 0;
 
       ctx.lineCap = "round";
       for (let i = 1; i < points.length; i++) {
@@ -46,8 +51,7 @@ export function PointerTrail({ style }: { style: Exclude<TrailStyle, "off"> }) {
         ctx.globalAlpha = fade;
         ctx.strokeStyle = trailColour(style, i);
         ctx.lineWidth = (style === "sparks" ? 4 : 8) * fade + 2;
-        ctx.shadowColor = ctx.strokeStyle;
-        ctx.shadowBlur = style === "neon" ? 18 : 8;
+        if (style === "neon") ctx.shadowColor = ctx.strokeStyle;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
@@ -63,8 +67,7 @@ export function PointerTrail({ style }: { style: Exclude<TrailStyle, "off"> }) {
     };
 
     const onMove = (event: PointerEvent) => {
-      const box = canvas.getBoundingClientRect();
-      points.push({ x: event.clientX - box.left, y: event.clientY - box.top, age: 0 });
+      points.push({ x: event.clientX - size.left, y: event.clientY - size.top, age: 0 });
       if (frame === 0) frame = requestAnimationFrame(draw);
     };
 

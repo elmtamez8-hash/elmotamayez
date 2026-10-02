@@ -72,9 +72,13 @@ describe("PagesSidebar", () => {
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(p.thumbnail).toHaveBeenCalledTimes(1);
 
-    // The page changed: drawn again.
+    // The page changed: drawn again — once the drawing has paused, not per stroke.
     view.rerender(<PagesSidebar {...p} pages={[{ uuid: "a", version: 1 }, { uuid: "b", version: 2 }, { uuid: "c", version: 1 }]} />);
-    await act(() => vi.advanceTimersByTimeAsync(100));
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    view.rerender(<PagesSidebar {...p} pages={[{ uuid: "a", version: 1 }, { uuid: "b", version: 3 }, { uuid: "c", version: 1 }]} />);
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(p.thumbnail).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(1200));
     expect(p.thumbnail).toHaveBeenCalledTimes(2);
   });
 

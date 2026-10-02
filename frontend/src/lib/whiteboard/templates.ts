@@ -109,8 +109,35 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
   return { lines, dots };
 }
 
-/** The template as a page-sized PNG. */
-export async function renderTemplate(name: TemplateName): Promise<Blob> {
+const rendered = new Map<TemplateName, Promise<Blob>>();
+const urls = new Map<TemplateName, Promise<string>>();
+
+/** The template as a page-sized PNG — drawn once per name for the whole visit. */
+export function renderTemplate(name: TemplateName): Promise<Blob> {
+  let blob = rendered.get(name);
+  if (!blob) {
+    blob = drawTemplate(name);
+    rendered.set(name, blob);
+    blob.catch(() => rendered.delete(name)); // a failed draw is tried again next time
+  }
+  return blob;
+}
+
+/**
+ * The template as an object URL, for CSS. One per name, kept for the visit
+ * (six templates at most), so it is never revoked while a cover shows it.
+ */
+export function templateUrl(name: TemplateName): Promise<string> {
+  let url = urls.get(name);
+  if (!url) {
+    url = renderTemplate(name).then((blob) => URL.createObjectURL(blob));
+    urls.set(name, url);
+    url.catch(() => urls.delete(name));
+  }
+  return url;
+}
+
+async function drawTemplate(name: TemplateName): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = PAGE_WIDTH;
   canvas.height = PAGE_HEIGHT;
