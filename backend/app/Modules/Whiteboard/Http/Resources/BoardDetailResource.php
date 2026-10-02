@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Whiteboard\Http\Resources;
 
+use App\Modules\Whiteboard\Actions\RecordBoardExport;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Models\BoardLessonExport;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class BoardDetailResource extends BoardResource
                 'uuid' => $export->uuid,
                 'lesson' => $export->lesson === null ? null : ['uuid' => $export->lesson->uuid, 'title' => $export->lesson->title],
                 'attachment' => $export->mediaAsset === null ? null : ['uuid' => $export->mediaAsset->uuid],
-                'can_replace' => $export->mediaAsset === null || ($request->user()?->can('delete', $export->mediaAsset) ?? false),
+                'can_replace' => $request->user() !== null && RecordBoardExport::canReplace($request->user(), $export->mediaAsset),
             ])->values()->all(),
         ];
     }

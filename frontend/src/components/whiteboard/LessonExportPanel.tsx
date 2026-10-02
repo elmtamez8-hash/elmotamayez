@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/Field";
 import { api, ApiError, uploadToTicket } from "@/lib/api";
 import { courses as courseApi } from "@/lib/courses";
+import { userMessage } from "@/lib/errors";
 import { media } from "@/lib/media";
 import { boards, type BoardDetail, type BoardExport } from "@/lib/whiteboard/api";
 import { WB } from "@/lib/whiteboard/strings";
+
+type TakenBody = { code: string; export: string; attachment: { uuid: string } | null; can_replace: boolean };
 
 type Phase = { kind: "idle" } | { kind: "drawing"; done: number; total: number } | { kind: "uploading" } | { kind: "done"; replaced: boolean } | { kind: "failed"; message: string };
 
@@ -35,7 +38,8 @@ export function LessonExportPanel({
   const [courses, setCourses] = useState<{ uuid: string; title: string }[]>([]);
   const [course, setCourse] = useState(board.course?.deleted ? "" : (board.course?.uuid ?? ""));
   const [lessons, setLessons] = useState<{ uuid: string; title: string }[] | null>(null);
-  const [lesson, setLesson] = useState(board.lesson?.uuid ?? "");
+  // A deleted course hides its lessons, so its lesson is not preselected either.
+  const [lesson, setLesson] = useState(board.course?.deleted ? "" : (board.lesson?.uuid ?? ""));
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
 
   useEffect(() => {
@@ -96,15 +100,24 @@ export function LessonExportPanel({
           uuid: recorded.export,
           lesson: { uuid: lesson, title },
           attachment: recorded.attachment.uuid ? { uuid: recorded.attachment.uuid } : null,
-          can_replace: existing?.can_replace ?? true,
+          can_replace: recorded.can_replace,
         },
       ]);
       setPhase({ kind: "done", replaced: recorded.replaced });
     } catch (error) {
-      const code = error instanceof ApiError ? (error.body as { code?: string } | null)?.code : undefined;
+      const body = error instanceof ApiError ? (error.body as Partial<TakenBody> | null) : null;
+      if (body?.code === "already_exported" && body.export) {
+        // Another tab attached first: take its row, so the next press REPLACES
+        // instead of drawing and uploading the board again for the same 409.
+        const taken = { uuid: body.export, lesson: { uuid: lesson, title: existing?.lesson?.title ?? "" }, attachment: body.attachment ?? null, can_replace: body.can_replace ?? false };
+        setExports((rows) => [...rows.filter((row) => row.uuid !== taken.uuid && row.lesson?.uuid !== lesson), taken]);
+        setPhase({ kind: "failed", message: taken.can_replace ? WB.lessonExport.takenElsewhere : WB.lessonExport.askTeacher });
+        return;
+      }
+      const code = body?.code;
       setPhase({
         kind: "failed",
-        message: code && code in WB.errors ? WB.errors[code as keyof typeof WB.errors] : error instanceof ApiError ? error.message : WB.pagesFailed,
+        message: code && code in WB.errors ? WB.errors[code as keyof typeof WB.errors] : error instanceof ApiError ? userMessage(error) : WB.lessonExport.failed,
       });
     }
   };

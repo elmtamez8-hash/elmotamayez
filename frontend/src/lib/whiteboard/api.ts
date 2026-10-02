@@ -51,7 +51,7 @@ export interface BoardExport {
   can_replace: boolean;
 }
 
-export type ExportRecorded = { export: string; attachment: { uuid: string | null }; replaced: boolean };
+export type ExportRecorded = { export: string; attachment: { uuid: string | null }; replaced: boolean; can_replace: boolean };
 
 export interface SceneDocument {
   v: number;

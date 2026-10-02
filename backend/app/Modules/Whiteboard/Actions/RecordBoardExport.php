@@ -6,6 +6,7 @@ namespace App\Modules\Whiteboard\Actions;
 
 use App\Models\User;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Identity\Support\TwoFactorMandate;
 use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Modules\Media\Enums\MediaAssetStatus;
 use App\Modules\Media\Enums\MediaRole;
@@ -42,8 +43,32 @@ class RecordBoardExport extends Action
 
     public function __construct(private readonly DeleteMediaAsset $delete) {}
 
+    /**
+     * May `$user` replace the export holding `$old`? What deleting it asks, and
+     * the two-factor deadline the replacement's route enforces — so the screen
+     * says so BEFORE the board is drawn and uploaded, not after.
+     */
+    public static function canReplace(User $user, ?MediaAsset $old): bool
+    {
+        return $old === null
+            || (Gate::forUser($user)->allows('delete', $old) && TwoFactorMandate::refusalFor($user) === null);
+    }
+
     /** @return array{export: BoardLessonExport, replaced: bool} */
     public function handle(User $user, Board $board, Lesson $lesson, MediaAsset $new, ?BoardLessonExport $replacing = null): array
+    {
+        try {
+            return $this->record($user, $board, $lesson, $new, $replacing);
+        } catch (WhiteboardRefusal $refusal) {
+            // Whatever refused, the caller's own fresh upload is linked to nothing
+            // and must not stay on the lesson for students to see.
+            $this->discard($user, $new);
+            throw $refusal;
+        }
+    }
+
+    /** @return array{export: BoardLessonExport, replaced: bool} */
+    private function record(User $user, Board $board, Lesson $lesson, MediaAsset $new, ?BoardLessonExport $replacing): array
     {
         $this->check($user, $lesson, $new, $replacing);
 
@@ -54,7 +79,7 @@ class RecordBoardExport extends Action
                 ->first();
             // An export whose file was deleted (`nullOnDelete`) is attached afresh.
             if ($existing?->media_asset_id !== null) {
-                throw new WhiteboardRefusal('already_exported', ['export' => $existing->uuid]);
+                throw $this->taken($user, $existing);
             }
 
             return ['export' => $this->attachFirst($user, $board, $lesson, $new, $existing), 'replaced' => false];
@@ -73,7 +98,6 @@ class RecordBoardExport extends Action
 
         $old = MediaAsset::query()->find($oldId);
         if ($old !== null && ! Gate::forUser($user)->allows('delete', $old)) {
-            $this->discard($user, $new);
             throw new WhiteboardRefusal('replace_forbidden');
         }
 
@@ -83,9 +107,8 @@ class RecordBoardExport extends Action
             ->update(['media_asset_id' => $new->id, 'updated_at' => now()]);
 
         if ($swapped !== 1) {
-            // Another replacement got there first: this file is linked to nothing.
-            $this->discard($user, $new);
-            throw new WhiteboardRefusal('already_exported', ['export' => $replacing->uuid]);
+            // Another replacement got there first.
+            throw $this->taken($user, $replacing->refresh());
         }
 
         if ($old !== null) {
@@ -102,6 +125,12 @@ class RecordBoardExport extends Action
         Gate::forUser($user)->authorize('create', [MediaAsset::class, $lesson]);
         if ($new->status !== MediaAssetStatus::Ready) {
             throw new WhiteboardRefusal('asset_not_ready');
+        }
+        // Only the upload just made for this export: a worksheet already on the
+        // lesson, passed by uuid, would otherwise become «the board's PDF» and be
+        // deleted by the next replacement.
+        if (! $this->freshFrom($user, $new)) {
+            throw new WhiteboardRefusal('asset_mismatch');
         }
         $ownedByLesson = $new->owner_type === $lesson->getMorphClass() && (int) $new->owner_id === (int) $lesson->id;
         // Linked to ANOTHER export; the one being replaced may already name it (sent twice).
@@ -123,8 +152,7 @@ class RecordBoardExport extends Action
                 ->whereNull('media_asset_id')
                 ->update(['media_asset_id' => $new->id, 'updated_at' => now()]);
             if ($taken !== 1) {
-                $this->discard($user, $new);
-                throw new WhiteboardRefusal('already_exported', ['export' => $existing->uuid]);
+                throw $this->taken($user, $existing->refresh());
             }
 
             return $existing->refresh();
@@ -139,18 +167,34 @@ class RecordBoardExport extends Action
             ]);
         } catch (UniqueConstraintViolationException) {
             // Two first attachments at once: `unique(board_id, lesson_id)` decided.
-            $this->discard($user, $new);
-            throw new WhiteboardRefusal('already_exported');
+            $winner = BoardLessonExport::query()->where('board_id', $board->id)->where('lesson_id', $lesson->id)->first();
+            throw $winner === null ? new WhiteboardRefusal('already_exported') : $this->taken($user, $winner);
         }
     }
 
     /** The caller's own fresh upload that ended up linked to nothing — and nothing else. */
     private function discard(User $user, MediaAsset $new): void
     {
-        if ((int) $new->uploaded_by_user_id === (int) $user->id
-            && $new->created_at !== null && $new->created_at->gt(now()->subMinutes(self::FRESH_MINUTES))
-            && ! BoardLessonExport::query()->where('media_asset_id', $new->id)->exists()) {
+        if ($this->freshFrom($user, $new) && ! BoardLessonExport::query()->where('media_asset_id', $new->id)->exists()) {
             $this->delete->handle($new);
         }
+    }
+
+    private function freshFrom(User $user, MediaAsset $asset): bool
+    {
+        return (int) $asset->uploaded_by_user_id === (int) $user->id
+            && $asset->created_at !== null && $asset->created_at->gt(now()->subMinutes(self::FRESH_MINUTES));
+    }
+
+    /** «Already attached», with what the screen needs to switch to replacing it. */
+    private function taken(User $user, BoardLessonExport $export): WhiteboardRefusal
+    {
+        $asset = $export->media_asset_id === null ? null : MediaAsset::query()->find($export->media_asset_id);
+
+        return new WhiteboardRefusal('already_exported', [
+            'export' => $export->uuid,
+            'attachment' => $asset === null ? null : ['uuid' => $asset->uuid],
+            'can_replace' => self::canReplace($user, $asset),
+        ]);
     }
 }

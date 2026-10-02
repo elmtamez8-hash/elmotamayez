@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Whiteboard\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Whiteboard\Actions\RecordBoardExport;
@@ -24,9 +25,10 @@ class BoardLessonExportController extends Controller
         $this->authorize('export', $board);
 
         $lesson = Lesson::query()->where('workspace_id', $board->workspace_id)->where('uuid', $request->validated('lesson'))->firstOrFail();
-        $result = $action->handle($this->currentUser($request), $board, $lesson, $this->asset($request));
+        $user = $this->currentUser($request);
+        $result = $action->handle($user, $board, $lesson, $this->asset($request));
 
-        return response()->json($this->answer($result), 201);
+        return response()->json($this->answer($user, $result), 201);
     }
 
     public function update(RecordBoardExportRequest $request, Board $board, string $export, RecordBoardExport $action): JsonResponse
@@ -36,9 +38,10 @@ class BoardLessonExportController extends Controller
         // Found THROUGH the board: another board's export uuid reads as missing.
         $existing = BoardLessonExport::query()->where('board_id', $board->id)->where('uuid', $export)->firstOrFail();
         $lesson = Lesson::query()->findOrFail($existing->lesson_id);
-        $result = $action->handle($this->currentUser($request), $board, $lesson, $this->asset($request), $existing);
+        $user = $this->currentUser($request);
+        $result = $action->handle($user, $board, $lesson, $this->asset($request), $existing);
 
-        return response()->json($this->answer($result));
+        return response()->json($this->answer($user, $result));
     }
 
     private function asset(RecordBoardExportRequest $request): MediaAsset
@@ -50,12 +53,16 @@ class BoardLessonExportController extends Controller
      * @param  array{export: BoardLessonExport, replaced: bool}  $result
      * @return array<string, mixed>
      */
-    private function answer(array $result): array
+    private function answer(User $user, array $result): array
     {
+        $asset = $result['export']->mediaAsset;
+
         return [
             'export' => $result['export']->uuid,
-            'attachment' => ['uuid' => $result['export']->mediaAsset?->uuid],
+            'attachment' => ['uuid' => $asset?->uuid],
             'replaced' => $result['replaced'],
+            // Whether a NEXT export may replace this one (an assistant attaches once).
+            'can_replace' => RecordBoardExport::canReplace($user, $asset),
         ];
     }
 }

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import type { BoardDetail } from "@/lib/whiteboard/api";
 import { WB } from "@/lib/whiteboard/strings";
 
@@ -53,7 +54,7 @@ describe("LessonExportPanel", () => {
   });
 
   it("attaches the board's PDF to the board's lesson through the lesson's own upload (US5-1)", async () => {
-    calls.record.mockResolvedValue({ export: "e1", attachment: { uuid: "a2" }, replaced: false });
+    calls.record.mockResolvedValue({ export: "e1", attachment: { uuid: "a2" }, replaced: false, can_replace: true });
     render(<LessonExportPanel board={board([])} pageCount={1} renderPdf={renderPdf} />);
 
     fireEvent.click(await screen.findByRole("button", { name: WB.lessonExport.attach }));
@@ -65,7 +66,7 @@ describe("LessonExportPanel", () => {
   });
 
   it("replaces an earlier attachment and says so (US5-3)", async () => {
-    calls.replace.mockResolvedValue({ export: "e1", attachment: { uuid: "a2" }, replaced: true });
+    calls.replace.mockResolvedValue({ export: "e1", attachment: { uuid: "a2" }, replaced: true, can_replace: true });
     render(
       <LessonExportPanel
         board={board([{ uuid: "e1", lesson: { uuid: "l1", title: "الحركة" }, attachment: { uuid: "a1" }, can_replace: true }])}
@@ -94,5 +95,17 @@ describe("LessonExportPanel", () => {
     expect(button.disabled).toBe(true);
     fireEvent.click(button);
     expect(renderPdf).not.toHaveBeenCalled();
+  });
+
+  it("takes another tab's attachment from a 409, so the next press replaces it", async () => {
+    calls.record.mockRejectedValue(
+      new ApiError("conflict", 409, { code: "already_exported", export: "e9", attachment: { uuid: "a9" }, can_replace: true }),
+    );
+    render(<LessonExportPanel board={board([])} pageCount={1} renderPdf={renderPdf} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: WB.lessonExport.attach }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(WB.lessonExport.takenElsewhere));
+    expect(screen.getByRole("button", { name: WB.lessonExport.replace })).toBeTruthy();
   });
 });

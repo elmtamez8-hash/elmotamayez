@@ -751,10 +751,12 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (!board) throw new Error("no board");
     keepShown(); // what is on screen now is in the PDF
     const list = board.pages;
+    // A snapshot: a reload from another tab mid-draw must not turn pages blank.
+    const snapshot = new Map(pages.current);
     return boardPdf(
       list.length,
       async (index) => {
-        const elements = pages.current.get(list[index].uuid) ?? [];
+        const elements = snapshot.get(list[index].uuid) ?? [];
         return pageImage(elements, await pictures.peek(pagePictureIds(elements)), background);
       },
       onPage,

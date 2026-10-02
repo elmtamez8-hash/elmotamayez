@@ -83,7 +83,11 @@ it('records the first attachment, shows it on the board, and refuses a second fi
     $again = wbExportPdf($this->lesson, $this->teacher->id);
     $this->postJson(wbExportUrl($this->board), ['lesson' => $this->lesson->uuid, 'asset' => $again->uuid])
         ->assertStatus(409)
-        ->assertJsonPath('code', 'already_exported');
+        ->assertJsonPath('code', 'already_exported')
+        ->assertJsonPath('export', $first->json('export'))
+        ->assertJsonPath('attachment.uuid', (string) $pdf->uuid)
+        ->assertJsonPath('can_replace', true);
+    expect(MediaAsset::query()->find($again->id))->toBeNull(); // linked to nothing, so gone
 });
 
 it('replaces the attachment: one export, the new file, the old one deleted', function (): void {
@@ -139,6 +143,9 @@ it('refuses a replacement to a teacher past their two-factor deadline', function
     ]);
     $this->teacher->securitySettings()->updateOrCreate([], ['two_factor_required_at' => CarbonImmutable::now()->subDay()]);
 
+    // Said before anything is drawn or uploaded…
+    $this->getJson('/api/v1/boards/'.$this->board->uuid)->assertJsonPath('exports.0.can_replace', false);
+    // …and refused at the door all the same.
     $this->putJson(wbExportUrl($this->board, $export->uuid), ['asset' => wbExportPdf($this->lesson, $this->teacher->id)->uuid])->assertForbidden();
     expect($export->fresh()->media_asset_id)->toBe($old->id);
 });
@@ -166,9 +173,19 @@ it('refuses a file that is not this lesson\'s ready PDF attachment, linked to no
             $this->postJson(wbExportUrl($this->board), ['lesson' => $this->lesson->uuid, 'asset' => $asset->uuid])
                 ->assertStatus(422)
                 ->assertJsonPath('code', $code);
-            expect(MediaAsset::query()->find($asset->id))->not->toBeNull(); // a refusal deletes nothing passed by uuid
+            // The caller's own fresh upload, refused, does not stay on the lesson;
+            // a file linked to another board's export does.
+            expect(MediaAsset::query()->find($asset->id) !== null)->toBe($asset->is($linked));
         }
     }
+
+    // A worksheet already on the lesson, passed by uuid, is never taken as the
+    // board's PDF (the next replacement would delete it) — and is not deleted.
+    $worksheet = wbExportPdf($this->lesson, $this->owner->id);
+    $this->postJson(wbExportUrl($this->board), ['lesson' => $this->lesson->uuid, 'asset' => $worksheet->uuid])
+        ->assertStatus(422)
+        ->assertJsonPath('code', 'asset_mismatch');
+    expect(MediaAsset::query()->find($worksheet->id))->not->toBeNull();
 });
 
 it('loses a replacement race without deleting what the winner linked', function (): void {
