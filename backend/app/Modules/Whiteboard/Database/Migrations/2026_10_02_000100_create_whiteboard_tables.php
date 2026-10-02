@@ -91,30 +91,6 @@ return new class extends Migration
             $table->index('workspace_id');
         });
 
-        Schema::create('board_imports', function (Blueprint $table): void {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->unsignedBigInteger('workspace_id');
-            $table->foreignId('board_id')->constrained('boards')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('source_asset_id')->nullable()->constrained('media_assets')->nullOnDelete();
-            // uploading · queued · converting · done · failed
-            $table->string('status', 16)->default('uploading');
-            $table->string('failure_reason', 60)->nullable();
-            $table->timestamp('dispatched_at', 3)->nullable();
-            $table->unsignedTinyInteger('dispatch_attempts')->default(0);
-            $table->unsignedSmallInteger('pages_count')->nullable();
-            $table->foreignId('insert_after_page_id')->nullable()->constrained('board_pages')->nullOnDelete();
-            $table->timestamp('started_at')->nullable();
-            $table->timestamp('finished_at')->nullable();
-            $table->timestamps();
-
-            // The platform-wide queue position, and the one-import-per-user limit.
-            $table->index(['status', 'created_at']);
-            $table->index(['user_id', 'status']);
-            $table->index('workspace_id');
-        });
-
         Schema::create('board_lesson_exports', function (Blueprint $table): void {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -132,7 +108,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('board_lesson_exports');
-        Schema::dropIfExists('board_imports');
         Schema::dropIfExists('board_pages');
         Schema::dropIfExists('boards');
     }
