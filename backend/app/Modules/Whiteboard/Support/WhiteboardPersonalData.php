@@ -15,8 +15,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * What the whiteboard holds about a person: that they authored a board, uploaded a
- * document into one, or hold its edit lock. Never the drawings themselves — a
+ * What the whiteboard holds about a person: that they authored a board, or hold
+ * its edit lock. Never the drawings themselves — a
  * board is the WORKSPACE's teaching material (constitution I), the way a course is.
  *
  * ⚠️ ERASURE RE-POINTS, IT DOES NOT DELETE. Teacher offboarding (FR-037) keeps a
