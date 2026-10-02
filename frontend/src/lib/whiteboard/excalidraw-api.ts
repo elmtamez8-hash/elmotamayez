@@ -12,6 +12,7 @@ import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/exca
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
+import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
 import {
   BACKGROUNDS,
@@ -19,6 +20,8 @@ import {
   PAGE_WIDTH,
   STREAM_DEFAULTS,
   fitViewport,
+  migrateTemplatePictures,
+  templateOnFrame,
   recolorForBackground,
   screenAt,
   screensIn,
@@ -66,7 +69,7 @@ export function installTextMetrics(): void {
  * a box too narrow for its glyphs (the lab's clipped «درجة»).
  */
 export function restorePage(elements: readonly unknown[]): BoardElement[] {
-  return restoreElements(elements as ExcalidrawElement[], null, { refreshDimensions: true, repairBindings: true });
+  return migrateTemplatePictures(restoreElements(elements as ExcalidrawElement[], null, { refreshDimensions: true, repairBindings: true }));
 }
 
 /**
@@ -94,7 +97,9 @@ export function initialAppState(background: BoardBackground, width: number, heig
     zoom: { value: view.zoom as NormalizedZoomValue },
     scrollX: view.scrollX,
     scrollY: view.scrollY,
-    viewBackgroundColor: BACKGROUNDS[background].canvas,
+    // Transparent: the board's colour and template are ONE layer behind the
+    // canvas (`PageCover`), drawn once, not a picture per screen in the scene.
+    viewBackgroundColor: "transparent",
     currentItemStrokeColor: BACKGROUNDS[background].pen,
     currentItemStrokeWidth: STREAM_DEFAULTS.strokeWidth,
     currentItemFontSize: STREAM_DEFAULTS.fontSize,
@@ -122,7 +127,7 @@ export function applyBackground(api: BoardApi, from: BoardBackground, to: BoardB
 
   api.updateScene({
     elements: api.getSceneElementsIncludingDeleted().map((element) => byId.get(element.id) ?? element),
-    appState: { viewBackgroundColor: BACKGROUNDS[to].canvas, currentItemStrokeColor: BACKGROUNDS[to].pen },
+    appState: { currentItemStrokeColor: BACKGROUNDS[to].pen },
     captureUpdate: recoloured.length > 0 ? CaptureUpdateAction.IMMEDIATELY : CaptureUpdateAction.NEVER,
   });
 }
@@ -138,7 +143,8 @@ function pageFrame(elements: readonly BoardElement[]): ExcalidrawFrameElement | 
  * production CSP does not allow, and its failure path points at esm.sh.
  */
 export async function exportPage(api: BoardApi, kind: "png" | "svg", background: BoardBackground): Promise<Blob> {
-  const elements = api.getSceneElements();
+  // The template's picture must already be in the canvas's files (the caller adds it).
+  const elements = withTemplateImages(api.getSceneElements());
   const appState = { exportBackground: true, viewBackgroundColor: BACKGROUNDS[background].canvas };
   const files = api.getFiles();
   const exportingFrame = pageFrame(elements);
@@ -187,14 +193,35 @@ export function pageDocument(elements: readonly BoardElement[], background: Boar
  */
 export async function pageThumbnail(api: BoardApi, elements: readonly BoardElement[], background: BoardBackground): Promise<string> {
   const live = elements.filter((element) => !element.isDeleted);
-  const canvas = await exportToCanvas({
+  const drawing = await exportToCanvas({
     elements: live,
     files: api.getFiles(),
-    appState: { exportBackground: true, viewBackgroundColor: BACKGROUNDS[background].canvas },
+    appState: { exportBackground: false, viewBackgroundColor: "transparent" },
     exportingFrame: pageFrame(live),
     maxWidthOrHeight: 320,
   });
 
+  // The colour and the template are painted here as lines (vector, at 320 px):
+  // no page-sized template picture decoded for every small picture.
+  const canvas = document.createElement("canvas");
+  canvas.width = drawing.width;
+  canvas.height = drawing.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return drawing.toDataURL("image/png");
+  ctx.fillStyle = BACKGROUNDS[background].canvas;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const name = frameTemplate(live);
+  if (name) {
+    const scale = canvas.width / PAGE_WIDTH;
+    for (let screen = 0; screen * PAGE_HEIGHT * scale < canvas.height; screen++) {
+      ctx.save();
+      ctx.scale(scale, scale);
+      ctx.translate(0, screen * PAGE_HEIGHT);
+      paintTemplate(ctx, name);
+      ctx.restore();
+    }
+  }
+  ctx.drawImage(drawing, 0, 0);
   return canvas.toDataURL("image/png");
 }
 
@@ -283,51 +310,64 @@ export function applyPen(api: BoardApi, pen: Pen): void {
   api.setActiveTool({ type: "freedraw" });
 }
 
-/**
- * Put a background template under the page shown (US9, FR-030), replacing any
- * it had — or remove it (`null`). One locked image the size of the page, FIRST
- * in the scene so everything drawn sits above it. One undoable step.
- */
-export function setPageTemplate(api: BoardApi, name: string | null, fileId: string | null): void {
-  const elements = api.getSceneElementsIncludingDeleted();
-  const frame = pageFrame(elements);
-  const rest = elements.map((element) =>
-    (element.customData as { kind?: string } | undefined)?.kind === "template" && !element.isDeleted
-      ? ({ ...element, isDeleted: true, version: element.version + 1 } as BoardElement)
-      : element,
-  );
-
-  if (name === null || fileId === null) {
-    api.updateScene({ elements: rest, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
-    return;
-  }
-
-  const screens = screensIn(frame?.height ?? PAGE_HEIGHT);
-  const templates = Array.from({ length: screens }, (_, screen) => templateImage(frame, name, fileId, screen));
-  api.updateScene({ elements: [...templates, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+/** The template a page uses, read from its frame (`customData.template`). */
+export function frameTemplate(elements: readonly BoardElement[]): TemplateName | null {
+  return templateOnFrame(elements);
 }
 
 /**
- * One screen's copy of a template: the page grows downward in screens, and a
- * template is a screen-sized picture — repeated, never stretched.
+ * Put a background template on the page shown (US9, FR-030), or take it off
+ * (`null`). The template is a NAME on the page's frame, drawn once behind the
+ * whole canvas (`PageCover`) — not pictures in the scene: one picture per
+ * screen kept a page-sized bitmap per screen in memory and half-undid when the
+ * page had grown. One undoable step by default; a new page inheriting the
+ * template takes it with `undoable = false`.
  */
-function templateImage(frame: ExcalidrawFrameElement | null, name: string, fileId: string, screen: number): BoardElement {
+export function setPageTemplate(
+  api: BoardApi,
+  name: TemplateName | null,
+  undoable = true,
+): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  if (!frame || frameTemplate(elements) === name) return;
+  const customData = { ...(frame.customData ?? { kind: "frame", v: 1 }) } as Record<string, unknown>;
+  if (name === null) delete customData.template;
+  else customData.template = name;
+  // A new version AND nonce, or autosave's hash never sees the change.
+  const next = { ...frame, customData, version: frame.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) } as BoardElement;
+  api.updateScene({ elements: elements.map((e) => (e.id === frame.id ? next : e)), captureUpdate: undoable ? CaptureUpdateAction.IMMEDIATELY : CaptureUpdateAction.NEVER });
+}
+
+/**
+ * One screen's copy of a template, as an image element — for EXPORTS only (a
+ * file is the page alone, without the live layer behind the canvas).
+ */
+function templateImage(frame: ExcalidrawFrameElement, name: TemplateName, screen: number): BoardElement {
   const [image] = convertToExcalidrawElements([
     {
       type: "image",
-      fileId: fileId as BinaryFileData["id"],
-      x: frame?.x ?? 0,
-      y: (frame?.y ?? 0) + screen * PAGE_HEIGHT,
-      width: frame?.width ?? PAGE_WIDTH,
+      fileId: templateFileId(name) as BinaryFileData["id"],
+      x: frame.x,
+      y: frame.y + screen * PAGE_HEIGHT,
+      width: frame.width,
       height: PAGE_HEIGHT,
       status: "saved",
       locked: true,
-      frameId: frame?.id ?? null,
-      customData: { kind: "template", v: 1, name },
+      frameId: frame.id,
     },
   ]);
   return image;
 }
+
+/** The page with its template as pictures under everything, for an export. */
+function withTemplateImages(elements: readonly BoardElement[]): readonly BoardElement[] {
+  const frame = pageFrame(elements);
+  const name = frameTemplate(elements);
+  if (!frame || !name) return elements;
+  return [...Array.from({ length: screensIn(frame.height) }, (_, screen) => templateImage(frame, name, screen)), ...elements];
+}
+
 
 /** How many screens the page shown holds. */
 export function pageScreens(api: BoardApi): number {
@@ -343,8 +383,8 @@ export function currentScreen(api: BoardApi, viewportHeight: number): number {
 /**
  * Show screen `index` of the page — growing the page downward first when it has
  * fewer screens (owner, 2026-10-02: «move down to keep explaining in empty
- * space»). The frame gets taller and the template, if any, repeats on the new
- * screens. Growing is not an undo step: undo is for what the teacher drew.
+ * space»). The frame gets taller; the template behind the canvas repeats on
+ * its own. Growing is not an undo step: undo is for what the teacher drew.
  * Answers the screen shown.
  */
 export function showScreen(api: BoardApi, width: number, height: number, index: number): number {
@@ -355,15 +395,8 @@ export function showScreen(api: BoardApi, width: number, height: number, index: 
 
   if (frame && target >= screens) {
     const grown = { ...frame, height: (target + 1) * PAGE_HEIGHT, version: frame.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) } as BoardElement;
-    const template = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template") as
-      | (BoardElement & { fileId?: string; customData?: { name?: string } })
-      | undefined;
-    const added =
-      template?.fileId && template.customData?.name
-        ? Array.from({ length: target + 1 - screens }, (_, i) => templateImage(frame, template.customData!.name!, template.fileId!, screens + i))
-        : [];
     api.updateScene({
-      elements: [...added, ...elements.map((e) => (e.id === frame.id ? grown : e))],
+      elements: elements.map((e) => (e.id === frame.id ? grown : e)),
       captureUpdate: CaptureUpdateAction.NEVER,
     });
   }
@@ -373,11 +406,8 @@ export function showScreen(api: BoardApi, width: number, height: number, index: 
 }
 
 /** The template the page shown uses, if any. */
-export function pageTemplate(api: BoardApi): string | null {
-  const found = api
-    .getSceneElements()
-    .find((element) => (element.customData as { kind?: string } | undefined)?.kind === "template");
-  return (found?.customData as { name?: string } | undefined)?.name ?? null;
+export function pageTemplate(api: BoardApi): TemplateName | null {
+  return frameTemplate(api.getSceneElements());
 }
 
 /**

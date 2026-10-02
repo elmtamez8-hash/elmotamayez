@@ -11,7 +11,7 @@
 export type TemplateName = "lined" | "grid" | "dotted" | "isometric" | "graph" | "arabic-lines";
 
 export type WbCustomData =
-  | { kind: "frame"; v: 1 }
+  | { kind: "frame"; v: 1; template?: TemplateName }
   | { kind: "doc-background"; v: 1; importUuid: string; page: number }
   | { kind: "template"; v: 1; name: TemplateName }
   | {

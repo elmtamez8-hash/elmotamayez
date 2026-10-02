@@ -143,7 +143,12 @@ async function drawTemplate(name: TemplateName): Promise<Blob> {
   canvas.height = PAGE_HEIGHT;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no canvas");
+  paintTemplate(ctx, name);
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("no blob"))), "image/png"));
+}
 
+/** One screen of the template, in page units, on any 2D context (a thumbnail scales it). */
+export function paintTemplate(ctx: CanvasRenderingContext2D, name: TemplateName): void {
   const { lines, dots } = templateLines(name);
   ctx.lineCap = "round";
   for (const [x1, y1, x2, y2, colour, width] of lines) {
@@ -160,6 +165,4 @@ async function drawTemplate(name: TemplateName): Promise<Blob> {
     ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fill();
   }
-
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("no blob"))), "image/png"));
 }

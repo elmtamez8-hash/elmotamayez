@@ -21,6 +21,7 @@ import {
   installTextMetrics,
   loadPage,
   pageDocument,
+  frameTemplate,
   pageScreens,
   pageTemplate,
   pageThumbnail,
@@ -84,6 +85,12 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
  */
 
 const REVEAL_TOP_PX = 48;
+/**
+ * The canvas is transparent over the board's own colour layer (PageCover):
+ * Excalidraw's own background picker would paint over it. A constant, so the
+ * prop is the same object every render.
+ */
+const UI_OPTIONS = { canvasActions: { changeViewBackgroundColor: false } };
 /** Pictures handed to the canvas: the page shown and this many either side. */
 const PICTURE_REACH = 2;
 const SOUND_KEY = "whiteboard.effects.sound";
@@ -175,21 +182,16 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (apiRef.current) addStroke(apiRef.current, points);
   }, []);
 
-  const chooseTemplate = async (name: TemplateName | null) => {
+  /** A name on the page's frame; the picture behind the canvas follows it (`PageCover`). */
+  const chooseTemplate = (name: TemplateName | null, undoable = true) => {
     if (!api) return;
-    if (name === null) {
-      setPageTemplate(api, null, null);
-    } else {
-      const id = templateFileId(name);
-      addPictures(api, await pictures.take([id]));
-      setPageTemplate(api, name, id);
-    }
+    setPageTemplate(api, name, undoable);
     setTemplate(name);
   };
 
   // The template buttons show the page shown, read from the page itself.
   useEffect(() => {
-    if (api) setTemplate(pageTemplate(api) as TemplateName | null);
+    if (api) setTemplate(pageTemplate(api));
   }, [api, pageIndex]);
 
   const choosePen = (id: PenId) => {
@@ -478,6 +480,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const exportCurrent = async (kind: "png" | "svg") => {
     if (!api || !board) return;
+    // A file is the page alone: the template goes in as pictures, so its file must be on the canvas.
+    if (template) addPictures(api, await pictures.take([templateFileId(template)]));
     const blob = await exportPage(api, kind, background);
     download(blob, `${board.title} - ${pageIndex + 1}.${kind}`);
   };
@@ -517,7 +521,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       // A new page carries on in the template of the page the teacher is on (owner, 2026-10-02).
       const carried = template;
       insertPage(await boards.addPage(board.uuid, { tab: session.tab(), after }), after);
-      if (carried) await chooseTemplate(carried);
+      // Not an undo step: the new page simply starts that way.
+      if (carried) chooseTemplate(carried, false);
     });
 
   const duplicatePage = (uuid: string) =>
@@ -607,6 +612,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
       <Excalidraw
         excalidrawAPI={setApi}
+        UIOptions={UI_OPTIONS}
         langCode="ar-SA"
         viewModeEnabled={!session.held}
         // Every way a picture arrives (tool, paste, drop) asks for its id here: it
@@ -624,8 +630,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         onChange={(elements, appState) => {
           // The template buttons follow the page, an undo included (a cheap find;
           // React skips the render when the name is unchanged).
-          const shownTemplate = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template");
-          setTemplate(((shownTemplate?.customData as { name?: string } | undefined)?.name ?? null) as TemplateName | null);
+          setTemplate(frameTemplate(elements));
           if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
@@ -764,7 +769,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </OverlayLayer>
       )}
       {spotlight && <Spotlight onClose={endSpotlight} />}
-      {passing === "magnifier" && <Magnifier onClose={endPassing} />}
+      {passing === "magnifier" && <Magnifier background={BACKGROUNDS[background].canvas} onClose={endPassing} />}
       {passing === "curtain" && <Curtain onClose={endPassing} />}
       {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}

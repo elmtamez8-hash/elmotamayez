@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 
 export const LENS = { size: 260, zoom: 2 };
 
-export function Magnifier({ onClose }: { onClose: () => void }) {
+export function Magnifier({ background, onClose }: { background: string; onClose: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   // Esc first, on its own: a browser that refuses a drawing context must still
@@ -50,7 +50,8 @@ export function Magnifier({ onClose }: { onClose: () => void }) {
       ctx.beginPath();
       ctx.arc(lens.width / 2, lens.height / 2, lens.width / 2, 0, Math.PI * 2);
       ctx.clip();
-      ctx.fillStyle = getComputedStyle(source).backgroundColor || "#fff";
+      // The canvas is transparent (the board's colour is a layer behind it), so the lens paints the colour itself.
+      ctx.fillStyle = background;
       ctx.fillRect(0, 0, lens.width, lens.height);
       ctx.drawImage(
         source,
@@ -79,7 +80,7 @@ export function Magnifier({ onClose }: { onClose: () => void }) {
       window.removeEventListener("pointermove", onMove);
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [background]);
 
   return (
     <canvas
