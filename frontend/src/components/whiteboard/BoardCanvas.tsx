@@ -4,7 +4,6 @@ import "@excalidraw/excalidraw/index.css";
 
 import { Excalidraw } from "@excalidraw/excalidraw";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -22,6 +21,7 @@ import {
   installTextMetrics,
   loadPage,
   pageDocument,
+  frameTemplate,
   pageScreens,
   pageTemplate,
   pageThumbnail,
@@ -42,6 +42,7 @@ import type { Celebration, Effect, TrailStyle } from "@/lib/whiteboard/effects";
 import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { renderSticker, stickerFileId, stickerOf, type StickerName } from "@/lib/whiteboard/stickers";
+import { readPanelModes, writePanelModes, type PanelId, type PanelMode } from "@/lib/whiteboard/panels";
 import { renderTemplate, templateFileId, templateOf, type TemplateName } from "@/lib/whiteboard/templates";
 import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
@@ -53,6 +54,8 @@ import { EffectsBar } from "@/components/whiteboard/EffectsBar";
 import { PresenterBar } from "@/components/whiteboard/PresenterBar";
 import { TeachingBar, type PassingTool } from "@/components/whiteboard/TeachingBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
+import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
+import { PageCover } from "@/components/whiteboard/PageCover";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
@@ -82,6 +85,12 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
  */
 
 const REVEAL_TOP_PX = 48;
+/**
+ * The canvas is transparent over the board's own colour layer (PageCover):
+ * Excalidraw's own background picker would paint over it. A constant, so the
+ * prop is the same object every render.
+ */
+const UI_OPTIONS = { canvasActions: { changeViewBackgroundColor: false } };
 /** Pictures handed to the canvas: the page shown and this many either side. */
 const PICTURE_REACH = 2;
 const SOUND_KEY = "whiteboard.effects.sound";
@@ -114,7 +123,6 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [background, setBackground] = useState<BoardBackground>("white");
   const [presenting, setPresenting] = useState(false);
   const [reveal, setReveal] = useState(false);
-  const [frameRect, setFrameRect] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const [screen, setScreen] = useState({ index: 0, count: 1 });
   const containerRef = useRef<HTMLDivElement>(null);
   const pages = useRef<Pages>(new Map());
@@ -174,21 +182,16 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (apiRef.current) addStroke(apiRef.current, points);
   }, []);
 
-  const chooseTemplate = async (name: TemplateName | null) => {
+  /** A name on the page's frame; the picture behind the canvas follows it (`PageCover`). */
+  const chooseTemplate = (name: TemplateName | null, undoable = true) => {
     if (!api) return;
-    if (name === null) {
-      setPageTemplate(api, null, null);
-    } else {
-      const id = templateFileId(name);
-      addPictures(api, await pictures.take([id]));
-      setPageTemplate(api, name, id);
-    }
+    setPageTemplate(api, name, undoable);
     setTemplate(name);
   };
 
   // The template buttons show the page shown, read from the page itself.
   useEffect(() => {
-    if (api) setTemplate(pageTemplate(api) as TemplateName | null);
+    if (api) setTemplate(pageTemplate(api));
   }, [api, pageIndex]);
 
   const choosePen = (id: PenId) => {
@@ -322,25 +325,24 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   );
 
   /**
-   * The mask, the screen counter and the view follow the page. Called on every
-   * scroll AND every scene change: switching to a page of another height scrolls
-   * to the same spot, and Excalidraw sends no scroll event for that.
+   * The screen counter, and the view while an instrument needs it, follow the
+   * page. Called on every scroll AND every scene change: switching to a page of
+   * another height scrolls to the same spot, and Excalidraw sends no scroll event
+   * for that. Unchanged state keeps its object, so a plain scroll re-renders
+   * nothing here — the cover outside the page follows on its own (`PageCover`).
    */
+  const instrumentOpen = useRef(false);
+  instrumentOpen.current = instrument !== null;
   const syncFrame = useCallback(() => {
     if (!api) return;
     const { scrollX, scrollY, zoom } = api.getAppState();
-    // The page's REAL height: it grows downward in screens.
-    const screens = pageScreens(api);
     const box = containerRef.current?.getBoundingClientRect();
-    const next = {
-      view: { scrollX, scrollY, zoom: zoom.value },
-      screen: { index: box ? currentScreen(api, box.height) : 0, count: screens },
-      frame: { left: scrollX * zoom.value, top: scrollY * zoom.value, width: PAGE_WIDTH * zoom.value, height: screens * PAGE_HEIGHT * zoom.value },
-    };
-    // Unchanged state keeps its object, so React skips the render.
-    setView((v) => (sameFields(v, next.view) ? v : next.view));
-    setScreen((s) => (sameFields(s, next.screen) ? s : next.screen));
-    setFrameRect((f) => (sameFields(f, next.frame) ? f : next.frame));
+    const next = { index: box ? currentScreen(api, box.height) : 0, count: pageScreens(api) };
+    setScreen((s) => (sameFields(s, next) ? s : next));
+    if (instrumentOpen.current) {
+      const nextView = { scrollX, scrollY, zoom: zoom.value };
+      setView((v) => (sameFields(v, nextView) ? v : nextView));
+    }
   }, [api]);
 
   useEffect(() => {
@@ -349,7 +351,24 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return api.onScrollChange(syncFrame);
   }, [api, syncFrame]);
 
+  // An instrument opening needs the view now, not at the next scroll.
+  useEffect(() => {
+    if (instrument) syncFrame();
+  }, [instrument, syncFrame]);
+
   const pageIds = board?.pages.map((page) => page.uuid) ?? [];
+
+  // A page not shown is hashed once per array: the page map replaces the array
+  // whenever that page changes, so 50 pages are not rehashed on every render.
+  const versions = useRef(new WeakMap<readonly unknown[], number>());
+  const versionOf = (elements: Parameters<typeof sceneVersion>[0]) => {
+    let version = versions.current.get(elements);
+    if (version === undefined) {
+      version = sceneVersion(elements);
+      versions.current.set(elements, version);
+    }
+    return version;
+  };
 
   // The pictures of the page shown and its neighbours, handed to the canvas.
   useEffect(() => {
@@ -367,7 +386,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   /** Keep what is on screen in the page map before anything replaces it. */
   const keepShown = useCallback(() => {
     const shown = board?.pages[pageIndex]?.uuid;
-    if (api && shown) pages.current.set(shown, api.getSceneElementsIncludingDeleted());
+    // Copies, not Excalidraw's own objects: its drawing caches are keyed by the
+    // element object, so keeping the originals kept every page's bitmaps alive
+    // for the whole lesson. A page shown again is drawn afresh once.
+    if (api && shown) pages.current.set(shown, api.getSceneElementsIncludingDeleted().map((e) => ({ ...e })));
   }, [api, board, pageIndex]);
 
   /** Show `index` of `list` (a list that may have just changed). */
@@ -434,6 +456,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return () => window.removeEventListener("pointermove", onMove);
   }, [presenting]);
 
+  // Each panel shown, folded or hidden until the pointer nears it — this browser only.
+  const [panelModes, setPanelModes] = useState(readPanelModes);
+  const changePanelMode = (id: PanelId, mode: PanelMode) =>
+    setPanelModes((current) => {
+      const next = { ...current, [id]: mode };
+      writePanelModes(next);
+      return next;
+    });
+
   const changeBackground = (next: BoardBackground) => {
     if (!api || !board || next === background) return;
     applyBackground(api, background, next);
@@ -449,6 +480,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const exportCurrent = async (kind: "png" | "svg") => {
     if (!api || !board) return;
+    // A file is the page alone: the template goes in as pictures, so its file must be on the canvas.
+    if (template) addPictures(api, await pictures.take([templateFileId(template)]));
     const blob = await exportPage(api, kind, background);
     download(blob, `${board.title} - ${pageIndex + 1}.${kind}`);
   };
@@ -485,7 +518,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const addPage = (after: string) =>
     pageChange(async () => {
       if (!board) return;
+      // A new page carries on in the template of the page the teacher is on (owner, 2026-10-02).
+      const carried = template;
       insertPage(await boards.addPage(board.uuid, { tab: session.tab(), after }), after);
+      // Not an undo step: the new page simply starts that way.
+      if (carried) chooseTemplate(carried, false);
     });
 
   const duplicatePage = (uuid: string) =>
@@ -560,8 +597,6 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return <p className="p-6 text-sm text-ink-muted">{WB.loading}</p>;
   }
 
-  const excalidrawRoot = containerRef.current?.querySelector(".excalidraw");
-
   return (
     <div
       ref={containerRef}
@@ -574,8 +609,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
       `}</style>
+      {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
       <Excalidraw
         excalidrawAPI={setApi}
+        UIOptions={UI_OPTIONS}
         langCode="ar-SA"
         viewModeEnabled={!session.held}
         // Every way a picture arrives (tool, paste, drop) asks for its id here: it
@@ -593,9 +630,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         onChange={(elements, appState) => {
           // The template buttons follow the page, an undo included (a cheap find;
           // React skips the render when the name is unchanged).
-          const shownTemplate = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template");
-          setTemplate(((shownTemplate?.customData as { name?: string } | undefined)?.name ?? null) as TemplateName | null);
-          syncFrame();
+          setTemplate(frameTemplate(elements));
+          if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
           const shown = board.pages[pageIndex]?.uuid;
@@ -663,6 +699,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
               />
                 ),
               },
+              { id: "layout", label: WB.menus.layout, content: <PanelModesMenu modes={panelModes} onMode={changePanelMode} /> },
             ]}
             screen={screen}
             onScreen={moveScreen}
@@ -696,30 +733,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           />
         )}
       />
-      {excalidrawRoot &&
-        createPortal(
-          <div
-            aria-hidden
-            className="pointer-events-none absolute"
-            style={{
-              zIndex: 3,
-              left: frameRect.left,
-              top: frameRect.top,
-              width: frameRect.width,
-              height: frameRect.height,
-              boxShadow: `0 0 0 100vmax ${BACKGROUNDS[background].canvas}`,
-            }}
-          />,
-          excalidrawRoot,
-        )}
+      {api && <PageCover api={api} background={background} template={template} />}
       {showPages && !presenting && (
         // Over the canvas, on the side the toolbar is not, and hidden for «عرض»: the class sees the whole tab.
-        <div className="absolute bottom-16 start-2 top-16" style={{ zIndex: 5 }}>
+        <div data-panel="pages" className="absolute bottom-16 start-2 top-16" style={{ zIndex: 5 }}>
           <PagesSidebar
             pages={board.pages.map((page, index) => ({
               uuid: page.uuid,
               // The page shown is read live, so its picture follows the drawing.
-              version: sceneVersion(index === pageIndex && api ? api.getSceneElementsIncludingDeleted() : (pages.current.get(page.uuid) ?? [])),
+              version: index === pageIndex && api ? sceneVersion(api.getSceneElementsIncludingDeleted()) : versionOf(pages.current.get(page.uuid) ?? []),
             }))}
             current={pageIndex}
             canEdit={session.held}
@@ -747,7 +769,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </OverlayLayer>
       )}
       {spotlight && <Spotlight onClose={endSpotlight} />}
-      {passing === "magnifier" && <Magnifier onClose={endPassing} />}
+      {passing === "magnifier" && <Magnifier background={BACKGROUNDS[background].canvas} template={template} onClose={endPassing} />}
       {passing === "curtain" && <Curtain onClose={endPassing} />}
       {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}

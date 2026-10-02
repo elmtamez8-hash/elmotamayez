@@ -74,7 +74,7 @@ describe("Wheel", () => {
 describe("Magnifier", () => {
   it("appears, and Esc puts it away", () => {
     const onClose = vi.fn();
-    const { container } = render(<Magnifier onClose={onClose} />);
+    const { container } = render(<Magnifier background="#ffffff" onClose={onClose} />);
     expect(container.querySelector("[data-effect='magnifier']")).not.toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();

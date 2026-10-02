@@ -49,7 +49,10 @@ export const WB = {
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
   /** The toolbar's menus. */
-  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع" },
+  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة" },
+  panels: { board: "لوحة السبّورة", tools: "أدوات الرسم", pages: "الصفحات", zoom: "التكبير والتراجع", library: "المكتبة والقائمة" },
+  panelModes: { shown: "ظاهرة", folded: "مطويّة", auto: "تظهر لما تقرّب" },
+  panelUnfold: (name: string) => `▾ ${name}`,
 
   /** Teaching tools (US9). */
   tools: {

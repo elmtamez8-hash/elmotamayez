@@ -32,7 +32,9 @@ class BoardPageController extends Controller
 
         return response()->json($save->handle(
             $board,
-            $this->pageOf($board, $page),
+            // The save never reads the stored scene (up to 2 MB, every 1.5 s of
+            // drawing); its conflict branch reads what it needs itself.
+            $this->pageOf($board, $page, ['id', 'uuid', 'board_id', 'version']),
             $this->currentUser($request),
             SceneData::fromArray($request->validated()),
         ));
@@ -72,11 +74,12 @@ class BoardPageController extends Controller
         return response()->noContent();
     }
 
-    private function pageOf(Board $board, string $uuid): BoardPage
+    /** @param list<string> $columns */
+    private function pageOf(Board $board, string $uuid, array $columns = ['*']): BoardPage
     {
         return BoardPage::query()
             ->where('board_id', $board->getKey())
             ->where('uuid', $uuid)
-            ->firstOrFail();
+            ->firstOrFail($columns);
     }
 }

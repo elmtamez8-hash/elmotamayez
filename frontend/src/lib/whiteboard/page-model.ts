@@ -1,3 +1,4 @@
+import type { TemplateName } from "@/lib/whiteboard/custom-data";
 /**
  * The board's page: a fixed 16:9 frame, fitted to the window, with streaming defaults.
  *
@@ -154,4 +155,27 @@ export function recolorForBackground<T extends Colourable>(
   }
 
   return changed;
+}
+
+type Element = { type: string; isDeleted?: boolean; customData?: Record<string, unknown> | null };
+
+/** The template a page uses: a name on its frame (`customData.template`). */
+export function templateOnFrame(elements: readonly Element[]): TemplateName | null {
+  const frame = elements.find((e) => e.type === "frame" && !e.isDeleted);
+  return ((frame?.customData?.template as TemplateName | undefined) ?? null);
+}
+
+/**
+ * A page stored before the template became a name on the frame: its template
+ * pictures (`kind: "template"`) are dropped and their name moves to the frame.
+ * Runs on every restore, so an old page converts the first time it is opened
+ * and is saved in the new shape at its next edit.
+ */
+export function migrateTemplatePictures<T extends Element>(elements: T[]): T[] {
+  const old = elements.filter((e) => e.customData?.kind === "template");
+  if (old.length === 0) return elements;
+  const name = old.find((e) => !e.isDeleted)?.customData?.name as TemplateName | undefined;
+  return elements
+    .filter((e) => !old.includes(e))
+    .map((e) => (e.type === "frame" && name ? { ...e, customData: { ...(e.customData ?? { kind: "frame", v: 1 }), template: name } } : e));
 }

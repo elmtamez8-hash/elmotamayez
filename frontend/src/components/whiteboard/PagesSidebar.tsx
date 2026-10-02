@@ -26,6 +26,9 @@ export interface PagesSidebarProps {
   onReorder: (uuids: string[]) => void;
 }
 
+/** A page's picture is redrawn this long after its last change. */
+const REFRESH_AFTER_MS = 3000;
+
 /** Run when the browser is idle (Safari has no requestIdleCallback). */
 function whenIdle(fn: () => void): () => void {
   if (typeof window.requestIdleCallback === "function") {
@@ -50,21 +53,31 @@ function Thumb({ page, index, thumbnail }: { page: SidebarPage; index: number; t
     return () => observer.disconnect();
   }, []);
 
-  // Only a page on screen is drawn, once per version, when the browser is idle.
+  // Only a page on screen is drawn, once per version, when the browser is idle —
+  // and a picture already there waits for the drawing to pause: every stroke is a
+  // new version, and redrawing the whole page after each one competed with the pen.
+  const hasPicture = src !== null;
   useEffect(() => {
     if (!visible || src?.key === key) return;
     let alive = true;
-    const cancel = whenIdle(() => {
-      thumbnail(page.uuid)
-        .then((url) => alive && setSrc({ key, url }))
-        // The number stays in place of the picture; the reason goes to the console.
-        .catch((error: unknown) => console.warn("[whiteboard] thumbnail", error));
-    });
+    let cancel = () => {};
+    const wait = setTimeout(
+      () => {
+        cancel = whenIdle(() => {
+          thumbnail(page.uuid)
+            .then((url) => alive && setSrc({ key, url }))
+            // The number stays in place of the picture; the reason goes to the console.
+            .catch((error: unknown) => console.warn("[whiteboard] thumbnail", error));
+        });
+      },
+      hasPicture ? REFRESH_AFTER_MS : 0,
+    );
     return () => {
       alive = false;
+      clearTimeout(wait);
       cancel();
     };
-  }, [visible, key, src?.key, page.uuid, thumbnail]);
+  }, [visible, key, src?.key, hasPicture, page.uuid, thumbnail]);
 
   return (
     <div ref={ref} className="aspect-video w-full overflow-hidden rounded-md border border-line bg-surface" data-thumb={page.uuid}>
