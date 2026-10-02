@@ -314,30 +314,40 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     (delta: number) => {
       const box = containerRef.current?.getBoundingClientRect();
       if (!api || !box) return;
-      showScreen(api, box.width, box.height, currentScreen(api, box.height) + delta);
+      const target = currentScreen(api, box.height) + delta;
+      // Only the lock holder grows a page; anyone else just looks through it.
+      showScreen(api, box.width, box.height, session.held ? target : Math.min(target, pageScreens(api) - 1));
     },
-    [api],
+    [api, session.held],
   );
 
-  // The mask follows the frame on every scroll and zoom.
-  useEffect(() => {
+  /**
+   * The mask, the screen counter and the view follow the page. Called on every
+   * scroll AND every scene change: switching to a page of another height scrolls
+   * to the same spot, and Excalidraw sends no scroll event for that.
+   */
+  const syncFrame = useCallback(() => {
     if (!api) return;
     const { scrollX, scrollY, zoom } = api.getAppState();
-    setView({ scrollX, scrollY, zoom: zoom.value });
-    return api.onScrollChange((scrollX, scrollY, zoom) => {
-      setView({ scrollX, scrollY, zoom: zoom.value });
-      // The page's REAL height: it grows downward in screens.
-      const screens = pageScreens(api);
-      const box = containerRef.current?.getBoundingClientRect();
-      setScreen({ index: box ? currentScreen(api, box.height) : 0, count: screens });
-      setFrameRect({
-        left: scrollX * zoom.value,
-        top: scrollY * zoom.value,
-        width: PAGE_WIDTH * zoom.value,
-        height: screens * PAGE_HEIGHT * zoom.value,
-      });
-    });
+    // The page's REAL height: it grows downward in screens.
+    const screens = pageScreens(api);
+    const box = containerRef.current?.getBoundingClientRect();
+    const next = {
+      view: { scrollX, scrollY, zoom: zoom.value },
+      screen: { index: box ? currentScreen(api, box.height) : 0, count: screens },
+      frame: { left: scrollX * zoom.value, top: scrollY * zoom.value, width: PAGE_WIDTH * zoom.value, height: screens * PAGE_HEIGHT * zoom.value },
+    };
+    // Unchanged state keeps its object, so React skips the render.
+    setView((v) => (sameFields(v, next.view) ? v : next.view));
+    setScreen((s) => (sameFields(s, next.screen) ? s : next.screen));
+    setFrameRect((f) => (sameFields(f, next.frame) ? f : next.frame));
   }, [api]);
+
+  useEffect(() => {
+    if (!api) return;
+    syncFrame();
+    return api.onScrollChange(syncFrame);
+  }, [api, syncFrame]);
 
   const pageIds = board?.pages.map((page) => page.uuid) ?? [];
 
@@ -585,6 +595,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           const shownTemplate = elements.find((e) => !e.isDeleted && (e.customData as { kind?: string } | undefined)?.kind === "template");
           setTemplate(((shownTemplate?.customData as { name?: string } | undefined)?.name ?? null) as TemplateName | null);
+          syncFrame();
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
           const shown = board.pages[pageIndex]?.uuid;
@@ -759,4 +770,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       />
     </div>
   );
+}
+
+/** Same values in every field — lets a state setter keep the old object. */
+function sameFields<T extends object>(a: T, b: T): boolean {
+  return (Object.keys(b) as (keyof T)[]).every((key) => a[key] === b[key]);
 }

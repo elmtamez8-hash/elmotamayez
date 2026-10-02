@@ -87,7 +87,12 @@ export function BoardToolbar(props: BoardToolbarProps) {
           <span className="text-sm tabular-nums" aria-live="polite">
             {WB.screenOf(props.screen.index + 1, props.screen.count)}
           </span>
-          <Button size="sm" variant="secondary" onClick={() => props.onScreen?.(1)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
+            onClick={() => props.onScreen?.(1)}
+          >
             {props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
           </Button>
         </div>
