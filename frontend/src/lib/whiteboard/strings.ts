@@ -31,7 +31,7 @@ export const WB = {
   nextPage: "الصفحة التالية",
   screenUp: "↑ أعلى",
   screenDown: "↓ أسفل",
-  screenNew: "↓ مساحة فارغة",
+  screenNew: "↓ مكان فارغ",
   screenOf: (screen: number, total: number) => `شاشة ${arabicNumber(screen)} من ${arabicNumber(total)}`,
   pageOf: (page: number, total: number) => `${arabicNumber(page)} من ${arabicNumber(total)}`,
   pages: (n: number) => counted(n, NOUNS.pages),
