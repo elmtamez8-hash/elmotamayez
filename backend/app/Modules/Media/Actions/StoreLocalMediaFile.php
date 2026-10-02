@@ -20,7 +20,7 @@ use LogicException;
  * here, so they go onto our disk and the row says Ready only after they do.
  *
  * ⚠️ LOCAL PROVIDER ONLY, as `CopyLocalMediaAsset`: documents are kept on our
- * disk in production (Bunny takes video only); a remote document provider is
+ * disk in production (the video provider takes video only); a remote document provider is
  * refused rather than half-written.
  */
 final class StoreLocalMediaFile extends Action
