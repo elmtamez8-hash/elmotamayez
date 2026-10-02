@@ -605,7 +605,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
       `}</style>
-      {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} />}
+      {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
       <Excalidraw
         excalidrawAPI={setApi}
         langCode="ar-SA"

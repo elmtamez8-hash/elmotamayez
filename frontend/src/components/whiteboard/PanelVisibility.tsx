@@ -27,7 +27,18 @@ function rectOf(root: HTMLElement, selector: string): DOMRect | null {
  * A folded panel leaves a small tab where it was; an «auto» one comes back
  * while the pointer is near it — never while a stroke is being drawn.
  */
-export function PanelVisibility({ root, modes, onMode }: { root: RefObject<HTMLElement | null>; modes: Modes; onMode: (id: PanelId, mode: PanelMode) => void }) {
+export function PanelVisibility({
+  root,
+  modes,
+  onMode,
+  layout,
+}: {
+  root: RefObject<HTMLElement | null>;
+  modes: Modes;
+  onMode: (id: PanelId, mode: PanelMode) => void;
+  /** Changes whenever a panel can appear or vanish (the lock, the pages toggle): the tabs are measured again. */
+  layout: string;
+}) {
   const [near, setNear] = useState<PanelId[]>([]);
   const [tabs, setTabs] = useState<{ id: PanelId; rect: DOMRect }[]>([]);
   const auto = PANELS.filter(({ id }) => modes[id] === "auto");
@@ -36,12 +47,16 @@ export function PanelVisibility({ root, modes, onMode }: { root: RefObject<HTMLE
   useEffect(() => {
     if (auto.length === 0) return;
     const onMove = (event: PointerEvent) => {
-      if (event.buttons !== 0 || !root.current) return;
+      // A mouse or pen with a button down is drawing: no panel pops up over it. A
+      // finger has no hover — it only moves while down — so a touch always counts.
+      if ((event.buttons !== 0 && event.pointerType !== "touch") || !root.current) return;
       const target = event.target instanceof Node ? event.target : null;
       const next = auto
         .filter(({ selector }) => {
           const el = root.current?.querySelector(selector);
           if (el && target && el.contains(target)) return true;
+          // Typing in it (the board's name): hiding it would drop the focus mid-word.
+          if (el?.contains(document.activeElement)) return true;
           const rect = root.current ? rectOf(root.current, selector) : null;
           return rect !== null && isNear(rect, event.clientX, event.clientY);
         })
@@ -49,7 +64,11 @@ export function PanelVisibility({ root, modes, onMode }: { root: RefObject<HTMLE
       setNear((prev) => (prev.join() === next.join() ? prev : next));
     };
     window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
+    window.addEventListener("pointerdown", onMove); // a tap near a hidden panel brings it back
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerdown", onMove);
+    };
   }, [autoKey, root]);
 
   const foldedKey = PANELS.filter(({ id }) => modes[id] === "folded")
@@ -74,7 +93,7 @@ export function PanelVisibility({ root, modes, onMode }: { root: RefObject<HTMLE
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", measure);
     };
-  }, [foldedKey, root]);
+  }, [foldedKey, layout, root]);
 
   const hidden = PANELS.filter(({ id }) => modes[id] === "folded" || (modes[id] === "auto" && !near.includes(id)));
 
