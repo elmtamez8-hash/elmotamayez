@@ -17,8 +17,10 @@ return new class extends Migration
         Schema::dropIfExists('board_imports');
     }
 
-    public function down(): void
-    {
-        // Nothing: no code reads or writes the table any more.
-    }
+    /**
+     * ⚠️ DOES NOT RESTORE THE TABLE: the create migration no longer defines it,
+     * and no code reads or writes it. Its rows (finished or failed server
+     * imports) are gone for good, and nothing needed them.
+     */
+    public function down(): void {}
 };
