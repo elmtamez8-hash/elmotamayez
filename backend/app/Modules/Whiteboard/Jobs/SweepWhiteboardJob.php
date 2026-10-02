@@ -7,6 +7,7 @@ namespace App\Modules\Whiteboard\Jobs;
 use App\Modules\Media\Actions\DeleteMediaAsset;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Whiteboard\Actions\CompleteBoardImport;
+use App\Modules\Whiteboard\Actions\ConvertBoardImport;
 use App\Modules\Whiteboard\Enums\BoardImportFailure;
 use App\Modules\Whiteboard\Enums\BoardImportStatus;
 use App\Modules\Whiteboard\Enums\BoardPendingOperation;
@@ -19,7 +20,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 
 /**
  * Every five minutes: finish what a crashed whiteboard job left behind (US3).
@@ -94,7 +94,7 @@ class SweepWhiteboardJob implements ShouldQueue
                     BoardImportStatus::Failed->value, BoardImportFailure::Timeout->value, $now->format('Y-m-d H:i:s'), $now->format('Y-m-d H:i:s'),
                     $import->id, BoardImportStatus::Converting->value,
                 ]);
-                File::deleteDirectory(storage_path('app/whiteboard-imports/'.$import->uuid));
+                ConvertBoardImport::abandon($import);
             });
 
         BoardImport::query()->withoutWorkspaceScope()

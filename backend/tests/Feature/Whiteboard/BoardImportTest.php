@@ -262,3 +262,27 @@ it('runs on its own long queue', function (): void {
     expect((new ConvertBoardImportJob(1))->queue)->toBe('whiteboard-import')
         ->and(config('horizon.defaults.supervisor-whiteboard-import.connection'))->toBe('redis-long');
 });
+
+it('clears what a killed conversion left — the PDF and its unused pictures — and nothing a page uses', function (): void {
+    Queue::fake([ConvertBoardImportJob::class]);
+    $uuid = wbImport($this);
+    $import = BoardImport::query()->withoutWorkspaceScope()->where('uuid', $uuid)->firstOrFail();
+    DB::table('board_imports')->where('id', $import->id)->update(['status' => 'converting', 'started_at' => Carbon::now()->subHours(2)]);
+
+    $picture = fn (string $name) => MediaAsset::factory()->create([
+        'workspace_id' => $this->board->workspace_id, 'owner_type' => Board::class, 'owner_id' => $this->board->id,
+        'mime_type' => 'image/jpeg', 'original_filename' => $name,
+    ]);
+    $orphan = $picture(ConvertBoardImport::pictureName($import, 1));
+    $mine = $picture('my-photo.jpg'); // the teacher's own upload, untouched
+    $used = $picture(ConvertBoardImport::pictureName($import, 2));
+    DB::table('board_pages')->where('board_id', $this->board->id)->limit(1)->update(['background_asset_id' => $used->id]);
+
+    (new SweepWhiteboardJob)->handle();
+
+    expect(MediaAsset::query()->withoutWorkspaceScope()->find($orphan->id))->toBeNull()
+        ->and(MediaAsset::query()->withoutWorkspaceScope()->find($mine->id))->not->toBeNull()
+        ->and(MediaAsset::query()->withoutWorkspaceScope()->find($used->id))->not->toBeNull()
+        ->and(MediaAsset::query()->withoutWorkspaceScope()->find($import->source_asset_id))->toBeNull()
+        ->and($import->fresh()->failure_reason?->value)->toBe('timeout');
+});

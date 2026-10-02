@@ -7,6 +7,7 @@ namespace App\Modules\Whiteboard\Jobs;
 use App\Modules\Whiteboard\Actions\ConvertBoardImport;
 use App\Modules\Whiteboard\Enums\BoardImportFailure;
 use App\Modules\Whiteboard\Enums\BoardImportStatus;
+use App\Modules\Whiteboard\Models\BoardImport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -45,5 +46,11 @@ class ConvertBoardImportJob implements ShouldQueue
             'UPDATE board_imports SET status = ?, failure_reason = ?, finished_at = ?, updated_at = ? WHERE id = ? AND status = ?',
             [BoardImportStatus::Failed->value, BoardImportFailure::Timeout->value, now()->format('Y-m-d H:i:s'), now()->format('Y-m-d H:i:s'), $this->importId, BoardImportStatus::Converting->value],
         );
+
+        // Killed mid-way, its `finally` never ran: the PDF and any stored pictures go now.
+        $import = BoardImport::query()->withoutWorkspaceScope()->find($this->importId);
+        if ($import !== null && $import->status === BoardImportStatus::Failed) {
+            ConvertBoardImport::abandon($import);
+        }
     }
 }

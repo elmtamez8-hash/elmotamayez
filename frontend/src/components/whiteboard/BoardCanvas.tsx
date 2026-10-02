@@ -652,6 +652,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   };
 
   /**
+   * Reads the board through REFS only — it is called from a poll that outlives
+   * the render that set it up.
+   *
    * The pages an import added, taken into this tab WITHOUT reloading the board:
    * only pages it does not know yet are read and tracked, so nothing unsaved on
    * the others is touched. The page shown stays shown.
@@ -660,7 +663,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     const current = boardRef.current;
     if (!current) return;
     const fresh = await boards.show(current.uuid);
-    keepShown();
+    // ⚠️ No `keepShown()` here: this runs from a poll set up when the import
+    // STARTED, so its `keepShown` still names the page shown back then and would
+    // file today's canvas under it (caught in review). The page shown is not
+    // replaced, so nothing needs keeping.
     for (const page of fresh.pages) {
       if (pages.current.has(page.uuid)) continue;
       const elements = restorePage(parseScene(page).elements);

@@ -98,7 +98,7 @@ final class ConvertBoardImport extends Action
             }
 
             foreach ($drawn as $i => $page) {
-                $pictures[] = $this->store->handle($page['path'], 'page-'.($i + 1).'.jpg', 'image/jpeg', $board, (int) $board->workspace_id, $import->user_id);
+                $pictures[] = $this->store->handle($page['path'], self::pictureName($import, $i + 1), 'image/jpeg', $board, (int) $board->workspace_id, $import->user_id);
             }
 
             $this->insert($board, $import, $drawn, $pictures);
@@ -193,6 +193,39 @@ final class ConvertBoardImport extends Action
             return $read();
         } catch (PdfUnreadable) {
             throw new ImportFailed(BoardImportFailure::Corrupt);
+        }
+    }
+
+    /** A page picture's name carries its import, so a cleanup finds exactly its own. */
+    public static function pictureName(BoardImport $import, int $page): string
+    {
+        return 'import-'.$import->uuid.'-page-'.$page.'.jpg';
+    }
+
+    /**
+     * What a run KILLED mid-way leaves (a timeout, an out-of-memory) — its
+     * `finally` never ran: the source PDF, the work folder, and the pictures it
+     * had stored that no page uses. Called by the job's `failed()` and by the
+     * sweep; safe to run twice.
+     */
+    public static function abandon(BoardImport $import): void
+    {
+        $delete = app(DeleteMediaAsset::class);
+        File::deleteDirectory(storage_path('app/whiteboard-imports/'.$import->uuid));
+
+        MediaAsset::query()->withoutWorkspaceScope()
+            ->where('owner_type', Board::class)
+            ->where('owner_id', $import->board_id)
+            ->where('original_filename', 'like', 'import-'.$import->uuid.'-page-%')
+            ->whereNotIn('id', BoardPage::query()->withoutWorkspaceScope()->whereNotNull('background_asset_id')->select('background_asset_id'))
+            ->lazyById()
+            ->each(fn (MediaAsset $picture) => $delete->handle($picture));
+
+        if ($import->source_asset_id !== null) {
+            $source = MediaAsset::query()->withoutWorkspaceScope()->find($import->source_asset_id);
+            if ($source !== null) {
+                $delete->handle($source);
+            }
         }
     }
 }
