@@ -76,6 +76,18 @@ function paint(ctx: CanvasRenderingContext2D, p: Particle) {
       ctx.textBaseline = "middle";
       ctx.fillText(p.glyph ?? "", 0, 0);
       break;
+    case "bubble":
+      // A thin coloured ring with a white glint — reads as a bubble on any board.
+      ctx.strokeStyle = p.colour;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.arc(-p.size / 6, -p.size / 6, p.size / 10, 0, Math.PI * 2);
+      ctx.fill();
+      break;
   }
   ctx.restore();
 }

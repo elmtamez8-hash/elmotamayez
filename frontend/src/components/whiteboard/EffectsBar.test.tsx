@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CELEBRATION_MS } from "@/lib/whiteboard/effects";
+import { CELEBRATION_MS, EFFECTS } from "@/lib/whiteboard/effects";
+import { WB } from "@/lib/whiteboard/strings";
 
 import { EffectsBar, type EffectsBarProps } from "./EffectsBar";
 import { Celebrate } from "./overlays/Celebrate";
@@ -27,6 +28,13 @@ describe("EffectsBar", () => {
     fireEvent.click(screen.getByRole("button", { name: /نجوم/ }));
     expect(p.onEffect).toHaveBeenNthCalledWith(1, "applause");
     expect(p.onEffect).toHaveBeenNthCalledWith(2, "stars");
+  });
+
+  it("has a button for every effect, in its row", () => {
+    const p = props();
+    render(<EffectsBar {...p} />);
+    for (const kind of EFFECTS) fireEvent.click(screen.getByRole("button", { name: new RegExp(WB.effects.names[kind]) }));
+    expect(vi.mocked(p.onEffect).mock.calls.map(([kind]) => kind)).toEqual(EFFECTS);
   });
 
   it("offers the stickers only to the editor, and stamps the one pressed", () => {

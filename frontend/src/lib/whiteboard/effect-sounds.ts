@@ -156,3 +156,106 @@ export function playGavel(): void {
     burst(ctx, now + offset, 2400, 0.03, 0.6);
   });
 }
+
+/** A referee's whistle: a high tone trilled by a fast wobble (`long` = the card's long blast). */
+export function playWhistle(long = false): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  const length = long ? 1.1 : 0.55;
+  const osc = ctx.createOscillator();
+  osc.frequency.value = 2650;
+  const wobble = ctx.createOscillator();
+  wobble.frequency.value = 28;
+  const depth = ctx.createGain();
+  depth.gain.value = 180;
+  wobble.connect(depth).connect(osc.frequency);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.35, now + 0.03);
+  gain.gain.setValueAtTime(0.35, now + length - 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + length);
+  osc.connect(gain).connect(ctx.destination);
+  [osc, wobble].forEach((node) => {
+    node.start(now);
+    node.stop(now + length + 0.05);
+  });
+}
+
+/** Something soft hitting the screen — the egg and the tomato. */
+export function playSplat(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.55; // when the throw lands
+  burst(ctx, now, 600, 0.25, 0.9, "lowpass");
+  tone(ctx, now, 140, 60, 0.2, "sine", 0.7);
+}
+
+/** A brick through glass: a thud and a long crackle. */
+export function playCrash(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.55;
+  tone(ctx, now, 120, 45, 0.25, "sine", 1);
+  burst(ctx, now, 3500, 0.6, 0.7, "highpass");
+  burst(ctx, now + 0.08, 5000, 0.4, 0.4, "highpass");
+}
+
+/** An aeroplane passing: a band of noise sweeping up and away. */
+export function playWhoosh(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  const source = ctx.createBufferSource();
+  source.buffer = noise(ctx, 2);
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(300, now);
+  filter.frequency.exponentialRampToValueAtTime(1600, now + 1);
+  filter.frequency.exponentialRampToValueAtTime(400, now + 2);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.6, now + 0.9);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 2);
+  source.connect(filter).connect(gain).connect(ctx.destination);
+  source.start(now);
+}
+
+/** A quiz-show «wrong» buzzer. */
+export function playBuzzer(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  tone(ctx, now, 155, 140, 0.6, "square", 0.18);
+  tone(ctx, now, 110, 100, 0.6, "sawtooth", 0.12);
+}
+
+/** Two alternating beeps — the warning sign. */
+export function playAlarm(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  [0, 0.25, 0.5, 0.75].forEach((offset, i) => tone(ctx, now + offset, i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.2, "square", 0.12));
+}
+
+/** The teacher's stick on the desk: three dry taps. */
+export function playTaps(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.3;
+  [0, 0.45, 0.9].forEach((offset) => {
+    burst(ctx, now + offset, 3200, 0.04, 0.8);
+    tone(ctx, now + offset, 600, 300, 0.06, "triangle", 0.4);
+  });
+}
+
+/** Bubbles popping here and there. */
+export function playBubbles(): void {
+  const ctx = audio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.4;
+  for (let i = 0; i < 7; i++) {
+    const at = now + i * 0.28 + Math.random() * 0.15;
+    tone(ctx, at, 900 + Math.random() * 600, 1800, 0.05, "sine", 0.25);
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { EFFECTS, TRAIL_STYLES, type Effect, type TrailStyle } from "@/lib/whiteboard/effects";
+import { EFFECT_GROUPS, TRAIL_STYLES, type Effect, type TrailStyle } from "@/lib/whiteboard/effects";
 import { STICKERS, stickerText, type StickerName } from "@/lib/whiteboard/stickers";
 import { WB } from "@/lib/whiteboard/strings";
 
@@ -22,15 +22,17 @@ export interface EffectsBarProps {
 export function EffectsBar(props: EffectsBarProps) {
   return (
     <div className="flex flex-col gap-1 border-t border-line pt-1.5">
-      <div className="flex flex-wrap items-center gap-1">
-        <span className="text-xs text-ink-muted">{WB.effects.title}</span>
-        {EFFECTS.map((kind) => (
-          <Button key={kind} size="sm" variant="ghost" onClick={() => props.onEffect(kind)}>
-            <span aria-hidden>{WB.effects.icons[kind]}</span>
-            {WB.effects.names[kind]}
-          </Button>
-        ))}
-      </div>
+      {EFFECT_GROUPS.map((group) => (
+        <div key={group.id} className="flex flex-wrap items-center gap-1">
+          <span className="text-xs text-ink-muted">{WB.effects.groups[group.id]}</span>
+          {group.effects.map((kind) => (
+            <Button key={kind} size="sm" variant="ghost" onClick={() => props.onEffect(kind)}>
+              <span aria-hidden>{WB.effects.icons[kind]}</span>
+              {WB.effects.names[kind]}
+            </Button>
+          ))}
+        </div>
+      ))}
       {props.onSticker && (
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-xs text-ink-muted">{WB.effects.stickers}</span>
