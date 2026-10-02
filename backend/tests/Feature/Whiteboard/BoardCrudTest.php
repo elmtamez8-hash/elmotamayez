@@ -183,3 +183,23 @@ it('lists twenty boards in a steady number of queries, names included', function
         ->and($first['teacher']['uuid'])->toBe($this->teacher->uuid)
         ->and($first['course']['title'])->toBe($this->course->title);
 });
+
+it('lists each board with its course and lesson, a deleted course by name, and finds by title (US3-5)', function (): void {
+    $lesson = Lesson::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $gone = Course::factory()->create(['workspace_id' => $this->workspace->getKey(), 'created_by' => $this->teacher->getKey(), 'title' => 'كورس محذوف']);
+    foreach ([['الكسور', $this->course, null], ['الدرس', null, $lesson], ['القديم', $gone, null]] as [$title, $course, $onLesson]) {
+        Board::factory()->withPages(1)->create([
+            'workspace_id' => $this->workspace->getKey(), 'owner_user_id' => $this->teacher->getKey(), 'title' => $title,
+            'course_id' => $onLesson?->course_id ?? $course?->getKey(), 'lesson_id' => $onLesson?->getKey(),
+        ]);
+    }
+    $gone->delete();
+    wbActAs($this->teacher, $this->workspace);
+
+    $rows = collect($this->getJson('/api/v1/boards')->assertOk()->json('data'))->keyBy('title');
+    expect($rows['الدرس']['lesson']['uuid'])->toBe((string) $lesson->uuid)
+        ->and($rows['القديم']['course'])->toMatchArray(['title' => 'كورس محذوف', 'deleted' => true])
+        ->and($rows['الكسور']['course']['deleted'])->toBeFalse();
+
+    expect(array_column($this->getJson('/api/v1/boards?q=الكسو')->json('data'), 'title'))->toBe(['الكسور']);
+});

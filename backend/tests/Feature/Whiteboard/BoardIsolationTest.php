@@ -32,6 +32,8 @@ function wbDoors(): array
     return [
         ['GET', '/api/v1/boards/{board}', []],
         ['PATCH', '/api/v1/boards/{board}', ['title' => 'اختراق']],
+        ['POST', '/api/v1/boards/{board}/duplicate', []],
+        ['DELETE', '/api/v1/boards/{board}', []],
         // US2 — the edit lock and autosave.
         ['POST', '/api/v1/boards/{board}/lock', ['tab' => WB_TAB]],
         ['DELETE', '/api/v1/boards/{board}/lock', ['tab' => WB_TAB]],
@@ -136,7 +138,9 @@ it('refuses every board door to an assistant confined to another course', functi
 
 it('refuses the manager who is not the board\'s teacher every WRITE door', function (): void {
     foreach (wbDoors() as [$method, $uri, $body]) {
-        if ($method === 'GET') {
+        // Q5: the manager views, exports and DELETES; a copy is a new board of
+        // their own, which changes nothing of the teacher's. Both checked below.
+        if ($method === 'GET' || in_array($uri, ['/api/v1/boards/{board}/duplicate', '/api/v1/boards/{board}'], true)) {
             continue;
         }
         expect(wbCall($method, $uri, $body, $this->owner, $this->workspace))->toBe(403, "{$method} {$uri}");

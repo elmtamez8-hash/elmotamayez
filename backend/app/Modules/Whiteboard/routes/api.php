@@ -27,6 +27,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/boards', [BoardController::class, 'store'])->middleware('throttle:authoring');
     Route::get('/boards/{board}', [BoardController::class, 'show']);
     Route::patch('/boards/{board}', [BoardController::class, 'update'])->middleware('throttle:authoring');
+    Route::post('/boards/{board}/duplicate', [BoardController::class, 'duplicate'])->middleware('throttle:authoring');
+    Route::delete('/boards/{board}', [BoardController::class, 'destroy'])->middleware(['2fa.required', 'throttle:authoring']);
 
     // The edit lock and autosave beat every few seconds per tab — their own limiter.
     Route::middleware('throttle:whiteboard-autosave')->group(function (): void {

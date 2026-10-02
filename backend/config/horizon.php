@@ -200,6 +200,10 @@ return [
         | stopped draining at all.
         */
         'redis-long:report-cards' => 3600,
+
+        // Spec 039 — copying and deleting whiteboards. Two minutes: a teacher who
+        // pressed «نسخ» is waiting to see the copy appear in the list.
+        'redis-long:whiteboard-ops' => 120,
     ],
 
     /*
@@ -504,6 +508,25 @@ return [
             'timeout' => 300,
             'nice' => 10,
         ],
+
+        /*
+        | Spec 039 — whiteboard copies and deletions. One process: a copy reads
+        | and writes every picture of a board, and a teacher copies rarely. Its
+        | own queue so a 300-page copy never holds a notification behind it.
+        */
+        'supervisor-whiteboard-ops' => [
+            'connection' => 'redis-long',
+            'queue' => ['whiteboard-ops'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 300,
+            'nice' => 5,
+        ],
     ],
 
     'environments' => [
@@ -550,6 +573,10 @@ return [
             'supervisor-report-cards' => [
                 'maxProcesses' => 2,
             ],
+
+            'supervisor-whiteboard-ops' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'local' => [
@@ -574,6 +601,10 @@ return [
             ],
 
             'supervisor-report-cards' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-whiteboard-ops' => [
                 'maxProcesses' => 1,
             ],
         ],

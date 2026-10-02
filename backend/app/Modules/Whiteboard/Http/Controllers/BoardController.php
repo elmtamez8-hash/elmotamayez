@@ -6,6 +6,8 @@ namespace App\Modules\Whiteboard\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Whiteboard\Actions\CreateBoard;
+use App\Modules\Whiteboard\Actions\DeleteBoard;
+use App\Modules\Whiteboard\Actions\DuplicateBoard;
 use App\Modules\Whiteboard\Actions\ListBoards;
 use App\Modules\Whiteboard\Actions\UpdateBoard;
 use App\Modules\Whiteboard\Data\BoardData;
@@ -20,6 +22,7 @@ use App\Shared\Support\WorkspaceContext;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
@@ -60,6 +63,26 @@ class BoardController extends Controller
         return new BoardResource($this->loaded(
             $update->handle($board, BoardData::fromArray($request->validated()), $this->currentUser($request)),
         ));
+    }
+
+    /** «نسخ»: 202 — the copy appears in the list when its job has filled it. */
+    public function duplicate(Request $request, Board $board, DuplicateBoard $duplicate): JsonResponse
+    {
+        $this->authorize('view', $board);
+        $this->authorize('create', Board::class);
+
+        $copy = $duplicate->handle($board, $this->currentUser($request));
+
+        return response()->json(['status' => 'copying', 'uuid' => $copy->uuid], 202);
+    }
+
+    public function destroy(Board $board, DeleteBoard $delete): JsonResponse
+    {
+        $this->authorize('delete', $board);
+
+        $delete->handle($board);
+
+        return response()->json(['status' => 'deleting'], 202);
     }
 
     private function loaded(Board $board): Board

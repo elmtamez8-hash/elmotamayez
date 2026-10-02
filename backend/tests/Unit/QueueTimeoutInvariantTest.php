@@ -116,3 +116,19 @@ it('keeps every job-level $timeout below the retry_after of the worker that pops
     expect($checked)->toBeGreaterThanOrEqual(5)
         ->and($violations)->toBe([]);
 });
+
+it('runs every supervisor in production, not only in defaults', function (): void {
+    // A supervisor defined only in `defaults` is never started where it matters.
+    expect(array_diff(array_keys((array) config('horizon.defaults')), array_keys((array) config('horizon.environments.production'))))->toBe([]);
+});
+
+it('works the whiteboard queue, and checks both whiteboard jobs', function (): void {
+    expect(config('horizon.defaults.supervisor-whiteboard-ops.queue'))->toBe(['whiteboard-ops']);
+
+    foreach (['DuplicateBoardJob', 'DeleteBoardJob'] as $job) {
+        $source = (string) file_get_contents(app_path("Modules/Whiteboard/Jobs/{$job}.php"));
+
+        expect($source)->toContain('public int $timeout = 300;')
+            ->and($source)->toContain("onQueue('whiteboard-ops')");
+    }
+});
