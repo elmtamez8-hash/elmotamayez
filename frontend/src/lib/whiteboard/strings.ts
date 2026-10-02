@@ -44,6 +44,17 @@ export const WB = {
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
+  /** Encouragement and pointer effects (US10, US12). */
+  effects: {
+    title: "تشجيع:",
+    names: { applause: "تصفيق", balloons: "بالونات", party: "احتفال", stars: "نجوم" },
+    icons: { applause: "👏", balloons: "🎈", party: "🎉", stars: "⭐" },
+    sound: "صوت المؤثرات",
+    soundHint: "يسمعه الطلاب فقط إذا شاركت صوت التبويب مع الشاشة.",
+    trail: "أثر المؤشّر:",
+    trails: { off: "بلا أثر", neon: "نيون", sparks: "شرارات", rainbow: "ألوان" },
+  },
+
   /** The pages strip (US3). */
   pagesTitle: "صفحات السبّورة",
   showPages: "الصفحات",

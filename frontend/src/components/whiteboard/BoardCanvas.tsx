@@ -28,14 +28,19 @@ import {
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
+import { playCelebration } from "@/lib/whiteboard/effect-sounds";
+import type { Celebration, TrailStyle } from "@/lib/whiteboard/effects";
 import { uploadBoardImage } from "@/lib/whiteboard/image-insert";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
 import { Modal } from "@/components/ui/Modal";
 import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
 import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
+import { EffectsBar } from "@/components/whiteboard/EffectsBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
+import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
+import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
 
@@ -56,6 +61,16 @@ import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoa
 const REVEAL_TOP_PX = 48;
 /** Pictures handed to the canvas: the page shown and this many either side. */
 const PICTURE_REACH = 2;
+const SOUND_KEY = "whiteboard.effects.sound";
+
+/** A per-viewer convenience, so storage may be absent: on by default. */
+function readSound(): boolean {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
 
 type Pages = Map<string, readonly BoardElement[]>;
 
@@ -115,6 +130,25 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [showPages, setShowPages] = useState(true);
   const [pagesBusy, setPagesBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Effects (US10, US12): a display layer, never the page.
+  const [celebration, setCelebration] = useState<{ kind: Celebration; id: number } | null>(null);
+  const [trail, setTrail] = useState<TrailStyle>("off");
+  const [sound, setSound] = useState(readSound);
+
+  const celebrate = (kind: Celebration) => {
+    // A new id restarts the effect even when the same button is pressed twice.
+    setCelebration({ kind, id: Date.now() });
+    if (sound) playCelebration(kind);
+  };
+
+  const changeSound = (on: boolean) => {
+    setSound(on);
+    try {
+      localStorage.setItem(SOUND_KEY, on ? "on" : "off");
+    } catch {
+      // A private window: the choice lasts this visit only.
+    }
+  };
   const pictures = useMemo(() => createPictureCache((id) => boards.fileBytes(boardUuid, id)), [boardUuid]);
 
   // The face first, then the pages: text measured before Cairo loads is clipped.
@@ -430,6 +464,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
+            effects={<EffectsBar sound={sound} trail={trail} onCelebrate={celebrate} onSound={changeSound} onTrail={setTrail} />}
             pagesOpen={showPages}
             onTogglePages={() => setShowPages((value) => !value)}
             status={
@@ -497,6 +532,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           />
         </div>
       )}
+      {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
+      {trail !== "off" && <PointerTrail style={trail} />}
       <ConflictDialog
         open={session.conflict !== null}
         onTakeServer={session.takeServer}
