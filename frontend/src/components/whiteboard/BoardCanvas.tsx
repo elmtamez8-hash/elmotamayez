@@ -191,6 +191,23 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (api) setTemplate(pageTemplate(api) as TemplateName | null);
   }, [api, pageIndex]);
 
+  // The template as a picture for the cover outside the page.
+  const [outsideTemplate, setOutsideTemplate] = useState<string | null>(null);
+  useEffect(() => {
+    if (!template) return setOutsideTemplate(null);
+    let url: string | null = null;
+    let alive = true;
+    void renderTemplate(template).then((blob) => {
+      if (!alive) return;
+      url = URL.createObjectURL(blob);
+      setOutsideTemplate(url);
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [template]);
+
   const choosePen = (id: PenId) => {
     const pen = PENS.find((p) => p.id === id);
     if (api && pen) applyPen(api, pen);
@@ -485,7 +502,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const addPage = (after: string) =>
     pageChange(async () => {
       if (!board) return;
+      // A new page carries on in the template of the page the teacher is on (owner, 2026-10-02).
+      const carried = template;
       insertPage(await boards.addPage(board.uuid, { tab: session.tab(), after }), after);
+      if (carried) await chooseTemplate(carried);
     });
 
   const duplicatePage = (uuid: string) =>
@@ -700,14 +720,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         createPortal(
           <div
             aria-hidden
-            className="pointer-events-none absolute"
+            className="pointer-events-none absolute inset-0"
             style={{
               zIndex: 3,
-              left: frameRect.left,
-              top: frameRect.top,
-              width: frameRect.width,
-              height: frameRect.height,
-              boxShadow: `0 0 0 100vmax ${BACKGROUNDS[background].canvas}`,
+              // Everything but the page: a hole cut in a full cover (even-odd).
+              clipPath: `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${frameRect.left}px ${frameRect.top}px, ${frameRect.left + frameRect.width}px ${frameRect.top}px, ${frameRect.left + frameRect.width}px ${frameRect.top + frameRect.height}px, ${frameRect.left}px ${frameRect.top + frameRect.height}px, ${frameRect.left}px ${frameRect.top}px)`,
+              backgroundColor: BACKGROUNDS[background].canvas,
+              // The template carries on past the page's edges, in step with it (owner, 2026-10-02).
+              ...(outsideTemplate && {
+                backgroundImage: `url(${outsideTemplate})`,
+                backgroundSize: `${frameRect.width}px ${(frameRect.width * PAGE_HEIGHT) / PAGE_WIDTH}px`,
+                backgroundPosition: `${frameRect.left}px ${frameRect.top}px`,
+              }),
             }}
           />,
           excalidrawRoot,
