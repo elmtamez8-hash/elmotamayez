@@ -6,11 +6,14 @@ use App\Models\User;
 use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Media\Enums\MediaKind;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
@@ -34,6 +37,13 @@ function wbDoors(): array
         ['DELETE', '/api/v1/boards/{board}/lock', ['tab' => WB_TAB]],
         ['POST', '/api/v1/boards/{board}/lock/take', ['tab' => WB_TAB]],
         ['PUT', '/api/v1/boards/{board}/pages/{page}/scene', ['tab' => WB_TAB, 'version' => 1, 'client_rev' => 1, 'scene' => '{"v":1,"elements":[],"appState":{},"fileIds":[]}']],
+        // US3 — pages.
+        ['POST', '/api/v1/boards/{board}/pages', ['tab' => WB_TAB]],
+        ['PUT', '/api/v1/boards/{board}/pages/order', ['tab' => WB_TAB, 'pages' => ['{page}']]],
+        ['DELETE', '/api/v1/boards/{board}/pages/{page}', ['tab' => WB_TAB]],
+        ['POST', '/api/v1/boards/{board}/files', ['tab' => WB_TAB, 'filename' => 'a.png', 'size' => 10]],
+        ['POST', '/api/v1/boards/{board}/files/{file}/complete', []],
+        ['GET', '/api/v1/boards/{board}/files/{file}', []],
     ];
 }
 
@@ -55,6 +65,11 @@ beforeEach(function (): void {
         'course_id' => $this->course->getKey(),
         'title' => 'سبّورة المدرّس',
     ]);
+    // A READY picture of the board, so the file doors answer 404 for the right reason.
+    $this->file = MediaAsset::factory()->create([
+        'workspace_id' => $this->workspace->getKey(), 'owner_type' => Board::class, 'owner_id' => $this->board->getKey(),
+        'kind' => MediaKind::Document, 'mime_type' => 'image/png', 'original_filename' => 'a.png',
+    ]);
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 });
 
@@ -68,7 +83,11 @@ function wbCall(string $method, string $uri, array $body, User $as, ?Workspace $
     }
     Sanctum::actingAs($as);
 
-    $page = (string) test()->board->pages()->value('uuid');
+    // Past the workspace scope: the caller here is often from another workspace.
+    $page = (string) DB::table('board_pages')->where('board_id', test()->board->id)->value('uuid');
+
+    $body = json_decode(str_replace('{page}', $page, (string) json_encode($body)), true);
+    $uri = str_replace('{file}', (string) test()->file->uuid, $uri);
 
     return test()->json($method, str_replace(['{board}', '{page}'], [(string) test()->board->uuid, $page], $uri), $body)->status();
 }

@@ -5,12 +5,20 @@ declare(strict_types=1);
 namespace App\Modules\Whiteboard\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Whiteboard\Actions\AddBoardPage;
+use App\Modules\Whiteboard\Actions\DeleteBoardPage;
+use App\Modules\Whiteboard\Actions\ReorderBoardPages;
 use App\Modules\Whiteboard\Actions\SaveBoardScene;
 use App\Modules\Whiteboard\Data\SceneData;
+use App\Modules\Whiteboard\Http\Requests\AddPageRequest;
+use App\Modules\Whiteboard\Http\Requests\LockRequest;
+use App\Modules\Whiteboard\Http\Requests\ReorderPagesRequest;
 use App\Modules\Whiteboard\Http\Requests\SaveSceneRequest;
+use App\Modules\Whiteboard\Http\Resources\PageResource;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Models\BoardPage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 
 /**
  * A board's pages. ⚠️ THE PAGE IS FOUND THROUGH THE BOARD, never bound on its own:
@@ -28,6 +36,40 @@ class BoardPageController extends Controller
             $this->currentUser($request),
             SceneData::fromArray($request->validated()),
         ));
+    }
+
+    public function store(AddPageRequest $request, Board $board, AddBoardPage $add): JsonResponse
+    {
+        $this->authorize('update', $board);
+
+        $after = $request->validated('after');
+        $copyOf = $request->validated('duplicate_of');
+
+        $page = $add->handle(
+            $board,
+            $this->currentUser($request),
+            $request->tab(),
+            is_string($after) ? $this->pageOf($board, $after) : null,
+            is_string($copyOf) ? $this->pageOf($board, $copyOf) : null,
+        );
+
+        return (new PageResource($page))->response()->setStatusCode(201);
+    }
+
+    public function order(ReorderPagesRequest $request, Board $board, ReorderBoardPages $reorder): JsonResponse
+    {
+        $this->authorize('update', $board);
+
+        return response()->json(['pages' => $reorder->handle($board, $this->currentUser($request), $request->tab(), $request->pages())]);
+    }
+
+    public function destroy(LockRequest $request, Board $board, string $page, DeleteBoardPage $delete): Response
+    {
+        $this->authorize('update', $board);
+
+        $delete->handle($board, $this->currentUser($request), $request->tab(), $this->pageOf($board, $page));
+
+        return response()->noContent();
     }
 
     private function pageOf(Board $board, string $uuid): BoardPage

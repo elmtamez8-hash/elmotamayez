@@ -28,12 +28,18 @@ use Illuminate\Support\Facades\DB;
  */
 final class BoardPageGate
 {
-    /** @throws WhiteboardRefusal `too_many_pages` */
-    public function open(Board $board, int $delta): void
+    /**
+     * ⚠️ `$ceiling` is read by the CALLER before its transaction begins: read here,
+     * the settings query would run first and the gate would no longer be the
+     * transaction's first statement (BoardPagesTest measures it).
+     *
+     * @throws WhiteboardRefusal `too_many_pages`
+     */
+    public function open(Board $board, int $delta, int $ceiling): void
     {
         $changed = DB::update(
             'UPDATE boards SET pages_count = pages_count + ? WHERE id = ? AND pages_count + ? <= ? AND pending_operation IS NULL',
-            [$delta, $board->id, $delta, WhiteboardSettings::maxPagesPerBoard()],
+            [$delta, $board->id, $delta, $ceiling],
         );
 
         if ($changed !== 1) {
@@ -70,5 +76,22 @@ final class BoardPageGate
         $max = (int) DB::table('board_pages')->where('board_id', $board->id)->max('position');
 
         DB::update('UPDATE board_pages SET position = position + ? WHERE board_id = ?', [$max + 1, $board->id]);
+    }
+
+    /**
+     * Number the board's pages 1..n in the order given: park first, then one UPDATE
+     * per page.
+     * ponytail: n statements (n ≤ max_pages_per_board, 300); one CASE update if a
+     * reorder of a full board is ever measured slow.
+     *
+     * @param  list<int>  $orderedIds  every page id of the board, in the new order
+     */
+    public function place(Board $board, array $orderedIds): void
+    {
+        $this->park($board);
+
+        foreach ($orderedIds as $index => $id) {
+            DB::update('UPDATE board_pages SET position = ? WHERE id = ? AND board_id = ?', [$index + 1, $id, $board->id]);
+        }
     }
 }
