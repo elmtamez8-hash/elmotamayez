@@ -48,12 +48,19 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
   const H = PAGE_HEIGHT;
 
   switch (name) {
-    case "lined":
-      for (let y = 90; y < H; y += 72) lines.push([40, y, W - 40, y, LINE, 2]);
+    // ⚠️ EDGE TO EDGE, and centred top to bottom: margins inside the template read
+    // as «the background does not fill the page» once the teacher zooms (owner,
+    // 2026-10-02). The page frame is the margin.
+    case "lined": {
+      const step = 72;
+      const count = Math.floor(H / step);
+      const first = (H - (count - 1) * step) / 2;
+      for (let i = 0; i < count; i++) lines.push([0, first + i * step, W, first + i * step, LINE, 2]);
       break;
+    }
     case "grid":
-      for (let x = 60; x < W; x += 60) lines.push([x, 0, x, H, LINE, 1.5]);
-      for (let y = 60; y < H; y += 60) lines.push([0, y, W, y, LINE, 1.5]);
+      for (let x = 0; x <= W; x += 60) lines.push([x, 0, x, H, LINE, 1.5]);
+      for (let y = 0; y <= H; y += 60) lines.push([0, y, W, y, LINE, 1.5]);
       break;
     case "graph":
       // Fine squares every 24, a heavier line every five.
@@ -61,7 +68,7 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
       for (let i = 0, y = 0; y <= H; y += 24, i++) lines.push([0, y, W, y, i % 5 === 0 ? STRONG : LINE, i % 5 === 0 ? 2 : 1]);
       break;
     case "dotted":
-      for (let x = 48; x < W; x += 48) for (let y = 48; y < H; y += 48) dots.push([x, y]);
+      for (let x = 24; x < W; x += 48) for (let y = 24; y < H; y += 48) dots.push([x, y]);
       break;
     case "isometric": {
       // Triangles: horizontal-free lattice at ±30°, the usual isometric paper.
@@ -74,14 +81,20 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
       for (let x = 0; x <= W; x += step) lines.push([x, 0, x, H, LINE, 1]);
       break;
     }
-    case "arabic-lines":
-      // The copybook band: a red baseline, a mid line and a top line, then a gap.
-      for (let top = 70; top + 120 < H; top += 170) {
-        lines.push([40, top, W - 40, top, LINE, 1.5]);
-        lines.push([40, top + 60, W - 40, top + 60, LINE, 1.5]);
-        lines.push([40, top + 120, W - 40, top + 120, BASELINE, 3]);
+    case "arabic-lines": {
+      // The copybook band: a top line, a mid line and a red baseline, then a gap.
+      const band = 120;
+      const gap = 50;
+      const count = Math.floor((H + gap) / (band + gap));
+      const first = (H - (count * (band + gap) - gap)) / 2;
+      for (let i = 0; i < count; i++) {
+        const top = first + i * (band + gap);
+        lines.push([0, top, W, top, LINE, 1.5]);
+        lines.push([0, top + band / 2, W, top + band / 2, LINE, 1.5]);
+        lines.push([0, top + band, W, top + band, BASELINE, 3]);
       }
       break;
+    }
   }
 
   return { lines, dots };

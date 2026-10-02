@@ -29,6 +29,28 @@ describe("page templates", () => {
   });
 });
 
+describe("page templates fill the page", () => {
+  it("run every line edge to edge, with as much room above the first as below the last", () => {
+    for (const name of TEMPLATES) {
+      const { lines, dots } = templateLines(name);
+      const across = lines.filter(([x1, y1, x2, y2]) => y1 === y2 && x1 !== x2);
+      for (const [x1, , x2] of across) {
+        expect(Math.min(x1, x2), name).toBe(0);
+        expect(Math.max(x1, x2), name).toBe(PAGE_WIDTH);
+      }
+      const ys = across.map(([, y]) => y).sort((a, b) => a - b);
+      if (ys.length > 1 && ys[0] > 0) {
+        // Centred: the gap at the top equals the gap at the bottom.
+        expect(ys[0], name).toBeCloseTo(PAGE_HEIGHT - ys[ys.length - 1], 5);
+      }
+      if (dots.length > 0) {
+        const xs = dots.map(([x]) => x);
+        expect(Math.min(...xs), name).toBeCloseTo(PAGE_WIDTH - Math.max(...xs), 5);
+      }
+    }
+  });
+});
+
 describe("ready pens", () => {
   it("are all at or above the stream's minimum stroke (FR-007)", () => {
     for (const pen of PENS) expect(pen.strokeWidth, pen.id).toBeGreaterThanOrEqual(STREAM_DEFAULTS.minStrokeWidth);
