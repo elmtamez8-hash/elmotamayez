@@ -46,6 +46,9 @@ function wbDoors(): array
         ['POST', '/api/v1/boards/{board}/files', ['tab' => WB_TAB, 'filename' => 'a.png', 'size' => 10]],
         ['POST', '/api/v1/boards/{board}/files/{file}/complete', []],
         ['GET', '/api/v1/boards/{board}/files/{file}', []],
+        ['POST', '/api/v1/boards/{board}/imports', ['tab' => WB_TAB, 'filename' => 'a.pdf', 'size' => 10]],
+        ['POST', '/api/v1/boards/{board}/imports/{import}/complete', []],
+        ['GET', '/api/v1/boards/{board}/imports/{import}', []],
     ];
 }
 
@@ -90,6 +93,8 @@ function wbCall(string $method, string $uri, array $body, User $as, ?Workspace $
 
     $body = json_decode(str_replace('{page}', $page, (string) json_encode($body)), true);
     $uri = str_replace('{file}', (string) test()->file->uuid, $uri);
+    // Any uuid: the board is refused before the import is looked for.
+    $uri = str_replace('{import}', (string) test()->file->uuid, $uri);
 
     return test()->json($method, str_replace(['{board}', '{page}'], [(string) test()->board->uuid, $page], $uri), $body)->status();
 }

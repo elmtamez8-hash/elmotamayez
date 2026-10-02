@@ -103,6 +103,8 @@ class ManagePlatformSettings extends Page
             'whiteboard_max_scene_mb' => round(WhiteboardSettings::maxSceneBytes() / self::BYTES_PER_MEGABYTE, 2),
             'whiteboard_max_board_mb' => round(WhiteboardSettings::maxBoardBytes() / self::BYTES_PER_MEGABYTE, 2),
             'whiteboard_max_pages_per_board' => WhiteboardSettings::maxPagesPerBoard(),
+            'whiteboard_import_max_mb' => round(WhiteboardSettings::importMaxBytes() / self::BYTES_PER_MEGABYTE, 2),
+            'whiteboard_import_max_pages' => WhiteboardSettings::importMaxPages(),
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
@@ -273,6 +275,13 @@ class ManagePlatformSettings extends Page
                             TextInput::make('whiteboard_max_pages_per_board')
                                 ->label('أقصى عدد صفحات في السبّورة الواحدة')
                                 ->integer()->minValue(1)->maxValue(1000)->required(),
+                            TextInput::make('whiteboard_import_max_mb')
+                                ->label('أقصى حجم لملف PDF يُستورَد')
+                                ->suffix('ميغابايت')
+                                ->numeric()->minValue(1)->step(1)->required(),
+                            TextInput::make('whiteboard_import_max_pages')
+                                ->label('أقصى عدد صفحات في الاستيراد الواحد')
+                                ->integer()->minValue(1)->maxValue(300)->required(),
                         ]),
                     Section::make('الفيديو')
                         ->description('هذه هي الحدودُ المعلَنةُ للمزوّد والمفروضةُ عند الرفع معاً؛ رقمان مختلفان يعني وعداً يخالف ما يُقبَل.')
@@ -430,6 +439,8 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('whiteboard.max_scene_bytes', (int) round((float) $data['whiteboard_max_scene_mb'] * self::BYTES_PER_MEGABYTE), $userId);
         PlatformSettings::set('whiteboard.max_board_bytes', (int) round((float) $data['whiteboard_max_board_mb'] * self::BYTES_PER_MEGABYTE), $userId);
         PlatformSettings::set('whiteboard.max_pages_per_board', (int) $data['whiteboard_max_pages_per_board'], $userId);
+        PlatformSettings::set('whiteboard.import_max_bytes', (int) round((float) $data['whiteboard_import_max_mb'] * self::BYTES_PER_MEGABYTE), $userId);
+        PlatformSettings::set('whiteboard.import_max_pages', (int) $data['whiteboard_import_max_pages'], $userId);
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);

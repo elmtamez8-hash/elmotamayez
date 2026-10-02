@@ -204,6 +204,9 @@ return [
         // Spec 039 — copying and deleting whiteboards. Two minutes: a teacher who
         // pressed «نسخ» is waiting to see the copy appear in the list.
         'redis-long:whiteboard-ops' => 120,
+        // Story 4 — PDF imports. A teacher watches the progress; one 100-page
+        // PDF is a couple of minutes, so ten behind is worth a look.
+        'redis-long:whiteboard-import' => 600,
     ],
 
     /*
@@ -527,6 +530,26 @@ return [
             'timeout' => 300,
             'nice' => 5,
         ],
+
+        /*
+        | Story 4 — a PDF turned into page pictures (poppler). One process: each
+        | conversion is CPU-heavy, and a second teacher waits their turn (the
+        | dialog shows the position). Not on whiteboard-ops: a long import must
+        | not hold a page delete or a copy behind it.
+        */
+        'supervisor-whiteboard-import' => [
+            'connection' => 'redis-long',
+            'queue' => ['whiteboard-import'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 512,
+            'tries' => 1,
+            'timeout' => 600,
+            'nice' => 10,
+        ],
     ],
 
     'environments' => [
@@ -577,6 +600,10 @@ return [
             'supervisor-whiteboard-ops' => [
                 'maxProcesses' => 1,
             ],
+
+            'supervisor-whiteboard-import' => [
+                'maxProcesses' => 1,
+            ],
         ],
 
         'local' => [
@@ -605,6 +632,10 @@ return [
             ],
 
             'supervisor-whiteboard-ops' => [
+                'maxProcesses' => 1,
+            ],
+
+            'supervisor-whiteboard-import' => [
                 'maxProcesses' => 1,
             ],
         ],

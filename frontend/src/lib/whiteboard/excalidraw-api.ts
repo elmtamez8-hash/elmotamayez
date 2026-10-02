@@ -480,3 +480,39 @@ function portableItems<T>(items: T): T {
 export function useBoardLibrary(api: BoardApi | null): void {
   useHandleLibrary({ excalidrawAPI: api, adapter: libraryAdapter });
 }
+
+/**
+ * A picture imported as the page shown (story 4): 1920 wide, locked UNDER
+ * everything drawn, and the frame as many screens tall as the picture needs —
+ * the same shape the server gives a PDF's pages (`BoardScene::withPicture`).
+ * Not an undo step: the page simply starts this way.
+ */
+export function placePagePicture(api: BoardApi, fileId: string, width: number, height: number): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  if (!frame) return;
+  const scaled = Math.round((height * PAGE_WIDTH) / Math.max(1, width));
+  const screens = Math.max(1, Math.ceil(scaled / PAGE_HEIGHT));
+  const [picture] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x: frame.x,
+      y: frame.y,
+      width: PAGE_WIDTH,
+      height: scaled,
+      status: "saved",
+      locked: true,
+      frameId: frame.id,
+      customData: { kind: "doc-background", v: 1, importUuid: "picture", page: 1 },
+    },
+  ]);
+  const grown =
+    screens * PAGE_HEIGHT > frame.height
+      ? ({ ...frame, height: screens * PAGE_HEIGHT, version: frame.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) } as BoardElement)
+      : frame;
+  api.updateScene({
+    elements: [picture, ...elements.map((e) => (e.id === frame.id ? grown : e))],
+    captureUpdate: CaptureUpdateAction.NEVER,
+  });
+}

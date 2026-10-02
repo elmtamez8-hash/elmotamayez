@@ -10,6 +10,8 @@ FROM php:8.5.10-fpm-alpine
 # صورةٍ (صورةُ الحساب، تصميمُ الشهادة) بـ«No JPEG support in this PHP build»
 # حتّى 2026-09-28. محلّيّاً يأتي PHP بها كلِّها، فالإنتاجُ أوّلُ من يسأل —
 # ولذلك يُسقِطُ آخرُ سطرٍ هنا البناءَ نفسَه إن غاب JPEG أو WebP.
+# poppler-utils (GPL، تُستخدَم كما هي أداةَ سطرِ أوامر): استيرادُ PDF السبّورة صفحاتٍ
+# (spec 039 · القصة ٤) — `pdfinfo` يعدّ الصفحات و`pdftoppm` يرسمها صوراً؛ وآخرُ سطرٍ يُسقِطُ البناءَ إن غابا.
 RUN apk add --no-cache \
     git \
     curl \
@@ -23,6 +25,7 @@ RUN apk add --no-cache \
     libxml2-dev \
     librdkafka-dev \
     postgresql-dev \
+    poppler-utils \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install \
     pdo_mysql \
@@ -35,7 +38,8 @@ RUN apk add --no-cache \
     xml \
     bcmath \
     pcntl \
-    && php -r '$g = gd_info(); exit($g["JPEG Support"] && $g["WebP Support"] ? 0 : 1);'
+    && php -r '$g = gd_info(); exit($g["JPEG Support"] && $g["WebP Support"] ? 0 : 1);' \
+    && command -v pdftoppm && command -v pdfinfo
 
 # ⚠️ `phpredis` امتدادٌ من PECL لا يُصرِّفُه `docker-php-ext-install`، وغيابُه
 # **لا يظهرُ إلّا وقتَ التشغيل**: `config/database.php` يفترضُ `phpredis` عميلاً

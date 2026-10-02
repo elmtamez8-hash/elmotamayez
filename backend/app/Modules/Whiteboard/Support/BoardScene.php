@@ -38,6 +38,45 @@ final class BoardScene
     }
 
     /**
+     * A page of an imported PDF (story 4): its picture, 1920 wide, locked under
+     * everything drawn on it, and a frame as many screens tall as the picture
+     * needs (the page grows downward — a portrait A4 is three screens).
+     */
+    public static function withPicture(string $pageUuid, string $background, string $fileId, int $height, string $importUuid, int $pageNumber): string
+    {
+        $screens = max(1, (int) ceil($height / self::PAGE_HEIGHT));
+        $frame = self::frame($pageUuid);
+        $frame['height'] = $screens * self::PAGE_HEIGHT;
+
+        return (string) json_encode([
+            'v' => self::VERSION,
+            'elements' => [
+                [
+                    'id' => 'doc:'.$pageUuid,
+                    'type' => 'image',
+                    'x' => 0,
+                    'y' => 0,
+                    'width' => self::PAGE_WIDTH,
+                    'height' => $height,
+                    'angle' => 0,
+                    'fileId' => $fileId,
+                    'status' => 'saved',
+                    'scale' => [1, 1],
+                    'locked' => true,
+                    'frameId' => 'frame:'.$pageUuid,
+                    'isDeleted' => false,
+                    'version' => 1,
+                    'versionNonce' => 1,
+                    'customData' => ['kind' => 'doc-background', 'v' => 1, 'importUuid' => $importUuid, 'page' => $pageNumber],
+                ],
+                $frame,
+            ],
+            'appState' => ['viewBackgroundColor' => self::CANVAS[$background] ?? self::CANVAS['white']],
+            'fileIds' => [$fileId],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    /**
      * A locked frame element as Excalidraw 0.18 writes one. Excalidraw's
      * `restoreElements` fills any field it does not find, so only what the page
      * model depends on is spelled out.
