@@ -769,7 +769,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </OverlayLayer>
       )}
       {spotlight && <Spotlight onClose={endSpotlight} />}
-      {passing === "magnifier" && <Magnifier background={BACKGROUNDS[background].canvas} onClose={endPassing} />}
+      {passing === "magnifier" && <Magnifier background={BACKGROUNDS[background].canvas} template={template} onClose={endPassing} />}
       {passing === "curtain" && <Curtain onClose={endPassing} />}
       {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
