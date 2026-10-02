@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Button } from "@/components/ui/Button";
 import { BoardSettings } from "@/components/whiteboard/BoardSettings";
 import { ExportMenu } from "@/components/whiteboard/ExportMenu";
@@ -21,6 +23,11 @@ export interface BoardToolbarProps {
   onTogglePresenting: () => void;
   pagesOpen?: boolean;
   onTogglePages?: () => void;
+  /**
+   * The tool groups (teaching tools, presenting, encouragement), each behind one
+   * button so the bar stays small over the board. One open at a time.
+   */
+  menus?: ToolMenu[];
   /** Who edits and whether the work is saved (story 2). */
   status?: React.ReactNode;
 }
@@ -30,8 +37,16 @@ export interface BoardToolbarProps {
  * pages, name and background, export, and «عرض». Pure — every action is the
  * canvas's — so it is tested by pressing it.
  */
+export interface ToolMenu {
+  id: string;
+  label: string;
+  content: React.ReactNode;
+}
+
 export function BoardToolbar(props: BoardToolbarProps) {
   const { pageIndex, pageCount } = props;
+  const [open, setOpen] = useState<string | null>(null);
+  const shown = props.menus?.find((menu) => menu.id === open);
 
   return (
     // Its own light panel: the toolbar sits ON the canvas, and dark ink on the
@@ -69,6 +84,23 @@ export function BoardToolbar(props: BoardToolbarProps) {
         onBackground={props.onBackground}
       />
       <ExportMenu onExport={props.onExport} />
+      {props.menus && props.menus.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 border-t border-line pt-1.5">
+          {props.menus.map((menu) => (
+            <Button
+              key={menu.id}
+              size="sm"
+              variant={open === menu.id ? "secondary" : "ghost"}
+              expanded={open === menu.id}
+              controls={`wb-menu-${menu.id}`}
+              onClick={() => setOpen((current) => (current === menu.id ? null : menu.id))}
+            >
+              {menu.label} {open === menu.id ? "▴" : "▾"}
+            </Button>
+          ))}
+        </div>
+      )}
+      {shown && <div id={`wb-menu-${shown.id}`}>{shown.content}</div>}
       {props.status && <div className="flex flex-col gap-1 border-t border-line pt-1.5">{props.status}</div>}
     </div>
   );

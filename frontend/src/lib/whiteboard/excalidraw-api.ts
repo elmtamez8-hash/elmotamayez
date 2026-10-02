@@ -1,5 +1,6 @@
 import {
   CaptureUpdateAction,
+  convertToExcalidrawElements,
   exportToBlob,
   exportToCanvas,
   exportToSvg,
@@ -11,7 +12,8 @@ import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/exca
 import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
-import { BACKGROUNDS, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
+import type { Pen } from "@/lib/whiteboard/pens";
+import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, STREAM_DEFAULTS, fitViewport, recolorForBackground, type BoardBackground } from "@/lib/whiteboard/page-model";
 
 /**
  * THE door to Excalidraw (spec 039, R-02). Every call into the library goes through
@@ -183,6 +185,11 @@ export async function pageThumbnail(api: BoardApi, elements: readonly BoardEleme
   return canvas.toDataURL("image/png");
 }
 
+/** The built-in laser pointer (US8): Excalidraw's own tool, also on its «K» key. */
+export function startLaser(api: BoardApi): void {
+  api.setActiveTool({ type: "laser" });
+}
+
 /** Hand pictures to the canvas by OUR file id — a page names them, the bytes stay out of the scene. */
 export function addPictures(api: BoardApi, pictures: { id: string; dataURL: string; mimeType: "image/png" | "image/jpeg" }[]): void {
   if (pictures.length === 0) return;
@@ -218,4 +225,121 @@ export function reframe(elements: readonly BoardElement[], pageUuid: string): Bo
     if (from && element.frameId === from) return { ...element, frameId: to } as BoardElement;
     return element;
   });
+}
+
+/**
+ * Stamp a sticker on the page shown (US10): an image element inside the page's
+ * frame, near its centre, as ONE undoable step. Its file is a `template:` id the
+ * caller has already handed to the canvas (`addPictures`).
+ */
+export function placeSticker(api: BoardApi, fileId: string, name: string, offset: number): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const size = 220;
+  const x = (frame?.x ?? 0) + (frame?.width ?? PAGE_WIDTH) / 2 - size / 2 + offset;
+  const y = (frame?.y ?? 0) + (frame?.height ?? PAGE_HEIGHT) / 2 - size / 2 + offset;
+
+  const [sticker] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x,
+      y,
+      width: size,
+      height: size,
+      status: "saved",
+      frameId: frame?.id ?? null,
+      customData: { kind: "sticker", v: 1, name },
+    },
+  ]);
+
+  api.updateScene({ elements: [...elements, sticker], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/** A ready pen (US9): the freehand tool with that pen's width, opacity and colour. */
+export function applyPen(api: BoardApi, pen: Pen): void {
+  const colour = pen.colour ?? api.getAppState().currentItemStrokeColor;
+  api.updateScene({
+    appState: {
+      currentItemStrokeWidth: pen.strokeWidth,
+      currentItemOpacity: pen.opacity,
+      currentItemStrokeColor: colour,
+    },
+    captureUpdate: CaptureUpdateAction.NEVER,
+  });
+  api.setActiveTool({ type: "freedraw" });
+}
+
+/**
+ * Put a background template under the page shown (US9, FR-030), replacing any
+ * it had — or remove it (`null`). One locked image the size of the page, FIRST
+ * in the scene so everything drawn sits above it. One undoable step.
+ */
+export function setPageTemplate(api: BoardApi, name: string | null, fileId: string | null): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const rest = elements.map((element) =>
+    (element.customData as { kind?: string } | undefined)?.kind === "template" && !element.isDeleted
+      ? ({ ...element, isDeleted: true, version: element.version + 1 } as BoardElement)
+      : element,
+  );
+
+  if (name === null || fileId === null) {
+    api.updateScene({ elements: rest, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+    return;
+  }
+
+  const [template] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x: frame?.x ?? 0,
+      y: frame?.y ?? 0,
+      width: frame?.width ?? PAGE_WIDTH,
+      height: frame?.height ?? PAGE_HEIGHT,
+      status: "saved",
+      locked: true,
+      frameId: frame?.id ?? null,
+      customData: { kind: "template", v: 1, name },
+    },
+  ]);
+
+  api.updateScene({ elements: [template, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/** The template the page shown uses, if any. */
+export function pageTemplate(api: BoardApi): string | null {
+  const found = api
+    .getSceneElements()
+    .find((element) => (element.customData as { kind?: string } | undefined)?.kind === "template");
+  return (found?.customData as { name?: string } | undefined)?.name ?? null;
+}
+
+/**
+ * A line drawn along a geometry instrument (US9, FR-029): an ordinary line on the
+ * page shown — a straight segment, or an arc as many points — in the pen's
+ * current colour and width, with no hand-drawn wobble. One undoable step.
+ * The instrument itself is never saved.
+ */
+export function addStroke(api: BoardApi, points: [number, number][]): void {
+  if (points.length < 2) return;
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const state = api.getAppState();
+  const [x, y] = points[0];
+
+  const [line] = convertToExcalidrawElements([
+    {
+      type: "line",
+      x,
+      y,
+      points: points.map(([px, py]) => [px - x, py - y] as [number, number]),
+      strokeColor: state.currentItemStrokeColor,
+      strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, state.currentItemStrokeWidth),
+      roughness: 0,
+      frameId: frame?.id ?? null,
+    },
+  ]);
+
+  api.updateScene({ elements: [...elements, line], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }

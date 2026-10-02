@@ -1,0 +1,26 @@
+Sounds of the whiteboard's encouragement effects (spec 039 · US10).
+
+Every file here is in the public domain or under CC0 1.0 — free for commercial
+use, no attribution required. Each was checked on its own Wikimedia Commons page
+on 2026-10-02 before it was downloaded, unmodified. (A fourth, a quieter
+applause recording, was dropped after measuring: too faint for a stream.)
+
+clapping-hurray.ogg
+  Source:  https://commons.wikimedia.org/wiki/File:Clapping_hurray.ogg
+  Author:  starlite
+  License: Public domain
+
+drum-roll.ogg
+  Source:  https://commons.wikimedia.org/wiki/File:Drum_Roll_Intro.ogg
+  Author:  Iwan Sounds and DIY
+  License: CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/)
+
+party-blower.ogg
+  Source:  https://commons.wikimedia.org/wiki/File:Luftrüssel.ogg
+  Author:  Flo Sorg
+  License: Public domain
+
+Not used, on purpose: the sounds of the reference site the owner pointed to
+(spahboard) — that site states «حقوق الملكية محفوظة ومسجلة للمطور».
+The gavel and the balloon pop are synthesised in effect-sounds.ts: no public
+domain recording of either was found.

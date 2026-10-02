@@ -656,42 +656,42 @@
 
 ## الطور ١٠: القصة ٨ (P3): الليزر والكشّاف والمؤقّت
 
-- [ ] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`:
+- [x] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`: _(تمّ في القصة ٩: `OverlayLayer` في `GeometryTool.tsx`، تحويل CSS بالتمرير والتكبير)_
   - طبقة واحدة فوق اللوحة مربوطة بـ `sceneCoordsToViewportCoords` و`onScrollChange`؛
   - لا تكتب في المشهد أبداً، وهي أساس القصص ٩ و١٠ و١٢.
-- [ ] T114 [P] [US8] اكتب `overlays/Spotlight.tsx` و`overlays/Timer.tsx`. والليزر مدمج (`setActiveTool({type:'laser'})`) وله زرّ واختصار
-- [ ] T115 [US8] اختبر `overlays/OverlayLayer.test.tsx` بواجهة Excalidraw وهمية: تشغيل كل أداة ثم إغلاقها يستدعي `updateScene` و`addFiles` و`history` **صفر مرّة** (SC-010). أمّا «لا أثر في التصدير» ففي Playwright
-- [ ] T116 [P] [US8] اكتب `Spotlight.test.tsx` و`Timer.test.tsx`: الكشّاف يظهر عند تشغيله، والمؤقّت يعدّ ويُغلق
-- [ ] T117 [US8] ركّب أزرار الليزر والكشّاف والمؤقّت في شريط الأدوات و`OverlayLayer` فوق اللوحة، ومعه اختبار يضغطها
+- [x] T114 [P] [US8] اكتب `overlays/Spotlight.tsx` و`overlays/Timer.tsx`. والليزر مدمج (`setActiveTool({type:'laser'})`) وله زرّ واختصار
+- [x] T115 [US8] اختبر `overlays/OverlayLayer.test.tsx` بواجهة Excalidraw وهمية: تشغيل كل أداة ثم إغلاقها يستدعي `updateScene` و`addFiles` و`history` **صفر مرّة** (SC-010). أمّا «لا أثر في التصدير» ففي Playwright
+- [x] T116 [P] [US8] اكتب `Spotlight.test.tsx` و`Timer.test.tsx`: الكشّاف يظهر عند تشغيله، والمؤقّت يعدّ ويُغلق
+- [x] T117 [US8] ركّب أزرار الليزر والكشّاف والمؤقّت في شريط الأدوات و`OverlayLayer` فوق اللوحة، ومعه اختبار يضغطها
 
 ---
 
 ## الطور ١١: القصة ٩ (P2): أدوات التدريس
 
-- [ ] T118 [P] [US9] اكتب `overlays/Ruler.tsx` و`Protractor.tsx` و`Compass.tsx` و`SetSquare.tsx`:
+- [x] T118 [P] [US9] اكتب `overlays/Ruler.tsx` و`Protractor.tsx` و`Compass.tsx` و`SetSquare.tsx`:
   - تُنتج عناصر `line` و`arrow` وأقواساً كنقاط `line` عبر `updateScene(IMMEDIATELY)`؛
   - الأداة نفسها لا تُحفظ.
-- [ ] T119 [P] [US9] اكتب `frontend/src/lib/whiteboard/templates.ts`، ستة قوالب:
+- [x] T119 [P] [US9] اكتب `frontend/src/lib/whiteboard/templates.ts`، ستة قوالب:
   - مسطّرة، ومربّعات، ومنقّطة، ومتساوية القياس، ورسم بياني، وسطور كرّاسة عربية؛
   - كلها SVG تُحوَّل PNG مرة واحدة بمعرّف ثابت `template:<name>:v1`؛
   - عنصر مقفل أسفل الصفحة.
-- [ ] T120 [US9] أضف إعدادات الأقلام الجاهزة (ماركر وفرشاة، وما يقرّره المالك في الطباشير والبخّاخ) كلها فوق الحدّ الأدنى للبثّ، ثم `overlays/Magnifier.tsx` و`Curtain.tsx` و`Wheel.tsx`
-- [ ] T121 [US9] اختبر `templates.test.ts` و`overlays/geometry.test.ts`:
+- [x] T120 _(الأقلام: ماركر وفرشاة عريضة وقلم تظليل؛ الطباشير والبخّاخ لا يرسمهما القلم الحرّ في Excalidraw — يحتاجان رسّاماً خاصاً إن طلبهما المالك)_ أضف إعدادات الأقلام الجاهزة (ماركر وفرشاة، وما يقرّره المالك في الطباشير والبخّاخ) كلها فوق الحدّ الأدنى للبثّ، ثم `overlays/Magnifier.tsx` و`Curtain.tsx` و`Wheel.tsx`
+- [x] T121 [US9] اختبر `templates.test.ts` و`overlays/geometry.test.ts`:
   - خطّ المسطرة يُحفظ ويُعاد فتحه في مكانه (SC-011)؛
   - القالب عنصر مقفل بمعرّف ثابت. وظهوره في التصدير يُفحص في Playwright.
-- [ ] T122 [P] [US9] اكتب اختبار vitest: كل قلم جاهز فوق الحدّ الأدنى للسُمك، والمكبّر والستارة والعجلة تستدعي `updateScene` صفر مرّة (SC-010)
-- [ ] T123 [US9] ركّب منتقي القوالب وأدوات الهندسة والأقلام والمكبّر والستارة والعجلة على الشاشة، ومعه اختبار يضغطها
+- [x] T122 [P] [US9] اكتب اختبار vitest: كل قلم جاهز فوق الحدّ الأدنى للسُمك، والمكبّر والستارة والعجلة تستدعي `updateScene` صفر مرّة (SC-010)
+- [x] T123 [US9] ركّب منتقي القوالب وأدوات الهندسة والأقلام والمكبّر والستارة والعجلة على الشاشة، ومعه اختبار يضغطها
 
 ---
 
 ## الطور ١٢: القصتان ١٠ و١٢ (P3): مؤثرات التشجيع ومؤثرات المؤشّر
 
-- [ ] T124 [P] [US10] اكتب `overlays/effects/Celebrate.tsx`: تصفيق وبالونات واحتفال ونجوم، بكود خاص على Canvas 2D (أو `canvas-confetti` إن وافق المالك)، مدّته ثوانٍ ثم يختفي
-- [ ] T125 [P] [US10] أضف ملفات صوت قصيرة برخصة CC0 إلى `frontend/public/whiteboard/sounds/` مع `LICENSE.txt` يذكر المصدر، وسطر التلميح «يُسمَع في البثّ فقط إذا شاركت صوت التبويب» (FR-035)
-- [ ] T126 [P] [US12] اكتب `overlays/effects/PointerTrail.tsx`: نيون وشرارات وذيل ملوّن، عبر `requestAnimationFrame` وcanvas واحد. ويُقاس أنه لا يزيد تأخّر القلم في جلسة 5 دقائق
-- [ ] T127 [US10] اختبر `overlays/effects/effects.test.tsx`: المؤثّر يزول ويستدعي `updateScene` و`addFiles` صفر مرّة (SC-010)
-- [ ] T128 [P] [US10] اختبر أن سطر التلميح يظهر بجانب كل مؤثّر له صوت (US10-2)
-- [ ] T129 [US10] ركّب قائمة المؤثّرات ومفتاح آثار المؤشّر في شريط الأدوات، ومعه اختبار يضغطها
+- [x] T124 [P] [US10] اكتب `overlays/effects/Celebrate.tsx`: تصفيق وبالونات واحتفال ونجوم، بكود خاص على Canvas 2D (أو `canvas-confetti` إن وافق المالك)، مدّته ثوانٍ ثم يختفي
+- [x] T125 _(تمّ: ثلاث تسجيلات ملكية عامة/CC0 من ويكيميديا كومنز بموافقة المالك، ومصدر كل واحد في `LICENSE.txt`؛ والفرقعة والشاكوش والنجوم مولَّدة. أُضيفت من أفكار المرجع: بالونات تُفرقَع باليد، «انتباه!» بالشاكوش، طبلة قبل الإعلان، وملصقات تشجيع تُحفظ في الصفحة)_ أضف ملفات صوت قصيرة برخصة CC0 إلى `frontend/public/whiteboard/sounds/` مع `LICENSE.txt` يذكر المصدر، وسطر التلميح «يُسمَع في البثّ فقط إذا شاركت صوت التبويب» (FR-035)
+- [x] T126 [P] [US12] اكتب `overlays/effects/PointerTrail.tsx`: نيون وشرارات وذيل ملوّن، عبر `requestAnimationFrame` وcanvas واحد. ويُقاس أنه لا يزيد تأخّر القلم في جلسة 5 دقائق
+- [x] T127 [US10] اختبر `overlays/effects/effects.test.tsx`: المؤثّر يزول ويستدعي `updateScene` و`addFiles` صفر مرّة (SC-010)
+- [x] T128 [P] [US10] اختبر أن سطر التلميح يظهر بجانب كل مؤثّر له صوت (US10-2)
+- [x] T129 [US10] ركّب قائمة المؤثّرات ومفتاح آثار المؤشّر في شريط الأدوات، ومعه اختبار يضغطها
 
 ---
 

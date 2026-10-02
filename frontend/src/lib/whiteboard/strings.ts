@@ -44,6 +44,74 @@ export const WB = {
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
+  /** The toolbar's menus. */
+  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع" },
+
+  /** Teaching tools (US9). */
+  tools: {
+    template: "خلفية الصفحة:",
+    templates: {
+      none: "بلا",
+      lined: "مسطّرة",
+      grid: "مربّعات",
+      dotted: "منقّطة",
+      isometric: "متساوية القياس",
+      graph: "رسم بياني",
+      "arabic-lines": "كرّاسة عربية",
+    },
+    pen: "القلم:",
+    pens: { marker: "ماركر", brush: "فرشاة عريضة", highlighter: "قلم تظليل" },
+    passing: "أدوات مؤقّتة:",
+    names: { magnifier: "عدسة", curtain: "ستارة", wheel: "عجلة الاختيار" },
+    curtain: "حافة الستارة: اسحبها لكشف ما تحتها",
+    reveal: "اكشف قليلاً",
+    closeCurtain: "إزالة الستارة",
+    wheelNames: "الأسماء، اسم في كل سطر (أو رقم واحد مثل ٣٠):",
+    wheelPlaceholder: "أحمد\nمريم\nيوسف",
+    wheelNoRepeat: "بدون تكرار حتى تنتهي الجولة",
+    wheelLast: (name: string) => `الأخير: ${name}`,
+    wheelOrder: "ترتيب الاختيار",
+    wheelNewRound: "جولة جديدة",
+    wheelNoPicks: "لم يُختر أحد بعد.",
+    spin: "أدر العجلة",
+    closeWheel: "إغلاق",
+    geometry: "هندسة:",
+    instruments: { ruler: "مسطرة", protractor: "منقلة", compass: "فرجار", "set-square": "مثلث قائم" },
+    turn: "اسحب لتدوير الأداة",
+    open: "اسحب لفتح الفرجار",
+    cm: "سم",
+    closeInstrument: "إزالة الأداة",
+  },
+
+  /** The presenter's tools (US8). */
+  presenter: {
+    title: "عرض:",
+    laser: "ليزر",
+    spotlight: "كشّاف",
+    spotlightOff: "إطفاء الكشّاف",
+    spotlightOn: "الكشّاف يعمل: [ و ] لتصغير الدائرة وتكبيرها، وEsc لإطفائه",
+    timer: "مؤقّت:",
+    minutes: (n: number) => counted(n, NOUNS.minutes),
+    pause: "إيقاف مؤقّت",
+    resume: "متابعة",
+    closeTimer: "إغلاق",
+    timeUp: "انتهى الوقت",
+  },
+
+  /** Encouragement and pointer effects (US10, US12). */
+  effects: {
+    title: "تشجيع:",
+    names: { applause: "تصفيق", balloons: "بالونات", party: "احتفال", stars: "نجوم", drumroll: "طبلة", attention: "انتباه" },
+    icons: { applause: "👏", balloons: "🎈", party: "🎉", stars: "⭐", drumroll: "🥁", attention: "🔨" },
+    attention: "انتباه!",
+    popBalloon: "فرقع البالونة",
+    stickers: "ملصق:",
+    sound: "صوت المؤثرات",
+    soundHint: "يسمعه الطلاب فقط إذا شاركت صوت التبويب مع الشاشة.",
+    trail: "أثر المؤشّر:",
+    trails: { off: "بلا أثر", neon: "نيون", sparks: "شرارات", rainbow: "ألوان" },
+  },
+
   /** The pages strip (US3). */
   pagesTitle: "صفحات السبّورة",
   showPages: "الصفحات",
