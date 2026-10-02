@@ -56,7 +56,9 @@ final class ListBoards extends Action
 
         if (! $manager) {
             $query->where(function (Builder $q) use ($readerId, $scoped): void {
-                $q->where('owner_user_id', $readerId);
+                // A course board is the course teacher's (D1), reached by the course
+                // clauses below; the creator owns a course-less one only — as `view` says.
+                $q->where(fn (Builder $own) => $own->where('owner_user_id', $readerId)->whereNull('course_id'));
 
                 if ($scoped !== null) {
                     $q->orWhereIn('course_id', Course::query()->whereIn('id', $scoped)->select('id'));

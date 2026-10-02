@@ -20,9 +20,10 @@ use Illuminate\Support\Facades\DB;
  * copies a board into a course they could not have created one in.
  *
  * ⚠️ THE CLAIM IS A CONDITIONAL UPDATE: the original is marked `duplicating`
- * `WHERE pending_operation IS NULL`, so a double click answers 409 — and while it
- * is set the page gate refuses every structural change to the original, so the
- * job copies a board that cannot change under it.
+ * `WHERE pending_operation IS NULL`, so a double click answers 409. While it is
+ * set, adding and deleting pages of the original are refused (`open()`/`close()`);
+ * a reorder or a save may still land, which is harmless because the job reads
+ * the pages ONCE, in one snapshot, before copying the files they name.
  */
 final class DuplicateBoard extends Action
 {

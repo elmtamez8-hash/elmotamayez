@@ -36,6 +36,14 @@ final class BoardLock
 
     public const HANDOVER_GRACE_SECONDS = 10;
 
+    /**
+     * A take-over request still unclaimed this long after its grace has a requester
+     * that is gone (its tab beats every 5 s and would have claimed it). Such a
+     * request no longer blocks a free lock or a fresh «خُذ التحرير» — without this,
+     * a requester and a holder that both died left the board locked for good.
+     */
+    public const HANDOVER_STALE_SECONDS = 30;
+
     /** Every time written to an `editor_*` column passes through here. */
     public static function stamp(CarbonImmutable $time): string
     {
@@ -55,6 +63,7 @@ final class BoardLock
         $stamp = self::stamp($now);
         $graceEnds = self::stamp($now->subSeconds(self::HANDOVER_GRACE_SECONDS));
         $expired = self::stamp($now->subSeconds(self::EXPIRES_AFTER_SECONDS));
+        $stale = self::stamp($now->subSeconds(self::HANDOVER_STALE_SECONDS));
 
         // 1. Renew: this tab holds it and no handover's grace has run out. Touches
         //    editor_seen_at ONLY, through DB::table, so `updated_at` does not churn.
@@ -77,7 +86,7 @@ final class BoardLock
                     ->where('editor_handover_tab', $tab)
                     ->where('editor_handover_at', '<=', $graceEnds))
                 ->orWhere(fn ($free) => $free
-                    ->whereNull('editor_handover_tab')
+                    ->where(fn ($none) => $none->whereNull('editor_handover_tab')->orWhere('editor_handover_at', '<=', $stale))
                     ->where(fn ($idle) => $idle->whereNull('editor_tab_id')->orWhere('editor_seen_at', '<', $expired))))
             ->update([
                 'editor_user_id' => $userId,
@@ -103,13 +112,14 @@ final class BoardLock
         $now = CarbonImmutable::now();
         $stamp = self::stamp($now);
         $expired = self::stamp($now->subSeconds(self::EXPIRES_AFTER_SECONDS));
+        $stale = self::stamp($now->subSeconds(self::HANDOVER_STALE_SECONDS));
 
         DB::table('boards')
             ->where('id', $board->id)
             ->whereNotNull('editor_tab_id')
             ->where('editor_tab_id', '<>', $tab)
             ->where('editor_seen_at', '>=', $expired)
-            ->whereNull('editor_handover_at')
+            ->where(fn ($q) => $q->whereNull('editor_handover_at')->orWhere('editor_handover_at', '<=', $stale))
             ->update(['editor_handover_tab' => $tab, 'editor_handover_at' => $stamp]);
 
         $row = DB::table('boards')->where('id', $board->id)->first(['editor_handover_tab', 'editor_handover_at']);

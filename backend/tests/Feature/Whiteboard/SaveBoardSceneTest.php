@@ -168,6 +168,7 @@ it('refuses what a page document may not contain', function (array $elements, ar
     'an embed' => [[['id' => 'e', 'type' => 'embeddable']], [], 'bad_element'],
     'a javascript link' => [[['id' => 'l', 'type' => 'text', 'link' => 'javascript:alert(1)']], [], 'bad_link'],
     'a scheme-relative link' => [[['id' => 'l', 'type' => 'text', 'link' => '//evil.example']], [], 'bad_link'],
+    'a backslash host' => [[['id' => 'l', 'type' => 'text', 'link' => '/\\evil.example']], [], 'bad_link'],
     'a link with a trailing newline' => [[['id' => 'l', 'type' => 'text', 'link' => "https://ok.example\n"]], [], 'bad_link'],
     'an undeclared image' => [[['id' => 'i', 'type' => 'image', 'fileId' => 'x']], [], 'unknown_file'],
     'a bad template id' => [[], ['template:Grid:v1'], 'unknown_file'],
@@ -226,4 +227,11 @@ it('stops an assistant at the next save once their scope is taken away', functio
     // The board is no longer theirs to see, so the answer is the not-found one.
     wbSave($this->tab, 2, 2, wbScene())->assertNotFound();
     expect($this->page->fresh()->version)->toBe(2);
+});
+
+it('refuses a client_rev its unsigned column cannot hold — MySQL would answer 500', function (): void {
+    wbSaveAs($this->teacher, $this->workspace);
+    wbHold($this->tab);
+
+    wbSave($this->tab, 1, 4294967296, wbScene())->assertUnprocessable()->assertJsonValidationErrors('client_rev');
 });

@@ -176,3 +176,28 @@ it('refuses a renewal whose handover ran out between the decision and the write'
         ->and($result['held'])->toBeFalse()
         ->and($this->lock->acquire($this->board, $this->owner->id, $this->ownerTab)['held'])->toBeTrue();
 });
+
+it('never stays locked when the teacher asked for the lock and both tabs then died', function (): void {
+    $this->lock->acquire($this->board, $this->assistant->id, $this->assistantTab);
+    expect($this->lock->take($this->board, $this->ownerTab))->not->toBeNull();
+
+    // Neither tab beats again. Once the holder has expired, the board is free —
+    // the dead request no longer blocks it (it once did, for good).
+    $this->travel(121)->seconds();
+    $fresh = (string) Str::uuid();
+    expect($this->lock->acquire($this->board, $this->owner->id, $fresh)['held'])->toBeTrue();
+});
+
+it('lets the teacher ask again from a new tab when their first request was never claimed', function (): void {
+    $this->lock->acquire($this->board, $this->assistant->id, $this->assistantTab);
+    $this->lock->take($this->board, $this->ownerTab);
+
+    // The teacher's first tab died; the assistant's tab is still alive but can no
+    // longer renew past the grace. A new teacher tab asks again and receives it.
+    $this->travel(BoardLock::HANDOVER_STALE_SECONDS + 1)->seconds();
+    $newTab = (string) Str::uuid();
+    expect($this->lock->take($this->board, $newTab))->not->toBeNull();
+
+    $this->travel(BoardLock::HANDOVER_GRACE_SECONDS + 1)->seconds();
+    expect($this->lock->acquire($this->board, $this->owner->id, $newTab)['held'])->toBeTrue();
+});

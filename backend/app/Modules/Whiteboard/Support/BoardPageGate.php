@@ -43,7 +43,9 @@ final class BoardPageGate
         );
 
         if ($changed !== 1) {
-            throw new WhiteboardRefusal('too_many_pages');
+            $pending = DB::table('boards')->where('id', $board->id)->value('pending_operation');
+
+            throw new WhiteboardRefusal($pending === null ? 'too_many_pages' : 'operation_pending');
         }
     }
 
@@ -56,12 +58,14 @@ final class BoardPageGate
     public function close(Board $board, int $count): void
     {
         $changed = DB::update(
-            'UPDATE boards SET pages_count = pages_count - ? WHERE id = ? AND pages_count > ?',
+            'UPDATE boards SET pages_count = pages_count - ? WHERE id = ? AND pages_count > ? AND pending_operation IS NULL',
             [$count, $board->id, $count],
         );
 
         if ($changed !== 1) {
-            throw new WhiteboardRefusal('last_page');
+            $pending = DB::table('boards')->where('id', $board->id)->value('pending_operation');
+
+            throw new WhiteboardRefusal($pending === null ? 'last_page' : 'operation_pending');
         }
     }
 

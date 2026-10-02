@@ -203,3 +203,17 @@ it('lists each board with its course and lesson, a deleted course by name, and f
 
     expect(array_column($this->getJson('/api/v1/boards?q=الكسو')->json('data'), 'title'))->toBe(['الكسور']);
 });
+
+it('lists to an assistant no course board they can no longer open, even one they created', function (): void {
+    $inside = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
+    $scope = AssistantScope::factory()->create(['assistant_assignment_id' => $this->assignment->getKey(), 'course_id' => $inside->getKey()]);
+    Board::factory()->withPages(1)->create([
+        'workspace_id' => $this->workspace->getKey(), 'owner_user_id' => $this->assistant->getKey(),
+        'course_id' => $inside->getKey(), 'title' => 'سبّورتي في كورس',
+    ]);
+    $scope->delete();
+    AssistantScope::factory()->create(['assistant_assignment_id' => $this->assignment->getKey(), 'course_id' => $this->course->getKey()]);
+
+    wbActAs($this->assistant, $this->workspace);
+    expect(array_column($this->getJson('/api/v1/boards')->assertOk()->json('data'), 'title'))->not->toContain('سبّورتي في كورس');
+});

@@ -13,6 +13,10 @@ import { TEACHER_FILE, useTeacherAccount } from "./teacher-account";
 
 const API = "http://localhost:8000/api/v1";
 
+// Each test draws, waits for real saves and reloads: well past the 30 s default
+// when five run side by side (measured 22–28 s alone, timing out together).
+test.describe.configure({ timeout: 90_000 });
+
 function token(): string {
   return (JSON.parse(readFileSync(TEACHER_FILE, "utf8")) as { token: string }).token;
 }

@@ -114,8 +114,8 @@ export function createAutosave(deps: AutosaveDeps) {
     }
   }
 
-  function stopAll(): void {
-    ended = true;
+  /** Cancel every waiting timer. */
+  function quiet(): void {
     for (const slot of pages.values()) {
       if (slot.debounce) clearTimeout(slot.debounce);
       slot.cancelIdle?.();
@@ -124,6 +124,12 @@ export function createAutosave(deps: AutosaveDeps) {
     }
     if (backoffTimer) clearTimeout(backoffTimer);
     backoffTimer = null;
+  }
+
+  /** For good: a refusal no retry can fix, or the board closing. */
+  function stopAll(): void {
+    ended = true;
+    quiet();
   }
 
   function send(page: string): void {
@@ -164,11 +170,19 @@ export function createAutosave(deps: AutosaveDeps) {
           deps.onConflict(page, { version: body.version, scene: body.scene });
         } else if (code === "lock_lost") {
           // The draft is the copy that survives; the board becomes read-only.
+          // PAUSED, not ended: if this tab gets the lock back, saving resumes
+          // (an `ended` flag here once left a re-editable board saving nothing).
           for (const [id, s] of pages) if (s.dirty) void writeDraft(id, s);
-          stopAll();
+          quiet();
           holding = false;
           deps.onLockLost();
-        } else if (code === "workspace_changed" || status === 422 || status === 403 || status === 404) {
+        } else if (status === 404) {
+          // That page is gone (deleted in another tab, or being deleted here):
+          // stop saving IT, quietly — the rest of the board is unaffected.
+          slot.stopped = true;
+          slot.retry = null;
+          slot.dirty = false;
+        } else if (code === "workspace_changed" || status === 422 || status === 403) {
           failed = true;
           stopAll();
           deps.onRefused(code ?? String(status));

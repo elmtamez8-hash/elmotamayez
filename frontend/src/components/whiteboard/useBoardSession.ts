@@ -74,6 +74,31 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
   pagesRef.current = pages;
 
   const boardUuid = board?.uuid ?? null;
+
+  /** Give the autosave every page as the server holds it now. */
+  const trackAll = (fresh: BoardDetail) => {
+    const p = pagesRef.current;
+    for (const page of fresh.pages) save.current?.track(page.uuid, page.version, p.hash(p.read(page.uuid)));
+  };
+
+  /** A draft left by a crash, a lost network or a lost lock, page by page (R-08). */
+  const offerDrafts = (fresh: BoardDetail) => {
+    if (!userUuid) return;
+    void Promise.all(
+      fresh.pages.map(async (page) => {
+        const key = draftKey(fresh.uuid, page.uuid, userUuid);
+        const draft = await indexedDbDrafts.get(key);
+        if (draft === "unavailable" || draft === null) return null;
+        // A draft identical to what the server holds has nothing to restore.
+        const verdict = draft.scene === page.scene ? "discard" : classifyDraft(draft, page.version);
+        if (verdict === "discard") {
+          void indexedDbDrafts.remove(key);
+          return null;
+        }
+        return { page: page.uuid, verdict, draft } satisfies RestoreQuestion;
+      }),
+    ).then((found) => setRestores(found.filter((q): q is RestoreQuestion => q !== null)));
+  };
   const canEdit = board?.can.edit ?? false;
 
   // One autosave per opened board.
@@ -104,25 +129,9 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
       },
       onRefused: setRefusal,
     });
-    for (const page of board.pages) autosave.track(page.uuid, page.version, pagesRef.current.hash(pagesRef.current.read(page.uuid)));
     save.current = autosave;
-
-    // A draft left by a crash or a lost network, page by page (R-08).
-    if (board.can.edit) {
-      void Promise.all(
-        board.pages.map(async (page) => {
-          const draft = await indexedDbDrafts.get(draftKey(board.uuid, page.uuid, userUuid));
-          if (draft === "unavailable" || draft === null) return null;
-          // A draft identical to what the server holds has nothing to restore.
-          const verdict = draft.scene === page.scene ? "discard" : classifyDraft(draft, page.version);
-          if (verdict === "discard") {
-            void indexedDbDrafts.remove(draftKey(board.uuid, page.uuid, userUuid));
-            return null;
-          }
-          return { page: page.uuid, verdict, draft } satisfies RestoreQuestion;
-        }),
-      ).then((found) => setRestores(found.filter((q): q is RestoreQuestion => q !== null)));
-    }
+    trackAll(board);
+    if (board.can.edit) offerDrafts(board);
 
     return () => autosave.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per board and user
@@ -141,8 +150,13 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
         if (!alive) return;
 
         if (!heldRef.current && everHeld.current) {
-          // The editor's tab closed or handed over: this tab's copy is stale.
-          pagesRef.current.reload(await boards.show(boardUuid));
+          // The editor's tab closed or handed over: this tab's copy is stale. The
+          // fresh pages are tracked again (a page added meanwhile had no slot and
+          // could never be saved), and any draft from before is offered back.
+          const fresh = await boards.show(boardUuid);
+          pagesRef.current.reload(fresh);
+          trackAll(fresh);
+          offerDrafts(fresh);
         }
         heldRef.current = true;
         everHeld.current = true;
@@ -154,8 +168,9 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
         if (answer.handover_requested) {
           releasing = true;
           setHandoverRequested(true);
-          save.current?.setHolding(false);
+          save.current?.saveNow();
           await save.current?.drain();
+          save.current?.setHolding(false);
           await boards.releaseLock(boardUuid, tab.current);
           heldRef.current = false;
           setHeld(false);

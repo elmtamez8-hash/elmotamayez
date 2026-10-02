@@ -27,7 +27,10 @@ final class SceneValidator
 {
     private const TEMPLATE = '/^template:[a-z-]+:v\d+\z/D';
 
-    private const LINK = '#^(?:https?://\S+|/(?!/)\S*)\z#iD';
+    // A browser reads `\` in a URL as `/`, so `/\evil.example` is another host:
+    // no backslash anywhere in a site path (`\x5c`, spelled so no escaping layer
+    // can eat it).
+    private const LINK = '#^(?:https?://\S+|/(?![/\x5c])[^\s\x5c]*)\z#iD';
 
     private const REFUSED_TYPES = ['embeddable', 'iframe'];
 

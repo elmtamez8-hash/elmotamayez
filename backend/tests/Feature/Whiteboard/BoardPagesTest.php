@@ -163,3 +163,28 @@ it('changes no page without the lock', function (): void {
     expect(BoardPage::query()->where('board_id', $this->board->id)->count())->toBe(3)
         ->and(DB::table('boards')->where('id', $this->board->id)->value('pages_count'))->toBe(3);
 });
+
+it('counts a copied page against the board\'s byte ceiling', function (): void {
+    PlatformSettings::set('whiteboard.max_board_bytes', 2000);
+    [$first] = wbOrder();
+
+    // Each page is a blank of a few hundred bytes; copying one pushes the board past 2000.
+    $this->postJson(wbUrl(), ['tab' => $this->tab, 'duplicate_of' => $first])->assertCreated();
+    $this->postJson(wbUrl(), ['tab' => $this->tab, 'duplicate_of' => $first])->assertCreated();
+    $this->postJson(wbUrl(), ['tab' => $this->tab, 'duplicate_of' => $first])->assertCreated();
+
+    $refused = $this->postJson(wbUrl(), ['tab' => $this->tab, 'duplicate_of' => $first]);
+    while ($refused->status() === 201) {
+        $refused = $this->postJson(wbUrl(), ['tab' => $this->tab, 'duplicate_of' => $first]);
+    }
+    $refused->assertStatus(422)->assertJsonPath('code', 'board_too_large');
+    expect((int) DB::table('board_pages')->where('board_id', $this->board->id)->sum('scene_bytes'))->toBeLessThanOrEqual(2000);
+});
+
+it('refuses adding or deleting a page while the board is being copied, and says why', function (): void {
+    DB::update('UPDATE boards SET pending_operation = ? WHERE id = ?', ['duplicating', $this->board->id]);
+    [$first] = wbOrder();
+
+    $this->postJson(wbUrl(), ['tab' => $this->tab])->assertStatus(409)->assertJsonPath('code', 'operation_pending');
+    $this->deleteJson(wbUrl('/'.$first), ['tab' => $this->tab])->assertStatus(409)->assertJsonPath('code', 'operation_pending');
+});

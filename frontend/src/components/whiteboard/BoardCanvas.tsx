@@ -314,8 +314,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     pageChange(async () => {
       if (!board) return;
       keepShown();
-      session.pageRemoved(uuid);
       await boards.deletePage(board.uuid, session.tab(), uuid);
+      // Only now: a refused delete must leave the page saving as before.
+      session.pageRemoved(uuid);
       pages.current.delete(uuid);
       const shown = board.pages[pageIndex].uuid;
       const list = board.pages.filter((p) => p.uuid !== uuid);
@@ -344,8 +345,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       const contested = session.conflict.page;
       keepShown();
       const mine = pages.current.get(contested) ?? [];
-      session.takeServer();
+      // The new page first: if it cannot be made, nothing has been given up yet.
       const page = await boards.addPage(board.uuid, { tab: session.tab(), after: contested });
+      session.takeServer();
       const elements = reframe(mine, page.uuid);
       insertPage(page, contested, elements);
       session.adopt(page.uuid, elements);

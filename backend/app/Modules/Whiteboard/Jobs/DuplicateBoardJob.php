@@ -58,6 +58,14 @@ class DuplicateBoardJob implements ShouldQueue
             return;
         }
 
+        // Pages first, files second: a page can only name a READY picture, so every
+        // file this snapshot names exists before the copy below starts — a picture
+        // added after it is simply not in this copy, never a dangling reference.
+        $snapshot = BoardPage::query()->withoutWorkspaceScope()
+            ->where('board_id', $original->id)
+            ->orderBy('position')
+            ->get();
+
         /** @var array<int, MediaAsset> $copied old asset id → its copy */
         $copied = [];
         MediaAsset::query()->withoutWorkspaceScope()
@@ -77,28 +85,24 @@ class DuplicateBoardJob implements ShouldQueue
             }
         }
 
-        DB::transaction(function () use ($original, $copy, $copied, $uuidMap): void {
+        DB::transaction(function () use ($snapshot, $copy, $copied, $uuidMap): void {
             $count = 0;
-            BoardPage::query()->withoutWorkspaceScope()
-                ->where('board_id', $original->id)
-                ->orderBy('position')
-                ->get()
-                ->each(function (BoardPage $page) use ($copy, $copied, $uuidMap, &$count): void {
-                    $uuid = (string) Str::orderedUuid();
-                    $scene = strtr($page->scene, ['"frame:'.$page->uuid.'"' => '"frame:'.$uuid.'"', ...$uuidMap]);
+            $snapshot->each(function (BoardPage $page) use ($copy, $copied, $uuidMap, &$count): void {
+                $uuid = (string) Str::orderedUuid();
+                $scene = strtr($page->scene, ['"frame:'.$page->uuid.'"' => '"frame:'.$uuid.'"', ...$uuidMap]);
 
-                    $new = new BoardPage([
-                        'workspace_id' => $copy->workspace_id,
-                        'board_id' => $copy->id,
-                        'position' => $page->position,
-                        'scene' => $scene,
-                        'scene_bytes' => strlen($scene),
-                    ]);
-                    $new->uuid = $uuid;
-                    $new->background_asset_id = $page->background_asset_id === null ? null : ($copied[$page->background_asset_id]->id ?? null);
-                    $new->save();
-                    $count++;
-                });
+                $new = new BoardPage([
+                    'workspace_id' => $copy->workspace_id,
+                    'board_id' => $copy->id,
+                    'position' => $page->position,
+                    'scene' => $scene,
+                    'scene_bytes' => strlen($scene),
+                ]);
+                $new->uuid = $uuid;
+                $new->background_asset_id = $page->background_asset_id === null ? null : ($copied[$page->background_asset_id]->id ?? null);
+                $new->save();
+                $count++;
+            });
 
             $copy->forceFill(['pages_count' => $count, 'pending_operation' => null])->save();
         });

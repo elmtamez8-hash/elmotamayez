@@ -39,7 +39,7 @@ class SaveSceneRequest extends FormRequest
         return [
             'tab' => ['required', 'uuid'],
             'version' => ['required', 'integer', 'min:1'],
-            'client_rev' => ['required', 'integer', 'min:0'],
+            'client_rev' => ['required', 'integer', 'min:0', 'max:4294967295'],
             'scene' => ['required', 'string'],
         ];
     }

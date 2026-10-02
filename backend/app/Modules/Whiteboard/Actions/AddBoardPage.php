@@ -10,6 +10,7 @@ use App\Modules\Whiteboard\Models\BoardPage;
 use App\Modules\Whiteboard\Support\BoardLock;
 use App\Modules\Whiteboard\Support\BoardPageGate;
 use App\Modules\Whiteboard\Support\BoardScene;
+use App\Modules\Whiteboard\Support\WhiteboardRefusal;
 use App\Modules\Whiteboard\Support\WhiteboardSettings;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +45,12 @@ final class AddBoardPage extends Action
             $scene = $copyOf === null
                 ? BoardScene::blank($uuid, $board->background->value)
                 : str_replace('"frame:'.$copyOf->uuid.'"', '"frame:'.$uuid.'"', $copyOf->scene);
+
+            // The byte ceiling is the board's, whatever adds the bytes — a copy too.
+            $total = (int) BoardPage::query()->where('board_id', $board->getKey())->sum('scene_bytes');
+            if ($total + strlen($scene) > WhiteboardSettings::maxBoardBytes()) {
+                throw new WhiteboardRefusal('board_too_large');
+            }
 
             $ids = BoardPage::query()->where('board_id', $board->getKey())->orderBy('position')->pluck('id')->all();
             $max = (int) BoardPage::query()->where('board_id', $board->getKey())->max('position');

@@ -232,4 +232,38 @@ describe("autosave", () => {
 
     expect(drafts.size).toBe(0);
   });
+
+  it("resumes saving when the lock comes back after it was lost", async () => {
+    const { save, calls, deps } = harness();
+    save.change("p1", 1, () => "a");
+    await vi.advanceTimersByTimeAsync(SERVER_DEBOUNCE_MS);
+    calls[0].reject(new ApiError("x", 409, { code: "lock_lost" }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(deps.onLockLost).toHaveBeenCalled();
+
+    // The board comes back to this tab: its pages are tracked again, and drawing saves.
+    save.track("p1", 3, 0);
+    save.setHolding(true);
+    save.change("p1", 9, () => "after");
+    await vi.advanceTimersByTimeAsync(SERVER_DEBOUNCE_MS);
+
+    expect(calls).toHaveLength(2);
+    expect(calls[1].body).toMatchObject({ version: 3, scene: "after" });
+  });
+
+  it("stops only the page the server no longer has", async () => {
+    const { save, calls, deps } = harness();
+    save.track("p2", 1, 0);
+    save.change("p1", 1, () => "gone");
+    save.change("p2", 1, () => "kept");
+    await vi.advanceTimersByTimeAsync(SERVER_DEBOUNCE_MS);
+    calls[0].reject(new ApiError("x", 404, null));
+    calls[1].resolve({ version: 2, client_rev: 2 });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(deps.onRefused).not.toHaveBeenCalled();
+    save.change("p2", 2, () => "more");
+    await vi.advanceTimersByTimeAsync(SERVER_DEBOUNCE_MS);
+    expect(calls[2].body).toMatchObject({ scene: "more" });
+  });
 });
