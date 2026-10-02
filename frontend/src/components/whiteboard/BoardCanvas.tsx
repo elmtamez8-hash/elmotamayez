@@ -25,6 +25,7 @@ import {
   reframe,
   restorePage,
   sceneVersion,
+  startLaser,
   type BoardApi,
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
@@ -39,12 +40,15 @@ import { Modal } from "@/components/ui/Modal";
 import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
 import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
 import { EffectsBar } from "@/components/whiteboard/EffectsBar";
+import { PresenterBar } from "@/components/whiteboard/PresenterBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
 import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
 import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
+import { Spotlight } from "@/components/whiteboard/overlays/Spotlight";
+import { Timer } from "@/components/whiteboard/overlays/Timer";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
 
@@ -138,6 +142,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [celebration, setCelebration] = useState<{ kind: Celebration; id: number } | null>(null);
   const [balloons, setBalloons] = useState<number | null>(null);
   const [attention, setAttention] = useState<number | null>(null);
+  // Presenter tools (US8): display layers too.
+  const [spotlight, setSpotlight] = useState(false);
+  const [timer, setTimer] = useState<{ minutes: number; id: number } | null>(null);
+  const endSpotlight = useCallback(() => setSpotlight(false), []);
   const [trail, setTrail] = useState<TrailStyle>("off");
   const [sound, setSound] = useState(readSound);
 
@@ -520,6 +528,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onBackground={changeBackground}
             onExport={exportCurrent}
             onTogglePresenting={() => setPresenting((value) => !value)}
+            presenter={
+              <PresenterBar
+                spotlight={spotlight}
+                timerRunning={timer !== null}
+                onLaser={() => api && startLaser(api)}
+                onSpotlight={() => setSpotlight((on) => !on)}
+                onTimer={(minutes) => setTimer({ minutes, id: Date.now() })}
+              />
+            }
             effects={
               <EffectsBar
                 sound={sound}
@@ -598,6 +615,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </div>
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
+      {spotlight && <Spotlight onClose={endSpotlight} />}
+      {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
       {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
       {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}
       {trail !== "off" && <PointerTrail style={trail} />}

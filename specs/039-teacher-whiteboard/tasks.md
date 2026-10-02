@@ -656,13 +656,13 @@
 
 ## الطور ١٠: القصة ٨ (P3): الليزر والكشّاف والمؤقّت
 
-- [ ] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`:
+- [ ] T113 [P] [US8] اكتب `frontend/src/components/whiteboard/overlays/OverlayLayer.tsx`: _(مؤجَّل إلى القصة ٩: الكشّاف والمؤقّت لا يحتاجان إحداثيات المشهد، وأدوات الهندسة هي أوّل من يحتاجها)_
   - طبقة واحدة فوق اللوحة مربوطة بـ `sceneCoordsToViewportCoords` و`onScrollChange`؛
   - لا تكتب في المشهد أبداً، وهي أساس القصص ٩ و١٠ و١٢.
-- [ ] T114 [P] [US8] اكتب `overlays/Spotlight.tsx` و`overlays/Timer.tsx`. والليزر مدمج (`setActiveTool({type:'laser'})`) وله زرّ واختصار
-- [ ] T115 [US8] اختبر `overlays/OverlayLayer.test.tsx` بواجهة Excalidraw وهمية: تشغيل كل أداة ثم إغلاقها يستدعي `updateScene` و`addFiles` و`history` **صفر مرّة** (SC-010). أمّا «لا أثر في التصدير» ففي Playwright
-- [ ] T116 [P] [US8] اكتب `Spotlight.test.tsx` و`Timer.test.tsx`: الكشّاف يظهر عند تشغيله، والمؤقّت يعدّ ويُغلق
-- [ ] T117 [US8] ركّب أزرار الليزر والكشّاف والمؤقّت في شريط الأدوات و`OverlayLayer` فوق اللوحة، ومعه اختبار يضغطها
+- [x] T114 [P] [US8] اكتب `overlays/Spotlight.tsx` و`overlays/Timer.tsx`. والليزر مدمج (`setActiveTool({type:'laser'})`) وله زرّ واختصار
+- [x] T115 [US8] اختبر `overlays/OverlayLayer.test.tsx` بواجهة Excalidraw وهمية: تشغيل كل أداة ثم إغلاقها يستدعي `updateScene` و`addFiles` و`history` **صفر مرّة** (SC-010). أمّا «لا أثر في التصدير» ففي Playwright
+- [x] T116 [P] [US8] اكتب `Spotlight.test.tsx` و`Timer.test.tsx`: الكشّاف يظهر عند تشغيله، والمؤقّت يعدّ ويُغلق
+- [x] T117 [US8] ركّب أزرار الليزر والكشّاف والمؤقّت في شريط الأدوات و`OverlayLayer` فوق اللوحة، ومعه اختبار يضغطها
 
 ---
 

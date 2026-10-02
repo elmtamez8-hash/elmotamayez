@@ -21,6 +21,8 @@ export interface BoardToolbarProps {
   onTogglePresenting: () => void;
   pagesOpen?: boolean;
   onTogglePages?: () => void;
+  /** Laser, spotlight and countdown (story 8). */
+  presenter?: React.ReactNode;
   /** Encouragement and pointer effects (stories 10 and 12). */
   effects?: React.ReactNode;
   /** Who edits and whether the work is saved (story 2). */
@@ -71,6 +73,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
         onBackground={props.onBackground}
       />
       <ExportMenu onExport={props.onExport} />
+      {props.presenter}
       {props.effects}
       {props.status && <div className="flex flex-col gap-1 border-t border-line pt-1.5">{props.status}</div>}
     </div>

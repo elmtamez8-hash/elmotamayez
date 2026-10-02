@@ -184,6 +184,11 @@ export async function pageThumbnail(api: BoardApi, elements: readonly BoardEleme
   return canvas.toDataURL("image/png");
 }
 
+/** The built-in laser pointer (US8): Excalidraw's own tool, also on its «K» key. */
+export function startLaser(api: BoardApi): void {
+  api.setActiveTool({ type: "laser" });
+}
+
 /** Hand pictures to the canvas by OUR file id — a page names them, the bytes stay out of the scene. */
 export function addPictures(api: BoardApi, pictures: { id: string; dataURL: string; mimeType: "image/png" | "image/jpeg" }[]): void {
   if (pictures.length === 0) return;

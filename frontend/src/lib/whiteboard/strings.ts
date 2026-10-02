@@ -44,6 +44,21 @@ export const WB = {
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
 
+  /** The presenter's tools (US8). */
+  presenter: {
+    title: "عرض:",
+    laser: "ليزر",
+    spotlight: "كشّاف",
+    spotlightOff: "إطفاء الكشّاف",
+    spotlightOn: "الكشّاف يعمل: [ و ] لتصغير الدائرة وتكبيرها، وEsc لإطفائه",
+    timer: "مؤقّت:",
+    minutes: (n: number) => counted(n, NOUNS.minutes),
+    pause: "إيقاف مؤقّت",
+    resume: "متابعة",
+    closeTimer: "إغلاق",
+    timeUp: "انتهى الوقت",
+  },
+
   /** Encouragement and pointer effects (US10, US12). */
   effects: {
     title: "تشجيع:",
