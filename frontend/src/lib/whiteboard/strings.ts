@@ -90,6 +90,21 @@ export const WB = {
     gone: "لم يعد الجدول على الصفحة، فلم يُحفظ التعديل.",
   },
   /** Story 6: an equation, written in MathLive or LaTeX and drawn by MathJax. */
+  /** The floating scientific calculator. */
+  calc: {
+    open: "آلة حاسبة",
+    title: "الآلة الحاسبة",
+    input: "المسألة",
+    result: "الناتج",
+    angle: "الزوايا بالدرجات أو بالراديان",
+    history: "السجل",
+    noHistory: "لا عمليات بعد.",
+    close: "إغلاق الآلة الحاسبة",
+    toggleForm: "كسر أو عشري",
+    insert: "حطّها على السبّورة",
+    syntaxError: "خطأ في الكتابة",
+    mathError: "خطأ رياضي",
+  },
   math: {
     insert: "إدراج معادلة",
     edit: "تعديل المعادلة",

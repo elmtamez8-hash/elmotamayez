@@ -22,6 +22,8 @@ export interface TeachingBarProps {
   onTable: () => void;
   /** Story 6: an equation, in MathLive with its LaTeX beside it. */
   onMath: () => void;
+  /** The floating scientific calculator. */
+  onCalculator: () => void;
 }
 
 /** The «أدوات» menu (US9): page templates, ready pens, and the passing tools. */
@@ -63,6 +65,9 @@ export function TeachingBar(props: TeachingBarProps) {
             </Button>
             <Button size="sm" variant="ghost" onClick={props.onMath}>
               {WB.math.insert}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={props.onCalculator}>
+              {WB.calc.open}
             </Button>
           </div>
         </>

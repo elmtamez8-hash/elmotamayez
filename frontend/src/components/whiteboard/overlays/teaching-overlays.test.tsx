@@ -94,6 +94,7 @@ describe("TeachingBar", () => {
     onInstrument: vi.fn(),
     onTable: vi.fn(),
     onMath: vi.fn(),
+    onCalculator: vi.fn(),
     ...over,
   });
 
