@@ -46,6 +46,9 @@ function wbDoors(): array
         ['POST', '/api/v1/boards/{board}/files', ['tab' => WB_TAB, 'filename' => 'a.png', 'size' => 10]],
         ['POST', '/api/v1/boards/{board}/files/{file}/complete', []],
         ['GET', '/api/v1/boards/{board}/files/{file}', []],
+        // Story 5. Bodies left empty: the board's door answers before the body's.
+        ['POST', '/api/v1/boards/{board}/lesson-exports', []],
+        ['PUT', '/api/v1/boards/{board}/lesson-exports/{export}', []],
     ];
 }
 
@@ -138,9 +141,9 @@ it('refuses every board door to an assistant confined to another course', functi
 
 it('refuses the manager who is not the board\'s teacher every WRITE door', function (): void {
     foreach (wbDoors() as [$method, $uri, $body]) {
-        // Q5: the manager views, exports and DELETES; a copy is a new board of
+        // Q5: the manager views, exports (story 5's doors) and DELETES; a copy is a new board of
         // their own, which changes nothing of the teacher's. Both checked below.
-        if ($method === 'GET' || in_array($uri, ['/api/v1/boards/{board}/duplicate', '/api/v1/boards/{board}'], true)) {
+        if ($method === 'GET' || str_contains($uri, '/lesson-exports') || in_array($uri, ['/api/v1/boards/{board}/duplicate', '/api/v1/boards/{board}'], true)) {
             continue;
         }
         expect(wbCall($method, $uri, $body, $this->owner, $this->workspace))->toBe(403, "{$method} {$uri}");

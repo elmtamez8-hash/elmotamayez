@@ -18,6 +18,7 @@ declare(strict_types=1);
 
 use App\Modules\Whiteboard\Http\Controllers\BoardController;
 use App\Modules\Whiteboard\Http\Controllers\BoardFileController;
+use App\Modules\Whiteboard\Http\Controllers\BoardLessonExportController;
 use App\Modules\Whiteboard\Http\Controllers\BoardLockController;
 use App\Modules\Whiteboard\Http\Controllers\BoardPageController;
 use Illuminate\Support\Facades\Route;
@@ -44,6 +45,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Pictures. Opening a board fetches every one of them at once, so reading has
     // its own generous limiter and drops the `api` group's floor (as chat media does).
+    // «إرفاق بمواد الدرس» (story 5): the replacement deletes the old attachment,
+    // so it alone asks two-factor, as deleting any attachment does (D2).
+    Route::post('/boards/{board}/lesson-exports', [BoardLessonExportController::class, 'store'])->middleware('throttle:authoring');
+    Route::put('/boards/{board}/lesson-exports/{export}', [BoardLessonExportController::class, 'update'])->middleware(['2fa.required', 'throttle:authoring']);
     Route::post('/boards/{board}/files', [BoardFileController::class, 'store'])->middleware('throttle:upload');
     Route::post('/boards/{board}/files/{file}/complete', [BoardFileController::class, 'complete'])->middleware('throttle:upload');
     Route::get('/boards/{board}/files/{file}', [BoardFileController::class, 'show'])

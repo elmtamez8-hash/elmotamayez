@@ -58,8 +58,26 @@ export const WB = {
   },
 
   /** The toolbar's menus. */
-  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد" },
+  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },
   /** Story 4 — a PDF or a picture added as pages after the page shown. */
+  /** Story 5: the whole board as a PDF in a lesson's attachments. */
+  lessonExport: {
+    course: "الكورس",
+    lesson: "الدرس",
+    chooseCourse: "اختر الكورس",
+    chooseLesson: "اختر الدرس",
+    noLessons: "لا توجد دروس في هذا الكورس.",
+    attach: "إرفاق السبّورة بمواد الدرس",
+    replace: "استبدال المرفق بنسخة أحدث",
+    attachedAlready: "السبّورة مرفقة بهذا الدرس. الإرفاق ثانيةً يستبدل الملف القديم.",
+    askTeacher: "السبّورة مرفقة بهذا الدرس، واستبدالها يحتاج صلاحية حذف الدروس. اطلب من مدرّس الكورس.",
+    drawing: (n: number, total: number) => `جارٍ تجهيز الصفحة ${arabicNumber(n)} من ${arabicNumber(total)}…`,
+    uploading: "جارٍ رفع الملف…",
+    attached: "أُرفقت السبّورة بالدرس، ويراها الطلاب في مرفقاته.",
+    replaced: "استُبدل المرفق بالنسخة الأحدث.",
+    failed: "تعذّر إرفاق السبّورة بالدرس. أعد المحاولة.",
+    takenElsewhere: "أُرفقت السبّورة بهذا الدرس من نافذة أخرى. اضغط مرة ثانية لاستبدالها.",
+  },
   importing: {
     choose: "اختر ملف PDF أو صورة",
     hint: "تُضاف بعد الصفحة الحالية: كل صفحة من الـ PDF صفحة، والصورة صفحة.",
