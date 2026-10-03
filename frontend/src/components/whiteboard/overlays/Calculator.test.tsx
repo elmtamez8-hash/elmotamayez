@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WB } from "@/lib/whiteboard/strings";
 
 const calculate = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/whiteboard/calculator", () => ({ calculate }));
+vi.mock("@/lib/whiteboard/calculator", () => ({ calculate, plainLatex: (latex: string) => latex }));
 
 // MathLive as a plain element that records what the keys typed.
 vi.mock("mathlive", () => {
