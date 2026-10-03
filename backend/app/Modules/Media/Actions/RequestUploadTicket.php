@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Media\Actions;
 
+use App\Models\User;
 use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Exceptions\ContentLockedException;
 use App\Modules\Courses\Models\Lesson;
@@ -65,6 +66,14 @@ class RequestUploadTicket extends Action
         ?int $declaredDurationSeconds = null,
         MediaKind $kind = MediaKind::Video,
         MediaRole $role = MediaRole::Primary,
+        /*
+         * Who asked for the ticket. ⚠️ LEFT EMPTY UNTIL 2026-10-03, and the board's
+         * «مواد الدرس» export reads it: a board PDF is attached only when it is the
+         * caller's OWN fresh upload (`RecordBoardExport::freshFrom()`), so every
+         * export through this door answered `asset_mismatch` — while its tests,
+         * which build the asset with a factory, stayed green.
+         */
+        ?User $uploader = null,
     ): array {
         if ($role === MediaRole::Primary) {
             $this->assertKindMatchesType($lesson, $kind);
@@ -114,6 +123,7 @@ class RequestUploadTicket extends Action
             'provider' => $provider->identifier(),
             'kind' => $kind,
             'role' => $role,
+            'uploaded_by_user_id' => $uploader?->getKey(),
             // Stated for the same reason as the two above, and it was the one
             // left out: a model built with `new` carries no column default, and
             // because this key IS in `casts()` the accessor returned null rather
