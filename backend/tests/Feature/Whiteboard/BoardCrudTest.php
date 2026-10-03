@@ -275,3 +275,19 @@ it('keeps a board a manager makes from a teacher\'s live class their own, so the
 
     expect($created->json('owner.uuid'))->toBe((string) $this->owner->uuid);
 });
+
+it('refuses a manager a board on a teacher\'s course or lesson, which would be born read-only to them', function (): void {
+    $lesson = Lesson::factory()->create(['workspace_id' => $this->workspace->getKey(), 'course_id' => $this->course->getKey()]);
+    wbActAs($this->owner, $this->workspace);
+
+    $this->postJson('/api/v1/boards', ['title' => 'للمدرّس', 'course' => $this->course->uuid])->assertUnprocessable();
+    $this->postJson('/api/v1/boards', ['title' => 'للمدرّس', 'lesson' => $lesson->uuid])->assertUnprocessable();
+    expect(Board::query()->where('title', 'للمدرّس')->exists())->toBeFalse();
+
+    // The teacher of that course still makes one for the lesson, and it is theirs.
+    wbActAs($this->teacher, $this->workspace);
+    $this->postJson('/api/v1/boards', ['title' => 'شرح', 'lesson' => $lesson->uuid])
+        ->assertCreated()
+        ->assertJsonPath('lesson.uuid', (string) $lesson->uuid)
+        ->assertJsonPath('can.edit', true);
+});

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import { WB } from "@/lib/whiteboard/strings";
 
 const calls = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }));
@@ -34,20 +35,26 @@ describe("LessonBoardsSection", () => {
   });
 
   it("shows nothing to someone the boards door refuses", async () => {
-    calls.list.mockRejectedValue(new Error("403"));
+    calls.list.mockRejectedValue(new ApiError("forbidden", 403, {}));
     const { container } = render(<LessonBoardsSection lessonUuid="l1" lessonTitle="الكسور" />);
     await waitFor(() => expect(calls.list).toHaveBeenCalled());
     expect(container.textContent).toBe("");
   });
 
+  it("says so when the list cannot be read, instead of hiding it", async () => {
+    calls.list.mockRejectedValue(new ApiError("server", 500, {}));
+    render(<LessonBoardsSection lessonUuid="l1" lessonTitle="الكسور" />);
+    expect((await screen.findByRole("alert")).textContent).toBe(WB.lessonBoards.loadFailed);
+  });
+
   it("closes the blank tab and says so when the board cannot be made", async () => {
     calls.list.mockResolvedValue({ data: [] });
-    calls.create.mockRejectedValue(new Error("422"));
+    calls.create.mockRejectedValue(new ApiError("سبّورات هذا الكورس يُعدّها مدرّسه.", 422, {}));
     render(<LessonBoardsSection lessonUuid="l1" lessonTitle="الكسور" />);
 
     fireEvent.click(await screen.findByRole("button", { name: WB.lessonBoards.create }));
 
-    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("سبّورات هذا الكورس يُعدّها مدرّسه.");
     expect(tab.close).toHaveBeenCalled();
   });
 });
