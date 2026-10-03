@@ -73,6 +73,9 @@ vi.mock("@livekit/components-react", () => ({
   useTracks: () => [],
 }));
 
+// The poll has its own test; here it would need a whole room.
+vi.mock("@/components/sessions/LivePoll", () => ({ LivePoll: () => null }));
+
 vi.mock("@/lib/class-sessions", () => ({
   classSessions: { participants: () => Promise.resolve({ data: [] }) },
 }));
