@@ -46,14 +46,23 @@ export function WhiteboardLauncher({ sessionUuid, sessionTitle }: { sessionUuid:
    */
   const open = async (board: () => Promise<string>) => {
     const win = window.open("", ...WINDOW);
+    // The named window may already hold the board being SHARED: only a blank
+    // one this press opened may be closed on a failure.
+    const fresh = win !== null && win.location.href === "about:blank";
     setBusy(true);
     setFailed(false);
     try {
       const uuid = await board();
-      if (win) win.location.href = `/whiteboard/${uuid}`;
-      else window.open(`/whiteboard/${uuid}`, ...WINDOW);
+      const path = `/whiteboard/${uuid}`;
+      // Already on it: brought forward, not reloaded mid-share.
+      if (win && win.location.pathname === path) win.focus();
+      else if (win) win.location.href = path;
+      else window.open(path, ...WINDOW);
+      // The class has its board now: the next press opens it, never makes another.
+      setLinked((rows) => (rows?.some((row) => row.uuid === uuid) ? rows : [{ uuid } as BoardSummary, ...(rows ?? [])]));
+      setChoosing(false);
     } catch {
-      win?.close();
+      if (fresh) win.close();
       setFailed(true);
     } finally {
       setBusy(false);
@@ -64,7 +73,8 @@ export function WhiteboardLauncher({ sessionUuid, sessionTitle }: { sessionUuid:
     setChoosing(true);
     boards
       .list({ mine: true })
-      .then((page) => setMine(page.data))
+      // A board another class already uses is not offered: linking would move it silently.
+      .then((page) => setMine(page.data.filter((board) => !board.class_session || board.class_session.uuid === sessionUuid)))
       .catch(() => setMine([]));
   };
 

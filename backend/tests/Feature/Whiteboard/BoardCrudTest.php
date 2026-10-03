@@ -262,3 +262,16 @@ it('refuses a live class from another workspace, and one the caller may not host
     $this->postJson('/api/v1/boards', ['title' => 'x', 'course' => $this->course->uuid, 'class_session' => $session->uuid])->assertForbidden();
     expect(Board::query()->where('title', 'x')->exists())->toBeFalse();
 });
+
+it('keeps a board a manager makes from a teacher\'s live class their own, so they can draw on it', function (): void {
+    $session = ClassSession::factory()->create(['workspace_id' => $this->workspace->getKey(), 'course_id' => $this->course->getKey()]);
+    wbActAs($this->owner, $this->workspace);
+
+    $created = $this->postJson('/api/v1/boards', ['title' => 'حصة المدير', 'class_session' => $session->uuid])
+        ->assertCreated()
+        ->assertJsonPath('class_session.uuid', (string) $session->uuid)
+        ->assertJsonPath('course', null)
+        ->assertJsonPath('can.edit', true);
+
+    expect($created->json('owner.uuid'))->toBe((string) $this->owner->uuid);
+});

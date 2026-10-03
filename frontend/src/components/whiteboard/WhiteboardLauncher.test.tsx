@@ -40,6 +40,11 @@ describe("WhiteboardLauncher", () => {
 
     await waitFor(() => expect(win.location.href).toBe("/whiteboard/b2"));
     expect(calls.create).toHaveBeenCalledWith({ title: "حصة الجبر", class_session: "s1" });
+
+    // The class has its board now: a second press opens it and never makes another.
+    fireEvent.click(await screen.findByRole("button", { name: WB.live.open }));
+    await waitFor(() => expect(window.open).toHaveBeenCalledTimes(2));
+    expect(calls.create).toHaveBeenCalledTimes(1);
   });
 
   it("shows nothing to someone the boards door refuses", async () => {
