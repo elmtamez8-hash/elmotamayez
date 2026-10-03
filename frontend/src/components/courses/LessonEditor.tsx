@@ -13,6 +13,7 @@ import { LinkEditor } from "./editors/LinkEditor";
 import { LiveSessionPicker } from "./editors/LiveSessionPicker";
 import { NoteEditor } from "./editors/NoteEditor";
 import { VideoEditor } from "./editors/VideoEditor";
+import { LessonBoardsSection } from "@/components/whiteboard/LessonBoardsSection";
 import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -542,6 +543,8 @@ export function LessonEditor({
           attachments={lesson.attachments}
           onChanged={load}
         />
+
+        <LessonBoardsSection lessonUuid={lesson.uuid} lessonTitle={lesson.title} />
       </div>
     </Card>
   );

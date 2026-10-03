@@ -57,6 +57,15 @@ export const WB = {
     failed: "تعذّر فتح السبّورة. أعد المحاولة.",
   },
 
+  /** T096: the lesson editor's own boards. */
+  lessonBoards: {
+    title: "سبّورات الدرس",
+    empty: "لا سبّورات لهذا الدرس بعد.",
+    open: "افتح",
+    create: "سبّورة جديدة لهذا الدرس",
+    failed: "تعذّر إنشاء السبّورة. أعد المحاولة.",
+  },
+
   /** The toolbar's menus. */
   menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },
   /** Story 4 — a PDF or a picture added as pages after the page shown. */

@@ -595,7 +595,7 @@
   - يقرأ `exports[].can_replace` ويقول «اطلب من مدرّس الكورس» **قبل** الرفع.
 
   وفي جهة الطالب `frontend/src/components/player/AttachmentList.tsx`: إعادة الجلب عند 403 أو 404.
-- [ ] T096 [US5] اكتب `frontend/src/components/whiteboard/LessonBoardsSection.tsx` في مكوّن مستقل، لأن `LessonEditor` فيه 548 سطراً:
+- [X] T096 [US5] اكتب `frontend/src/components/whiteboard/LessonBoardsSection.tsx` في مكوّن مستقل، لأن `LessonEditor` فيه 548 سطراً:
   - يقرأ `GET /boards?lesson=`؛
   - فيه «سبّورة جديدة لهذا الدرس».
 
