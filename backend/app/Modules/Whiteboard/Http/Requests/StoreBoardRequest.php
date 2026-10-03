@@ -29,6 +29,8 @@ class StoreBoardRequest extends FormRequest
             'background' => ['sometimes', Rule::enum(BoardBackground::class)],
             'course' => ['nullable', 'uuid', WorkspaceRules::exists('courses', 'uuid')],
             'lesson' => ['nullable', 'uuid', WorkspaceRules::exists('lessons', 'uuid')],
+            // Story 7: the live class this board is opened from.
+            'class_session' => ['nullable', 'uuid', WorkspaceRules::exists('class_sessions', 'uuid')],
         ];
     }
 }

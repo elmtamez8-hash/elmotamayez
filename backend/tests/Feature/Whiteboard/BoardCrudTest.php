@@ -6,6 +6,8 @@ use App\Modules\Community\Models\AssistantAssignment;
 use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Models\ClassSession;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
 use App\Shared\Support\WorkspaceContext;
@@ -216,4 +218,60 @@ it('lists to an assistant no course board they can no longer open, even one they
 
     wbActAs($this->assistant, $this->workspace);
     expect(array_column($this->getJson('/api/v1/boards')->assertOk()->json('data'), 'title'))->not->toContain('سبّورتي في كورس');
+});
+
+it('links a board to the live class it is opened from, and lists that class\'s boards (story 7)', function (): void {
+    $session = ClassSession::factory()->create([
+        'workspace_id' => $this->workspace->getKey(), 'course_id' => $this->course->getKey(),
+    ]);
+    $other = Board::factory()->withPages(1)->create(['workspace_id' => $this->workspace->getKey(), 'owner_user_id' => $this->teacher->getKey()]);
+    wbActAs($this->teacher, $this->workspace);
+
+    $created = $this->postJson('/api/v1/boards', ['title' => 'سبّورة الحصة', 'class_session' => $session->uuid])
+        ->assertCreated()
+        ->assertJsonPath('class_session.uuid', (string) $session->uuid)
+        // A board made from a live class hangs on that class's course.
+        ->assertJsonPath('course.uuid', (string) $this->course->uuid);
+
+    expect(collect($this->getJson('/api/v1/boards?session='.$session->uuid)->assertOk()->json('data'))->pluck('uuid')->all())
+        ->toBe([$created->json('uuid')]);
+
+    // An existing board is linked by its teacher.
+    $this->patchJson('/api/v1/boards/'.$other->uuid, ['class_session' => $session->uuid])
+        ->assertOk()
+        ->assertJsonPath('class_session.uuid', (string) $session->uuid);
+    expect($this->getJson('/api/v1/boards?session='.$session->uuid)->json('data'))->toHaveCount(2);
+});
+
+it('refuses a live class from another workspace, and one the caller may not host', function (): void {
+    [$elsewhere] = $this->createWorkspaceWithOwner(['name' => 'Elsewhere']);
+    $foreign = app(WorkspaceContext::class)->forWorkspace($elsewhere, fn () => ClassSession::factory()->create(['workspace_id' => $elsewhere->getKey()]));
+    $session = ClassSession::factory()->create(['workspace_id' => $this->workspace->getKey(), 'course_id' => $this->course->getKey()]);
+    wbActAs($this->teacher, $this->workspace);
+
+    $this->postJson('/api/v1/boards', ['title' => 'x', 'class_session' => $foreign->uuid])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('class_session');
+
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+    $this->teacher->revokePermissionTo(Permissions::SESSIONS_HOST);
+    $this->teacher->roles->each(fn ($role) => $role->revokePermissionTo(Permissions::SESSIONS_HOST));
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    wbActAs($this->teacher->fresh(), $this->workspace);
+
+    $this->postJson('/api/v1/boards', ['title' => 'x', 'course' => $this->course->uuid, 'class_session' => $session->uuid])->assertForbidden();
+    expect(Board::query()->where('title', 'x')->exists())->toBeFalse();
+});
+
+it('keeps a board a manager makes from a teacher\'s live class their own, so they can draw on it', function (): void {
+    $session = ClassSession::factory()->create(['workspace_id' => $this->workspace->getKey(), 'course_id' => $this->course->getKey()]);
+    wbActAs($this->owner, $this->workspace);
+
+    $created = $this->postJson('/api/v1/boards', ['title' => 'حصة المدير', 'class_session' => $session->uuid])
+        ->assertCreated()
+        ->assertJsonPath('class_session.uuid', (string) $session->uuid)
+        ->assertJsonPath('course', null)
+        ->assertJsonPath('can.edit', true);
+
+    expect($created->json('owner.uuid'))->toBe((string) $this->owner->uuid);
 });

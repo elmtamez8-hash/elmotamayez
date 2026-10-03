@@ -9,6 +9,7 @@ import { RecordingNotice } from "@/components/compliance/RecordingNotice";
 import { SessionChat } from "@/components/community/SessionChat";
 import { Alert } from "@/components/ui/Alert";
 import { UnlockNotice } from "@/components/sessions/UnlockNotice";
+import { WhiteboardLauncher } from "@/components/whiteboard/WhiteboardLauncher";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { Card } from "@/components/ui/Card";
 import {
@@ -437,6 +438,9 @@ export default function SessionRoomPage({
                 مدة حضورك حتى الآن <bdi>{Math.floor(presence.stay_seconds / 60)}</bdi> دقيقة.
               </p>
             )}
+
+            {/* Spec 039 · story 7 (owner-approved 2026-10-03): the host's board, in a window of its own. */}
+            {ticket.role === "host" && <WhiteboardLauncher sessionUuid={uuid} sessionTitle={session?.title ?? "سبّورة الحصة"} />}
 
             {ticket.role === "host" && (
               <div className="mt-4">

@@ -22,6 +22,8 @@ export interface BoardSummary {
   pages_count: number;
   course: { uuid: string; title: string; deleted: boolean } | null;
   lesson: { uuid: string; title: string } | null;
+  /** Story 7: the live class it is opened from. */
+  class_session?: { uuid: string; starts_at: string } | null;
   owner: { uuid: string; name: string };
   teacher: { uuid: string; name: string };
   updated_at: string;
@@ -77,24 +79,28 @@ export function parseScene(page: BoardPagePayload): SceneDocument {
 }
 
 export const boards = {
-  list: (params: { page?: number; q?: string; course?: string; lesson?: string; mine?: boolean } = {}) => {
+  list: (params: { page?: number; q?: string; course?: string; lesson?: string; session?: string; mine?: boolean } = {}) => {
     const query = new URLSearchParams();
     if (params.page) query.set("page", String(params.page));
     if (params.q) query.set("q", params.q);
     if (params.course) query.set("course", params.course);
     if (params.lesson) query.set("lesson", params.lesson);
+    if (params.session) query.set("session", params.session);
     if (params.mine) query.set("mine", "1");
     const suffix = query.toString();
 
     return api.get<Paginated<BoardSummary>>(`/boards${suffix ? `?${suffix}` : ""}`);
   },
 
-  create: (data: { title: string; course?: string; lesson?: string; background?: BoardBackground }) =>
+  create: (data: { title: string; course?: string; lesson?: string; class_session?: string; background?: BoardBackground }) =>
     api.post<BoardSummary>("/boards", data),
 
   show: (uuid: string) => api.get<BoardDetail>(`/boards/${uuid}`),
 
-  update: (uuid: string, data: { title?: string; course?: string | null; lesson?: string | null; background?: BoardBackground }) =>
+  update: (
+    uuid: string,
+    data: { title?: string; course?: string | null; lesson?: string | null; class_session?: string | null; background?: BoardBackground },
+  ) =>
     api.patch<BoardSummary>(`/boards/${uuid}`, data),
 
   /** Acquire or renew the edit lock — the 5-second heartbeat. A 423 `locked` carries `held_by`. */
