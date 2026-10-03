@@ -18,4 +18,10 @@ describe("mathSvg", () => {
     expect(await mathSvg(String.raw`\notacommand{x}`, false)).toContain("data-mjx-error");
     expect(await mathSvg(String.raw`\href{https://evil}{x}`, false)).toContain("data-mjx-error");
   }, 20000);
+
+  it("draws the same labelled equation twice (preview, then save)", async () => {
+    const labelled = String.raw`\begin{align} x &= 1 \label{eq1} \end{align}`;
+    expect(await mathSvg(labelled, true)).not.toContain("data-mjx-error");
+    expect(await mathSvg(labelled, true)).not.toContain("data-mjx-error");
+  }, 20000);
 });

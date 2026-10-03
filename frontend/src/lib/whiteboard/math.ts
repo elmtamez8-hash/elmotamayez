@@ -31,11 +31,13 @@ function loadConverter(): Promise<Converter> {
     ]);
     const adaptor = liteAdaptor();
     RegisterHTMLHandler(adaptor);
+    const tex = new TeX({ packages: ["base", "ams", "mhchem", "color", "cancel", "boldsymbol"] });
     const doc = mathjax.document("", {
-      InputJax: new TeX({ packages: ["base", "ams", "mhchem", "color", "cancel", "boldsymbol"] }),
+      InputJax: tex,
       OutputJax: new SVG({ fontCache: "none" }),
     });
     return (latex: string, display: boolean) => {
+      tex.reset(); // each equation stands alone: a \label seen before is no error, and nothing piles up
       const node = doc.convert(latex, { display });
       return adaptor.innerHTML(node);
     };

@@ -37,12 +37,13 @@ export function MathEditor({
     let alive = true;
     void import("mathlive").then(({ MathfieldElement }) => {
       if (!alive || !host.current) return;
-      MathfieldElement.fontsDirectory = "/mathlive/fonts"; // self-hosted: the CSP allows no font CDN
+      MathfieldElement.fontsDirectory = `${window.location.origin}/mathlive/fonts`; // self-hosted: the CSP allows no font CDN
       MathfieldElement.soundsDirectory = null;
       const mf = new MathfieldElement();
       mf.value = initial.latex;
       mf.setAttribute("aria-label", WB.math.field);
-      mf.addEventListener("input", () => setLatex(mf.value));
+      // MathLive does not draw \ce{…}: chemistry is written in the LaTeX box, never overwritten from the field.
+      mf.addEventListener("input", () => setLatex((current) => (current.includes(String.raw`\ce`) ? current : mf.value)));
       host.current.replaceChildren(mf);
       field.current = mf;
     });
