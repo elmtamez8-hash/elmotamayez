@@ -24,7 +24,7 @@ import type { JoinTicket } from "@/lib/class-sessions";
 
 const setMicrophoneEnabled = vi.fn<(on: boolean) => Promise<void>>();
 const setCameraEnabled = vi.fn<(on: boolean) => Promise<void>>();
-const setScreenShareEnabled = vi.fn<(on: boolean) => Promise<void>>();
+const setScreenShareEnabled = vi.fn<(on: boolean, capture?: object, publish?: object) => Promise<void>>();
 
 /**
  * The local participant's permissions as the provider pushed them. Reset to
@@ -79,6 +79,10 @@ vi.mock("@/lib/class-sessions", () => ({
 
 vi.mock("livekit-client", () => ({
   Track: { Source: { Camera: "camera", ScreenShare: "screen_share" } },
+  ScreenSharePresets: {
+    h1080fps15: { resolution: { width: 1920, height: 1080, frameRate: 15 }, encoding: { maxBitrate: 2_500_000, maxFramerate: 15 } },
+    h720fps5: { width: 1280, height: 720 },
+  },
 }));
 
 const TICKET: JoinTicket = {
@@ -175,7 +179,12 @@ describe("BroadcastStage — self controls", () => {
     await userEvent.click(screen.getByRole("button", { name: "مشاركة الشاشة" }));
 
     await waitFor(() => {
-      expect(setScreenShareEnabled).toHaveBeenCalledWith(true);
+      // Sent for legibility (T111): a board, not a film.
+      expect(setScreenShareEnabled).toHaveBeenCalledWith(
+        true,
+        expect.objectContaining({ contentHint: "detail", video: { displaySurface: "browser" } }),
+        expect.objectContaining({ screenShareSimulcastLayers: [{ width: 1280, height: 720 }] }),
+      );
     });
     expect(screen.queryByRole("status")).toBeNull();
   });

@@ -12,7 +12,7 @@ import {
   useTracks,
   VideoTrack,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { ScreenSharePresets, Track, type ScreenShareCaptureOptions, type TrackPublishOptions } from "livekit-client";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 
 import { ParticipantsPanel } from "@/components/sessions/ParticipantsPanel";
@@ -38,6 +38,26 @@ import { mayPublish, SOURCE_MICROPHONE, SOURCE_SCREEN_SHARE } from "@/lib/room-p
  * spacing from our own tokens — a second design system inside one card is how a
  * product ends up with two greys.
  */
+/**
+ * A shared screen is mostly a whiteboard or a page of text (spec 039, T111,
+ * owner-approved 2026-10-03), so it is sent for legibility, not motion:
+ * - `contentHint: "detail"` — the encoder keeps edges sharp and drops frames
+ *   before it drops resolution;
+ * - sent at 1080p15 (the library's default encoding); the capture size is left
+ *   to the library, which deliberately sets none on Safari 17 (a Safari bug);
+ * - the tab pane is offered first, as the board's hint says («شارك هذا التبويب»);
+ * - the weaker layer a student on mobile data receives is 720p at 5 fps instead
+ *   of 540p at 15: handwriting stays readable, a video shown that way stutters.
+ */
+const SHARE_CAPTURE: ScreenShareCaptureOptions = {
+  contentHint: "detail",
+  video: { displaySurface: "browser" },
+  surfaceSwitching: "include",
+};
+const SHARE_PUBLISH: TrackPublishOptions = {
+  screenShareSimulcastLayers: [ScreenSharePresets.h720fps5],
+};
+
 export function BroadcastStage({
   ticket,
   sessionUuid,
@@ -357,7 +377,7 @@ function SelfControls({ isHost }: { isHost: boolean }) {
         {screenAllowed && (
           <Button
             variant={isScreenShareEnabled ? "secondary" : "ghost"}
-            onClick={() => run(() => localParticipant.setScreenShareEnabled(!isScreenShareEnabled))}
+            onClick={() => run(() => localParticipant.setScreenShareEnabled(!isScreenShareEnabled, SHARE_CAPTURE, SHARE_PUBLISH))}
           >
             {isScreenShareEnabled ? "إيقاف مشاركة الشاشة" : "مشاركة الشاشة"}
           </Button>
