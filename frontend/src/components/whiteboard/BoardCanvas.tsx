@@ -74,6 +74,7 @@ import { pdfPages } from "@/lib/whiteboard/pdf-pages";
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 import { WB } from "@/lib/whiteboard/strings";
 import { Modal } from "@/components/ui/Modal";
+import { BoardLoading } from "@/components/whiteboard/BoardLoading";
 import { BoardToolbar } from "@/components/whiteboard/BoardToolbar";
 import { ConflictDialog } from "@/components/whiteboard/ConflictDialog";
 import { EffectsBar } from "@/components/whiteboard/EffectsBar";
@@ -176,6 +177,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [board, setBoard] = useState<BoardDetail | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [api, setApi] = useState<BoardApi | null>(null);
+  // Our loading screen stays over the canvas until Excalidraw's scene is in (its own is hidden).
+  const [sceneReady, setSceneReady] = useState(false);
+  useEffect(() => {
+    if (api && !api.getAppState().isLoading) setSceneReady(true);
+  }, [api]);
   // A new key mounts a new canvas; `carried` is what it starts with besides the page.
   const [canvas, setCanvas] = useState<{ key: number; carried: CarriedState }>({ key: 0, carried: {} });
   const [pageIndex, setPageIndex] = useState(0);
@@ -840,9 +846,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     );
   }
 
-  if (!board) {
-    return <p className="p-6 text-sm text-ink-muted">{WB.loading}</p>;
-  }
+  if (!board) return <BoardLoading />;
 
   return (
     <div
@@ -855,7 +859,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       <style>{`
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
+        .wb-board .LoadingMessage { display: none !important; }
       `}</style>
+      {!sceneReady && <BoardLoading overlay />}
       {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
       <Excalidraw
         key={canvas.key}
@@ -876,6 +882,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           }
         }}
         onChange={(elements, appState) => {
+          if (!sceneReady && !appState.isLoading) setSceneReady(true);
           // The template buttons follow the page, an undo included (a cheap find;
           // React skips the render when the name is unchanged).
           setTemplate(frameTemplate(elements));

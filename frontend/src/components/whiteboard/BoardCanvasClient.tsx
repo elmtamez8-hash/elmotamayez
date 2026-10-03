@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 
-import { WB } from "@/lib/whiteboard/strings";
+import { BoardLoading } from "@/components/whiteboard/BoardLoading";
 
 declare global {
   interface Window {
@@ -25,7 +25,7 @@ const BoardCanvas = dynamic(
     window.EXCALIDRAW_ASSET_PATH = "/excalidraw/";
     return import("./BoardCanvas");
   },
-  { ssr: false, loading: () => <p className="p-6 text-sm text-ink-muted">{WB.loading}</p> },
+  { ssr: false, loading: () => <BoardLoading /> },
 );
 
 export function BoardCanvasClient({ boardUuid }: { boardUuid: string }) {
