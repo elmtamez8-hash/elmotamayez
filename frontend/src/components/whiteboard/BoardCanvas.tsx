@@ -14,6 +14,7 @@ import {
   addStroke,
   applyBackground,
   applyPen,
+  magicStroke,
   currentScreen,
   exportPage,
   fitToFrame,
@@ -300,9 +301,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (api) setTemplate(pageTemplate(api));
   }, [api, pageIndex]);
 
+  // «القلم السحري»: on while its pen is the one in hand; any other tool turns it off.
+  const [magic, setMagic] = useState(false);
+  const strokeDown = useRef(false);
   const choosePen = (id: PenId) => {
     const pen = PENS.find((p) => p.id === id);
     if (api && pen) applyPen(api, pen);
+    setMagic(id === "magic");
   };
   const [trail, setTrail] = useState<TrailStyle>("off");
   const [sound, setSound] = useState(readSound);
@@ -910,6 +915,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           setTemplate(frameTemplate(elements));
           if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
+          if (magic && appState.activeTool.type !== "freedraw") setMagic(false);
+          // The magic pen acts when the pen LIFTS, on the stroke just finished — outside
+          // this callback, since it changes the scene this callback reports.
+          const lifted = strokeDown.current && appState.cursorButton !== "down";
+          strokeDown.current = appState.cursorButton === "down";
+          if (magic && lifted && api && session.held && appState.activeTool.type === "freedraw") {
+            const last = elements[elements.length - 1];
+            if (last?.type === "freedraw") queueMicrotask(() => magicStroke(api, last.id));
+          }
           // The «تعديل» button follows a single selected table or equation.
           if (api && appState.cursorButton !== "down") {
             const next = Object.keys(appState.selectedElementIds).length === 1 ? selectedRichObject(api) : null;
@@ -949,6 +963,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     open={passing}
                     onTemplate={chooseTemplate}
                     onPen={choosePen}
+                    magic={magic}
                     onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
                     instrument={instrument?.kind ?? null}
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}

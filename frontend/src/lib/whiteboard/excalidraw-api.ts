@@ -5,6 +5,7 @@ import {
   exportToCanvas,
   exportToSvg,
   hashElementsVersion,
+  newElementWith,
   restoreElements,
   setCustomTextMetricsProvider,
   useHandleLibrary,
@@ -15,6 +16,7 @@ import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, Normal
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
+import { recognise } from "@/lib/whiteboard/magic-pen";
 import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
@@ -440,6 +442,45 @@ export function applyPen(api: BoardApi, pen: Pen): void {
     captureUpdate: CaptureUpdateAction.NEVER,
   });
   api.setActiveTool({ type: "freedraw" });
+}
+
+/**
+ * «القلم السحري»: the freehand stroke `elementId`, recognised, becomes Excalidraw's
+ * own clean shape in the same colour, width and frame — one undoable step, so
+ * Ctrl+Z gives the hand-drawn stroke back. A stroke it is unsure of is left alone.
+ * Returns whether it swapped.
+ */
+export function magicStroke(api: BoardApi, elementId: string): boolean {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const stroke = elements.find((e) => e.id === elementId && !e.isDeleted);
+  if (!stroke || stroke.type !== "freedraw") return false;
+  const shape = recognise(stroke.points.map(([px, py]) => [stroke.x + px, stroke.y + py] as [number, number]));
+  if (!shape) return false;
+
+  const look = {
+    strokeColor: stroke.strokeColor,
+    strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, stroke.strokeWidth),
+    opacity: stroke.opacity,
+    roughness: 0,
+    frameId: stroke.frameId,
+  };
+  const relative = (points: [number, number][]) => {
+    const [ox, oy] = points[0];
+    return { x: ox, y: oy, points: points.map(([px, py]) => [px - ox, py - oy] as [number, number]) };
+  };
+  const skeleton =
+    shape.type === "line" || shape.type === "arrow"
+      ? { type: shape.type, ...relative([shape.from, shape.to]), ...look }
+      : shape.type === "triangle"
+        ? { type: "line" as const, ...relative([...shape.points, shape.points[0]]), ...look }
+        : { type: shape.type, x: shape.x, y: shape.y, width: shape.width, height: shape.height, ...look };
+  const [clean] = convertToExcalidrawElements([skeleton]);
+
+  api.updateScene({
+    elements: [...elements.map((e) => (e.id === elementId ? newElementWith(e, { isDeleted: true }) : e)), clean],
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+  return true;
 }
 
 /** The template a page uses, read from its frame (`customData.template`). */

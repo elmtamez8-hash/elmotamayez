@@ -15,6 +15,8 @@ export interface TeachingBarProps {
   open: PassingTool | null;
   onTemplate: (name: TemplateName | null) => void;
   onPen: (pen: PenId) => void;
+  /** Whether «القلم السحري» is the pen in hand. */
+  magic?: boolean;
   onTool: (tool: PassingTool) => void;
   instrument: InstrumentKind | null;
   onInstrument: (kind: InstrumentKind) => void;
@@ -46,10 +48,11 @@ export function TeachingBar(props: TeachingBarProps) {
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-xs text-ink-muted">{WB.tools.pen}</span>
             {PENS.map((pen) => (
-              <Button key={pen.id} size="sm" variant="ghost" onClick={() => props.onPen(pen.id)}>
+              <Button key={pen.id} size="sm" variant={pen.id === "magic" && props.magic ? "secondary" : "ghost"} expanded={pen.id === "magic" ? Boolean(props.magic) : undefined} onClick={() => props.onPen(pen.id)}>
                 {WB.tools.pens[pen.id]}
               </Button>
             ))}
+            {props.magic && <p className="w-full text-xs text-ink-muted">{WB.tools.magicHint}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-1">
             <span className="text-xs text-ink-muted">{WB.tools.geometry}</span>
