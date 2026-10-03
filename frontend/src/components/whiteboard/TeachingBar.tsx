@@ -20,6 +20,8 @@ export interface TeachingBarProps {
   onInstrument: (kind: InstrumentKind) => void;
   /** Story 6: a table, edited in its own editor. */
   onTable: () => void;
+  /** Story 6: an equation, in MathLive with its LaTeX beside it. */
+  onMath: () => void;
 }
 
 /** The «أدوات» menu (US9): page templates, ready pens, and the passing tools. */
@@ -58,6 +60,9 @@ export function TeachingBar(props: TeachingBarProps) {
           <div className="flex flex-wrap items-center gap-1">
             <Button size="sm" variant="ghost" onClick={props.onTable}>
               {WB.table.insert}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={props.onMath}>
+              {WB.math.insert}
             </Button>
           </div>
         </>

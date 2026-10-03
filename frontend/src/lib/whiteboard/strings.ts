@@ -78,6 +78,19 @@ export const WB = {
     cancel: "إلغاء",
     gone: "لم يعد الجدول على الصفحة، فلم يُحفظ التعديل.",
   },
+  /** Story 6: an equation, written in MathLive or LaTeX and drawn by MathJax. */
+  math: {
+    insert: "إدراج معادلة",
+    edit: "تعديل المعادلة",
+    title: "المعادلة",
+    field: "المعادلة",
+    latex: "أو اكتبها بصيغة LaTeX:",
+    chemistryHint: "للكيمياء: \\ce{2H2 + O2 -> 2H2O}",
+    display: "في سطر مستقل (أكبر وأوضح)",
+    invalid: "المعادلة فيها خطأ في الكتابة. راجع الأوامر.",
+    save: "إدراج",
+    cancel: "إلغاء",
+  },
   /** Story 5: the whole board as a PDF in a lesson's attachments. */
   lessonExport: {
     course: "الكورس",
