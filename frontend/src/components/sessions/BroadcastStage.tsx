@@ -43,20 +43,18 @@ import { mayPublish, SOURCE_MICROPHONE, SOURCE_SCREEN_SHARE } from "@/lib/room-p
  * owner-approved 2026-10-03), so it is sent for legibility, not motion:
  * - `contentHint: "detail"` — the encoder keeps edges sharp and drops frames
  *   before it drops resolution;
- * - captured at 1080p15, not the library's 1080p30: a board barely moves, and
- *   the frames saved go into sharpness;
+ * - sent at 1080p15 (the library's default encoding); the capture size is left
+ *   to the library, which deliberately sets none on Safari 17 (a Safari bug);
  * - the tab pane is offered first, as the board's hint says («شارك هذا التبويب»);
  * - the weaker layer a student on mobile data receives is 720p at 5 fps instead
  *   of 540p at 15: handwriting stays readable, a video shown that way stutters.
  */
 const SHARE_CAPTURE: ScreenShareCaptureOptions = {
   contentHint: "detail",
-  resolution: ScreenSharePresets.h1080fps15.resolution,
   video: { displaySurface: "browser" },
   surfaceSwitching: "include",
 };
 const SHARE_PUBLISH: TrackPublishOptions = {
-  screenShareEncoding: ScreenSharePresets.h1080fps15.encoding,
   screenShareSimulcastLayers: [ScreenSharePresets.h720fps5],
 };
 

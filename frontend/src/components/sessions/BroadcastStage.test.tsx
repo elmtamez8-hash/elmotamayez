@@ -182,7 +182,7 @@ describe("BroadcastStage — self controls", () => {
       // Sent for legibility (T111): a board, not a film.
       expect(setScreenShareEnabled).toHaveBeenCalledWith(
         true,
-        expect.objectContaining({ contentHint: "detail", resolution: { width: 1920, height: 1080, frameRate: 15 } }),
+        expect.objectContaining({ contentHint: "detail", video: { displaySurface: "browser" } }),
         expect.objectContaining({ screenShareSimulcastLayers: [{ width: 1280, height: 720 }] }),
       );
     });
