@@ -45,6 +45,7 @@ import {
   startLaser,
   type BoardApi,
   type BoardElement,
+  type ExportKind,
 } from "@/lib/whiteboard/excalidraw-api";
 import { BACKGROUNDS, PAGE_HEIGHT, PAGE_WIDTH, type BoardBackground } from "@/lib/whiteboard/page-model";
 import {
@@ -596,7 +597,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     setBoard({ ...board, title: updated.title });
   };
 
-  const exportCurrent = async (kind: "png" | "svg") => {
+  const exportCurrent = async (kind: ExportKind) => {
     if (!api || !board) return;
     // A file is the page alone: the template goes in as pictures, so its file must be on the canvas.
     if (template) addPictures(api, await pictures.take([templateFileId(template)]));

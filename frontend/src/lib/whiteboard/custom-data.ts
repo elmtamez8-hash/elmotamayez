@@ -8,7 +8,7 @@
  * saved the page. It stays exactly as it arrived — an ordinary image on screen.
  */
 
-export type TemplateName = "lined" | "grid" | "dotted" | "isometric" | "graph" | "arabic-lines";
+export type TemplateName = "lined" | "grid" | "dotted" | "isometric" | "graph" | "arabic-lines" | "music";
 
 export type WbCustomData =
   | { kind: "frame"; v: 1; template?: TemplateName }

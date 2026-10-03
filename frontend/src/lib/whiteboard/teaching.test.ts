@@ -14,6 +14,12 @@ describe("page templates", () => {
     expect(templateOf("template:sticker-bravo:v1")).toBeNull();
   });
 
+  it("draws the music paper as whole staves of five lines", () => {
+    const { lines } = templateLines("music");
+    expect(lines.length % 5).toBe(0);
+    expect(lines.length / 5).toBeGreaterThanOrEqual(4);
+  });
+
   it("draw something, inside the page, with room between lines for the stream", () => {
     for (const name of TEMPLATES) {
       const { lines, dots } = templateLines(name);

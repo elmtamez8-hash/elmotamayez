@@ -3,14 +3,15 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import type { ExportKind } from "@/lib/whiteboard/excalidraw-api";
 import { WB } from "@/lib/whiteboard/strings";
 
-/** The current page as a PNG or an SVG file (US1). The work is the caller's. */
-export function ExportMenu({ onExport }: { onExport: (kind: "png" | "svg") => Promise<void> }) {
-  const [busy, setBusy] = useState<"png" | "svg" | null>(null);
+/** The current page as a PNG, a JPG or an SVG file (US1). The work is the caller's. */
+export function ExportMenu({ onExport }: { onExport: (kind: ExportKind) => Promise<void> }) {
+  const [busy, setBusy] = useState<ExportKind | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const run = async (kind: "png" | "svg") => {
+  const run = async (kind: ExportKind) => {
     setBusy(kind);
     setFailed(false);
     try {
@@ -29,6 +30,9 @@ export function ExportMenu({ onExport }: { onExport: (kind: "png" | "svg") => Pr
       </span>
       <Button size="sm" variant="ghost" loading={busy === "png"} loadingLabel={WB.exporting} onClick={() => run("png")}>
         {WB.exportPng}
+      </Button>
+      <Button size="sm" variant="ghost" loading={busy === "jpg"} loadingLabel={WB.exporting} onClick={() => run("jpg")}>
+        {WB.exportJpg}
       </Button>
       <Button size="sm" variant="ghost" loading={busy === "svg"} loadingLabel={WB.exporting} onClick={() => run("svg")}>
         {WB.exportSvg}

@@ -39,6 +39,7 @@ export const WB = {
 
   export: "تصدير الصفحة:",
   exportPng: "PNG",
+  exportJpg: "JPG",
   exportSvg: "SVG",
   exporting: "جارٍ التصدير…",
   exportFailed: "تعذّر التصدير. أعد المحاولة.",
@@ -119,6 +120,7 @@ export const WB = {
       isometric: "متساوية القياس",
       graph: "رسم بياني",
       "arabic-lines": "كرّاسة عربية",
+      music: "مدرج موسيقي",
     },
     pen: "القلم:",
     pens: { marker: "ماركر", brush: "فرشاة عريضة", highlighter: "قلم تظليل" },
