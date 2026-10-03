@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocalParticipant, useParticipantAttributes, useRoomContext } from "@livekit/components-react";
-import { RoomEvent, type Participant, type RemoteParticipant } from "livekit-client";
+import { RoomEvent, type Participant } from "livekit-client";
 
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -60,25 +60,57 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
     const read = () =>
       setVotes([...room.remoteParticipants.values()].map((p): [string, string | undefined] => [p.identity, p.attributes[POLL_ATTRIBUTE]]));
     read();
-    room.on(RoomEvent.ParticipantAttributesChanged, read).on(RoomEvent.ParticipantConnected, read).on(RoomEvent.ParticipantDisconnected, read);
+    // ⚠️ Connected too: the seats already in the room arrive with the join answer
+    // and raise no ParticipantConnected, so a reloaded teacher would read zero.
+    room
+      .on(RoomEvent.Connected, read)
+      .on(RoomEvent.ParticipantAttributesChanged, read)
+      .on(RoomEvent.ParticipantConnected, read)
+      .on(RoomEvent.ParticipantDisconnected, read);
     return () => {
-      room.off(RoomEvent.ParticipantAttributesChanged, read).off(RoomEvent.ParticipantConnected, read).off(RoomEvent.ParticipantDisconnected, read);
+      room
+        .off(RoomEvent.Connected, read)
+        .off(RoomEvent.ParticipantAttributesChanged, read)
+        .off(RoomEvent.ParticipantConnected, read)
+        .off(RoomEvent.ParticipantDisconnected, read);
     };
+  }, [room]);
+
+  // A second host in the room (an assistant hosting) is heard, not overridden:
+  // their poll becomes this screen's poll, so the class has one.
+  useEffect(() => {
+    const receive = (payload: Uint8Array, _from?: Participant, _kind?: unknown, topic?: string) => {
+      if (topic !== POLL_TOPIC) return;
+      const next = decodePoll(payload);
+      if (next) remember(next);
+    };
+    room.on(RoomEvent.DataReceived, receive);
+    return () => {
+      room.off(RoomEvent.DataReceived, receive);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `remember` writes state and storage only
   }, [room]);
 
   // A data message is not replayed: whoever arrives (or reloads) is sent the poll.
   useEffect(() => {
     if (!poll || poll.state === "ended") return;
-    const greet = (participant: RemoteParticipant) => void send(poll, [participant.identity]).catch(() => undefined);
-    room.on(RoomEvent.ParticipantConnected, greet);
+    // ⚠️ ParticipantActive, not ParticipantConnected: the library raises the
+    // latter before the newcomer can receive data, and a message sent then is lost.
+    const greet = (participant: Participant) =>
+      participant.identity !== room.localParticipant.identity && void send(poll, [participant.identity]).catch(() => undefined);
+    // A teacher who reloaded tells the whole room again (whoever came meanwhile was greeted by nobody).
+    const announce = () => void send(poll).catch(() => undefined);
+    room.on(RoomEvent.ParticipantActive, greet).on(RoomEvent.Connected, announce);
     return () => {
-      room.off(RoomEvent.ParticipantConnected, greet);
+      room.off(RoomEvent.ParticipantActive, greet).off(RoomEvent.Connected, announce);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `send` reads only `room`
   }, [room, poll]);
 
   const voters = useMemo(() => (poll ? tally(poll, votes) : []), [poll, votes]);
-  const total = voters.reduce((sum, list) => sum + list.length, 0);
+  // Once closed, the teacher reads the same numbers the class was sent.
+  const shown = poll?.counts ?? voters.map((list) => list.length);
+  const shownTotal = shown.reduce((sum, n) => sum + n, 0);
 
   // Names come from the roster (the identity is a uuid, FR-006); read again when a stranger votes.
   const unknown = voters.flat().filter((uuid) => !names.has(uuid)).length;
@@ -94,34 +126,44 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
     };
   }, [poll, unknown, names.size, sessionUuid]);
 
-  const publish = async (next: Poll | null) => {
+  const remember = (next: Poll) => {
+    setPoll(next.state === "ended" ? null : next);
+    try {
+      if (next.state !== "ended") sessionStorage.setItem(storageKey(sessionUuid), JSON.stringify(next));
+      else sessionStorage.removeItem(storageKey(sessionUuid));
+    } catch {
+      // ponytail: a private window keeps the poll in memory only.
+    }
+  };
+
+  /** Sent first, kept second: a poll the class never received is not shown as running. */
+  const publish = async (next: Poll): Promise<boolean> => {
     setError("");
     try {
-      if (next) await send(next);
-      setPoll(next?.state === "ended" ? null : next);
-      try {
-        if (next && next.state !== "ended") sessionStorage.setItem(storageKey(sessionUuid), JSON.stringify(next));
-        else sessionStorage.removeItem(storageKey(sessionUuid));
-      } catch {
-        // ponytail: a private window keeps the poll in memory only.
-      }
+      await send(next);
+      remember(next);
+      return true;
     } catch {
       setError("تعذّر إرسال التصويت للطلاب. تأكّد من الاتصال وأعد المحاولة.");
+      return false;
     }
   };
 
   const start = () => {
     const choices = options.map((option) => option.trim()).filter(Boolean);
-    void publish({ v: 1, id: newPollId(), question: question.trim(), options: choices, state: "open" }).then(() => setDrafting(false));
+    void publish({ v: 1, id: newPollId(), question: question.trim(), options: choices, state: "open" }).then((ok) => ok && setDrafting(false));
   };
 
   const ready = options.filter((option) => option.trim() !== "").length >= MIN_OPTIONS;
 
   if (!poll && !drafting) {
     return (
-      <Button variant="ghost" onClick={() => setDrafting(true)}>
-        تصويت سريع 🗳
-      </Button>
+      <div className="space-y-2">
+        <Button variant="ghost" onClick={() => setDrafting(true)}>
+          تصويت سريع 🗳
+        </Button>
+        {error !== "" && <Alert tone="danger" title={error} />}
+      </div>
     );
   }
 
@@ -193,13 +235,13 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">{poll.question || "تصويت"}</h3>
         <span className="text-sm text-ink-muted">
-          {poll.state === "open" ? "التصويت مفتوح" : "النتيجة ظاهرة للطلاب"} · صوّت {total}
+          {poll.state === "open" ? "التصويت مفتوح" : "النتيجة ظاهرة للطلاب"} · صوّت {shownTotal}
         </span>
       </div>
       <ul className="space-y-2">
         {poll.options.map((option, index) => (
           <li key={index} className="space-y-1">
-            <ResultBar label={option} count={voters[index]?.length ?? 0} total={total} />
+            <ResultBar label={option} count={shown[index] ?? 0} total={shownTotal} />
             {(voters[index]?.length ?? 0) > 0 && (
               <p className="text-xs text-ink-muted">{voters[index].map((uuid) => names.get(uuid) ?? "طالب").join("، ")}</p>
             )}
@@ -212,7 +254,7 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
             اقفل التصويت وأعلن النتيجة
           </Button>
         ) : (
-          <Button size="sm" variant="secondary" onClick={() => void publish({ ...poll, state: "ended" }).then(() => setDrafting(true))}>
+          <Button size="sm" variant="secondary" onClick={() => void publish({ ...poll, state: "ended" }).then((ok) => ok && setDrafting(true))}>
             تصويت جديد
           </Button>
         )}
@@ -253,7 +295,8 @@ function StudentPoll() {
   const vote = (choice: number) => {
     setError("");
     localParticipant
-      .setAttributes({ ...localParticipant.attributes, [POLL_ATTRIBUTE]: voteValue(poll.id, choice) })
+      // The one key: setAttributes merges, and resending the others could raise a hand the teacher just cleared.
+      .setAttributes({ [POLL_ATTRIBUTE]: voteValue(poll.id, choice) })
       .catch(() => setError("لم يصل اختيارك. أعد المحاولة."));
   };
 

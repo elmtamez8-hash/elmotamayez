@@ -258,7 +258,8 @@ function SelfControls({ isHost }: { isHost: boolean }) {
     setError("");
 
     return localParticipant
-      .setAttributes({ ...attributes, [key]: on ? "1" : "" })
+      // The one key: setAttributes merges, and resending the other could undo the teacher's «امسح الإشارات».
+      .setAttributes({ [key]: on ? "1" : "" })
       .catch((e: unknown) => setError(userMessage(e)));
   };
 
