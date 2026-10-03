@@ -150,6 +150,24 @@ export function BoardToolbar(props: BoardToolbarProps) {
           </IconButton>
         </div>
 
+        {/* The screens of the page, in the bar too: moved through all lesson long (owner, 2026-10-03). */}
+        {props.screen && props.onScreen && (
+          <div className="flex items-center gap-0.5 rounded-xl bg-surface px-0.5" role="group" aria-label={WB.screenOf(props.screen.index + 1, props.screen.count)}>
+            <IconButton label={WB.screenUp} disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
+              <ArrowUpIcon className="h-4 w-4" />
+            </IconButton>
+            <span className="min-w-[2.25rem] text-center text-xs font-semibold tabular-nums text-ink-muted" aria-live="polite" title={WB.screenOf(props.screen.index + 1, props.screen.count)}>
+              {WB.screenShort(props.screen.index + 1, props.screen.count)}
+            </span>
+            <IconButton
+              label={props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
+              disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
+              onClick={() => props.onScreen?.(1)}
+            >
+              <ArrowDownIcon className="h-4 w-4" />
+            </IconButton>
+          </div>
+        )}
         {props.onTogglePages && (
           <IconButton label={WB.showPages} expanded={props.pagesOpen} onClick={props.onTogglePages}>
             <PagesIcon className="h-[1.15rem] w-[1.15rem]" />
@@ -162,26 +180,6 @@ export function BoardToolbar(props: BoardToolbarProps) {
 
       {expanded && (
         <div id="wb-panel-body" className="flex flex-col gap-3 border-t border-line px-3 pb-3 pt-2.5">
-          {props.screen && props.onScreen && (
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" iconStart={<ArrowUpIcon className="h-4 w-4" />} disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
-                {WB.screenUp}
-              </Button>
-              <span className="text-sm tabular-nums text-ink-muted" aria-live="polite">
-                {WB.screenOf(props.screen.index + 1, props.screen.count)}
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                iconStart={<ArrowDownIcon className="h-4 w-4" />}
-                disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
-                onClick={() => props.onScreen?.(1)}
-              >
-                {props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
-              </Button>
-            </div>
-          )}
-
           <BoardSettings title={props.title} background={props.background} disabled={!props.canEdit} onRename={props.onRename} onBackground={props.onBackground} />
           <ExportMenu onExport={props.onExport} />
 
