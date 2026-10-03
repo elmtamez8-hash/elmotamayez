@@ -14,6 +14,7 @@ import {
   ImportIcon,
   PagesIcon,
   PanelLayoutIcon,
+  PlusIcon,
   PresentIcon,
   ToolsIcon,
 } from "@/components/icons";
@@ -100,8 +101,8 @@ function IconButton({ label, onClick, disabled, expanded, controls, children }: 
  * The board's own controls, drawn into Excalidraw's top bar (`renderTopRightUI`).
  *
  * FOLDED by default (owner, 2026-10-03): one slim bar with what a lesson needs
- * every minute — the pages, «عرض» and whether the work is saved — and the rest
- * (screens, name and background, export, the tool groups) one press away, so the
+ * every minute — the pages, the page's screens, «عرض» and whether the work is
+ * saved — and the rest (name and background, export, the tool groups) one press away, so the
  * panel covers as little of the board as it can. Pure — every action is the
  * canvas's — so it is tested by pressing it.
  */
@@ -127,14 +128,14 @@ export function BoardToolbar(props: BoardToolbarProps) {
     <div
       data-panel="board"
       data-expanded={expanded ? "true" : "false"}
-      className={`flex max-w-[60vw] flex-col rounded-2xl border border-line bg-surface-raised text-ink shadow-[0_6px_24px_-8px_rgb(0_0_0/0.25)] ${expanded ? "w-[26rem]" : "w-fit"}`}
+      className={`flex max-w-[60vw] flex-col rounded-2xl border border-line bg-surface-raised text-ink shadow-[0_6px_24px_-8px_rgb(0_0_0/0.25)] ${expanded ? "w-[31rem]" : "w-fit"}`}
       dir="rtl"
     >
       <div className="flex items-center gap-1 px-2 py-1.5">
         <IconButton label={expanded ? WB.panel.fold : WB.panel.unfold} expanded={expanded} controls="wb-panel-body" onClick={toggle}>
           {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
         </IconButton>
-        <span className="min-w-0 max-w-[10rem] truncate px-1 text-sm font-bold" title={props.title}>
+        <span className="hidden min-w-0 max-w-[10rem] truncate px-1 text-sm font-bold lg:inline" title={props.title}>
           {props.title}
         </span>
 
@@ -150,6 +151,28 @@ export function BoardToolbar(props: BoardToolbarProps) {
           </IconButton>
         </div>
 
+        {/* The screens of the page, in the bar too: moved through all lesson long (owner, 2026-10-03). */}
+        {props.screen && props.onScreen && (
+          <div className="flex items-center gap-0.5 rounded-xl bg-surface px-0.5" role="group" aria-label={WB.screens}>
+            <IconButton label={WB.screenUp} disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
+              <ArrowUpIcon className="h-4 w-4" />
+            </IconButton>
+            <span className="min-w-[3rem] whitespace-nowrap text-center text-xs font-semibold tabular-nums text-ink-muted" aria-hidden="true" title={WB.screenOf(props.screen.index + 1, props.screen.count)}>
+              {WB.pageOf(props.screen.index + 1, props.screen.count)}
+            </span>
+            <span className="sr-only" aria-live="polite">
+              {WB.screenOf(props.screen.index + 1, props.screen.count)}
+            </span>
+            <IconButton
+              label={props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
+              disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
+              onClick={() => props.onScreen?.(1)}
+            >
+              {/* The last screen grows the page: a «+», not the arrow it shares with «أسفل». */}
+              {props.screen.index >= props.screen.count - 1 ? <PlusIcon /> : <ArrowDownIcon className="h-4 w-4" />}
+            </IconButton>
+          </div>
+        )}
         {props.onTogglePages && (
           <IconButton label={WB.showPages} expanded={props.pagesOpen} onClick={props.onTogglePages}>
             <PagesIcon className="h-[1.15rem] w-[1.15rem]" />
@@ -162,26 +185,6 @@ export function BoardToolbar(props: BoardToolbarProps) {
 
       {expanded && (
         <div id="wb-panel-body" className="flex flex-col gap-3 border-t border-line px-3 pb-3 pt-2.5">
-          {props.screen && props.onScreen && (
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" iconStart={<ArrowUpIcon className="h-4 w-4" />} disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
-                {WB.screenUp}
-              </Button>
-              <span className="text-sm tabular-nums text-ink-muted" aria-live="polite">
-                {WB.screenOf(props.screen.index + 1, props.screen.count)}
-              </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                iconStart={<ArrowDownIcon className="h-4 w-4" />}
-                disabled={!props.canEdit && props.screen.index >= props.screen.count - 1}
-                onClick={() => props.onScreen?.(1)}
-              >
-                {props.screen.index >= props.screen.count - 1 ? WB.screenNew : WB.screenDown}
-              </Button>
-            </div>
-          )}
-
           <BoardSettings title={props.title} background={props.background} disabled={!props.canEdit} onRename={props.onRename} onBackground={props.onBackground} />
           <ExportMenu onExport={props.onExport} />
 

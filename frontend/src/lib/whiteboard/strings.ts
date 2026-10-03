@@ -33,6 +33,7 @@ export const WB = {
   screenDown: "أسفل",
   screenNew: "مكان فارغ",
   screenOf: (screen: number, total: number) => `شاشة ${arabicNumber(screen)} من ${arabicNumber(total)}`,
+  screens: "شاشات الصفحة",
   pageOf: (page: number, total: number) => `${arabicNumber(page)} من ${arabicNumber(total)}`,
   pages: (n: number) => counted(n, NOUNS.pages),
   boardsCount: (n: number) => counted(n, NOUNS.boards),
