@@ -30,6 +30,10 @@ import {
   pageImage,
   pagePictureIds,
   pageThumbnail,
+  placeRichObject,
+  replaceRichObject,
+  selectedRichObject,
+  type RichData,
   pictureIds,
   placeSticker,
   reframe,
@@ -78,6 +82,8 @@ import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
 import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
 import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
+import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
+import { blankTable, parseClipboardTable, renderTable, type TableData } from "@/lib/whiteboard/table";
 import { PageCover } from "@/components/whiteboard/PageCover";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
@@ -220,6 +226,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   }, []);
   const [showPages, setShowPages] = useState(true);
   const [pagesBusy, setPagesBusy] = useState(false);
+  // Story 6: the rich object selected (its «تعديل» button), and the one being edited.
+  const [richSelected, setRichSelected] = useState<{ id: string; data: RichData } | null>(null);
+  const [tableEdit, setTableEdit] = useState<{ data: TableData; elementId: string | null } | null>(null);
   // An import keeps adding pages after the teacher leaves the board unless it asks.
   const mounted = useRef(true);
   useEffect(() => {
@@ -746,6 +755,52 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       }
     });
 
+  /**
+   * A table's cells saved (story 6): its picture is drawn and uploaded FIRST —
+   * a refused upload changes nothing on the page — then put in place, or
+   * swapped into the same element when it is being edited.
+   */
+  const saveTable = async (data: TableData, elementId: string | null) => {
+    if (!api || !board) return;
+    try {
+      const { blob, width, height } = await renderTable(data);
+      const file = new File([blob], "table.png", { type: "image/png" });
+      const id = await uploadBoardImage(board.uuid, session.tab(), file, async (bytes) => bytes);
+      const dataURL = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      addPictures(api, [{ id, dataURL, mimeType: "image/png" }]);
+      pictures.given(id);
+      if (elementId) replaceRichObject(api, elementId, id, width, height, data);
+      else placeRichObject(api, id, width, height, data);
+      setTableEdit(null);
+    } catch {
+      setNotice(WB.imageFailed);
+    }
+  };
+
+  // Story 6: a table copied from Excel or Google Sheets becomes a table, not a
+  // picture of one — caught BEFORE Excalidraw's own paste, which would insert the
+  // spreadsheet's screenshot. Plain text and pictures pass through untouched.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root || !session.held) return;
+    const onPaste = (event: ClipboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      const table = parseClipboardTable(event.clipboardData?.getData("text/html") ?? "", event.clipboardData?.getData("text/plain") ?? "");
+      if (!table) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void saveTable(table, null);
+    };
+    root.addEventListener("paste", onPaste, true);
+    return () => root.removeEventListener("paste", onPaste, true);
+  });
+
   /** Story 5: every page, drawn off the canvas from the page map, into one PDF. */
   const renderBoardPdf = async (onPage: (done: number) => void): Promise<Blob> => {
     if (!board) throw new Error("no board");
@@ -820,6 +875,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           setTemplate(frameTemplate(elements));
           if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
+          // The «تعديل» button follows a single selected table or equation.
+          if (api && appState.cursorButton !== "down") {
+            const next = Object.keys(appState.selectedElementIds).length === 1 ? selectedRichObject(api) : null;
+            setRichSelected((current) => (current?.id === next?.id && current?.data === next?.data ? current : next));
+          }
           // Mid-stroke changes wait for the stroke to end (R-08).
           if (!session.held || appState.cursorButton === "down") return;
           const shown = board.pages[pageIndex]?.uuid;
@@ -857,6 +917,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
                     instrument={instrument?.kind ?? null}
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
+                    onTable={() => setTableEdit({ data: blankTable(), elementId: null })}
                   />
                 ),
               },
@@ -946,6 +1007,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onReorder={reorderPages}
           />
         </div>
+      )}
+      {session.held && richSelected?.data.kind === "table" && !tableEdit && (
+        <button
+          type="button"
+          onClick={() => setTableEdit({ data: richSelected.data as TableData, elementId: richSelected.id })}
+          className="absolute top-16 left-1/2 z-20 -translate-x-1/2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground shadow-lg"
+        >
+          {WB.table.edit}
+        </button>
+      )}
+      {tableEdit && (
+        <TableEditor initial={tableEdit.data} onClose={() => setTableEdit(null)} onSave={(data) => void saveTable(data, tableEdit.elementId)} />
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
       {instrument && session.held && (

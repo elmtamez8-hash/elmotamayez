@@ -15,6 +15,7 @@ import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, Normal
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
+import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
   PAGE_HEIGHT,
@@ -334,6 +335,79 @@ export function placeSticker(api: BoardApi, fileId: string, name: string, offset
   ]);
 
   api.updateScene({ elements: [...elements, sticker], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+}
+
+/** A rich object's source (story 6): a table now, an equation next. */
+export type RichData = Extract<WbCustomData, { kind: "table" | "math" }>;
+
+/**
+ * Put a rich object on the page shown: an image element, its source in
+ * `customData`, near the page's centre, as ONE undoable step. Its file was
+ * uploaded first and already handed to the canvas.
+ */
+export function placeRichObject(api: BoardApi, fileId: string, width: number, height: number, data: RichData): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  const { scrollX, scrollY, zoom, width: viewWidth, height: viewHeight } = api.getAppState();
+  // The middle of what the teacher is looking at, kept inside the page.
+  const centreX = viewWidth / 2 / zoom.value - scrollX;
+  const centreY = viewHeight / 2 / zoom.value - scrollY;
+  const x = Math.max(frame?.x ?? 0, centreX - width / 2);
+  const y = Math.max(frame?.y ?? 0, centreY - height / 2);
+
+  const [element] = convertToExcalidrawElements([
+    {
+      type: "image",
+      fileId: fileId as BinaryFileData["id"],
+      x,
+      y,
+      width,
+      height,
+      status: "saved",
+      frameId: frame?.id ?? null,
+      customData: data,
+    },
+  ]);
+  // Selected at once, so «تعديل» is right there.
+  api.updateScene({
+    elements: [...elements, element],
+    appState: { selectedElementIds: { [element.id]: true } },
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/**
+ * «تعديل» saved: the SAME element (id, place, angle, layer) shows the new
+ * picture. Its width stays what the teacher sized it to; its height follows the
+ * new picture's proportions.
+ */
+export function replaceRichObject(api: BoardApi, elementId: string, fileId: string, width: number, height: number, data: RichData): void {
+  const elements = api.getSceneElementsIncludingDeleted();
+  api.updateScene({
+    elements: elements.map((element) =>
+      element.id === elementId && element.type === "image"
+        ? ({
+            ...element,
+            fileId: fileId as BinaryFileData["id"],
+            height: Math.round((element.width * height) / Math.max(1, width)),
+            customData: data,
+            version: element.version + 1,
+            versionNonce: Math.floor(Math.random() * 2 ** 31),
+            updated: Date.now(),
+          } as BoardElement)
+        : element,
+    ),
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** The one rich object selected, if exactly one element is and it is one. */
+export function selectedRichObject(api: BoardApi): { id: string; data: RichData } | null {
+  const ids = Object.keys(api.getAppState().selectedElementIds);
+  if (ids.length !== 1) return null;
+  const element = api.getSceneElements().find((e) => e.id === ids[0]);
+  const data = element?.customData as RichData | undefined;
+  return element && (data?.kind === "table" || data?.kind === "math") ? { id: element.id, data } : null;
 }
 
 /** A ready pen (US9): the freehand tool with that pen's width, opacity and colour. */
