@@ -60,6 +60,24 @@ export const WB = {
   /** The toolbar's menus. */
   menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },
   /** Story 4 — a PDF or a picture added as pages after the page shown. */
+  /** Story 6: a table, drawn from its cells and edited again later. */
+  table: {
+    insert: "إدراج جدول",
+    edit: "تعديل الجدول",
+    title: "الجدول",
+    addRow: "إضافة صف",
+    removeRow: "حذف آخر صف",
+    addCol: "إضافة عمود",
+    removeCol: "حذف آخر عمود",
+    toLtr: "من اليسار لليمين",
+    toRtl: "من اليمين لليسار",
+    fill: "لون الخلية:",
+    noFill: "بلا لون",
+    cell: (row: number, col: number) => `الصف ${arabicNumber(row)}، العمود ${arabicNumber(col)}`,
+    save: "حفظ",
+    cancel: "إلغاء",
+    gone: "لم يعد الجدول على الصفحة، فلم يُحفظ التعديل.",
+  },
   /** Story 5: the whole board as a PDF in a lesson's attachments. */
   lessonExport: {
     course: "الكورس",

@@ -18,6 +18,8 @@ export interface TeachingBarProps {
   onTool: (tool: PassingTool) => void;
   instrument: InstrumentKind | null;
   onInstrument: (kind: InstrumentKind) => void;
+  /** Story 6: a table, edited in its own editor. */
+  onTable: () => void;
 }
 
 /** The «أدوات» menu (US9): page templates, ready pens, and the passing tools. */
@@ -52,6 +54,11 @@ export function TeachingBar(props: TeachingBarProps) {
                 {WB.tools.instruments[kind]}
               </Button>
             ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={props.onTable}>
+              {WB.table.insert}
+            </Button>
           </div>
         </>
       )}

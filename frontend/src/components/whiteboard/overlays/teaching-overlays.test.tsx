@@ -1,3 +1,4 @@
+import { WB } from "@/lib/whiteboard/strings";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -91,7 +92,15 @@ describe("TeachingBar", () => {
     onTool: vi.fn(),
     instrument: null,
     onInstrument: vi.fn(),
+    onTable: vi.fn(),
     ...over,
+  });
+
+  it("opens the table editor from «إدراج جدول» (story 6)", () => {
+    const p = props();
+    render(<TeachingBar {...p} />);
+    fireEvent.click(screen.getByRole("button", { name: WB.table.insert }));
+    expect(p.onTable).toHaveBeenCalled();
   });
 
   it("sets a template, a pen, and opens a passing tool", () => {
