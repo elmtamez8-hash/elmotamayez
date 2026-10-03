@@ -41,9 +41,11 @@ describe("replaceRichObject", () => {
 });
 
 describe("magicStroke", () => {
+  // As Excalidraw orders a page: the stroke drawn inside the frame sits BEFORE it.
   const sceneWith = (stroke: object) => {
-    let scene = [stroke] as unknown[];
+    let scene = [stroke, { id: "page", type: "frame", isDeleted: false }] as unknown[];
     const api = {
+      getAppState: () => ({ zoom: { value: 1 } }),
       getSceneElementsIncludingDeleted: () => scene,
       updateScene: vi.fn(({ elements }: { elements: unknown[] }) => (scene = elements)),
     } as unknown as BoardApi;
@@ -55,8 +57,9 @@ describe("magicStroke", () => {
     const { api, scene } = sceneWith({ id: "f1", type: "freedraw", x: 10, y: 20, points: loop, strokeColor: "#ffffff", strokeWidth: 4, opacity: 100, frameId: "page", isDeleted: false });
 
     expect(magicStroke(api, "f1")).toBe(true);
-    const [stroke, clean] = scene();
+    const [stroke, frame, clean] = scene();
     expect(stroke).toMatchObject({ id: "f1", isDeleted: true });
+    expect(frame).toMatchObject({ id: "page", isDeleted: false });
     expect(clean).toMatchObject({ type: "ellipse", strokeColor: "#ffffff", frameId: "page", roughness: 0 });
     expect(clean.x).toBeCloseTo(30, 0); // 10 + (100 − 80)
   });

@@ -303,7 +303,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   // «القلم السحري»: on while its pen is the one in hand; any other tool turns it off.
   const [magic, setMagic] = useState(false);
-  const strokeDown = useRef(false);
+  // The stroke being drawn, by id: a stroke inside the page is placed BEFORE the
+  // page's frame, so «the last element» is never it (caught in review).
+  const drawing = useRef<string | null>(null);
   const choosePen = (id: PenId) => {
     const pen = PENS.find((p) => p.id === id);
     if (api && pen) applyPen(api, pen);
@@ -915,14 +917,16 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           setTemplate(frameTemplate(elements));
           if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
-          if (magic && appState.activeTool.type !== "freedraw") setMagic(false);
+          // Another tool turns it off — not the eraser, which a pen's back end picks for a moment.
+          if (magic && appState.activeTool.type !== "freedraw" && appState.activeTool.type !== "eraser") setMagic(false);
           // The magic pen acts when the pen LIFTS, on the stroke just finished — outside
           // this callback, since it changes the scene this callback reports.
-          const lifted = strokeDown.current && appState.cursorButton !== "down";
-          strokeDown.current = appState.cursorButton === "down";
-          if (magic && lifted && api && session.held && appState.activeTool.type === "freedraw") {
-            const last = elements[elements.length - 1];
-            if (last?.type === "freedraw") queueMicrotask(() => magicStroke(api, last.id));
+          if (appState.cursorButton === "down") {
+            if (appState.newElement?.type === "freedraw") drawing.current = appState.newElement.id;
+          } else if (drawing.current) {
+            const finished = drawing.current;
+            drawing.current = null;
+            if (magic && api && session.held) queueMicrotask(() => magicStroke(api, finished));
           }
           // The «تعديل» button follows a single selected table or equation.
           if (api && appState.cursorButton !== "down") {

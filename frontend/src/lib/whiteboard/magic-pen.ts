@@ -50,8 +50,12 @@ export function simplify(points: Point[], epsilon: number): Point[] {
   return [...simplify(points.slice(0, at + 1), epsilon).slice(0, -1), ...simplify(points.slice(at), epsilon)];
 }
 
-/** The shape a stroke (in board units) was meant to be, or null when unsure. */
-export function recognise(points: Point[]): MagicShape | null {
+/**
+ * The shape a stroke (in board units) was meant to be, or null when unsure.
+ * `minSize` is the smallest diagonal that is a shape and not writing, in board
+ * units — the caller turns ~24 screen pixels into board units at its zoom.
+ */
+export function recognise(points: Point[], minSize = 24): MagicShape | null {
   if (points.length < 4) return null;
   const xs = points.map((p) => p[0]);
   const ys = points.map((p) => p[1]);
@@ -60,7 +64,7 @@ export function recognise(points: Point[]): MagicShape | null {
   const width = Math.max(...xs) - x;
   const height = Math.max(...ys) - y;
   const diagonal = Math.hypot(width, height);
-  if (diagonal < 24) return null; // a dot or a tick is writing, not a shape
+  if (diagonal < minSize) return null; // a dot or a tick is writing, not a shape
 
   const start = points[0];
   const end = points[points.length - 1];
@@ -71,12 +75,16 @@ export function recognise(points: Point[]): MagicShape | null {
     // Straight when no point strays far from the chord (a length ratio counts the hand's wobble as length).
     const chord = dist(start, end);
     if (chord > 0.85 * diagonal && points.every((p) => offSegment(p, start, end) < 0.07 * chord)) return { type: "line", from: start, to: end };
-    // An arrow drawn in one go: a long shaft, then a short head folding back.
+    // An arrow drawn in one go: a long shaft, then a short head that FOLDS BACK
+    // along it, in two strokes at least. One turn is an L — the corner of a
+    // pair of axes — and stays as drawn (caught in review).
     const corners = simplify(points, 0.08 * diagonal);
-    if (corners.length >= 3 && corners.length <= 5) {
-      const shaft = dist(corners[0], corners[1]);
-      const rest = pathLength(corners.slice(1));
-      if (shaft > 0.6 * length && rest < 0.75 * shaft) return { type: "arrow", from: corners[0], to: corners[1] };
+    if (corners.length >= 4 && corners.length <= 6) {
+      const [tail, tip, wing] = corners;
+      const shaft = dist(tail, tip);
+      const head = pathLength(corners.slice(1));
+      const back = ((wing[0] - tip[0]) * (tail[0] - tip[0]) + (wing[1] - tip[1]) * (tail[1] - tip[1])) / ((dist(wing, tip) || 1) * (shaft || 1));
+      if (shaft > 0.6 * length && head < 0.75 * shaft && back > 0.5) return { type: "arrow", from: tail, to: tip };
     }
     return null;
   }

@@ -51,6 +51,16 @@ describe("the magic pen", () => {
     expect(recognise(wobble(along([[0, 150], [100, 0], [200, 150], [0, 150]])))?.type).toBe("triangle");
   });
 
+  it("leaves an L — the corner of a pair of axes — as drawn, not an arrow", () => {
+    expect(recognise(wobble(along([[0, 0], [0, 200], [100, 200]]), 1.5))).toBeNull();
+  });
+
+  it("measures «too small» in board units at the caller's zoom", () => {
+    const small = wobble(ellipse(30, 30, 12, 12), 0.5);
+    expect(recognise(small)).not.toBeNull();
+    expect(recognise(small, 24 / 0.5)).toBeNull(); // zoomed out to half: a letter's loop
+  });
+
   it("leaves writing alone: a scribble, a tick and a dot stay as drawn", () => {
     expect(recognise(wobble(along([[0, 0], [40, 60], [80, 0], [120, 60], [160, 0], [200, 60]]), 1))).toBeNull();
     expect(recognise(along([[0, 0], [8, 10]]))).toBeNull();

@@ -450,11 +450,21 @@ export function applyPen(api: BoardApi, pen: Pen): void {
  * Ctrl+Z gives the hand-drawn stroke back. A stroke it is unsure of is left alone.
  * Returns whether it swapped.
  */
+function boxOf(points: [number, number][]): { width: number; height: number } {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return { width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+}
+
 export function magicStroke(api: BoardApi, elementId: string): boolean {
   const elements = api.getSceneElementsIncludingDeleted();
   const stroke = elements.find((e) => e.id === elementId && !e.isDeleted);
   if (!stroke || stroke.type !== "freedraw") return false;
-  const shape = recognise(stroke.points.map(([px, py]) => [stroke.x + px, stroke.y + py] as [number, number]));
+  // ~24 screen pixels, whatever the zoom: below that a stroke is handwriting.
+  const shape = recognise(
+    stroke.points.map(([px, py]) => [stroke.x + px, stroke.y + py] as [number, number]),
+    24 / api.getAppState().zoom.value,
+  );
   if (!shape) return false;
 
   const look = {
@@ -474,7 +484,10 @@ export function magicStroke(api: BoardApi, elementId: string): boolean {
       : shape.type === "triangle"
         ? { type: "line" as const, ...relative([...shape.points, shape.points[0]]), ...look }
         : { type: shape.type, x: shape.x, y: shape.y, width: shape.width, height: shape.height, ...look };
-  const [clean] = convertToExcalidrawElements([skeleton]);
+  const [converted] = convertToExcalidrawElements([skeleton]);
+  // A `line` skeleton keeps a 100×0 box whatever its points (only arrows are
+  // measured), so a line or a triangle is given the box its points make.
+  const clean = "points" in skeleton ? newElementWith(converted, boxOf(skeleton.points)) : converted;
 
   api.updateScene({
     elements: [...elements.map((e) => (e.id === elementId ? newElementWith(e, { isDeleted: true }) : e)), clean],
@@ -596,18 +609,21 @@ export function addStroke(api: BoardApi, points: [number, number][]): void {
   const state = api.getAppState();
   const [x, y] = points[0];
 
-  const [line] = convertToExcalidrawElements([
+  const relative = points.map(([px, py]) => [px - x, py - y] as [number, number]);
+  const [converted] = convertToExcalidrawElements([
     {
       type: "line",
       x,
       y,
-      points: points.map(([px, py]) => [px - x, py - y] as [number, number]),
+      points: relative,
       strokeColor: state.currentItemStrokeColor,
       strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, state.currentItemStrokeWidth),
       roughness: 0,
       frameId: frame?.id ?? null,
     },
   ]);
+  // A `line` skeleton keeps a 100×0 box whatever its points; it is given its own.
+  const line = newElementWith(converted, boxOf(relative));
 
   api.updateScene({ elements: [...elements, line], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }
