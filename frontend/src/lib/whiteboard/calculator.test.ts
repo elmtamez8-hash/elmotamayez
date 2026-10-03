@@ -21,6 +21,14 @@ describe("calculator", () => {
     expect(await calculate(String.raw`\sqrt{-4}`, "deg")).toEqual({ ok: false, error: "math" });
   }, 30000);
 
+  it("writes e as MathJax reads it, offers no «exact» plain decimal, and gives up on a sum too long", async () => {
+    expect(await calculate("e^{2}", "deg")).toMatchObject({ ok: true, exact: "e^{2}", decimal: "7.389056099" });
+    expect(await calculate("3.5!", "deg")).toMatchObject({ ok: true, exact: null });
+    const started = Date.now();
+    expect(await calculate("100000!", "deg")).toEqual({ ok: false, error: "math" });
+    expect(Date.now() - started).toBeLessThan(5000);
+  }, 30000);
+
   it("shows ten digits, and scientific form at the extremes", () => {
     expect(formatDecimal(1 / 3)).toBe("0.3333333333");
     expect(formatDecimal(1.5e12)).toBe(String.raw`1.5\times10^{12}`);

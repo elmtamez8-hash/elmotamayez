@@ -29,23 +29,44 @@ function loadEngine(): Promise<Engine> {
 /** A function left unevaluated (sin 1 in radians) has no exact form worth showing. */
 const UNEVALUATED = /\\(sin|cos|tan|cot|sec|csc|arc|log|ln|operatorname|error)|\\tilde\\infty|\\imaginaryI/;
 
+/** A sum the engine works on longer than this is a «خطأ رياضي», never a frozen board (100000! took 10 s). */
+const TIME_LIMIT_MS = 800;
+
 export async function calculate(latex: string, angle: AngleUnit): Promise<CalcResult> {
   const ce = await loadEngine();
   ce.angularUnit = angle;
   const expression = ce.parse(latex);
   if (!expression.isValid || latex.trim() === "") return { ok: false, error: "syntax" };
 
-  const exact = expression.evaluate();
-  const value = exact.N();
+  let exact: ReturnType<typeof expression.evaluate>;
+  let value: ReturnType<typeof expression.N>;
+  try {
+    ({ exact, value } = ce.withTimeLimit(TIME_LIMIT_MS, () => {
+      const worked = expression.evaluate();
+      return { exact: worked, value: worked.N() };
+    }));
+  } catch {
+    return { ok: false, error: "math" };
+  }
   const re = value.re;
   const im = value.im;
+  // Past what a number can hold (171!, 10^400) is a Math ERROR, as on a Casio past 10^100.
   if (typeof re !== "number" || !Number.isFinite(re) || (typeof im === "number" && im !== 0)) return { ok: false, error: "math" };
 
   const decimal = formatDecimal(re);
-  const exactLatex = exact.latex.replace(/\\,/g, "");
-  const showExact = !UNEVALUATED.test(exactLatex) && exactLatex !== decimal && exactLatex.length <= 80;
+  const exactLatex = plainLatex(exact.latex.replace(/\\,/g, ""));
+  // A plain decimal is no «exact» form (3.5! is 11.63… with twenty digits).
+  const showExact = !UNEVALUATED.test(exactLatex) && !/^-?\d+(\.\d+)?$/.test(exactLatex) && exactLatex !== decimal && exactLatex.length <= 80;
 
   return { ok: true, exact: showExact ? exactLatex : null, decimal };
+}
+
+/**
+ * The engine's and MathLive's own spellings of e and i, which MathJax does not
+ * know: «حطّها على السبّورة» would draw «Undefined control sequence».
+ */
+export function plainLatex(latex: string): string {
+  return latex.replace(/\\exponentialE/g, "e").replace(/\\imaginaryI/g, "i");
 }
 
 /**

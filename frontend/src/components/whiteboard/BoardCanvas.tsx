@@ -937,7 +937,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
                     onTable={() => setRichEdit({ data: blankTable(), elementId: null })}
                     onMath={() => setRichEdit({ data: { kind: "math", v: 1, latex: "", display: true }, elementId: null })}
-                    onCalculator={() => setCalculator(true)}
+                    onCalculator={() => setCalculator((shown) => !shown)}
                   />
                 ),
               },

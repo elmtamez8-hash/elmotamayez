@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { calculate, type AngleUnit, type CalcResult } from "@/lib/whiteboard/calculator";
+import { calculate, plainLatex, type AngleUnit, type CalcResult } from "@/lib/whiteboard/calculator";
 import { WB } from "@/lib/whiteboard/strings";
 
 type Field = HTMLElement & {
@@ -111,6 +111,8 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
       input.setAttribute("aria-label", WB.calc.input);
       input.style.cssText = "width:100%;font-size:26px;background:transparent;color:#0f172a;border:none;outline:none";
       input.addEventListener("keydown", (event) => {
+        // The board turns pages on the arrows and PageUp/Down from `window`; a key typed here is the calculator's.
+        event.stopPropagation();
         if ((event as KeyboardEvent).key === "Enter") {
           event.preventDefault();
           equalsRef.current();
@@ -138,6 +140,7 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
   }, [answer, decimal]);
 
   const equals = async () => {
+    if (busy) return;
     const input = field.current?.value ?? "";
     setBusy(true);
     try {
@@ -182,8 +185,12 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
     drag.current = { dx: event.clientX - place.x, dy: event.clientY - place.y };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
+  // Kept on screen: a calculator dragged past the edge would take its ✕ with it.
   const onMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (drag.current) setPlace({ x: event.clientX - drag.current.dx, y: event.clientY - drag.current.dy });
+    if (!drag.current) return;
+    const x = Math.min(Math.max(event.clientX - drag.current.dx, 0), window.innerWidth - 340);
+    const y = Math.min(Math.max(event.clientY - drag.current.dy, 0), window.innerHeight - 60);
+    setPlace({ x, y });
   };
 
   const keyStyle = (key: Key) =>
@@ -198,7 +205,7 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
       className="absolute w-[340px] select-none rounded-3xl p-3 shadow-2xl"
       style={{ left: place.x, top: place.y, zIndex: 7, background: "#0f172a", color: "#fff" }}
     >
-      <div className="mb-2 flex cursor-move items-center justify-between gap-2" onPointerDown={onGrab} onPointerMove={onMove} onPointerUp={() => (drag.current = null)}>
+      <div className="mb-2 flex cursor-move items-center justify-between gap-2" onPointerDown={onGrab} onPointerMove={onMove} onPointerUp={() => (drag.current = null)} onPointerCancel={() => (drag.current = null)} style={{ touchAction: "none" }}>
         <span className="text-sm font-bold" dir="rtl">
           {WB.calc.title}
         </span>
@@ -268,7 +275,7 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
             disabled={!answer}
             className="flex-[2] rounded-lg bg-white/15 py-1.5 font-semibold disabled:opacity-40"
             dir="rtl"
-            onClick={() => answer && onInsert(`${answer.input}=${resultLatex(answer, decimal)}`)}
+            onClick={() => answer && onInsert(plainLatex(`${answer.input}=${resultLatex(answer, decimal)}`))}
           >
             {WB.calc.insert}
           </button>
@@ -281,11 +288,12 @@ export function Calculator({ onInsert, onClose }: { onInsert: ((latex: string) =
             key={key.label}
             type="button"
             disabled={busy && key.act === "equals"}
+            aria-busy={busy && key.act === "equals"}
             className={`rounded-lg py-2 text-base font-semibold active:scale-95 ${key.wide ? "col-span-2" : ""}`}
             style={keyStyle(key)}
             onClick={() => press(key)}
           >
-            {key.label}
+            {busy && key.act === "equals" ? "…" : key.label}
           </button>
         ))}
       </div>
