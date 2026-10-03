@@ -5,7 +5,7 @@ export type { TemplateName };
 
 /**
  * Page backgrounds (spec 039 · US9, FR-030): ruled, grid, dotted, isometric,
- * graph paper and Arabic copybook lines.
+ * graph paper, Arabic copybook lines and music staves.
  *
  * ⚠️ NOTHING IS UPLOADED, like the stickers: the picture's file id is a fixed
  * `template:<name>:v1` — accepted by the server with no lookup, never stored —
@@ -18,7 +18,7 @@ export type { TemplateName };
  */
 
 
-export const TEMPLATES: TemplateName[] = ["lined", "grid", "dotted", "isometric", "graph", "arabic-lines"];
+export const TEMPLATES: TemplateName[] = ["lined", "grid", "dotted", "isometric", "graph", "arabic-lines", "music"];
 
 const LINE = "rgba(128,128,128,0.55)";
 const STRONG = "rgba(128,128,128,0.85)";
@@ -101,6 +101,19 @@ export function templateLines(name: TemplateName): { lines: Line[]; dots: [numbe
         lines.push([0, top, W, top, LINE, 1.5]);
         lines.push([0, top + band / 2, W, top + band / 2, LINE, 1.5]);
         lines.push([0, top + band, W, top + band, BASELINE, 3]);
+      }
+      break;
+    }
+    case "music": {
+      // Staves of five lines, 24 apart (room for a note between two), 96 between staves.
+      const gap = 24;
+      const space = 96;
+      const staff = 4 * gap;
+      const count = Math.floor((H + space) / (staff + space));
+      const first = (H - (count * (staff + space) - space)) / 2;
+      for (let i = 0; i < count; i++) {
+        const top = first + i * (staff + space);
+        for (let l = 0; l < 5; l++) lines.push([0, top + l * gap, W, top + l * gap, STRONG, 2]);
       }
       break;
     }

@@ -6,6 +6,7 @@ import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { BoardSettings } from "@/components/whiteboard/BoardSettings";
 import { ExportMenu } from "@/components/whiteboard/ExportMenu";
+import type { ExportKind } from "@/lib/whiteboard/excalidraw-api";
 import type { BoardBackground } from "@/lib/whiteboard/page-model";
 import { WB } from "@/lib/whiteboard/strings";
 
@@ -20,7 +21,7 @@ export interface BoardToolbarProps {
   onNext: () => void;
   onRename: (title: string) => Promise<void>;
   onBackground: (background: BoardBackground) => void;
-  onExport: (kind: "png" | "svg") => Promise<void>;
+  onExport: (kind: ExportKind) => Promise<void>;
   onTogglePresenting: () => void;
   /** The screen of the page shown, and how many it has (a page grows downward). */
   screen?: { index: number; count: number };

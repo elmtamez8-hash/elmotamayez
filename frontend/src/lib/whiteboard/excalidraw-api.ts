@@ -153,6 +153,8 @@ function pageFrame(elements: readonly BoardElement[]): ExcalidrawFrameElement | 
  * with fonts inlined by us — Excalidraw's own inlining runs WebAssembly the
  * production CSP does not allow, and its failure path points at esm.sh.
  */
+export type ExportKind = "png" | "jpg" | "svg";
+
 /**
  * Every picture a page needs drawn on its own: its pictures and its template's
  * (the template goes in AS pictures, `withTemplateImages`).
@@ -178,7 +180,7 @@ export function pageImage(elements: readonly BoardElement[], pictures: PictureDa
   });
 }
 
-export async function exportPage(api: BoardApi, kind: "png" | "svg", background: BoardBackground): Promise<Blob> {
+export async function exportPage(api: BoardApi, kind: ExportKind, background: BoardBackground): Promise<Blob> {
   // The template's picture must already be in the canvas's files (the caller adds it).
   const elements = withTemplateImages(api.getSceneElements());
   const appState = { exportBackground: true, viewBackgroundColor: BACKGROUNDS[background].canvas };
@@ -194,6 +196,11 @@ export async function exportPage(api: BoardApi, kind: "png" | "svg", background:
       mimeType: "image/png",
       getDimensions: (width: number, height: number) => ({ width: width * 1.5, height: height * 1.5, scale: 1.5 }),
     });
+  }
+
+  // JPG: what a phone's gallery and WhatsApp take without a question, a fraction of the PNG's size.
+  if (kind === "jpg") {
+    return exportToBlob({ elements, files, appState, exportingFrame, mimeType: "image/jpeg", quality: 0.9 });
   }
 
   const svg = await exportToSvg({ elements, files, appState, exportingFrame, skipInliningFonts: true });
