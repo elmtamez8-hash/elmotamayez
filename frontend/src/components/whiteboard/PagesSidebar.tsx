@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { ArrowDownIcon, ArrowUpIcon } from "@/components/icons";
+import { ArrowDownIcon, ArrowUpIcon, ChevronStartIcon, PagesIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
 import { WB } from "@/lib/whiteboard/strings";
@@ -25,6 +25,8 @@ export interface PagesSidebarProps {
   onDuplicate: (uuid: string) => void;
   onDelete: (uuid: string) => void;
   onReorder: (uuids: string[]) => void;
+  /** Fold the list away from the board itself (owner, 2026-10-03: «السبورة صافية»). */
+  onCollapse?: () => void;
 }
 
 /** A page's picture is redrawn this long after its last change. */
@@ -98,6 +100,26 @@ function Thumb({ page, index, thumbnail }: { page: SidebarPage; index: number; t
  * with the move buttons — dragging alone cannot be done from a keyboard).
  * Pure: every change is the canvas's, so it is tested by pressing it.
  */
+/**
+ * The folded pages list: a slim tab on the board's edge with where the teacher
+ * is, one press from the whole list.
+ */
+export function PagesTab({ current, count, onOpen }: { current: number; count: number; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={WB.pagesUnfold}
+      title={WB.pagesUnfold}
+      onClick={onOpen}
+      dir="rtl"
+      className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-surface-raised px-2 py-2.5 text-ink shadow-[0_6px_24px_-8px_rgb(0_0_0/0.25)] transition duration-200 ease-out hover:bg-surface active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <PagesIcon className="h-5 w-5" />
+      <span className="text-xs font-semibold tabular-nums">{WB.pagesShort(current + 1, count)}</span>
+    </button>
+  );
+}
+
 export function PagesSidebar(props: PagesSidebarProps) {
   const { pages, current, canEdit, busy } = props;
   const [dragged, setDragged] = useState<number | null>(null);
@@ -111,7 +133,24 @@ export function PagesSidebar(props: PagesSidebarProps) {
   };
 
   return (
-    <nav aria-label={WB.pagesTitle} className="flex h-full w-48 flex-col gap-2 overflow-y-auto border-e border-line bg-surface-raised p-2" dir="rtl">
+    <nav aria-label={WB.pagesTitle} className="flex h-full w-48 flex-col gap-2 overflow-y-auto rounded-2xl border border-line bg-surface-raised p-2 shadow-[0_6px_24px_-8px_rgb(0_0_0/0.25)]" dir="rtl">
+      <div className="flex items-center justify-between gap-1 ps-1">
+        <span className="flex items-center gap-1.5 text-sm font-bold">
+          <PagesIcon />
+          {WB.showPages}
+        </span>
+        {props.onCollapse && (
+          <button
+            type="button"
+            aria-label={WB.pagesFold}
+            title={WB.pagesFold}
+            onClick={props.onCollapse}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink transition duration-200 ease-out hover:bg-surface active:scale-[0.94] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <ChevronStartIcon />
+          </button>
+        )}
+      </div>
       <ol className="flex flex-col gap-2">
         {pages.map((page, index) => (
           <li

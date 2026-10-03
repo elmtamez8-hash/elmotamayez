@@ -225,6 +225,9 @@ export const WB = {
   /** The pages strip (US3). */
   pagesTitle: "صفحات السبّورة",
   showPages: "الصفحات",
+  pagesFold: "اطوِ قائمة الصفحات",
+  pagesUnfold: "افتح قائمة الصفحات",
+  pagesShort: (n: number, total: number) => `${arabicNumber(n)} / ${arabicNumber(total)}`,
   pageNumber: (n: number) => `صفحة ${arabicNumber(n)}`,
   addPage: "صفحة جديدة",
   duplicatePage: "نسخ",

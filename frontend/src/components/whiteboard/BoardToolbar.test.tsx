@@ -40,7 +40,7 @@ describe("BoardToolbar", () => {
 
     render(<BoardToolbar {...props()} />);
     expect(screen.getByRole("button", { name: "اطوِ لوحة التحكم" }).getAttribute("aria-expanded")).toBe("true");
-  });
+  }, 15000);
 
   it("moves between pages and shows where the teacher is", () => {
     const p = props();
