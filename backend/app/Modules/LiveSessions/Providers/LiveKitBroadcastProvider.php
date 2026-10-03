@@ -209,8 +209,10 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
              * camera, and the host's is left unset (null is dropped from the
              * token) rather than written as `[]`.
              *
-             * And no data channel: nothing in the product sends a data message,
-             * and an open one is an unmoderated chat beside the moderated one.
+             * And no data channel for a student: an open one is an unmoderated
+             * chat beside the moderated one. The HOST keeps it — the live poll
+             * (frontend/src/lib/live-poll.ts) is sent that way, and this line is
+             * what lets a student's screen trust that a poll came from a host.
              */
             $grant->setCanPublishSources($this->grantSources($rights))
                 ->setCanPublishData(false);

@@ -15,6 +15,7 @@ import {
 import { Track } from "livekit-client";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 
+import { LivePoll } from "@/components/sessions/LivePoll";
 import { ParticipantsPanel } from "@/components/sessions/ParticipantsPanel";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -92,6 +93,8 @@ export function BroadcastStage({
         {/* The role from the SIGNED ticket decides what is drawn; the server's
             grant decides what works (the host's has no hand to raise). */}
         <SelfControls isHost={ticket.role === "host"} />
+        {/* «تصويت سريع»: the teacher asks, each student answers from here (lib/live-poll.ts). */}
+        <LivePoll sessionUuid={sessionUuid} isHost={ticket.role === "host"} />
         {/*
           ⚠️ The role comes from the SIGNED TICKET, never from a piece of browser
           state. It is also not the guard: the server checks `host` on the policy
