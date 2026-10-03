@@ -84,7 +84,6 @@ use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
-use App\Modules\Whiteboard\Models\BoardImport;
 use App\Modules\Whiteboard\Models\BoardLessonExport;
 use App\Modules\Whiteboard\Models\BoardPage;
 use App\Shared\Contracts\AssistantScopeDirectory;
@@ -1432,12 +1431,6 @@ it('scopes the four whiteboard tables to the workspace that owns them', function
             'owner_user_id' => $owner->getKey(),
         ]);
 
-        BoardImport::factory()->create([
-            'workspace_id' => $workspace->getKey(),
-            'board_id' => $board->getKey(),
-            'user_id' => $owner->getKey(),
-        ]);
-
         BoardLessonExport::factory()->create([
             'workspace_id' => $workspace->getKey(),
             'board_id' => $board->getKey(),
@@ -1448,7 +1441,7 @@ it('scopes the four whiteboard tables to the workspace that owns them', function
     $seed($workspaceA, $ownerA);
     $seed($workspaceB, $ownerB);
 
-    foreach ([Board::class, BoardPage::class, BoardImport::class, BoardLessonExport::class] as $model) {
+    foreach ([Board::class, BoardPage::class, BoardLessonExport::class] as $model) {
         expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
             ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
             ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)

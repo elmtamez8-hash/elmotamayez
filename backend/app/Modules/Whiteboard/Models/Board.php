@@ -113,12 +113,6 @@ class Board extends BaseModel
         return $this->hasMany(BoardPage::class)->orderBy('position');
     }
 
-    /** @return HasMany<BoardImport, $this> */
-    public function imports(): HasMany
-    {
-        return $this->hasMany(BoardImport::class);
-    }
-
     /** @return HasMany<BoardLessonExport, $this> */
     public function lessonExports(): HasMany
     {

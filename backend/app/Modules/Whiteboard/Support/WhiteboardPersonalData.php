@@ -6,7 +6,6 @@ namespace App\Modules\Whiteboard\Support;
 
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Whiteboard\Models\Board;
-use App\Modules\Whiteboard\Models\BoardImport;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -16,13 +15,13 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * What the whiteboard holds about a person: that they authored a board, uploaded a
- * document into one, or hold its edit lock. Never the drawings themselves — a
+ * What the whiteboard holds about a person: that they authored a board, or hold
+ * its edit lock. Never the drawings themselves — a
  * board is the WORKSPACE's teaching material (constitution I), the way a course is.
  *
  * ⚠️ ERASURE RE-POINTS, IT DOES NOT DELETE. Teacher offboarding (FR-037) keeps a
  * departed teacher's material with the academy, so erasing the person moves
- * `owner_user_id` and `board_imports.user_id` to the workspace's owner and clears
+ * `owner_user_id` to the workspace's owner and clears
  * the edit lock. `owner_user_id` is NOT NULL, so «anonymise to null» is not
  * available; when the subject IS the workspace owner the rows are left for the
  * workspace's own offboarding, which already decides that case.
@@ -75,7 +74,7 @@ class WhiteboardPersonalData implements PersonalDataOwner
 
         $processed = 0;
 
-        foreach ([Board::class => 'owner_user_id', BoardImport::class => 'user_id'] as $model => $column) {
+        foreach ([Board::class => 'owner_user_id'] as $model => $column) {
             $model::query()
                 ->withoutWorkspaceScope()
                 ->where($column, $userId)
