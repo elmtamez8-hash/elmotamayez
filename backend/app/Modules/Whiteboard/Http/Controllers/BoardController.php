@@ -53,7 +53,7 @@ class BoardController extends Controller
     {
         $this->authorize('view', $board);
 
-        return new BoardDetailResource($this->loaded($board)->load('pages.backgroundAsset:id,uuid'));
+        return new BoardDetailResource($this->loaded($board)->load(['pages.backgroundAsset:id,uuid', 'lessonExports.lesson:id,uuid,title', 'lessonExports.mediaAsset']));
     }
 
     public function update(UpdateBoardRequest $request, Board $board, UpdateBoard $update): BoardResource

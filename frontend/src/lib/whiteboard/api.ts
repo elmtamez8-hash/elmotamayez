@@ -40,7 +40,18 @@ export interface BoardPagePayload {
 
 export interface BoardDetail extends BoardSummary {
   pages: BoardPagePayload[];
+  /** Story 5: where the board is attached, and whether the reader may REPLACE it. */
+  exports: BoardExport[];
 }
+
+export interface BoardExport {
+  uuid: string;
+  lesson: { uuid: string; title: string } | null;
+  attachment: { uuid: string } | null;
+  can_replace: boolean;
+}
+
+export type ExportRecorded = { export: string; attachment: { uuid: string | null }; replaced: boolean; can_replace: boolean };
 
 export interface SceneDocument {
   v: number;
@@ -114,6 +125,14 @@ export const boards = {
   remove: (uuid: string) => api.delete<{ status: "deleting" }>(`/boards/${uuid}`),
 
   /** Reserve an upload for a picture (the lock holder only). */
+  /** The first attachment of this board's PDF to a lesson (it was uploaded through the lesson's own door). */
+  recordExport: (uuid: string, body: { lesson: string; asset: string }) =>
+    api.post<ExportRecorded>(`/boards/${uuid}/lesson-exports`, body),
+
+  /** A newer PDF in place of the old one: deletes the old attachment, so two-factor applies. */
+  replaceExport: (uuid: string, exportUuid: string, body: { asset: string }) =>
+    api.put<ExportRecorded>(`/boards/${uuid}/lesson-exports/${exportUuid}`, body),
+
   requestFile: (uuid: string, body: { tab: string; filename: string; size: number }) =>
     api.post<{ file: { uuid: string }; upload: { url: string; method: string; headers: Record<string, string> } }>(
       `/boards/${uuid}/files`,
