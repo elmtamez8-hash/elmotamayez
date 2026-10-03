@@ -229,6 +229,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   // Story 6: the rich object selected (its «تعديل» button), and the one being edited.
   const [richSelected, setRichSelected] = useState<{ id: string; data: RichData } | null>(null);
   const [tableEdit, setTableEdit] = useState<{ data: TableData; elementId: string | null } | null>(null);
+  const [tableSaving, setTableSaving] = useState(false);
   // An import keeps adding pages after the teacher leaves the board unless it asks.
   const mounted = useRef(true);
   useEffect(() => {
@@ -761,7 +762,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
    * swapped into the same element when it is being edited.
    */
   const saveTable = async (data: TableData, elementId: string | null) => {
-    if (!api || !board) return;
+    if (!api || !board || tableSaving) return;
+    setTableSaving(true);
     try {
       const { blob, width, height } = await renderTable(data);
       const file = new File([blob], "table.png", { type: "image/png" });
@@ -774,11 +776,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       });
       addPictures(api, [{ id, dataURL, mimeType: "image/png" }]);
       pictures.given(id);
-      if (elementId) replaceRichObject(api, elementId, id, width, height, data);
-      else placeRichObject(api, id, width, height, data);
+      if (elementId && !replaceRichObject(api, elementId, id, width, height, data)) setNotice(WB.table.gone);
+      if (!elementId) placeRichObject(api, id, width, height, data);
       setTableEdit(null);
     } catch {
       setNotice(WB.imageFailed);
+    } finally {
+      setTableSaving(false);
     }
   };
 
@@ -1018,7 +1022,12 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         </button>
       )}
       {tableEdit && (
-        <TableEditor initial={tableEdit.data} onClose={() => setTableEdit(null)} onSave={(data) => void saveTable(data, tableEdit.elementId)} />
+        <TableEditor
+          initial={tableEdit.data}
+          saving={tableSaving}
+          onClose={() => setTableEdit(null)}
+          onSave={(data) => void saveTable(data, tableEdit.elementId)}
+        />
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
       {instrument && session.held && (

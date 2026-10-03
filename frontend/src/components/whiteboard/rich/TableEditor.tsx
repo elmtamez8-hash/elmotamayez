@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { normalise, TABLE_FILLS, type TableData } from "@/lib/whiteboard/table";
+import { MAX_COLS, MAX_ROWS, normalise, TABLE_FILLS, type TableData } from "@/lib/whiteboard/table";
 import { WB } from "@/lib/whiteboard/strings";
 
 /**
@@ -12,7 +12,18 @@ import { WB } from "@/lib/whiteboard/strings";
  * is the right-hand one (US6-1). Saving hands back the cells; the board draws
  * the picture and puts it in place.
  */
-export function TableEditor({ initial, onSave, onClose }: { initial: TableData; onSave: (data: TableData) => void; onClose: () => void }) {
+export function TableEditor({
+  initial,
+  saving,
+  onSave,
+  onClose,
+}: {
+  initial: TableData;
+  /** Drawing and uploading: one save at a time, and no cancel halfway. */
+  saving: boolean;
+  onSave: (data: TableData) => void;
+  onClose: () => void;
+}) {
   const [table, setTable] = useState(() => normalise(initial));
   const [focus, setFocus] = useState<[number, number]>([0, 0]);
   const rows = table.rows.length;
@@ -24,9 +35,9 @@ export function TableEditor({ initial, onSave, onClose }: { initial: TableData; 
       rows: t.rows.map((row, ri) => (ri !== r ? row : { cells: row.cells.map((x, ci) => (ci === c ? { ...x, ...change } : x)) })),
     }));
 
-  const addRow = () => setTable((t) => normalise({ ...t, rows: [...t.rows, { cells: [] }] }));
+  const addRow = () => rows < MAX_ROWS && setTable((t) => normalise({ ...t, rows: [...t.rows, { cells: [] }] }));
   const removeRow = () => rows > 1 && setTable((t) => ({ ...t, rows: t.rows.slice(0, -1) }));
-  const addCol = () => setTable((t) => normalise({ ...t, colWidths: [...t.colWidths, 240] }));
+  const addCol = () => cols < MAX_COLS && setTable((t) => normalise({ ...t, colWidths: [...t.colWidths, 240] }));
   const removeCol = () =>
     cols > 1 && setTable((t) => ({ ...t, colWidths: t.colWidths.slice(0, -1), rows: t.rows.map((row) => ({ cells: row.cells.slice(0, -1) })) }));
 
@@ -52,7 +63,8 @@ export function TableEditor({ initial, onSave, onClose }: { initial: TableData; 
               title={fill ? undefined : WB.table.noFill}
               onClick={() => cell(focus[0], focus[1], { fill })}
               className="h-7 w-7 rounded border border-line"
-              style={{ background: fill ?? "#ffffff" }}
+              // Dark ink on these light swatches in either theme.
+              style={{ background: fill ?? "#ffffff", color: "#111111" }}
             >
               {fill ? "" : "∅"}
             </button>
@@ -65,7 +77,7 @@ export function TableEditor({ initial, onSave, onClose }: { initial: TableData; 
               {table.rows.map((row, r) => (
                 <tr key={r}>
                   {row.cells.map((value, c) => (
-                    <td key={c} className="border border-line p-0" style={{ background: value.fill }}>
+                    <td key={c} className="border border-line p-0" style={value.fill ? { background: value.fill, color: "#111111" } : undefined}>
                       <textarea
                         aria-label={WB.table.cell(r + 1, c + 1)}
                         value={value.text}
@@ -84,8 +96,8 @@ export function TableEditor({ initial, onSave, onClose }: { initial: TableData; 
         </div>
 
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>{WB.table.cancel}</Button>
-          <Button onClick={() => onSave(table)}>{WB.table.save}</Button>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>{WB.table.cancel}</Button>
+          <Button onClick={() => onSave(table)} loading={saving}>{WB.table.save}</Button>
         </div>
       </div>
     </div>

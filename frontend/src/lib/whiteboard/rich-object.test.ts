@@ -27,11 +27,14 @@ describe("replaceRichObject", () => {
     } as unknown as BoardApi;
 
     const data = blankTable(3, 2);
-    replaceRichObject(api, "t1", "new", 400, 300, data);
+    expect(replaceRichObject(api, "t1", "new", 400, 300, data)).toBe(true);
 
     const [after, still] = scene as (typeof table)[];
-    expect(after).toMatchObject({ id: "t1", fileId: "new", x: 40, y: 80, width: 600, angle: 0.3, version: 5, customData: data });
+    expect(after).toMatchObject({ id: "t1", fileId: "new", x: 40, y: 80, width: 600, angle: 0.3, version: 5, customData: data, crop: null });
     expect(after.height).toBe(450); // the new picture's proportions at the width the teacher chose
     expect(still).toBe(above); // the layer order is untouched
+
+    // Gone meanwhile: nothing changes, and the caller is told.
+    expect(replaceRichObject(api, "missing", "new2", 400, 300, data)).toBe(false);
   });
 });

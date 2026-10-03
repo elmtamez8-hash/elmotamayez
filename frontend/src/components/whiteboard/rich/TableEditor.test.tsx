@@ -8,13 +8,13 @@ import { TableEditor } from "./TableEditor";
 
 describe("TableEditor", () => {
   it("lays the cells right to left, first column on the right (US6-1)", () => {
-    const { container } = render(<TableEditor initial={blankTable(2, 2)} onSave={vi.fn()} onClose={vi.fn()} />);
+    const { container } = render(<TableEditor initial={blankTable(2, 2)} saving={false} onSave={vi.fn()} onClose={vi.fn()} />);
     expect(container.querySelector("table")?.getAttribute("dir")).toBe("rtl");
   });
 
   it("adds and removes rows and columns, fills a cell, and hands back the cells", () => {
     const onSave = vi.fn();
-    render(<TableEditor initial={blankTable(2, 2)} onSave={onSave} onClose={vi.fn()} />);
+    render(<TableEditor initial={blankTable(2, 2)} saving={false} onSave={onSave} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: WB.table.addRow }));
     fireEvent.click(screen.getByRole("button", { name: WB.table.addCol }));

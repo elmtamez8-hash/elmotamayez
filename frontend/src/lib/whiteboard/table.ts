@@ -16,8 +16,12 @@ const COLUMN = 240;
 const FONT_SIZE = 30;
 const LINE = 40;
 const PAD = 14;
-/** Drawn at twice the board's units: crisp when the teacher zooms in. */
+/** Drawn at up to twice the board's units (crisp when zoomed), never past a picture's largest side. */
 const SCALE = 2;
+const MAX_SIDE = 2560;
+/** A pasted sheet is cut here: a table past it is not readable on a stream anyway. */
+export const MAX_ROWS = 50;
+export const MAX_COLS = 12;
 
 export function blankTable(rows = 3, cols = 3): TableData {
   return {
@@ -35,7 +39,11 @@ export function normalise(data: TableData): TableData {
   return {
     ...data,
     rows: data.rows.map((row) => ({
-      cells: Array.from({ length: cols }, (_, i) => row.cells[i] ?? { text: "" }),
+      cells: Array.from({ length: cols }, (_, i) => {
+        const cell = row.cells[i] ?? { text: "" };
+        // Only our own fills: a scene could carry anything, and it reaches `style`.
+        return cell.fill && !(TABLE_FILLS as readonly string[]).includes(cell.fill) ? { text: cell.text } : cell;
+      }),
     })),
     colWidths: Array.from({ length: cols }, (_, i) => data.colWidths[i] ?? COLUMN),
   };
@@ -49,20 +57,22 @@ export function normalise(data: TableData): TableData {
  */
 export function parseClipboardTable(html: string, text: string): TableData | null {
   let grid: string[][] = [];
-  if (html.includes("<table")) {
+  // A tab grid in the plain text: two lines or more, every line with a tab.
+  const textLines = text.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n");
+  const tabGrid = textLines.length > 1 && textLines.every((line) => line.includes("\t"));
+  // A spreadsheet says so; a layout table in an email or a web page does not.
+  const fromSheet = /google-sheets-html-origin|urn:schemas-microsoft-com:office:excel|Excel\.Sheet/i.test(html);
+  if (html.includes("<table") && (fromSheet || tabGrid)) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     grid = [...doc.querySelectorAll("table tr")].map((tr) =>
       [...tr.querySelectorAll("td, th")].map((cell) => (cell.textContent ?? "").replace(/\s+/g, " ").trim()),
     );
-  } else if (text.includes("\t")) {
-    grid = text
-      .replace(/\r\n?/g, "\n")
-      .replace(/\n$/, "")
-      .split("\n")
-      .map((line) => line.split("\t").map((cell) => cell.trim()));
+  } else if (!html && tabGrid) {
+    // Tabs alone only without rich text: a Word list or indented code carries both.
+    grid = textLines.map((line) => line.split("\t").map((cell) => cell.trim()));
   }
-  grid = grid.filter((row) => row.length > 0);
-  if (grid.reduce((sum, row) => sum + row.length, 0) < 2) return null;
+  grid = grid.filter((row) => row.length > 0).slice(0, MAX_ROWS).map((row) => row.slice(0, MAX_COLS));
+  if (grid.flat().filter((cell) => cell !== "").length < 2) return null;
 
   return normalise({
     ...blankTable(0, 0),
@@ -106,12 +116,13 @@ export async function renderTable(input: TableData): Promise<{ blob: Blob; width
   const width = data.colWidths.reduce((sum, w) => sum + w, 0);
   const height = heights.reduce((sum, h) => sum + h, 0);
 
+  const scale = Math.min(SCALE, MAX_SIDE / Math.max(width, height));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(width * SCALE);
-  canvas.height = Math.ceil(height * SCALE);
+  canvas.width = Math.ceil(width * scale);
+  canvas.height = Math.ceil(height * scale);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("no canvas");
-  ctx.scale(SCALE, SCALE);
+  ctx.scale(scale, scale);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
   ctx.font = font;

@@ -67,6 +67,7 @@ export const WB = {
     cell: (row: number, col: number) => `الصف ${arabicNumber(row)}، العمود ${arabicNumber(col)}`,
     save: "حفظ",
     cancel: "إلغاء",
+    gone: "لم يعد الجدول على الصفحة، فلم يُحفظ التعديل.",
   },
   /** Story 5: the whole board as a PDF in a lesson's attachments. */
   lessonExport: {

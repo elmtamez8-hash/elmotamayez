@@ -29,12 +29,32 @@ describe("parseClipboardTable", () => {
   });
 
   it("never turns clipboard markup into markup", () => {
-    const table = parseClipboardTable("<table><tr><td><img src=x onerror=alert(1)>a</td><td><b>b</b></td></tr></table>", "");
+    const table = parseClipboardTable("<google-sheets-html-origin><table><tr><td><img src=x onerror=alert(1)>a</td><td><b>b</b></td></tr></table>", "");
     expect(table?.rows[0].cells.map((cell) => cell.text)).toEqual(["a", "b"]);
   });
 });
 
+describe("parseClipboardTable leaves ordinary pastes alone", () => {
+  it("a layout table in an email, a Word list, indented code", () => {
+    expect(parseClipboardTable("<table><tr><td>مرحباً</td><td>بكم</td></tr></table>", "مرحباً بكم")).toBeNull();
+    expect(parseClipboardTable("<ul><li>بند</li></ul>", "•\tبند\n•\tآخر")).toBeNull();
+    expect(parseClipboardTable("", "\tfoo()")).toBeNull();
+  });
+
+  it("cuts a huge sheet to what a stream can show", () => {
+    const text = Array.from({ length: 80 }, () => Array.from({ length: 20 }, () => "x").join("\t")).join("\n");
+    const table = parseClipboardTable("", text);
+    expect(table?.rows).toHaveLength(50);
+    expect(table?.colWidths).toHaveLength(12);
+  });
+});
+
 describe("normalise", () => {
+  it("keeps only the board's own fills", () => {
+    const table = normalise({ ...blankTable(1, 2), rows: [{ cells: [{ text: "a", fill: "url(https://evil)" }, { text: "b", fill: "#fff3b0" }] }] });
+    expect(table.rows[0].cells.map((cell) => cell.fill)).toEqual([undefined, "#fff3b0"]);
+  });
+
   it("gives every column a width", () => {
     expect(normalise({ ...blankTable(1, 1), colWidths: [] }).colWidths).toEqual([240]);
   });
