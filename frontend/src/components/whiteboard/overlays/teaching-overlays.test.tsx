@@ -143,7 +143,9 @@ describe("the toolbar's menus", () => {
         { id: "b", label: "تشجيع", content: <p>محتوى التشجيع</p> },
       ],
     };
+    localStorage.clear();
     render(<BoardToolbar {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "افتح لوحة التحكم" })); // folded by default
     expect(screen.queryByText("محتوى الأدوات")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /أدوات/ }));

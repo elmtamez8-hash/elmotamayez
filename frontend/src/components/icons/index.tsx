@@ -16,6 +16,12 @@
  */
 import {
   IconAbc,
+  IconFileImport,
+  IconFiles,
+  IconLayoutDashboard,
+  IconPalette,
+  IconPresentation,
+  IconTool,
   IconAlertTriangle,
   IconAtom,
   IconArrowUp,
@@ -528,3 +534,11 @@ export const WarningIcon = wrap(IconAlertTriangle, "h-4 w-4");
 export const WrongIcon = wrap(IconCircleX, "h-4 w-4");
 export const CardIcon = wrap(IconRectangleVerticalFilled, "h-4 w-4");
 export const ArrowDownIcon = wrap(IconArrowDown, "h-4 w-4");
+
+/* The whiteboard panel's own vocabulary. */
+export const PresentIcon = wrap(IconPresentation, "h-4 w-4");
+export const PagesIcon = wrap(IconFiles, "h-4 w-4");
+export const ToolsIcon = wrap(IconTool, "h-4 w-4");
+export const PanelLayoutIcon = wrap(IconLayoutDashboard, "h-4 w-4");
+export const ImportIcon = wrap(IconFileImport, "h-4 w-4");
+export const PaletteIcon = wrap(IconPalette, "h-4 w-4");
