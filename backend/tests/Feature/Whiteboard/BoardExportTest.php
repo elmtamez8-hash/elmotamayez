@@ -66,6 +66,23 @@ function wbExportUrl(Board $board, ?string $export = null): string
     return '/api/v1/boards/'.$board->uuid.'/lesson-exports'.($export === null ? '' : '/'.$export);
 }
 
+it('attaches a PDF uploaded through the lesson\'s own door — the path the board takes', function (): void {
+    // ⚠️ The factory helper below stamps the uploader itself, which is how the
+    // real door's missing stamp shipped green: this one asks the door.
+    $ticket = $this->postJson('/api/v1/lessons/'.$this->lesson->uuid.'/assets', [
+        'original_filename' => 'board.pdf', 'size_bytes' => 9, 'kind' => 'document', 'role' => 'attachment',
+    ])->assertCreated();
+
+    $asset = MediaAsset::query()->where('uuid', $ticket->json('asset.uuid') ?? $ticket->json('uuid'))->firstOrFail();
+    expect($asset->uploaded_by_user_id)->toBe($this->teacher->id);
+
+    $path = 'media/'.Str::uuid().'.pdf';
+    Storage::disk((string) config('media.disk'))->put($path, '%PDF-1.4');
+    $asset->forceFill(['status' => MediaAssetStatus::Ready, 'mime_type' => 'application/pdf', 'provider_asset_id' => $path])->save();
+
+    $this->postJson(wbExportUrl($this->board), ['lesson' => $this->lesson->uuid, 'asset' => $asset->uuid])->assertCreated();
+});
+
 it('records the first attachment, shows it on the board, and refuses a second first one', function (): void {
     $pdf = wbExportPdf($this->lesson, $this->teacher->id);
 

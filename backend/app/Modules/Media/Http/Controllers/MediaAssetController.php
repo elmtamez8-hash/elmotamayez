@@ -35,6 +35,7 @@ class MediaAssetController extends Controller
                 $request->validated('duration_seconds'),
                 $request->kind(),
                 $request->role(),
+                $this->currentUser($request),
             );
         } catch (ContentLockedException $e) {
             // Rethrown rather than folded into the 422 below. A locked item is
