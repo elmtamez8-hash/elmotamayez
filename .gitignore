@@ -30,3 +30,4 @@ docker/.meilisearch-indexed
 
 # Excalidraw fonts, copied from node_modules by frontend/scripts/copy-excalidraw-fonts.mjs (predev/prebuild).
 frontend/public/excalidraw/
+frontend/public/mathlive/

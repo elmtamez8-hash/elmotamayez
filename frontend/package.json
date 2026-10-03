@@ -28,6 +28,8 @@
     "hls.js": "^1.7.0",
     "laravel-echo": "^2.4.0",
     "livekit-client": "^2.21.0",
+    "mathjax-full": "3.2.2",
+    "mathlive": "0.111.0",
     "next": "^15.5.25",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.3.289",
@@ -55,6 +57,7 @@
   "overrides": {
     "next": {
       "postcss": "^8.5.26"
-    }
+    },
+    "@xmldom/xmldom": "^0.9.12"
   }
 }

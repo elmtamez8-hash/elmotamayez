@@ -20,3 +20,13 @@ if (!existsSync(from)) {
 rmSync(to, { recursive: true, force: true });
 cpSync(from, to, { recursive: true });
 console.log("copy-excalidraw-fonts: fonts → public/excalidraw/fonts");
+
+// The equation editor's fonts (story 6), self-hosted for the same reason: the CSP
+// allows no font CDN. MathLive is told this folder (`fontsDirectory`).
+const mathFrom = join(root, "node_modules", "mathlive", "fonts");
+const mathTo = join(root, "public", "mathlive", "fonts");
+if (existsSync(mathFrom)) {
+  rmSync(mathTo, { recursive: true, force: true });
+  cpSync(mathFrom, mathTo, { recursive: true });
+  console.log("copy-excalidraw-fonts: mathlive fonts → public/mathlive/fonts");
+}

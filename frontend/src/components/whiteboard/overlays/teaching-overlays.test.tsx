@@ -93,6 +93,7 @@ describe("TeachingBar", () => {
     instrument: null,
     onInstrument: vi.fn(),
     onTable: vi.fn(),
+    onMath: vi.fn(),
     ...over,
   });
 

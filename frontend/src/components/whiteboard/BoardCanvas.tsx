@@ -82,8 +82,10 @@ import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
 import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
 import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
+import { MathEditor } from "@/components/whiteboard/rich/MathEditor";
 import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
-import { blankTable, parseClipboardTable, renderTable, type TableData } from "@/lib/whiteboard/table";
+import { MathError, renderMath } from "@/lib/whiteboard/math";
+import { blankTable, parseClipboardTable, renderTable } from "@/lib/whiteboard/table";
 import { PageCover } from "@/components/whiteboard/PageCover";
 import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
@@ -228,8 +230,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [pagesBusy, setPagesBusy] = useState(false);
   // Story 6: the rich object selected (its «تعديل» button), and the one being edited.
   const [richSelected, setRichSelected] = useState<{ id: string; data: RichData } | null>(null);
-  const [tableEdit, setTableEdit] = useState<{ data: TableData; elementId: string | null } | null>(null);
-  const [tableSaving, setTableSaving] = useState(false);
+  const [richEdit, setRichEdit] = useState<{ data: RichData; elementId: string | null } | null>(null);
+  const [richSaving, setRichSaving] = useState(false);
   // An import keeps adding pages after the teacher leaves the board unless it asks.
   const mounted = useRef(true);
   useEffect(() => {
@@ -757,16 +759,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     });
 
   /**
-   * A table's cells saved (story 6): its picture is drawn and uploaded FIRST —
-   * a refused upload changes nothing on the page — then put in place, or
-   * swapped into the same element when it is being edited.
+   * A table or an equation saved (story 6): its picture is drawn and uploaded
+   * FIRST — a refused upload changes nothing on the page — then put in place, or
+   * swapped into the same element when it is being edited. An equation takes
+   * the pen's colour, so it reads on a blackboard as on white.
    */
-  const saveTable = async (data: TableData, elementId: string | null) => {
-    if (!api || !board || tableSaving) return;
-    setTableSaving(true);
+  const saveRich = async (data: RichData, elementId: string | null) => {
+    if (!api || !board || richSaving) return;
+    setRichSaving(true);
     try {
-      const { blob, width, height } = await renderTable(data);
-      const file = new File([blob], "table.png", { type: "image/png" });
+      const { blob, width, height } =
+        data.kind === "table" ? await renderTable(data) : await renderMath(data.latex, data.display, api.getAppState().currentItemStrokeColor);
+      const file = new File([blob], `${data.kind}.png`, { type: "image/png" });
       const id = await uploadBoardImage(board.uuid, session.tab(), file, async (bytes) => bytes);
       const dataURL = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -778,11 +782,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       pictures.given(id);
       if (elementId && !replaceRichObject(api, elementId, id, width, height, data)) setNotice(WB.table.gone);
       if (!elementId) placeRichObject(api, id, width, height, data);
-      setTableEdit(null);
-    } catch {
-      setNotice(WB.imageFailed);
+      setRichEdit(null);
+    } catch (error) {
+      setNotice(error instanceof MathError ? WB.math.invalid : WB.imageFailed);
     } finally {
-      setTableSaving(false);
+      setRichSaving(false);
     }
   };
 
@@ -799,7 +803,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (!table) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      void saveTable(table, null);
+      void saveRich(table, null);
     };
     root.addEventListener("paste", onPaste, true);
     return () => root.removeEventListener("paste", onPaste, true);
@@ -921,7 +925,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
                     instrument={instrument?.kind ?? null}
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
-                    onTable={() => setTableEdit({ data: blankTable(), elementId: null })}
+                    onTable={() => setRichEdit({ data: blankTable(), elementId: null })}
+                    onMath={() => setRichEdit({ data: { kind: "math", v: 1, latex: "", display: true }, elementId: null })}
                   />
                 ),
               },
@@ -1012,21 +1017,29 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           />
         </div>
       )}
-      {session.held && richSelected?.data.kind === "table" && !tableEdit && (
+      {session.held && richSelected && !richEdit && (
         <button
           type="button"
-          onClick={() => setTableEdit({ data: richSelected.data as TableData, elementId: richSelected.id })}
+          onClick={() => setRichEdit({ data: richSelected.data, elementId: richSelected.id })}
           className="absolute top-16 left-1/2 z-20 -translate-x-1/2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground shadow-lg"
         >
-          {WB.table.edit}
+          {richSelected.data.kind === "table" ? WB.table.edit : WB.math.edit}
         </button>
       )}
-      {tableEdit && (
+      {richEdit?.data.kind === "table" && (
         <TableEditor
-          initial={tableEdit.data}
-          saving={tableSaving}
-          onClose={() => setTableEdit(null)}
-          onSave={(data) => void saveTable(data, tableEdit.elementId)}
+          initial={richEdit.data}
+          saving={richSaving}
+          onClose={() => setRichEdit(null)}
+          onSave={(data) => void saveRich(data, richEdit.elementId)}
+        />
+      )}
+      {richEdit?.data.kind === "math" && (
+        <MathEditor
+          initial={richEdit.data}
+          saving={richSaving}
+          onClose={() => setRichEdit(null)}
+          onSave={(data) => void saveRich(data, richEdit.elementId)}
         />
       )}
       {celebration && <Celebrate key={celebration.id} kind={celebration.kind} onDone={() => setCelebration(null)} />}
