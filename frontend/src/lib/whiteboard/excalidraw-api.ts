@@ -10,7 +10,7 @@ import {
   useHandleLibrary,
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
-import type { BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
@@ -84,6 +84,15 @@ export function loadPage(api: BoardApi, elements: readonly BoardElement[]): void
   api.updateScene({ elements, captureUpdate: CaptureUpdateAction.NEVER });
   api.history.clear();
 }
+
+/** What a canvas mounted afresh keeps from the one it replaces: the theme, the tool and the pen. */
+export function carriedState(api: BoardApi): Partial<AppState> {
+  const state = api.getAppState();
+  return Object.fromEntries(
+    Object.entries(state).filter(([name]) => name === "theme" || name === "activeTool" || name.startsWith("currentItem")),
+  ) as Partial<AppState>;
+}
+export type CarriedState = Partial<AppState>;
 
 /**
  * The board's first app state: already fitted to the window (so the first paint
@@ -190,13 +199,14 @@ export function pageDocument(elements: readonly BoardElement[], background: Boar
 
 /**
  * A page's small picture for the pages strip (US3): ≤ 320 px, from the elements
- * in memory — no request, no stored thumbnail (R-07).
+ * in memory — no request, no stored thumbnail (R-07). Its pictures are passed IN, never added to the
+ * canvas: scrolling the pages of a 100-page PDF used to load all 100 into it.
  */
-export async function pageThumbnail(api: BoardApi, elements: readonly BoardElement[], background: BoardBackground): Promise<string> {
+export async function pageThumbnail(elements: readonly BoardElement[], pictures: PictureData[], background: BoardBackground): Promise<string> {
   const live = elements.filter((element) => !element.isDeleted);
   const drawing = await exportToCanvas({
     elements: live,
-    files: api.getFiles(),
+    files: Object.fromEntries(binaryFiles(pictures).map((file) => [file.id, file])),
     appState: { exportBackground: false, viewBackgroundColor: "transparent" },
     exportingFrame: pageFrame(live),
     maxWidthOrHeight: 320,
@@ -232,19 +242,23 @@ export function startLaser(api: BoardApi): void {
 }
 
 /** Hand pictures to the canvas by OUR file id — a page names them, the bytes stay out of the scene. */
-export function addPictures(api: BoardApi, pictures: { id: string; dataURL: string; mimeType: "image/png" | "image/jpeg" }[]): void {
-  if (pictures.length === 0) return;
+type PictureData = { id: string; dataURL: string; mimeType: "image/png" | "image/jpeg" };
+
+function binaryFiles(pictures: PictureData[]): BinaryFileData[] {
   const now = Date.now();
-  api.addFiles(
-    pictures.map(
-      (picture): BinaryFileData => ({
-        id: picture.id as BinaryFileData["id"],
-        dataURL: picture.dataURL as DataURL,
-        mimeType: picture.mimeType,
-        created: now,
-      }),
-    ),
+  return pictures.map(
+    (picture): BinaryFileData => ({
+      id: picture.id as BinaryFileData["id"],
+      dataURL: picture.dataURL as DataURL,
+      mimeType: picture.mimeType,
+      created: now,
+    }),
   );
+}
+
+export function addPictures(api: BoardApi, pictures: PictureData[]): void {
+  if (pictures.length === 0) return;
+  api.addFiles(binaryFiles(pictures));
 }
 
 /** The ids of the pictures a page shows. */
