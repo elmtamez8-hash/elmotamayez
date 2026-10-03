@@ -47,6 +47,11 @@ const typesOf = (page: ServerPage) => (JSON.parse(page.scene) as { elements: { t
 
 /** Open a board and wait until this tab is the editor. */
 async function openBoard(page: Page, board: string) {
+  // The panel and the pages list start folded (2026-10-03): these tests use both, so both open.
+  await page.addInitScript(() => {
+    localStorage.setItem("whiteboard.panel.open", "1");
+    localStorage.setItem("whiteboard.pages.open", "1");
+  });
   await page.goto(`/whiteboard/${board}`);
   await expect(page.locator("[data-save-state]")).toBeVisible({ timeout: 30_000 });
 }

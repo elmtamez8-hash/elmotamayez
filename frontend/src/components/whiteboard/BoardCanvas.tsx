@@ -89,7 +89,7 @@ import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
 import { MathError, renderMath } from "@/lib/whiteboard/math";
 import { blankTable, parseClipboardTable, renderTable } from "@/lib/whiteboard/table";
 import { PageCover } from "@/components/whiteboard/PageCover";
-import { PagesSidebar } from "@/components/whiteboard/PagesSidebar";
+import { PagesSidebar, PagesTab } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
 import { Stunt } from "@/components/whiteboard/overlays/Stunt";
@@ -234,7 +234,24 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     // unnamed, it opened the board again in a new tab and the library went there.
     if (!window.name) window.name = "whiteboard";
   }, []);
-  const [showPages, setShowPages] = useState(true);
+  // Folded by default, and remembered per browser: the board as clean as it can be (owner, 2026-10-03).
+  const [showPages, setShowPagesState] = useState(() => {
+    try {
+      return localStorage.getItem("whiteboard.pages.open") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const setShowPages = (next: (shown: boolean) => boolean) =>
+    setShowPagesState((shown) => {
+      const value = next(shown);
+      try {
+        localStorage.setItem("whiteboard.pages.open", value ? "1" : "0");
+      } catch {
+        // ponytail: a private window just forgets it.
+      }
+      return value;
+    });
   const [pagesBusy, setPagesBusy] = useState(false);
   // Story 6: the rich object selected (its «تعديل» button), and the one being edited.
   const [richSelected, setRichSelected] = useState<{ id: string; data: RichData } | null>(null);
@@ -1025,7 +1042,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             onDuplicate={duplicatePage}
             onDelete={deletePage}
             onReorder={reorderPages}
+            onCollapse={() => setShowPages(() => false)}
           />
+        </div>
+      )}
+      {!showPages && !presenting && (
+        <div data-panel="pages-tab" className="absolute start-2 top-1/2 -translate-y-1/2" style={{ zIndex: 5 }}>
+          <PagesTab current={pageIndex} count={board.pages.length} onOpen={() => setShowPages(() => true)} />
         </div>
       )}
       {session.held && richSelected && !richEdit && (

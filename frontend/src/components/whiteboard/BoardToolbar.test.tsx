@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BoardToolbar, type BoardToolbarProps } from "./BoardToolbar";
 
@@ -21,7 +21,27 @@ function props(overrides: Partial<BoardToolbarProps> = {}): BoardToolbarProps {
   };
 }
 
+/** The panel is folded until the teacher opens it. */
+const unfold = () => fireEvent.click(screen.getByRole("button", { name: "افتح لوحة التحكم" }));
+
+beforeEach(() => localStorage.clear());
+
 describe("BoardToolbar", () => {
+  it("starts folded with the pages and «عرض» in reach, opens on a press, and remembers it", () => {
+    const { unmount } = render(<BoardToolbar {...props()} />);
+
+    expect(screen.getByText("٢ من ٣")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "عرض" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "PNG" })).toBeNull();
+
+    unfold();
+    expect(screen.getByRole("button", { name: "PNG" })).toBeTruthy();
+    unmount();
+
+    render(<BoardToolbar {...props()} />);
+    expect(screen.getByRole("button", { name: "اطوِ لوحة التحكم" }).getAttribute("aria-expanded")).toBe("true");
+  }, 15000);
+
   it("moves between pages and shows where the teacher is", () => {
     const p = props();
     render(<BoardToolbar {...p} />);
@@ -45,6 +65,7 @@ describe("BoardToolbar", () => {
   it("exports the page as PNG and as SVG", async () => {
     const p = props();
     render(<BoardToolbar {...p} />);
+    unfold();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "PNG" }));
@@ -59,6 +80,7 @@ describe("BoardToolbar", () => {
 
   it("says so when an export fails, instead of failing silently", async () => {
     render(<BoardToolbar {...props({ onExport: vi.fn().mockRejectedValue(new Error("boom")) })} />);
+    unfold();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "SVG" }));
@@ -70,6 +92,7 @@ describe("BoardToolbar", () => {
   it("renames the board and switches its background", async () => {
     const p = props();
     render(<BoardToolbar {...p} />);
+    unfold();
 
     fireEvent.click(screen.getByRole("button", { name: "إعادة التسمية" }));
     fireEvent.change(screen.getByLabelText("عنوان السبّورة"), { target: { value: "مراجعة الفيزياء" } });
@@ -84,6 +107,7 @@ describe("BoardToolbar", () => {
 
   it("keeps a read-only board's name and background out of reach", () => {
     render(<BoardToolbar {...props({ canEdit: false })} />);
+    unfold();
 
     expect((screen.getByRole("button", { name: "إعادة التسمية" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText("الخلفية") as HTMLSelectElement).disabled).toBe(true);
@@ -105,6 +129,7 @@ describe("the screens of a page", () => {
   it("moves up and down a screen, and offers empty space on the last one", () => {
     const onScreen = vi.fn();
     const { rerender } = render(<BoardToolbar {...props({ screen: { index: 0, count: 1 }, onScreen })} />);
+    unfold();
 
     expect((screen.getByRole("button", { name: "أعلى" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "مكان فارغ" }));

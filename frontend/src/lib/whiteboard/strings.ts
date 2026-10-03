@@ -69,7 +69,10 @@ export const WB = {
   },
 
   /** The toolbar's menus. */
-  menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },
+  // «أدوات العرض», not «عرض»: the panel's own «عرض» button already says that word.
+  menus: { tools: "أدوات", present: "أدوات العرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },
+  /** The board panel, folded by default (2026-10-03). */
+  panel: { unfold: "افتح لوحة التحكم", fold: "اطوِ لوحة التحكم", pages: "التنقّل بين الصفحات" },
   /** Story 4 — a PDF or a picture added as pages after the page shown. */
   /** Story 6: a table, drawn from its cells and edited again later. */
   table: {
@@ -237,6 +240,9 @@ export const WB = {
   /** The pages strip (US3). */
   pagesTitle: "صفحات السبّورة",
   showPages: "الصفحات",
+  pagesFold: "اطوِ قائمة الصفحات",
+  pagesUnfold: "افتح قائمة الصفحات",
+  pagesShort: (n: number, total: number) => `${arabicNumber(n)} / ${arabicNumber(total)}`,
   pageNumber: (n: number) => `صفحة ${arabicNumber(n)}`,
   addPage: "صفحة جديدة",
   duplicatePage: "نسخ",

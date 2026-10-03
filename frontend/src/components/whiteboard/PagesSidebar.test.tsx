@@ -101,3 +101,22 @@ describe("PagesSidebar", () => {
     expect(screen.queryByRole("button", { name: "حذف" })).toBeNull();
   });
 });
+
+describe("folding the pages list", () => {
+  it("folds from its own header, and the tab says where the teacher is", async () => {
+    const { PagesTab } = await import("./PagesSidebar");
+    const onCollapse = vi.fn();
+    const onOpen = vi.fn();
+    const { unmount } = render(
+      <PagesSidebar pages={[{ uuid: "a", version: 1 }]} current={0} canEdit busy={false} thumbnail={async () => ""} onSelect={vi.fn()} onAdd={vi.fn()} onDuplicate={vi.fn()} onDelete={vi.fn()} onReorder={vi.fn()} onCollapse={onCollapse} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "اطوِ قائمة الصفحات" }));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(<PagesTab current={1} count={5} onOpen={onOpen} />);
+    expect(screen.getByText("٢ / ٥")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "افتح قائمة الصفحات" }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+});
