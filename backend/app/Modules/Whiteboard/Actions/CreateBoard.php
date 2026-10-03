@@ -13,6 +13,7 @@ use App\Modules\Whiteboard\Support\BoardPlacement;
 use App\Modules\Whiteboard\Support\BoardScene;
 use App\Shared\Actions\Action;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 /**
@@ -27,21 +28,33 @@ final class CreateBoard extends Action
 
     public function handle(BoardData $data, int $workspaceId, User $creator): Board
     {
-        [$courseId, $lessonId] = $this->placement->resolve($data->courseUuid, $data->lessonUuid, $workspaceId, $creator);
+        $session = $this->placement->session($data->sessionUuid, $workspaceId, $creator);
+        // A board made from a live class hangs on that class's course unless told otherwise.
+        $courseUuid = $data->courseUuid ?? ($data->lessonUuid === null ? $session?->course?->uuid : null);
+        $courseFromSession = $data->courseUuid === null && $courseUuid !== null;
+        [$courseId, $lessonId] = $this->placement->resolve($courseUuid, $data->lessonUuid, $workspaceId, $creator);
         $background = $data->background ?? BoardBackground::White;
 
-        return DB::transaction(function () use ($data, $workspaceId, $creator, $courseId, $lessonId, $background): Board {
+        return DB::transaction(function () use ($data, $workspaceId, $creator, $courseId, $lessonId, $background, $session, $courseFromSession): Board {
             $board = Board::query()->create([
                 'workspace_id' => $workspaceId,
                 'owner_user_id' => $creator->getKey(),
                 'title' => (string) $data->title,
                 'course_id' => $courseId,
                 'lesson_id' => $lessonId,
+                'class_session_id' => $session?->getKey(),
                 'background' => $background,
             ]);
 
             // A new row has no concurrent writer, so the count is set directly here;
             // every later change goes through BoardPageGate.
+            // A course taken from the live class must not hand the board to that
+            // course's teacher when the creator could then not draw on it (a
+            // manager hosting a teacher's class, Q5): it stays course-less, theirs.
+            if ($courseFromSession && Gate::forUser($creator)->denies('update', $board)) {
+                $board->course_id = null;
+            }
+
             $board->forceFill(['pages_count' => 1])->save();
 
             $pageUuid = (string) Str::orderedUuid();

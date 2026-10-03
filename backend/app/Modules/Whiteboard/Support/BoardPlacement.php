@@ -7,8 +7,10 @@ namespace App\Modules\Whiteboard\Support;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use DomainException;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Where a board hangs: an optional course and an optional lesson of that course.
@@ -24,6 +26,24 @@ use DomainException;
 final class BoardPlacement
 {
     public function __construct(private readonly AssistantScopeDirectory $scope) {}
+
+    /**
+     * The live class a board is opened from (story 7): one of this workspace's,
+     * and one the actor may HOST — a board is linked from inside the room.
+     */
+    public function session(?string $sessionUuid, int $workspaceId, User $actor): ?ClassSession
+    {
+        if ($sessionUuid === null) {
+            return null;
+        }
+        $session = ClassSession::query()->where('workspace_id', $workspaceId)->where('uuid', $sessionUuid)->first();
+        if ($session === null) {
+            throw new DomainException('الحصة غير موجودة.');
+        }
+        Gate::forUser($actor)->authorize('host', $session);
+
+        return $session;
+    }
 
     /** @return array{0: int|null, 1: int|null} */
     public function resolve(?string $courseUuid, ?string $lessonUuid, int $workspaceId, User $actor): array

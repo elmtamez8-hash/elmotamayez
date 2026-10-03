@@ -7,6 +7,7 @@ namespace App\Modules\Whiteboard\Actions;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Enums\BoardPendingOperation;
 use App\Modules\Whiteboard\Models\Board;
@@ -38,7 +39,7 @@ final class ListBoards extends Action
     ) {}
 
     /**
-     * @param  array{q?: string|null, course?: string|null, lesson?: string|null, mine?: bool}  $filters
+     * @param  array{q?: string|null, course?: string|null, lesson?: string|null, session?: string|null, mine?: bool}  $filters
      * @return LengthAwarePaginator<int, Board>
      */
     public function handle(User $reader, int $workspaceId, array $filters): LengthAwarePaginator
@@ -83,6 +84,10 @@ final class ListBoards extends Action
             $query->whereIn('course_id', Course::query()->withTrashed()->where('uuid', $course)->select('id'));
         }
 
+        if (($session = $filters['session'] ?? null) !== null) {
+            $query->whereIn('class_session_id', ClassSession::query()->where('uuid', $session)->select('id'));
+        }
+
         if (($lesson = $filters['lesson'] ?? null) !== null) {
             $query->whereIn('lesson_id', Lesson::query()->where('uuid', $lesson)->select('id'));
         }
@@ -92,6 +97,7 @@ final class ListBoards extends Action
                 'owner:id,uuid,first_name,last_name',
                 'editor:id,uuid,first_name,last_name',
                 'lesson:id,uuid,title',
+                'classSession:id,uuid,starts_at',
             ])
             ->orderByDesc('updated_at')
             ->orderByDesc('id')

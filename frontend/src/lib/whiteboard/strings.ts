@@ -47,6 +47,15 @@ export const WB = {
   stopPresenting: "إنهاء العرض",
   presentHint: "تظهر الأدوات حين تقترب بالمؤشّر من أعلى الشاشة.",
   shareHint: "شارك هذا التبويب وحده، لا الشاشة كلها.",
+  /** Story 7: the button in the live class. */
+  live: {
+    open: "افتح السبّورة",
+    choose: "سبّورة لهذه الحصة",
+    pick: "اختر سبّورة من سبّوراتك",
+    linkAndOpen: "اربطها وافتحها",
+    create: "سبّورة جديدة لهذه الحصة",
+    failed: "تعذّر فتح السبّورة. أعد المحاولة.",
+  },
 
   /** The toolbar's menus. */
   menus: { tools: "أدوات", present: "عرض", encourage: "تشجيع", layout: "الواجهة", import: "استيراد", lesson: "مواد الدرس" },

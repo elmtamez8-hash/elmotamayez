@@ -50,6 +50,11 @@ class BoardResource extends JsonResource
                 'uuid' => $board->lesson->uuid,
                 'title' => $board->lesson->title,
             ],
+            // Story 7: the live class it is opened from.
+            'class_session' => $board->class_session_id === null || $board->classSession === null ? null : [
+                'uuid' => $board->classSession->uuid,
+                'starts_at' => $board->classSession->starts_at->toIso8601String(),
+            ],
             'owner' => self::person($board->owner),
             'teacher' => self::person($teacher),
             'updated_at' => $board->updated_at?->toIso8601String(),

@@ -39,6 +39,11 @@ final class UpdateBoard extends Action
                 $board->background = $data->background;
             }
 
+            // Linking a live class (story 7) moves nothing: the class's host may do it.
+            if ($data->sessionGiven) {
+                $board->class_session_id = $this->placement->session($data->sessionUuid, $board->workspace_id, $actor)?->getKey();
+            }
+
             if ($data->courseGiven || $data->lessonGiven) {
                 if (BoardOwnership::owningTeacherId($board) !== (int) $actor->getKey()) {
                     throw new AuthorizationException('نقل السبّورة إلى كورس آخر لمدرّس الكورس وحده.');
