@@ -12,6 +12,7 @@ use App\Modules\Whiteboard\Models\BoardPage;
 use App\Modules\Whiteboard\Support\BoardPlacement;
 use App\Modules\Whiteboard\Support\BoardScene;
 use App\Shared\Actions\Action;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -53,6 +54,12 @@ final class CreateBoard extends Action
             // manager hosting a teacher's class, Q5): it stays course-less, theirs.
             if ($courseFromSession && Gate::forUser($creator)->denies('update', $board)) {
                 $board->course_id = null;
+            }
+
+            // A course (or lesson) they named themselves is refused instead: the
+            // board would be born the course teacher's, read-only to its creator.
+            if (! $courseFromSession && $board->course_id !== null && Gate::forUser($creator)->denies('update', $board)) {
+                throw new DomainException('سبّورات هذا الكورس يُعدّها مدرّسه. أنشئ سبّورة بلا كورس، أو اطلبها من مدرّس الكورس.');
             }
 
             $board->forceFill(['pages_count' => 1])->save();
