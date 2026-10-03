@@ -101,6 +101,7 @@ import { Magnifier } from "@/components/whiteboard/overlays/Magnifier";
 import { Spotlight } from "@/components/whiteboard/overlays/Spotlight";
 import { Wheel } from "@/components/whiteboard/overlays/Wheel";
 import { Timer } from "@/components/whiteboard/overlays/Timer";
+import { Calculator } from "@/components/whiteboard/overlays/Calculator";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
 
@@ -256,6 +257,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   // Presenter tools (US8): display layers too.
   const [spotlight, setSpotlight] = useState(false);
   const [timer, setTimer] = useState<{ minutes: number; id: number } | null>(null);
+  const [calculator, setCalculator] = useState(false);
   const endSpotlight = useCallback(() => setSpotlight(false), []);
   // Teaching tools (US9).
   const [passing, setPassing] = useState<PassingTool | null>(null);
@@ -935,6 +937,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
                     onTable={() => setRichEdit({ data: blankTable(), elementId: null })}
                     onMath={() => setRichEdit({ data: { kind: "math", v: 1, latex: "", display: true }, elementId: null })}
+                    onCalculator={() => setCalculator((shown) => !shown)}
                   />
                 ),
               },
@@ -1068,6 +1071,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       {passing === "curtain" && <Curtain onClose={endPassing} />}
       {passing === "wheel" && <Wheel board={boardUuid} sound={sound} onClose={endPassing} />}
       {timer && <Timer key={timer.id} minutes={timer.minutes} sound={sound} onClose={() => setTimer(null)} />}
+      {calculator && (
+        <Calculator
+          // «حطّها على السبّورة» is an equation like any other: drawn by MathJax, edited in place.
+          onInsert={session.held ? (latex) => void saveRich({ kind: "math", v: 1, latex, display: true }, null) : null}
+          onClose={() => setCalculator(false)}
+        />
+      )}
       {balloons !== null && <BalloonPop key={balloons} sound={sound} onDone={endBalloons} />}
       {stunt && <Stunt key={stunt.id} kind={stunt.kind} onDone={endStunt} />}
       {attention !== null && <AttentionBanner key={attention} onDone={endAttention} />}
