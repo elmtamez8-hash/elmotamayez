@@ -14,6 +14,7 @@ import {
   addStroke,
   applyBackground,
   applyPen,
+  magicStroke,
   currentScreen,
   exportPage,
   fitToFrame,
@@ -300,9 +301,15 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     if (api) setTemplate(pageTemplate(api));
   }, [api, pageIndex]);
 
+  // «القلم السحري»: on while its pen is the one in hand; any other tool turns it off.
+  const [magic, setMagic] = useState(false);
+  // The stroke being drawn, by id: a stroke inside the page is placed BEFORE the
+  // page's frame, so «the last element» is never it (caught in review).
+  const drawing = useRef<string | null>(null);
   const choosePen = (id: PenId) => {
     const pen = PENS.find((p) => p.id === id);
     if (api && pen) applyPen(api, pen);
+    setMagic(id === "magic");
   };
   const [trail, setTrail] = useState<TrailStyle>("off");
   const [sound, setSound] = useState(readSound);
@@ -910,6 +917,17 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           // React skips the render when the name is unchanged).
           setTemplate(frameTemplate(elements));
           if (appState.cursorButton !== "down") syncFrame(); // a stroke never changes the frame
+          // Another tool turns it off — not the eraser, which a pen's back end picks for a moment.
+          if (magic && appState.activeTool.type !== "freedraw" && appState.activeTool.type !== "eraser") setMagic(false);
+          // The magic pen acts when the pen LIFTS, on the stroke just finished — outside
+          // this callback, since it changes the scene this callback reports.
+          if (appState.cursorButton === "down") {
+            if (appState.newElement?.type === "freedraw") drawing.current = appState.newElement.id;
+          } else if (drawing.current) {
+            const finished = drawing.current;
+            drawing.current = null;
+            if (magic && api && session.held) queueMicrotask(() => magicStroke(api, finished));
+          }
           // The «تعديل» button follows a single selected table or equation.
           if (api && appState.cursorButton !== "down") {
             const next = Object.keys(appState.selectedElementIds).length === 1 ? selectedRichObject(api) : null;
@@ -949,6 +967,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     open={passing}
                     onTemplate={chooseTemplate}
                     onPen={choosePen}
+                    magic={magic}
                     onTool={(tool) => setPassing((current) => (current === tool ? null : tool))}
                     instrument={instrument?.kind ?? null}
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}

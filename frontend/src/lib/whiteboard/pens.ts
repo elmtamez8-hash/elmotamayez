@@ -10,7 +10,8 @@ import { STREAM_DEFAULTS } from "@/lib/whiteboard/page-model";
  * custom renderer, and that is the upgrade if it is asked for.
  */
 
-export type PenId = "marker" | "brush" | "highlighter";
+/** «magic»: the marker, whose strokes the board turns into clean shapes (`magicStroke`). */
+export type PenId = "marker" | "brush" | "highlighter" | "magic";
 
 export interface Pen {
   id: PenId;
@@ -25,4 +26,5 @@ export const PENS: Pen[] = [
   { id: "marker", strokeWidth: STREAM_DEFAULTS.strokeWidth, opacity: 100, colour: null },
   { id: "brush", strokeWidth: 8, opacity: 100, colour: null },
   { id: "highlighter", strokeWidth: 14, opacity: 35, colour: "#ffd60a" },
+  { id: "magic", strokeWidth: STREAM_DEFAULTS.strokeWidth, opacity: 100, colour: null },
 ];
