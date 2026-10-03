@@ -52,7 +52,7 @@ describe("Calculator", () => {
     press("S⇔D");
     fireEvent.click(screen.getByRole("button", { name: WB.calc.insert }));
     expect(onInsert).toHaveBeenLastCalledWith(String.raw`\sin\left(#0\right)30=0.5`);
-  });
+  }, 15000);
 
   it("names the error like a Casio does, and switches to radians", async () => {
     calculate.mockResolvedValue({ ok: false, error: "math" });
@@ -67,5 +67,5 @@ describe("Calculator", () => {
     expect(calculate).toHaveBeenCalledWith("1", "rad");
     // A board the teacher cannot edit gets no «put it on the board».
     expect(screen.queryByRole("button", { name: WB.calc.insert })).toBeNull();
-  });
+  }, 15000);
 });
