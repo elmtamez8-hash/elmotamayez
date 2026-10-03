@@ -87,7 +87,7 @@ class BoardController extends Controller
 
     private function loaded(Board $board): Board
     {
-        $board->load(['owner:id,uuid,first_name,last_name', 'editor:id,uuid,first_name,last_name', 'lesson:id,uuid,title']);
+        $board->load(['owner:id,uuid,first_name,last_name', 'editor:id,uuid,first_name,last_name', 'lesson:id,uuid,title', 'classSession:id,uuid,starts_at']);
         BoardOwnership::primeFor(new Collection([$board]));
 
         return $board;

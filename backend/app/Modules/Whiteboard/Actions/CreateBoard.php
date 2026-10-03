@@ -27,16 +27,20 @@ final class CreateBoard extends Action
 
     public function handle(BoardData $data, int $workspaceId, User $creator): Board
     {
-        [$courseId, $lessonId] = $this->placement->resolve($data->courseUuid, $data->lessonUuid, $workspaceId, $creator);
+        $session = $this->placement->session($data->sessionUuid, $workspaceId, $creator);
+        // A board made from a live class hangs on that class's course unless told otherwise.
+        $courseUuid = $data->courseUuid ?? ($data->lessonUuid === null ? $session?->course?->uuid : null);
+        [$courseId, $lessonId] = $this->placement->resolve($courseUuid, $data->lessonUuid, $workspaceId, $creator);
         $background = $data->background ?? BoardBackground::White;
 
-        return DB::transaction(function () use ($data, $workspaceId, $creator, $courseId, $lessonId, $background): Board {
+        return DB::transaction(function () use ($data, $workspaceId, $creator, $courseId, $lessonId, $background, $session): Board {
             $board = Board::query()->create([
                 'workspace_id' => $workspaceId,
                 'owner_user_id' => $creator->getKey(),
                 'title' => (string) $data->title,
                 'course_id' => $courseId,
                 'lesson_id' => $lessonId,
+                'class_session_id' => $session?->getKey(),
                 'background' => $background,
             ]);
 
