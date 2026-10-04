@@ -8,12 +8,13 @@ vi.mock("@excalidraw/excalidraw", () => ({
   exportToCanvas: vi.fn(),
   exportToSvg: vi.fn(),
   hashElementsVersion: vi.fn(),
+  newElementWith: (element: object, updates: object) => ({ ...element, ...updates }),
   restoreElements: (elements: unknown[]) => elements,
   setCustomTextMetricsProvider: vi.fn(),
   useHandleLibrary: vi.fn(),
 }));
 
-import { replaceRichObject, type BoardApi } from "@/lib/whiteboard/excalidraw-api";
+import { magicStroke, replaceRichObject, type BoardApi } from "@/lib/whiteboard/excalidraw-api";
 import { blankTable } from "@/lib/whiteboard/table";
 
 describe("replaceRichObject", () => {
@@ -36,5 +37,39 @@ describe("replaceRichObject", () => {
 
     // Gone meanwhile: nothing changes, and the caller is told.
     expect(replaceRichObject(api, "missing", "new2", 400, 300, data)).toBe(false);
+  });
+});
+
+describe("magicStroke", () => {
+  // As Excalidraw orders a page: the stroke drawn inside the frame sits BEFORE it.
+  const sceneWith = (stroke: object) => {
+    let scene = [stroke, { id: "page", type: "frame", isDeleted: false }] as unknown[];
+    const api = {
+      getAppState: () => ({ zoom: { value: 1 }, currentItemRoughness: 2, currentItemStrokeStyle: "dashed", currentItemFillStyle: "hachure", currentItemBackgroundColor: "#ffc9c9", currentItemRoundness: "round" }),
+      getSceneElementsIncludingDeleted: () => scene,
+      updateScene: vi.fn(({ elements }: { elements: unknown[] }) => (scene = elements)),
+    } as unknown as BoardApi;
+    return { api, scene: () => scene as Record<string, unknown>[] };
+  };
+
+  it("swaps a drawn loop for a clean ellipse in the same colour and frame, the stroke kept as deleted for undo", () => {
+    const loop = Array.from({ length: 60 }, (_, i) => [100 + 80 * Math.cos((i / 59) * 2 * Math.PI), 60 + 50 * Math.sin((i / 59) * 2 * Math.PI)]);
+    const { api, scene } = sceneWith({ id: "f1", type: "freedraw", x: 10, y: 20, points: loop, strokeColor: "#ffffff", strokeWidth: 4, opacity: 100, frameId: "page", isDeleted: false });
+
+    expect(magicStroke(api, "f1")).toBe(true);
+    const [stroke, frame, clean] = scene();
+    expect(stroke).toMatchObject({ id: "f1", isDeleted: true });
+    expect(frame).toMatchObject({ id: "page", isDeleted: false });
+    // The side panel's style, as a shape drawn with Excalidraw's own tool; the pen's colour.
+    expect(clean).toMatchObject({ type: "ellipse", strokeColor: "#ffffff", frameId: "page", roughness: 2, strokeStyle: "dashed", fillStyle: "hachure", backgroundColor: "#ffc9c9", roundness: null });
+    expect(clean.x).toBeCloseTo(30, 0); // 10 + (100 − 80)
+  });
+
+  it("leaves a stroke it does not recognise, and anything that is not a stroke", () => {
+    const zigzag = [[0, 0], [40, 60], [80, 0], [120, 60], [160, 0], [200, 60]];
+    const { api } = sceneWith({ id: "f2", type: "freedraw", x: 0, y: 0, points: zigzag, strokeColor: "#000", strokeWidth: 4, opacity: 100, frameId: null, isDeleted: false });
+    expect(magicStroke(api, "f2")).toBe(false);
+    expect(magicStroke(api, "missing")).toBe(false);
+    expect(api.updateScene).not.toHaveBeenCalled();
   });
 });

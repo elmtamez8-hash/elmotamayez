@@ -5,6 +5,7 @@ import {
   exportToCanvas,
   exportToSvg,
   hashElementsVersion,
+  newElementWith,
   restoreElements,
   setCustomTextMetricsProvider,
   useHandleLibrary,
@@ -15,6 +16,7 @@ import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, Normal
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
+import { recognise } from "@/lib/whiteboard/magic-pen";
 import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
@@ -442,6 +444,73 @@ export function applyPen(api: BoardApi, pen: Pen): void {
   api.setActiveTool({ type: "freedraw" });
 }
 
+/**
+ * «القلم السحري»: the freehand stroke `elementId`, recognised, becomes Excalidraw's
+ * own clean shape in the same colour, width and frame — one undoable step, so
+ * Ctrl+Z gives the hand-drawn stroke back. A stroke it is unsure of is left alone.
+ * Returns whether it swapped.
+ */
+/** Excalidraw's `ROUNDNESS` values (constants it does not export). */
+const ROUNDNESS_PROPORTIONAL = 2 as const;
+const ROUNDNESS_ADAPTIVE = 3 as const;
+
+function boxOf(points: [number, number][]): { width: number; height: number } {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return { width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) };
+}
+
+export function magicStroke(api: BoardApi, elementId: string): boolean {
+  const elements = api.getSceneElementsIncludingDeleted();
+  const stroke = elements.find((e) => e.id === elementId && !e.isDeleted);
+  if (!stroke || stroke.type !== "freedraw") return false;
+  // ~24 screen pixels, whatever the zoom: below that a stroke is handwriting.
+  const state = api.getAppState();
+  const shape = recognise(
+    stroke.points.map(([px, py]) => [stroke.x + px, stroke.y + py] as [number, number]),
+    24 / state.zoom.value,
+  );
+  if (!shape) return false;
+
+  // Styled as Excalidraw styles a shape drawn with its own tools — the side
+  // panel's edges, line style, fill and corners (owner, 2026-10-04) — in the
+  // pen's colour and width, so it is edited from that panel like any other.
+  const look = {
+    strokeColor: stroke.strokeColor,
+    strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, stroke.strokeWidth),
+    opacity: stroke.opacity,
+    roughness: state.currentItemRoughness,
+    strokeStyle: state.currentItemStrokeStyle,
+    fillStyle: state.currentItemFillStyle,
+    backgroundColor: state.currentItemBackgroundColor,
+    frameId: stroke.frameId,
+  };
+  // As Excalidraw's `getCurrentItemRoundness`: adaptive for a rectangle, proportional
+  // for the rest; an ellipse has no corners to round.
+  const roundness =
+    state.currentItemRoundness !== "round" || shape.type === "ellipse" ? null : { type: shape.type === "rectangle" ? ROUNDNESS_ADAPTIVE : ROUNDNESS_PROPORTIONAL };
+  const relative = (points: [number, number][]) => {
+    const [ox, oy] = points[0];
+    return { x: ox, y: oy, points: points.map(([px, py]) => [px - ox, py - oy] as [number, number]) };
+  };
+  const skeleton =
+    shape.type === "line" || shape.type === "arrow"
+      ? { type: shape.type, ...relative([shape.from, shape.to]), ...look }
+      : shape.type === "triangle"
+        ? { type: "line" as const, ...relative([...shape.points, shape.points[0]]), ...look }
+        : { type: shape.type, x: shape.x, y: shape.y, width: shape.width, height: shape.height, ...look };
+  const [converted] = convertToExcalidrawElements([skeleton]);
+  // A `line` skeleton keeps a 100×0 box whatever its points (only arrows are
+  // measured), so a line or a triangle is given the box its points make.
+  const clean = newElementWith(converted, { roundness, ...("points" in skeleton ? boxOf(skeleton.points) : {}) });
+
+  api.updateScene({
+    elements: [...elements.map((e) => (e.id === elementId ? newElementWith(e, { isDeleted: true }) : e)), clean],
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+  return true;
+}
+
 /** The template a page uses, read from its frame (`customData.template`). */
 export function frameTemplate(elements: readonly BoardElement[]): TemplateName | null {
   return templateOnFrame(elements);
@@ -555,18 +624,21 @@ export function addStroke(api: BoardApi, points: [number, number][]): void {
   const state = api.getAppState();
   const [x, y] = points[0];
 
-  const [line] = convertToExcalidrawElements([
+  const relative = points.map(([px, py]) => [px - x, py - y] as [number, number]);
+  const [converted] = convertToExcalidrawElements([
     {
       type: "line",
       x,
       y,
-      points: points.map(([px, py]) => [px - x, py - y] as [number, number]),
+      points: relative,
       strokeColor: state.currentItemStrokeColor,
       strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, state.currentItemStrokeWidth),
       roughness: 0,
       frameId: frame?.id ?? null,
     },
   ]);
+  // A `line` skeleton keeps a 100×0 box whatever its points; it is given its own.
+  const line = newElementWith(converted, boxOf(relative));
 
   api.updateScene({ elements: [...elements, line], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }
