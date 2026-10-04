@@ -45,7 +45,7 @@ describe("magicStroke", () => {
   const sceneWith = (stroke: object) => {
     let scene = [stroke, { id: "page", type: "frame", isDeleted: false }] as unknown[];
     const api = {
-      getAppState: () => ({ zoom: { value: 1 } }),
+      getAppState: () => ({ zoom: { value: 1 }, currentItemRoughness: 2, currentItemStrokeStyle: "dashed", currentItemFillStyle: "hachure", currentItemBackgroundColor: "#ffc9c9", currentItemRoundness: "round" }),
       getSceneElementsIncludingDeleted: () => scene,
       updateScene: vi.fn(({ elements }: { elements: unknown[] }) => (scene = elements)),
     } as unknown as BoardApi;
@@ -60,7 +60,8 @@ describe("magicStroke", () => {
     const [stroke, frame, clean] = scene();
     expect(stroke).toMatchObject({ id: "f1", isDeleted: true });
     expect(frame).toMatchObject({ id: "page", isDeleted: false });
-    expect(clean).toMatchObject({ type: "ellipse", strokeColor: "#ffffff", frameId: "page", roughness: 0 });
+    // The side panel's style, as a shape drawn with Excalidraw's own tool; the pen's colour.
+    expect(clean).toMatchObject({ type: "ellipse", strokeColor: "#ffffff", frameId: "page", roughness: 2, strokeStyle: "dashed", fillStyle: "hachure", backgroundColor: "#ffc9c9", roundness: null });
     expect(clean.x).toBeCloseTo(30, 0); // 10 + (100 − 80)
   });
 

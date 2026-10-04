@@ -450,6 +450,10 @@ export function applyPen(api: BoardApi, pen: Pen): void {
  * Ctrl+Z gives the hand-drawn stroke back. A stroke it is unsure of is left alone.
  * Returns whether it swapped.
  */
+/** Excalidraw's `ROUNDNESS` values (constants it does not export). */
+const ROUNDNESS_PROPORTIONAL = 2 as const;
+const ROUNDNESS_ADAPTIVE = 3 as const;
+
 function boxOf(points: [number, number][]): { width: number; height: number } {
   const xs = points.map((p) => p[0]);
   const ys = points.map((p) => p[1]);
@@ -461,19 +465,30 @@ export function magicStroke(api: BoardApi, elementId: string): boolean {
   const stroke = elements.find((e) => e.id === elementId && !e.isDeleted);
   if (!stroke || stroke.type !== "freedraw") return false;
   // ~24 screen pixels, whatever the zoom: below that a stroke is handwriting.
+  const state = api.getAppState();
   const shape = recognise(
     stroke.points.map(([px, py]) => [stroke.x + px, stroke.y + py] as [number, number]),
-    24 / api.getAppState().zoom.value,
+    24 / state.zoom.value,
   );
   if (!shape) return false;
 
+  // Styled as Excalidraw styles a shape drawn with its own tools — the side
+  // panel's edges, line style, fill and corners (owner, 2026-10-04) — in the
+  // pen's colour and width, so it is edited from that panel like any other.
   const look = {
     strokeColor: stroke.strokeColor,
     strokeWidth: Math.max(STREAM_DEFAULTS.minStrokeWidth, stroke.strokeWidth),
     opacity: stroke.opacity,
-    roughness: 0,
+    roughness: state.currentItemRoughness,
+    strokeStyle: state.currentItemStrokeStyle,
+    fillStyle: state.currentItemFillStyle,
+    backgroundColor: state.currentItemBackgroundColor,
     frameId: stroke.frameId,
   };
+  // As Excalidraw's `getCurrentItemRoundness`: adaptive for a rectangle, proportional
+  // for the rest; an ellipse has no corners to round.
+  const roundness =
+    state.currentItemRoundness !== "round" || shape.type === "ellipse" ? null : { type: shape.type === "rectangle" ? ROUNDNESS_ADAPTIVE : ROUNDNESS_PROPORTIONAL };
   const relative = (points: [number, number][]) => {
     const [ox, oy] = points[0];
     return { x: ox, y: oy, points: points.map(([px, py]) => [px - ox, py - oy] as [number, number]) };
@@ -487,7 +502,7 @@ export function magicStroke(api: BoardApi, elementId: string): boolean {
   const [converted] = convertToExcalidrawElements([skeleton]);
   // A `line` skeleton keeps a 100×0 box whatever its points (only arrows are
   // measured), so a line or a triangle is given the box its points make.
-  const clean = "points" in skeleton ? newElementWith(converted, boxOf(skeleton.points)) : converted;
+  const clean = newElementWith(converted, { roundness, ...("points" in skeleton ? boxOf(skeleton.points) : {}) });
 
   api.updateScene({
     elements: [...elements.map((e) => (e.id === elementId ? newElementWith(e, { isDeleted: true }) : e)), clean],
