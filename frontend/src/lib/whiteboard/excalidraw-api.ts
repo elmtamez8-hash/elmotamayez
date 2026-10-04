@@ -651,11 +651,14 @@ const LIBRARY_KEY = "whiteboard.library";
  * `save` may throw (storage full or blocked) — Excalidraw then says so.
  */
 const libraryAdapter = {
-  load: async () => {
+  load: async ({ source }: { source: string }) => {
     try {
-      const raw = localStorage.getItem(LIBRARY_KEY);
-      const mine: LibraryItem[] = raw ? portableItems(JSON.parse(raw)) : [];
-      return { libraryItems: await withStarter(mine) };
+      const mine = (): LibraryItem[] => {
+        const raw = localStorage.getItem(LIBRARY_KEY);
+        return raw ? portableItems(JSON.parse(raw)) : [];
+      };
+      // Excalidraw reads the library again before every save: only the opening adds the starter.
+      return { libraryItems: source === "load" ? await withStarter(mine) : mine() };
     } catch {
       return null;
     }
@@ -673,18 +676,20 @@ const STARTER_URL = "/whiteboard/library/starter.excalidrawlib";
  * comes back, and a later file adds only what is new. A failed fetch leaves the
  * library as it is and tries again next time.
  */
-export async function withStarter<T extends { id: string }>(mine: T[], fetchStarter: () => Promise<T[]> = loadStarter): Promise<T[]> {
+export async function withStarter<T extends { id: string }>(readMine: () => T[], fetchStarter: () => Promise<T[]> = loadStarter): Promise<T[]> {
+  let starter: T[];
+  try {
+    starter = await fetchStarter();
+  } catch {
+    return readMine();
+  }
+  // Read AFTER the fetch: another tab may have saved while it was on its way.
+  const mine = readMine();
   let offered: string[] = [];
   try {
     offered = JSON.parse(localStorage.getItem(STARTER_KEY) ?? "[]") as string[];
   } catch {
     // unreadable: offer again; ids already in the library are skipped below
-  }
-  let starter: T[];
-  try {
-    starter = await fetchStarter();
-  } catch {
-    return mine;
   }
   const have = new Set([...offered, ...mine.map((item) => item.id)]);
   const fresh = starter.filter((item) => !have.has(item.id));
@@ -694,7 +699,9 @@ export async function withStarter<T extends { id: string }>(mine: T[], fetchStar
     localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
     localStorage.setItem(STARTER_KEY, JSON.stringify([...offered, ...fresh.map((item) => item.id)]));
   } catch {
-    // storage full or blocked: shown now, offered again next visit
+    // Storage full: added now, every later save of the teacher's own item would
+    // fail with it — so not added at all, and offered again next visit.
+    return mine;
   }
   return library;
 }
