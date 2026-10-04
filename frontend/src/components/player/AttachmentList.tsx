@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ApiError } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { media } from "@/lib/media";
 
@@ -31,9 +32,17 @@ export interface StudentAttachment {
 export function AttachmentList({
   lessonUuid,
   attachments,
+  onStale,
 }: {
   lessonUuid: string;
   attachments: StudentAttachment[];
+  /**
+   * Reads the list again. A file the student was shown can be gone by the time
+   * they press «فتح» — a teacher who re-sends the board's PDF REPLACES the old
+   * attachment (spec 039 · Q2) — and a 404 with no way out but a reload is what
+   * they would otherwise get.
+   */
+  onStale?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -63,7 +72,12 @@ export function AttachmentList({
       */
       window.open(grant.manifest_url, "_blank", "noopener");
     } catch (err: unknown) {
-      setError(userMessage(err));
+      if (onStale && err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+        setError("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.");
+        await onStale().catch(() => undefined);
+      } else {
+        setError(userMessage(err));
+      }
     } finally {
       setBusy(null);
     }

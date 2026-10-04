@@ -659,6 +659,11 @@ export default function LearnLessonPage({
           <AttachmentList
             lessonUuid={lesson}
             attachments={detail.attachments}
+            // The files only: the rest of the page (the player, the progress) stays as it is.
+            onStale={async () => {
+              const fresh = await api.get<LessonResponse>(`/learn/lessons/${lesson}`);
+              setDetail((current) => (current ? { ...current, attachments: fresh.lesson.attachments } : current));
+            }}
           />
         )}
 
