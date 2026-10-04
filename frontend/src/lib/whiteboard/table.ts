@@ -148,7 +148,10 @@ export function parseClipboardTable(html: string, text: string): TableData | nul
   const fromSheet = /google-sheets-html-origin|urn:schemas-microsoft-com:office:excel|Excel\.Sheet/i.test(html);
   if (html.includes("<table") && (fromSheet || tabGrid)) {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    grid = sheetGrid([...doc.querySelectorAll("table tr")].filter((tr) => tr.querySelector("td, th")));
+    // Every row, the empty ones too: Excel writes a row a merge covers whole as a
+    // bare <tr>, and dropping it moved the merge down onto the data (caught in
+    // review). Cut first — a merge only reaches down, so later rows change nothing above.
+    grid = sheetGrid([...doc.querySelectorAll("table tr")].slice(0, MAX_ROWS));
   } else if (!html && tabGrid) {
     // Tabs alone only without rich text: a Word list or indented code carries both.
     grid = textLines.map((line) => line.split("\t").map((cell) => ({ text: cell.trim() })));
@@ -180,7 +183,8 @@ function sheetGrid(rows: Element[]): TableCell[][] {
     }
   });
   // A row a merge left gaps in (a short row beside a tall cell) reads them as empty.
-  return grid.map((row) => Array.from(row, (cell) => cell ?? { text: "" }));
+  // A row with no cell of its own and none reaching into it is no row at all.
+  return grid.filter((row) => row.length > 0).map((row) => Array.from(row, (cell) => cell ?? { text: "" }));
 }
 
 function lines(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {

@@ -43,6 +43,18 @@ describe("parseClipboardTable", () => {
     expect(table?.rows[1].cells[0].span).toEqual([2, 1]);
   });
 
+  it("a row a merge covers whole stays a row, so the data under it keeps its columns", () => {
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><table>
+      <tr><td rowspan=2 colspan=2>العنوان</td></tr>
+      <tr></tr>
+      <tr><td>x</td><td>y</td></tr></table></html>`;
+    expect(parseClipboardTable(html, "")?.rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ["العنوان", ""],
+      ["", ""],
+      ["x", "y"],
+    ]);
+  });
+
   it("never turns clipboard markup into markup", () => {
     const table = parseClipboardTable("<google-sheets-html-origin><table><tr><td><img src=x onerror=alert(1)>a</td><td><b>b</b></td></tr></table>", "");
     expect(table?.rows[0].cells.map((cell) => cell.text)).toEqual(["a", "b"]);

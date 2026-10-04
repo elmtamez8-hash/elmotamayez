@@ -3,12 +3,13 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { cellRange, coveredBy, MAX_COLS, MAX_ROWS, mergeCells, normalise, splitCell, TABLE_FILLS, type TableData } from "@/lib/whiteboard/table";
+import { type CellRange, cellRange, coveredBy, MAX_COLS, MAX_ROWS, mergeCells, normalise, splitCell, TABLE_FILLS, type TableData } from "@/lib/whiteboard/table";
 import { WB } from "@/lib/whiteboard/strings";
 
 /** Each arrow's step [rows, columns] in a right-to-left table, where the next column is to the left. */
 const STEPS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, 1], ArrowRight: [0, -1] };
 const clamp = (n: number, most: number) => Math.min(most, Math.max(0, n));
+const sameRange = (a: CellRange, b: CellRange) => a.top === b.top && a.left === b.left && a.bottom === b.bottom && a.right === b.right;
 
 /**
  * The table's cells, edited (story 6): rows and columns added and removed, a
@@ -37,8 +38,11 @@ export function TableEditor({
   const covered = coveredBy(table);
   // A selection only once Shift + click picked a second cell: a merged cell
   // focused alone is one cell, not a range to merge again or fill underneath.
-  const many = corner !== null && (corner[0] !== focus[0] || corner[1] !== focus[1]);
-  const range = many ? cellRange(table, focus, corner) : { top: focus[0], left: focus[1], bottom: focus[0], right: focus[1] };
+  const own = cellRange(table, focus, focus);
+  const range = corner ? cellRange(table, focus, corner) : own;
+  // A selection only once it reaches past the focused cell: a merged cell alone
+  // is one cell, not a range to merge again or fill underneath.
+  const many = !sameRange(range, own);
   const selected = (r: number, c: number) => r >= range.top && r <= range.bottom && c >= range.left && c <= range.right;
   const merged = Boolean(table.rows[focus[0]]?.cells[focus[1]]?.span);
 
@@ -138,8 +142,16 @@ export function TableEditor({
                             const step = STEPS[event.key];
                             if (!step || !event.ctrlKey || !event.shiftKey) return;
                             event.preventDefault();
-                            const [from, by] = [corner ?? focus, table.dir === "rtl" ? step : [step[0], -step[1]]];
-                            setCorner([clamp(from[0] + by[0], rows - 1), clamp(from[1] + by[1], cols - 1)]);
+                            const by = table.dir === "rtl" ? step : [step[0], -step[1]];
+                            // Past a merged cell in one press: a step that changes nothing steps again.
+                            let next = corner ?? focus;
+                            for (;;) {
+                              const moved: [number, number] = [clamp(next[0] + by[0], rows - 1), clamp(next[1] + by[1], cols - 1)];
+                              if (moved[0] === next[0] && moved[1] === next[1]) return;
+                              next = moved;
+                              if (!sameRange(cellRange(table, focus, next), range)) break;
+                            }
+                            setCorner(next);
                           }}
                           onFocus={() => {
                             setFocus([r, c]);
