@@ -140,7 +140,7 @@ export function splitCell(data: TableData, r: number, c: number): TableData {
  * clipboard holds no table of at least two cells (one cell is plain text).
  */
 export function parseClipboardTable(html: string, text: string): TableData | null {
-  let grid: string[][] = [];
+  let grid: TableCell[][] = [];
   // A tab grid in the plain text: two lines or more, every line with a tab.
   const textLines = text.replace(/\r\n?/g, "\n").replace(/\n$/, "").split("\n");
   const tabGrid = textLines.length > 1 && textLines.every((line) => line.includes("\t"));
@@ -148,21 +148,43 @@ export function parseClipboardTable(html: string, text: string): TableData | nul
   const fromSheet = /google-sheets-html-origin|urn:schemas-microsoft-com:office:excel|Excel\.Sheet/i.test(html);
   if (html.includes("<table") && (fromSheet || tabGrid)) {
     const doc = new DOMParser().parseFromString(html, "text/html");
-    grid = [...doc.querySelectorAll("table tr")].map((tr) =>
-      [...tr.querySelectorAll("td, th")].map((cell) => (cell.textContent ?? "").replace(/\s+/g, " ").trim()),
-    );
+    // Every row, the empty ones too: Excel writes a row a merge covers whole as a
+    // bare <tr>, and dropping it moved the merge down onto the data (caught in
+    // review). Cut first — a merge only reaches down, so later rows change nothing above.
+    grid = sheetGrid([...doc.querySelectorAll("table tr")].slice(0, MAX_ROWS));
   } else if (!html && tabGrid) {
     // Tabs alone only without rich text: a Word list or indented code carries both.
-    grid = textLines.map((line) => line.split("\t").map((cell) => cell.trim()));
+    grid = textLines.map((line) => line.split("\t").map((cell) => ({ text: cell.trim() })));
   }
-  grid = grid.filter((row) => row.length > 0).slice(0, MAX_ROWS).map((row) => row.slice(0, MAX_COLS));
-  if (grid.flat().filter((cell) => cell !== "").length < 2) return null;
+  grid = grid.slice(0, MAX_ROWS).map((row) => row.slice(0, MAX_COLS));
+  if (grid.flat().filter((cell) => cell.text !== "").length < 2) return null;
 
-  return normalise({
-    ...blankTable(0, 0),
-    rows: grid.map((row) => ({ cells: row.map((value) => ({ text: value })) })),
-    colWidths: [],
+  // normalise cuts a merge that ran past the cut.
+  return normalise({ ...blankTable(0, 0), rows: grid.map((cells) => ({ cells })), colWidths: [] });
+}
+
+/**
+ * A sheet's rows laid on the grid the way a browser lays them: a merged cell
+ * (`rowspan` / `colspan`) takes its place below and beside it, and the next
+ * cells move past it — read cell by cell, the columns after a merge shifted.
+ */
+function sheetGrid(rows: Element[]): TableCell[][] {
+  const grid: TableCell[][] = rows.map(() => []);
+  const span = (cell: Element, name: string, most: number) => Math.min(most, Math.max(1, Number.parseInt(cell.getAttribute(name) ?? "", 10) || 1));
+  rows.forEach((tr, r) => {
+    let c = 0;
+    for (const cell of tr.querySelectorAll("td, th")) {
+      while (grid[r][c]) c++;
+      const h = span(cell, "rowspan", rows.length - r);
+      const w = span(cell, "colspan", MAX_COLS);
+      for (let y = r; y < r + h; y++) for (let x = c; x < c + w; x++) grid[y][x] = { text: "" };
+      grid[r][c] = { text: (cell.textContent ?? "").replace(/\s+/g, " ").trim(), ...(h * w > 1 ? { span: [h, w] as [number, number] } : {}) };
+      c += w;
+    }
   });
+  // A row a merge left gaps in (a short row beside a tall cell) reads them as empty.
+  // A row with no cell of its own and none reaching into it is no row at all.
+  return grid.filter((row) => row.length > 0).map((row) => Array.from(row, (cell) => cell ?? { text: "" }));
 }
 
 function lines(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {

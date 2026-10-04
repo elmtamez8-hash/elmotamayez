@@ -53,4 +53,37 @@ describe("TableEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: WB.table.split }));
     expect(container.querySelectorAll("td")).toHaveLength(4);
   });
+
+  it("stretches the selection with Ctrl+Shift+arrows, left being the next column right to left", () => {
+    const onSave = vi.fn();
+    render(<TableEditor initial={blankTable(2, 3)} saving={false} onSave={onSave} onClose={vi.fn()} />);
+    const first = screen.getByLabelText(WB.table.cell(1, 1));
+    fireEvent.focus(first);
+    fireEvent.keyDown(first, { key: "ArrowLeft", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(first, { key: "ArrowDown", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(first, { key: "ArrowDown", ctrlKey: true, shiftKey: true }); // past the last row: stays
+    expect(screen.getByRole("status").textContent).toBe(WB.table.selection(2, 2));
+
+    fireEvent.click(screen.getByRole("button", { name: WB.table.merge }));
+    fireEvent.click(screen.getByRole("button", { name: WB.table.save }));
+    expect(onSave.mock.calls[0][0].rows[0].cells[0].span).toEqual([2, 2]);
+  });
+
+  it("steps past a merged cell in one press, and a merged cell alone is no selection", () => {
+    const table = blankTable(2, 4);
+    table.rows[0].cells[1] = { text: "", span: [1, 2] };
+    render(<TableEditor initial={table} saving={false} onSave={vi.fn()} onClose={vi.fn()} />);
+    const first = screen.getByLabelText(WB.table.cell(1, 1));
+    fireEvent.focus(first);
+    fireEvent.keyDown(first, { key: "ArrowLeft", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("status").textContent).toBe(WB.table.selection(1, 3));
+    fireEvent.keyDown(first, { key: "ArrowLeft", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("status").textContent).toBe(WB.table.selection(1, 4));
+
+    const merged = screen.getByLabelText(WB.table.cell(1, 2));
+    fireEvent.focus(merged);
+    fireEvent.keyDown(merged, { key: "ArrowDown", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("status").textContent).toBe(WB.table.selection(2, 2));
+    expect(screen.getByRole("button", { name: WB.table.merge }).hasAttribute("disabled")).toBe(false);
+  });
 });

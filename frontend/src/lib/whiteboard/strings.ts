@@ -90,7 +90,9 @@ export const WB = {
     noFill: "بلا لون",
     merge: "دمج الخلايا",
     split: "تقسيم الخلية",
-    mergeHint: "لدمج خلايا: اضغط خلية، ثم Shift مع الضغط على خلية أخرى.",
+    mergeHint: "لدمج خلايا: اضغط خلية، ثم Shift مع الضغط على خلية أخرى — أو Ctrl+Shift مع الأسهم.",
+    /** Read out as the selection grows: «٢ في ٣», rows by columns — no counted noun. */
+    selection: (rows: number, cols: number) => `محدَّد ${arabicNumber(rows)} في ${arabicNumber(cols)}`,
     cell: (row: number, col: number) => `الصف ${arabicNumber(row)}، العمود ${arabicNumber(col)}`,
     save: "حفظ",
     cancel: "إلغاء",
