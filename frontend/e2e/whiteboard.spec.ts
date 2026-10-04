@@ -194,3 +194,74 @@ test.describe("الاستعادة من الجهاز", () => {
     await expect.poll(async () => typesOf((await serverPages(request, board))[0]), { timeout: 20_000 }).toContain("rectangle");
   });
 });
+
+/** The panel's tool groups are tiles now (2026-10-03): open one by its name. */
+async function openTools(page: Page, group: string) {
+  await page.getByRole("button", { name: group, exact: true }).click();
+}
+
+const liveTypes = (page: ServerPage) =>
+  (JSON.parse(page.scene) as { elements: { type: string; isDeleted?: boolean; customData?: { kind?: string; latex?: string } }[] }).elements.filter((e) => !e.isDeleted);
+
+test.describe("الاستيراد", () => {
+  test("a three-page PDF becomes three pages, each with its picture, done in the browser", async ({ page, request }) => {
+    const { PDFDocument, StandardFonts } = await import("pdf-lib");
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (let i = 1; i <= 3; i++) pdf.addPage([842, 595]).drawText(`Page ${i}`, { x: 60, y: 500, size: 48, font });
+    const bytes = Buffer.from(await pdf.save());
+
+    const board = await createBoard(request, "استيراد PDF");
+    await openBoard(page, board);
+    await openTools(page, "استيراد");
+    await page.locator('input[type="file"]').setInputFiles({ name: "lesson.pdf", mimeType: "application/pdf", buffer: bytes });
+
+    // The blank first page, then the three imported ones — and the board shows the first of them.
+    await expect(page.getByRole("status").filter({ hasText: "أُضيف ٣ صفحات" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("٢ من ٤")).toBeVisible();
+    await expect.poll(async () => (await serverPages(request, board)).length, { timeout: 30_000 }).toBe(4);
+    await expect
+      .poll(async () => (await serverPages(request, board)).slice(1).map((p) => liveTypes(p).some((e) => e.type === "image")), { timeout: 30_000 })
+      .toEqual([true, true, true]);
+  });
+});
+
+test.describe("القلم السحري والآلة الحاسبة", () => {
+  test("a circle drawn with the magic pen is saved as a clean ellipse", async ({ page, request }) => {
+    const board = await createBoard(request, "القلم السحري");
+    await openBoard(page, board);
+    await openTools(page, "أدوات");
+    await page.getByRole("button", { name: "قلم سحري ✦" }).click();
+
+    const at = { x: 760, y: 420 };
+    await page.mouse.move(at.x + 120, at.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 48; i++) {
+      const t = (i / 48) * Math.PI * 2;
+      await page.mouse.move(at.x + 120 * Math.cos(t), at.y + 80 * Math.sin(t));
+    }
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => liveTypes((await serverPages(request, board))[0]).map((e) => e.type).sort(), { timeout: 30_000 })
+      .toEqual(["ellipse", "frame"]);
+  });
+
+  test("the calculator works a sum out and puts «question = answer» on the board", async ({ page, request }) => {
+    const board = await createBoard(request, "الآلة الحاسبة");
+    await openBoard(page, board);
+    await openTools(page, "أدوات");
+    await page.getByRole("button", { name: "آلة حاسبة" }).click();
+
+    const calc = page.locator('[data-effect="calculator"]');
+    await expect(calc.locator("math-field")).toHaveCount(2, { timeout: 30_000 });
+    for (const key of ["1", "▭⁄▭", "2", "▶", "+", "1", "▭⁄▭", "3"]) await calc.getByRole("button", { name: key, exact: true }).click();
+    await calc.getByRole("button", { name: "=", exact: true }).click();
+    await expect.poll(() => calc.locator("math-field").nth(1).evaluate((el) => (el as HTMLElement & { value: string }).value), { timeout: 30_000 }).toBe(String.raw`\frac{5}{6}`);
+
+    await calc.getByRole("button", { name: "حطّها على السبّورة" }).click();
+    await expect
+      .poll(async () => liveTypes((await serverPages(request, board))[0]).find((e) => e.customData?.kind === "math")?.customData?.latex, { timeout: 30_000 })
+      .toBe(String.raw`\frac12+\frac13=\frac{5}{6}`);
+  });
+});
