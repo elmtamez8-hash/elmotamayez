@@ -659,10 +659,15 @@ export default function LearnLessonPage({
           <AttachmentList
             lessonUuid={lesson}
             attachments={detail.attachments}
-            // The files only: the rest of the page (the player, the progress) stays as it is.
+            // The files only — unless the lesson closed meanwhile, which the page then says.
             onStale={async () => {
               const fresh = await api.get<LessonResponse>(`/learn/lessons/${lesson}`);
-              setDetail((current) => (current ? { ...current, attachments: fresh.lesson.attachments } : current));
+              if (!fresh.can_access) {
+                setDetail(fresh.lesson);
+                setBlocked(fresh);
+                return;
+              }
+              setDetail((current) => (current && current.uuid === fresh.lesson.uuid ? { ...current, attachments: fresh.lesson.attachments } : current));
             }}
           />
         )}

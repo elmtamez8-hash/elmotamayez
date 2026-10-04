@@ -38,13 +38,28 @@ describe("AttachmentList", () => {
     expect(onStale).toHaveBeenCalledTimes(1);
   });
 
-  it("does not reload on any other failure", async () => {
-    requestAssetPlayback.mockRejectedValue(new ApiError("server", 500, {}));
+  it("keeps the message when the reload emptied the list, and shows a failed reload as it is", async () => {
+    requestAssetPlayback.mockRejectedValue(new ApiError("not found", 404, {}));
+    const { rerender } = render(<AttachmentList lessonUuid="l1" attachments={[PDF]} onStale={async () => undefined} />);
+    fireEvent.click(screen.getByRole("button", { name: "فتح" }));
+    await screen.findByText("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.");
+    rerender(<AttachmentList lessonUuid="l1" attachments={[]} onStale={async () => undefined} />);
+    expect(screen.getByText("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.")).toBeTruthy();
+
+    rerender(<AttachmentList lessonUuid="l1" attachments={[PDF]} onStale={() => Promise.reject(new ApiError("gone", 404, {}))} />);
+    fireEvent.click(screen.getByRole("button", { name: "فتح" }));
+    await waitFor(() => expect(screen.queryByText("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.")).toBeNull());
+  });
+
+  it("does not reload on a refusal (the student lost the lesson) or any other failure", async () => {
+    requestAssetPlayback.mockRejectedValueOnce(new ApiError("forbidden", 403, {})).mockRejectedValue(new ApiError("server", 500, {}));
     const onStale = vi.fn().mockResolvedValue(undefined);
     render(<AttachmentList lessonUuid="l1" attachments={[PDF]} onStale={onStale} />);
 
     fireEvent.click(screen.getByRole("button", { name: "فتح" }));
 
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "فتح" }));
     await screen.findByRole("alert");
     expect(onStale).not.toHaveBeenCalled();
   });

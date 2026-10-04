@@ -47,7 +47,8 @@ export function AttachmentList({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  if (attachments.length === 0) return null;
+  // An error stays readable even when the list it came from emptied.
+  if (attachments.length === 0 && error === "") return null;
 
   const open = async (attachment: StudentAttachment) => {
     setBusy(attachment.uuid);
@@ -72,9 +73,15 @@ export function AttachmentList({
       */
       window.open(grant.manifest_url, "_blank", "noopener");
     } catch (err: unknown) {
-      if (onStale && err instanceof ApiError && (err.status === 404 || err.status === 403)) {
-        setError("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.");
-        await onStale().catch(() => undefined);
+      // 404 only: the file is gone (a re-sent board PDF REPLACES it). A 403 is the
+      // student losing the lesson, and its own message says so.
+      if (onStale && err instanceof ApiError && err.status === 404) {
+        try {
+          await onStale();
+          setError("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.");
+        } catch (reload: unknown) {
+          setError(userMessage(reload));
+        }
       } else {
         setError(userMessage(err));
       }
