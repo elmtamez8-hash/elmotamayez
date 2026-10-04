@@ -53,4 +53,19 @@ describe("TableEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: WB.table.split }));
     expect(container.querySelectorAll("td")).toHaveLength(4);
   });
+
+  it("stretches the selection with Ctrl+Shift+arrows, left being the next column right to left", () => {
+    const onSave = vi.fn();
+    render(<TableEditor initial={blankTable(2, 3)} saving={false} onSave={onSave} onClose={vi.fn()} />);
+    const first = screen.getByLabelText(WB.table.cell(1, 1));
+    fireEvent.focus(first);
+    fireEvent.keyDown(first, { key: "ArrowLeft", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(first, { key: "ArrowDown", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(first, { key: "ArrowDown", ctrlKey: true, shiftKey: true }); // past the last row: stays
+    expect(screen.getByRole("status").textContent).toBe(WB.table.selection(2, 2));
+
+    fireEvent.click(screen.getByRole("button", { name: WB.table.merge }));
+    fireEvent.click(screen.getByRole("button", { name: WB.table.save }));
+    expect(onSave.mock.calls[0][0].rows[0].cells[0].span).toEqual([2, 2]);
+  });
 });

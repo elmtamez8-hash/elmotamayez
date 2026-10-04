@@ -28,6 +28,21 @@ describe("parseClipboardTable", () => {
     expect(parseClipboardTable("<table><tr><td>one</td></tr></table>", "one")).toBeNull();
   });
 
+  it("keeps Excel's merged cells merged, and the columns after them in place", () => {
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><table>
+      <tr><td colspan=2>العنوان</td><td>ج</td></tr>
+      <tr><td rowspan=2>أ</td><td>1</td><td>2</td></tr>
+      <tr><td>3</td><td>4</td></tr></table></html>`;
+    const table = parseClipboardTable(html, "");
+    expect(table?.rows.map((row) => row.cells.map((cell) => cell.text))).toEqual([
+      ["العنوان", "", "ج"],
+      ["أ", "1", "2"],
+      ["", "3", "4"],
+    ]);
+    expect(table?.rows[0].cells[0].span).toEqual([1, 2]);
+    expect(table?.rows[1].cells[0].span).toEqual([2, 1]);
+  });
+
   it("never turns clipboard markup into markup", () => {
     const table = parseClipboardTable("<google-sheets-html-origin><table><tr><td><img src=x onerror=alert(1)>a</td><td><b>b</b></td></tr></table>", "");
     expect(table?.rows[0].cells.map((cell) => cell.text)).toEqual(["a", "b"]);

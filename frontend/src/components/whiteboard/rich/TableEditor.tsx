@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { cellRange, coveredBy, MAX_COLS, MAX_ROWS, mergeCells, normalise, splitCell, TABLE_FILLS, type TableData } from "@/lib/whiteboard/table";
 import { WB } from "@/lib/whiteboard/strings";
 
+/** Each arrow's step [rows, columns] in a right-to-left table, where the next column is to the left. */
+const STEPS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, 1], ArrowRight: [0, -1] };
+const clamp = (n: number, most: number) => Math.min(most, Math.max(0, n));
+
 /**
  * The table's cells, edited (story 6): rows and columns added and removed, a
  * cell's fill, and its direction. Right to left by default — the first column
@@ -99,6 +103,9 @@ export function TableEditor({
           </Button>
         </div>
         <p className="text-xs text-ink-muted">{WB.table.mergeHint}</p>
+        <p role="status" className="sr-only">
+          {many ? WB.table.selection(range.bottom - range.top + 1, range.right - range.left + 1) : ""}
+        </p>
 
         <div className="overflow-auto">
           <table dir={table.dir} className="border-collapse">
@@ -124,6 +131,15 @@ export function TableEditor({
                             if (!event.shiftKey) return;
                             event.preventDefault();
                             setCorner([r, c]);
+                          }}
+                          onKeyDown={(event) => {
+                            // Ctrl+Shift+arrow stretches it from the keyboard (owner decision);
+                            // left and right follow the screen, so they flip right to left.
+                            const step = STEPS[event.key];
+                            if (!step || !event.ctrlKey || !event.shiftKey) return;
+                            event.preventDefault();
+                            const [from, by] = [corner ?? focus, table.dir === "rtl" ? step : [step[0], -step[1]]];
+                            setCorner([clamp(from[0] + by[0], rows - 1), clamp(from[1] + by[1], cols - 1)]);
                           }}
                           onFocus={() => {
                             setFocus([r, c]);
