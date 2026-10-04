@@ -31,9 +31,11 @@ export function TableEditor({
   const rows = table.rows.length;
   const cols = table.colWidths.length;
   const covered = coveredBy(table);
-  const range = cellRange(table, focus, corner ?? focus);
+  // A selection only once Shift + click picked a second cell: a merged cell
+  // focused alone is one cell, not a range to merge again or fill underneath.
+  const many = corner !== null && (corner[0] !== focus[0] || corner[1] !== focus[1]);
+  const range = many ? cellRange(table, focus, corner) : { top: focus[0], left: focus[1], bottom: focus[0], right: focus[1] };
   const selected = (r: number, c: number) => r >= range.top && r <= range.bottom && c >= range.left && c <= range.right;
-  const many = range.bottom > range.top || range.right > range.left;
   const merged = Boolean(table.rows[focus[0]]?.cells[focus[1]]?.span);
 
   const cell = (r: number, c: number, change: Partial<TableData["rows"][number]["cells"][number]>) =>
@@ -51,9 +53,9 @@ export function TableEditor({
     setFocus([0, 0]);
     setCorner(null);
   };
-  const addRow = () => rows < MAX_ROWS && reshape((t) => ({ ...t, rows: [...t.rows, { cells: [] }] }));
+  const addRow = () => rows < MAX_ROWS && setTable((t) => normalise({ ...t, rows: [...t.rows, { cells: [] }] }));
   const removeRow = () => rows > 1 && reshape((t) => ({ ...t, rows: t.rows.slice(0, -1) }));
-  const addCol = () => cols < MAX_COLS && reshape((t) => ({ ...t, colWidths: [...t.colWidths, 240] }));
+  const addCol = () => cols < MAX_COLS && setTable((t) => normalise({ ...t, colWidths: [...t.colWidths, 240] }));
   const removeCol = () =>
     cols > 1 && reshape((t) => ({ ...t, colWidths: t.colWidths.slice(0, -1), rows: t.rows.map((row) => ({ cells: row.cells.slice(0, -1) })) }));
   const merge = () => {

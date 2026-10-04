@@ -45,6 +45,11 @@ describe("TableEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: WB.table.save }));
     expect(onSave.mock.calls[0][0].rows[0].cells[0].span).toEqual([1, 2]);
 
+    // The merged cell focused alone is one cell: nothing to merge again.
+    fireEvent.focus(screen.getByLabelText(WB.table.cell(2, 1)));
+    fireEvent.focus(screen.getByLabelText(WB.table.cell(1, 1)));
+    expect(screen.getByRole("button", { name: WB.table.merge }).hasAttribute("disabled")).toBe(true);
+
     fireEvent.click(screen.getByRole("button", { name: WB.table.split }));
     expect(container.querySelectorAll("td")).toHaveLength(4);
   });
