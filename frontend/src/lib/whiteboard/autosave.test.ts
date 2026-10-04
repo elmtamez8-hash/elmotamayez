@@ -57,6 +57,24 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("autosave", () => {
+  it("works out a tracked page's hash only when it first changes — a page never shown is never read", () => {
+    const { save, deps } = harness();
+    const lazy = vi.fn(() => 7);
+    save.track("p2", 1, lazy);
+    expect(lazy).not.toHaveBeenCalled();
+
+    const reports = () => (deps.onState as ReturnType<typeof vi.fn>).mock.calls.length;
+    const before = reports();
+    save.change("p2", 7, () => "same"); // what it held: nothing to save
+    expect(lazy).toHaveBeenCalledTimes(1);
+    expect(reports()).toBe(before);
+
+    save.change("p2", 8, () => "new");
+    expect(lazy).toHaveBeenCalledTimes(1);
+    expect(reports()).toBeGreaterThan(before);
+    expect(lastState(deps)).not.toBe("saved");
+  });
+
   it("sends one request 1.5 s after drawing stops, and marks dirty only on a real change", async () => {
     const { save, calls } = harness();
 

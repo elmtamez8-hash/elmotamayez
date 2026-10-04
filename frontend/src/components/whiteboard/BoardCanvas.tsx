@@ -90,6 +90,7 @@ import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
 import { MathError, renderMath } from "@/lib/whiteboard/math";
 import { blankTable, parseClipboardTable, renderTable } from "@/lib/whiteboard/table";
 import { PageCover } from "@/components/whiteboard/PageCover";
+import { PageStore } from "@/lib/whiteboard/page-store";
 import { PagesSidebar, PagesTab } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
 import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
@@ -166,7 +167,7 @@ function readSound(): boolean {
   }
 }
 
-type Pages = Map<string, readonly BoardElement[]>;
+type Pages = PageStore<BoardElement>;
 
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
@@ -194,7 +195,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const [reveal, setReveal] = useState(false);
   const [screen, setScreen] = useState({ index: 0, count: 1 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const pages = useRef<Pages>(new Map());
+  const pages = useRef<Pages>(new PageStore<BoardElement>());
   const { user } = useAuth();
   const apiRef = useRef<BoardApi | null>(null);
   apiRef.current = api;
@@ -218,7 +219,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       hash: sceneVersion,
       document: (elements) => pageDocument(elements, backgroundRef.current),
       reload: (fresh) => {
-        pages.current = new Map(fresh.pages.map((page) => [page.uuid, restorePage(parseScene(page).elements)]));
+        pages.current = PageStore.of(fresh.pages, restorePage);
         const index = Math.min(pageIndexRef.current, fresh.pages.length - 1);
         if (apiRef.current) loadPage(apiRef.current, pages.current.get(fresh.pages[index].uuid) ?? []);
         setPageIndex(index);
@@ -413,9 +414,10 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     Promise.all([ensureArabicFont(), boards.show(boardUuid)])
       .then(([, detail]) => {
         if (!alive) return;
-        pages.current = new Map(detail.pages.map((page) => [page.uuid, restorePage(parseScene(page).elements)]));
-        // Every picture's bytes now, before the class needs them (T072).
-        pictures.prefetch([...pages.current.values()].flatMap((elements) => pictureIds(elements)));
+        // Restored page by page as each is first read; every picture's bytes now,
+        // before the class needs them (T072).
+        pages.current = PageStore.of(detail.pages, restorePage);
+        pictures.prefetch(pages.current.pictureIds());
         setBackground(detail.background);
         setBoard(detail);
       })
@@ -1050,7 +1052,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             pages={board.pages.map((page, index) => ({
               uuid: page.uuid,
               // The page shown is read live, so its picture follows the drawing.
-              version: index === pageIndex && api ? sceneVersion(api.getSceneElementsIncludingDeleted()) : versionOf(pages.current.get(page.uuid) ?? []),
+              // A page not restored yet keys its thumbnail by the server's version — reading it here would restore all of them.
+              version:
+                index === pageIndex && api
+                  ? sceneVersion(api.getSceneElementsIncludingDeleted())
+                  : pages.current.isRestored(page.uuid)
+                    ? versionOf(pages.current.get(page.uuid) ?? [])
+                    : page.version,
             }))}
             current={pageIndex}
             canEdit={session.held}

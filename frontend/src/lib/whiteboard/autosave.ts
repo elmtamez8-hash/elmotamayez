@@ -57,6 +57,8 @@ export interface AutosaveDeps {
 interface PageSlot {
   version: number;
   hash: number;
+  /** The hash as tracked, worked out when first compared — reading it restores the page (PageStore). */
+  lazyHash?: () => number;
   build: (() => string) | null;
   dirty: boolean;
   /** The hash the in-flight (or retrying) request carries. */
@@ -217,9 +219,10 @@ export function createAutosave(deps: AutosaveDeps) {
 
   return {
     /** A page as the server sent it. */
-    track(page: string, version: number, hash: number): void {
+    track(page: string, version: number, hash: number | (() => number)): void {
       pages.set(page, {
-        version, hash, build: null, dirty: false, sentHash: null, inFlight: false,
+        version, hash: typeof hash === "number" ? hash : Number.NaN, lazyHash: typeof hash === "number" ? undefined : hash,
+        build: null, dirty: false, sentHash: null, inFlight: false,
         retry: null, stopped: false, debounce: null, cancelIdle: null,
       });
     },
@@ -238,6 +241,10 @@ export function createAutosave(deps: AutosaveDeps) {
     /** Excalidraw's onChange for a page; nothing happens unless its elements changed. */
     change(page: string, hash: number, build: () => string): void {
       const slot = pages.get(page);
+      if (slot?.lazyHash) {
+        slot.hash = slot.lazyHash();
+        slot.lazyHash = undefined;
+      }
       if (!slot || ended || !holding || slot.stopped || slot.hash === hash) return;
       slot.hash = hash;
       slot.build = once(build);

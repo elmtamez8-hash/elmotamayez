@@ -75,10 +75,14 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
 
   const boardUuid = board?.uuid ?? null;
 
-  /** Give the autosave every page as the server holds it now. */
+  /**
+   * Give the autosave every page as the server holds it now. The hash is worked
+   * out when the page first changes — reading a page restores it, and doing that
+   * for every page here undid the lazy opening (caught in review).
+   */
   const trackAll = (fresh: BoardDetail) => {
     const p = pagesRef.current;
-    for (const page of fresh.pages) save.current?.track(page.uuid, page.version, p.hash(p.read(page.uuid)));
+    for (const page of fresh.pages) save.current?.track(page.uuid, page.version, () => p.hash(p.read(page.uuid)));
   };
 
   /** A draft left by a crash, a lost network or a lost lock, page by page (R-08). */
