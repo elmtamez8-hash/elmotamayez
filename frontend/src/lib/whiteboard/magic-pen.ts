@@ -101,18 +101,35 @@ export function recognise(points: Point[], minSize = 24): MagicShape | null {
   // drop it when it sits on a straight run between its neighbours.
   if (corners.length > 3 && offSegment(corners[0], corners[corners.length - 1], corners[1]) < 0.1 * diagonal) corners.shift();
 
+  // How much of its box the stroke fills: a rectangle ≈ 1 whatever its rounded
+  // or leaning corners, an ellipse π/4 ≈ 0.79, a diamond or a triangle ≈ 0.5.
+  // A corner count alone read a sloppy rectangle as a diamond (owner, 2026-10-04).
+  const fill = Math.abs(points.reduce((sum, [px, py], i) => {
+    const [qx, qy] = points[(i + 1) % points.length];
+    return sum + px * qy - qx * py;
+  }, 0)) / 2 / (width * height || 1);
+
+  if (corners.length === 3 && fill < 0.7) return { type: "triangle", points: [corners[0], corners[1], corners[2]] };
+  if (fill > 0.83 && corners.length >= 3) return { type: "rectangle", x, y, width, height };
   if (stray < 0.12 && corners.length >= 4) return { type: "ellipse", x, y, width, height };
-  if (corners.length === 3) return { type: "triangle", points: [corners[0], corners[1], corners[2]] };
   if (corners.length === 4) {
-    // …a diamond when its corners sit on the box's edge middles, else a rectangle.
+    // …a diamond when its corners sit nearer the box's edge middles than its corners.
     const middles: Point[] = [
       [cx, y],
       [x + width, cy],
       [cx, y + height],
       [x, cy],
     ];
-    const onMiddles = corners.every((c) => middles.some((m) => dist(c, m) < 0.2 * diagonal));
-    return { type: onMiddles ? "diamond" : "rectangle", x, y, width, height };
+    const boxCorners: Point[] = [
+      [x, y],
+      [x + width, y],
+      [x + width, y + height],
+      [x, y + height],
+    ];
+    const nearest = (c: Point, to: Point[]) => Math.min(...to.map((t) => dist(c, t)));
+    const toMiddles = corners.reduce((sum, c) => sum + nearest(c, middles), 0);
+    const toCorners = corners.reduce((sum, c) => sum + nearest(c, boxCorners), 0);
+    return { type: fill < 0.7 && toMiddles < toCorners ? "diamond" : "rectangle", x, y, width, height };
   }
   if (stray < 0.2) return { type: "ellipse", x, y, width, height };
   return null;

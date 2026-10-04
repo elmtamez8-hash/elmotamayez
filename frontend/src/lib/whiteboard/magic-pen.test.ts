@@ -46,6 +46,15 @@ describe("the magic pen", () => {
     expect(recognise(wobble(along([[120, 0], [240, 0], [240, 150], [0, 150], [0, 0], [120, 0]])))?.type).toBe("rectangle");
   });
 
+  it("keeps a sloppy rectangle a rectangle: leaning, rounded corners, nearly square (owner, 2026-10-04)", () => {
+    // Leaning: each corner pushed 15% of a side.
+    expect(recognise(wobble(along([[20, 0], [240, 10], [225, 160], [0, 150], [20, 0]]), 2))?.type).toBe("rectangle");
+    // Rounded corners: the pen cuts every corner.
+    expect(recognise(wobble(along([[30, 0], [210, 0], [240, 30], [240, 120], [210, 150], [30, 150], [0, 120], [0, 30], [30, 0]]), 2))?.type).toBe("rectangle");
+    // Nearly square, started mid-side.
+    expect(recognise(wobble(along([[100, 0], [200, 4], [196, 200], [2, 196], [0, 2], [100, 0]]), 2))?.type).toBe("rectangle");
+  });
+
   it("tells a diamond and a triangle apart", () => {
     expect(recognise(wobble(along([[100, 0], [200, 80], [100, 160], [0, 80], [100, 0]])))?.type).toBe("diamond");
     expect(recognise(wobble(along([[0, 150], [100, 0], [200, 150], [0, 150]])))?.type).toBe("triangle");
