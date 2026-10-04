@@ -297,3 +297,14 @@ test.describe("الجدول", () => {
     if (process.env.E2E_SHOT) await page.screenshot({ path: process.env.E2E_SHOT });
   });
 });
+
+test.describe("المكتبة", () => {
+  test("the board's library holds the starter shapes", async ({ page, request }) => {
+    const board = await createBoard(request, "المكتبة");
+    await openBoard(page, board);
+    await page.locator(".default-sidebar-trigger").click();
+    await expect(page.locator(".library-unit").first()).toBeVisible({ timeout: 30_000 });
+    expect(await page.locator(".library-unit").count()).toBeGreaterThan(20);
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-library.png` });
+  });
+});

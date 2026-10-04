@@ -11,7 +11,7 @@ import {
   useHandleLibrary,
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
-import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, LibraryItem, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
@@ -651,16 +651,69 @@ const LIBRARY_KEY = "whiteboard.library";
  * `save` may throw (storage full or blocked) — Excalidraw then says so.
  */
 const libraryAdapter = {
-  load: () => {
+  load: async () => {
     try {
       const raw = localStorage.getItem(LIBRARY_KEY);
-      return raw ? { libraryItems: portableItems(JSON.parse(raw)) } : null;
+      const mine: LibraryItem[] = raw ? portableItems(JSON.parse(raw)) : [];
+      return { libraryItems: await withStarter(mine) };
     } catch {
       return null;
     }
   },
   save: ({ libraryItems }: { libraryItems: unknown }) => localStorage.setItem(LIBRARY_KEY, JSON.stringify(portableItems(libraryItems))),
 };
+
+const STARTER_KEY = "whiteboard.library.starter";
+const STARTER_URL = "/whiteboard/library/starter.excalidrawlib";
+
+/**
+ * The starter shapes (owner, 2026-10-04: maths, symbols, circuits, organic
+ * chemistry, music — `public/whiteboard/library/NOTICE.md`) join the teacher's
+ * library ONCE: each item is offered a single time, so one they removed never
+ * comes back, and a later file adds only what is new. A failed fetch leaves the
+ * library as it is and tries again next time.
+ */
+export async function withStarter<T extends { id: string }>(mine: T[], fetchStarter: () => Promise<T[]> = loadStarter): Promise<T[]> {
+  let offered: string[] = [];
+  try {
+    offered = JSON.parse(localStorage.getItem(STARTER_KEY) ?? "[]") as string[];
+  } catch {
+    // unreadable: offer again; ids already in the library are skipped below
+  }
+  let starter: T[];
+  try {
+    starter = await fetchStarter();
+  } catch {
+    return mine;
+  }
+  const have = new Set([...offered, ...mine.map((item) => item.id)]);
+  const fresh = starter.filter((item) => !have.has(item.id));
+  if (fresh.length === 0) return mine;
+  const library = [...mine, ...fresh];
+  try {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+    localStorage.setItem(STARTER_KEY, JSON.stringify([...offered, ...fresh.map((item) => item.id)]));
+  } catch {
+    // storage full or blocked: shown now, offered again next visit
+  }
+  return library;
+}
+
+// Excalidraw reads the library again before every save: the file is fetched once a visit.
+let starterItems: Promise<unknown[]> | null = null;
+
+function loadStarter<T>(): Promise<T[]> {
+  starterItems ??= fetch(STARTER_URL)
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`starter library ${response.status}`);
+      return ((await response.json()) as { libraryItems: unknown[] }).libraryItems;
+    })
+    .catch((error: unknown) => {
+      starterItems = null;
+      throw error;
+    });
+  return starterItems as Promise<T[]>;
+}
 
 /**
  * Only items that work on ANY board are kept: an uploaded picture belongs to the
