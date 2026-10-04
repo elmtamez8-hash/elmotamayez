@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { ApiError } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { media } from "@/lib/media";
 
@@ -31,14 +32,23 @@ export interface StudentAttachment {
 export function AttachmentList({
   lessonUuid,
   attachments,
+  onStale,
 }: {
   lessonUuid: string;
   attachments: StudentAttachment[];
+  /**
+   * Reads the list again. A file the student was shown can be gone by the time
+   * they press «فتح» — a teacher who re-sends the board's PDF REPLACES the old
+   * attachment (spec 039 · Q2) — and a 404 with no way out but a reload is what
+   * they would otherwise get.
+   */
+  onStale?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  if (attachments.length === 0) return null;
+  // An error stays readable even when the list it came from emptied.
+  if (attachments.length === 0 && error === "") return null;
 
   const open = async (attachment: StudentAttachment) => {
     setBusy(attachment.uuid);
@@ -63,7 +73,18 @@ export function AttachmentList({
       */
       window.open(grant.manifest_url, "_blank", "noopener");
     } catch (err: unknown) {
-      setError(userMessage(err));
+      // 404 only: the file is gone (a re-sent board PDF REPLACES it). A 403 is the
+      // student losing the lesson, and its own message says so.
+      if (onStale && err instanceof ApiError && err.status === 404) {
+        try {
+          await onStale();
+          setError("تغيّر هذا الملف، فحدّثنا القائمة. افتحه من جديد.");
+        } catch (reload: unknown) {
+          setError(userMessage(reload));
+        }
+      } else {
+        setError(userMessage(err));
+      }
     } finally {
       setBusy(null);
     }
