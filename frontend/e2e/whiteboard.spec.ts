@@ -208,7 +208,8 @@ test.describe("الاستيراد", () => {
     const { PDFDocument, StandardFonts } = await import("pdf-lib");
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
-    for (let i = 1; i <= 3; i++) pdf.addPage([842, 595]).drawText(`Page ${i}`, { x: 60, y: 500, size: 48, font });
+    // Each page a little shorter, so the pictures' shapes tell the order apart.
+    for (let i = 1; i <= 3; i++) pdf.addPage([842, 695 - 100 * i]).drawText(`Page ${i}`, { x: 60, y: 300, size: 48, font });
     const bytes = Buffer.from(await pdf.save());
 
     const board = await createBoard(request, "استيراد PDF");
@@ -223,6 +224,14 @@ test.describe("الاستيراد", () => {
     await expect
       .poll(async () => (await serverPages(request, board)).slice(1).map((p) => liveTypes(p).some((e) => e.type === "image")), { timeout: 30_000 })
       .toEqual([true, true, true]);
+
+    // In order, and three different pictures — not one picture three times.
+    type Picture = { type: string; fileId?: string; width: number; height: number };
+    const pictures = (await serverPages(request, board)).slice(1).map((p) => (liveTypes(p) as Picture[]).find((e) => e.type === "image")!);
+    expect(new Set(pictures.map((e) => e.fileId)).size).toBe(3);
+    const shapes = pictures.map((e) => e.height / e.width);
+    expect(shapes[0]).toBeGreaterThan(shapes[1]);
+    expect(shapes[1]).toBeGreaterThan(shapes[2]);
   });
 });
 
