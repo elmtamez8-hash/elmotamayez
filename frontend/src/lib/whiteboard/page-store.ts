@@ -11,6 +11,9 @@ import { parseScene, type BoardPagePayload } from "@/lib/whiteboard/api";
  * for one (T072).
  *
  * A `Map` so every reader in the canvas keeps its `get` / `set` / `delete`.
+ * ⚠️ WALKING IT RESTORES EVERY PAGE FIRST (`values`, `entries`, `forEach`,
+ * `size`, `new Map(store)`): a copy of only the pages shown so far was a board
+ * PDF with blank pages (caught in review).
  */
 export class PageStore<E> extends Map<string, readonly E[]> {
   private parsed = new Map<string, readonly unknown[]>();
@@ -46,6 +49,39 @@ export class PageStore<E> extends Map<string, readonly E[]> {
     return super.delete(uuid) || waiting;
   }
 
+  private restoreAll(): void {
+    for (const uuid of [...this.parsed.keys()]) this.get(uuid);
+  }
+
+  override get size(): number {
+    this.restoreAll();
+    return super.size;
+  }
+
+  override entries(): MapIterator<[string, readonly E[]]> {
+    this.restoreAll();
+    return super.entries();
+  }
+
+  override values(): MapIterator<readonly E[]> {
+    this.restoreAll();
+    return super.values();
+  }
+
+  override keys(): MapIterator<string> {
+    this.restoreAll();
+    return super.keys();
+  }
+
+  override [Symbol.iterator](): MapIterator<[string, readonly E[]]> {
+    return this.entries();
+  }
+
+  override forEach(fn: (value: readonly E[], key: string, map: Map<string, readonly E[]>) => void, thisArg?: unknown): void {
+    this.restoreAll();
+    super.forEach(fn, thisArg);
+  }
+
   /** Whether the page was restored already — a thumbnail key may read it only then. */
   isRestored(uuid: string): boolean {
     return super.has(uuid);
@@ -57,6 +93,6 @@ export class PageStore<E> extends Map<string, readonly E[]> {
       (elements as { type?: string; fileId?: string | null; isDeleted?: boolean }[]).flatMap((e) =>
         e.type === "image" && !e.isDeleted && e.fileId && !e.fileId.startsWith("template:") ? [e.fileId] : [],
       );
-    return [...[...this.parsed.values()].flatMap(ids), ...[...super.values()].flatMap((elements) => ids(elements))];
+    return [...[...this.parsed.values()].flatMap(ids), ...[...super.values()].flatMap((elements) => ids(elements))]; // super: no restore
   }
 }

@@ -31,6 +31,17 @@ describe("PageStore", () => {
     expect(restore).not.toHaveBeenCalled();
   });
 
+  it("restores every page before anything walks it — a copy for the PDF has no blank pages", () => {
+    const restore = vi.fn((elements: readonly unknown[]) => elements);
+    const store = PageStore.of([page("a", [{ id: "1" }]), page("b", [{ id: "2" }])], restore);
+    store.get("a");
+
+    const copy = new Map(store);
+    expect(copy.get("b")).toEqual([{ id: "2" }]);
+    expect(store.size).toBe(2);
+    expect(restore).toHaveBeenCalledTimes(2);
+  });
+
   it("names every page's pictures without restoring any, templates aside", () => {
     const restore = vi.fn((elements: readonly unknown[]) => elements);
     const store = PageStore.of(
