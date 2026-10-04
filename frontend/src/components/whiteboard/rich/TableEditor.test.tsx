@@ -30,4 +30,22 @@ describe("TableEditor", () => {
     expect(saved.colWidths).toHaveLength(3);
     expect(saved.rows[0].cells[0]).toEqual({ text: "الزمن", fill: "#fff3b0" });
   });
+
+  it("merges the cells chosen with Shift + click into one, and splits it again", () => {
+    const onSave = vi.fn();
+    const { container } = render(<TableEditor initial={blankTable(2, 2)} saving={false} onSave={onSave} onClose={vi.fn()} />);
+    expect(screen.getByRole("button", { name: WB.table.merge }).hasAttribute("disabled")).toBe(true);
+
+    fireEvent.focus(screen.getByLabelText(WB.table.cell(1, 1)));
+    fireEvent.mouseDown(screen.getByLabelText(WB.table.cell(1, 2)), { shiftKey: true });
+    fireEvent.click(screen.getByRole("button", { name: WB.table.merge }));
+
+    expect(container.querySelectorAll("td")).toHaveLength(3);
+    expect(container.querySelector("td")?.getAttribute("colspan")).toBe("2");
+    fireEvent.click(screen.getByRole("button", { name: WB.table.save }));
+    expect(onSave.mock.calls[0][0].rows[0].cells[0].span).toEqual([1, 2]);
+
+    fireEvent.click(screen.getByRole("button", { name: WB.table.split }));
+    expect(container.querySelectorAll("td")).toHaveLength(4);
+  });
 });
