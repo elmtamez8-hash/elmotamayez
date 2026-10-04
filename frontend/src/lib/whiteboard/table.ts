@@ -33,19 +33,103 @@ export function blankTable(rows = 3, cols = 3): TableData {
   };
 }
 
-/** Every row as long as the longest, every column with a width. */
+/**
+ * Every row as long as the longest, every column with a width, and every merged
+ * cell inside the grid and over no other — a row or column removed cuts the
+ * merge short, and a scene could carry anything.
+ */
 export function normalise(data: TableData): TableData {
   const cols = Math.max(1, data.colWidths.length, ...data.rows.map((row) => row.cells.length));
-  return {
+  const taken = data.rows.map(() => Array<boolean>(cols).fill(false));
+  const rows = data.rows.map((row, r) => ({
+    cells: Array.from({ length: cols }, (_, c): TableCell => {
+      const cell = row.cells[c] ?? { text: "" };
+      // Only our own fills: a scene could carry anything, and it reaches `style`.
+      const fill = cell.fill && (TABLE_FILLS as readonly string[]).includes(cell.fill) ? cell.fill : undefined;
+      const span = taken[r][c] ? null : spanAt(cell.span, r, c, taken);
+      if (span) for (let y = r; y < r + span[0]; y++) for (let x = c; x < c + span[1]; x++) taken[y][x] = true;
+      return { text: cell.text, ...(fill ? { fill } : {}), ...(span ? { span } : {}) };
+    }),
+  }));
+  return { ...data, rows, colWidths: Array.from({ length: cols }, (_, i) => data.colWidths[i] ?? COLUMN) };
+}
+
+/** A merge's size cut to the free cells right of and below [r, c]; null when one cell. */
+function spanAt(span: unknown, r: number, c: number, taken: boolean[][]): [number, number] | null {
+  if (!Array.isArray(span)) return null;
+  const size = (n: unknown) => (Number.isInteger(n) && (n as number) > 0 ? (n as number) : 1);
+  let w = Math.min(size(span[1]), taken[r].length - c);
+  for (let x = c + 1; x < c + w; x++) if (taken[r][x]) w = x - c;
+  let h = Math.min(size(span[0]), taken.length - r);
+  for (let y = r + 1; y < r + h; y++) if (taken[y].slice(c, c + w).some(Boolean)) h = y - r;
+  return h * w > 1 ? [h, w] : null;
+}
+
+/** For each cell, the merged cell that covers it ([row, col]), or null when it is drawn itself. */
+export function coveredBy(data: TableData): ([number, number] | null)[][] {
+  const out = data.rows.map((row) => row.cells.map((): [number, number] | null => null));
+  data.rows.forEach((row, r) =>
+    row.cells.forEach((cell, c) => {
+      const [h, w] = cell.span ?? [1, 1];
+      for (let y = r; y < r + h; y++) for (let x = c; x < c + w; x++) if (y !== r || x !== c) out[y][x] = [r, c];
+    }),
+  );
+  return out;
+}
+
+export type CellRange = { top: number; left: number; bottom: number; right: number };
+
+/**
+ * The cells between two corners, grown until no merged cell sticks out of it —
+ * what a spreadsheet selects. `left`/`right` are column indexes, not screen sides.
+ */
+export function cellRange(data: TableData, [r1, c1]: [number, number], [r2, c2]: [number, number]): CellRange {
+  const range = { top: Math.min(r1, r2), left: Math.min(c1, c2), bottom: Math.max(r1, r2), right: Math.max(c1, c2) };
+  for (let grew = true; grew; ) {
+    grew = false;
+    data.rows.forEach((row, r) =>
+      row.cells.forEach((cell, c) => {
+        const [h, w] = cell.span ?? [1, 1];
+        const meets = r <= range.bottom && r + h - 1 >= range.top && c <= range.right && c + w - 1 >= range.left;
+        if (!meets) return;
+        const next = { top: Math.min(range.top, r), left: Math.min(range.left, c), bottom: Math.max(range.bottom, r + h - 1), right: Math.max(range.right, c + w - 1) };
+        if (next.top !== range.top || next.left !== range.left || next.bottom !== range.bottom || next.right !== range.right) {
+          Object.assign(range, next);
+          grew = true;
+        }
+      }),
+    );
+  }
+  return range;
+}
+
+/**
+ * One cell over the range. Nothing typed is lost (owner decision): every cell's
+ * text joins the first one, a line each, in reading order.
+ */
+export function mergeCells(data: TableData, range: CellRange): TableData {
+  const { top, left, bottom, right } = range;
+  const inside = (r: number, c: number) => r >= top && r <= bottom && c >= left && c <= right;
+  const text = data.rows
+    .flatMap((row, r) => row.cells.filter((_, c) => inside(r, c)).map((cell) => cell.text.trim()))
+    .filter(Boolean)
+    .join("\n");
+  return normalise({
     ...data,
-    rows: data.rows.map((row) => ({
-      cells: Array.from({ length: cols }, (_, i) => {
-        const cell = row.cells[i] ?? { text: "" };
-        // Only our own fills: a scene could carry anything, and it reaches `style`.
-        return cell.fill && !(TABLE_FILLS as readonly string[]).includes(cell.fill) ? { text: cell.text } : cell;
+    rows: data.rows.map((row, r) => ({
+      cells: row.cells.map((cell, c): TableCell => {
+        if (r === top && c === left) return { text, ...(cell.fill ? { fill: cell.fill } : {}), span: [bottom - top + 1, right - left + 1] };
+        return inside(r, c) ? { text: "" } : cell;
       }),
     })),
-    colWidths: Array.from({ length: cols }, (_, i) => data.colWidths[i] ?? COLUMN),
+  });
+}
+
+/** The merged cell back to single cells; its text stays in the first. */
+export function splitCell(data: TableData, r: number, c: number): TableData {
+  return {
+    ...data,
+    rows: data.rows.map((row, ri) => (ri !== r ? row : { cells: row.cells.map((cell, ci) => (ci === c ? { text: cell.text, ...(cell.fill ? { fill: cell.fill } : {}) } : cell)) })),
   };
 }
 
@@ -111,8 +195,23 @@ export async function renderTable(input: TableData): Promise<{ blob: Blob; width
   const measure = document.createElement("canvas").getContext("2d");
   if (!measure) throw new Error("no canvas");
   measure.font = font;
-  const wrapped = data.rows.map((row) => row.cells.map((cell, i) => lines(measure, cell.text, data.colWidths[i] - PAD * 2)));
-  const heights = wrapped.map((row) => Math.max(1, ...row.map((cell) => cell.length)) * LINE + PAD * 2);
+  const covered = coveredBy(data);
+  const spanWidth = (c: number, cols: number) => data.colWidths.slice(c, c + cols).reduce((sum, x) => sum + x, 0);
+  const wrapped = data.rows.map((row, r) =>
+    row.cells.map((cell, c) => (covered[r][c] ? [] : lines(measure, cell.text, spanWidth(c, cell.span?.[1] ?? 1) - PAD * 2))),
+  );
+  const need = (r: number, c: number) => Math.max(1, wrapped[r][c].length) * LINE + PAD * 2;
+  // One-row cells set the rows; a taller merged cell then grows its last row.
+  const heights = data.rows.map((row, r) => Math.max(LINE + PAD * 2, ...row.cells.map((cell, c) => (covered[r][c] || (cell.span?.[0] ?? 1) > 1 ? 0 : need(r, c)))));
+  data.rows.forEach((row, r) =>
+    row.cells.forEach((cell, c) => {
+      const h = cell.span?.[0] ?? 1;
+      if (covered[r][c] || h === 1) return;
+      const short = need(r, c) - heights.slice(r, r + h).reduce((sum, x) => sum + x, 0);
+      if (short > 0) heights[r + h - 1] += short;
+    }),
+  );
+  const tops = heights.map((_, r) => heights.slice(0, r).reduce((sum, x) => sum + x, 0));
   const width = data.colWidths.reduce((sum, w) => sum + w, 0);
   const height = heights.reduce((sum, h) => sum + h, 0);
 
@@ -139,40 +238,28 @@ export async function renderTable(input: TableData): Promise<{ blob: Blob; width
     if (data.dir === "ltr") edge += w;
   }
 
-  let top = 0;
+  // Each drawn cell — a merged one over its whole box — then its border, the outer one heavier.
+  ctx.strokeStyle = "#222222";
+  ctx.lineWidth = 2;
   data.rows.forEach((row, r) => {
     row.cells.forEach((cell, c) => {
-      const left = lefts[c];
-      const w = data.colWidths[c];
+      if (covered[r][c]) return;
+      const [h, cols] = cell.span ?? [1, 1];
+      const w = spanWidth(c, cols);
+      // The box's left edge: its last column's, right to left.
+      const left = Math.min(...lefts.slice(c, c + cols));
+      const top = tops[r];
+      const tall = heights.slice(r, r + h).reduce((sum, x) => sum + x, 0);
       if (cell.fill) {
         ctx.fillStyle = cell.fill;
-        ctx.fillRect(left, top, w, heights[r]);
+        ctx.fillRect(left, top, w, tall);
       }
       ctx.fillStyle = "#111111";
       const x = data.dir === "rtl" ? left + w - PAD : left + PAD;
       wrapped[r][c].forEach((text, i) => ctx.fillText(text, x, top + PAD + LINE * i + LINE / 2, w - PAD * 2));
+      ctx.strokeRect(left, top, w, tall);
     });
-    top += heights[r];
   });
-
-  // The grid over the fills, the outer border heavier.
-  ctx.strokeStyle = "#222222";
-  ctx.lineWidth = 2;
-  let y = 0;
-  for (const h of heights.slice(0, -1)) {
-    y += h;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-  for (const x of lefts) {
-    if (x <= 0 || x >= width) continue;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  }
   ctx.lineWidth = 4;
   ctx.strokeRect(2, 2, width - 4, height - 4);
 

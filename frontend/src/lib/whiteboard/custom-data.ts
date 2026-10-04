@@ -18,7 +18,9 @@ export type WbCustomData =
       kind: "table";
       v: 1;
       dir: "rtl" | "ltr";
-      rows: { cells: { text: string; fill?: string }[] }[];
+      // `span` [rows, cols] on a merged cell's first one; the cells it covers stay in
+      // the grid, empty. Optional, so every v1 table already saved reads the same.
+      rows: { cells: { text: string; fill?: string; span?: [number, number] }[] }[];
       colWidths: number[];
     }
   | { kind: "math"; v: 1; latex: string; display: boolean }

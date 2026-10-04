@@ -274,3 +274,26 @@ test.describe("القلم السحري والآلة الحاسبة", () => {
       .toBe(String.raw`\frac12+\frac13=\frac{5}{6}`);
   });
 });
+
+test.describe("الجدول", () => {
+  test("cells merged in the editor are saved as one cell and drawn as one", async ({ page, request }) => {
+    const board = await createBoard(request, "جدول مدموج");
+    await openBoard(page, board);
+    await openTools(page, "أدوات");
+    await page.getByRole("button", { name: "إدراج جدول" }).click();
+
+    const editor = page.getByRole("dialog", { name: "الجدول" });
+    await editor.getByLabel("الصف ١، العمود ١").fill("العنوان");
+    await editor.getByLabel("الصف ١، العمود ٣").click({ modifiers: ["Shift"] });
+    await editor.getByRole("button", { name: "دمج الخلايا" }).click();
+    await editor.getByLabel("الصف ٢، العمود ١").fill("س");
+    await editor.getByRole("button", { name: "حفظ" }).click();
+    await expect(editor).toBeHidden({ timeout: 30_000 });
+
+    type Table = { customData?: { kind?: string; rows?: { cells: { text: string; span?: [number, number] }[] }[] } };
+    await expect
+      .poll(async () => (liveTypes((await serverPages(request, board))[0]) as Table[]).find((e) => e.customData?.kind === "table")?.customData?.rows?.[0].cells[0], { timeout: 30_000 })
+      .toEqual({ text: "العنوان", span: [1, 3] });
+    if (process.env.E2E_SHOT) await page.screenshot({ path: process.env.E2E_SHOT });
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { blankTable, normalise, parseClipboardTable } from "@/lib/whiteboard/table";
+import { blankTable, cellRange, coveredBy, mergeCells, normalise, parseClipboardTable, splitCell, type TableData } from "@/lib/whiteboard/table";
 
 // What Excel and Google Sheets put on the clipboard, trimmed to the parts read.
 const EXCEL = `<html><body><!--StartFragment--><table border=0><tr height=20><td>الاسم</td><td>الدرجة</td></tr><tr height=20><td>أحمد</td><td align=right>18</td></tr></table><!--EndFragment--></body></html>`;
@@ -55,7 +55,51 @@ describe("normalise", () => {
     expect(table.rows[0].cells.map((cell) => cell.fill)).toEqual([undefined, "#fff3b0"]);
   });
 
+  it("cuts a merge to the grid and off another merge, and drops a broken one", () => {
+    const t = blankTable(3, 3);
+    t.rows[0].cells[0] = { text: "a", span: [2, 9] };
+    t.rows[1].cells[1] = { text: "b", span: [2, 2] }; // under the first merge: no merge of its own
+    t.rows[2].cells[0] = { text: "c", span: ["x", -1] as unknown as [number, number] };
+    const n = normalise(t);
+    expect(n.rows[0].cells[0].span).toEqual([2, 3]);
+    expect(n.rows[1].cells[1].span).toBeUndefined();
+    expect(n.rows[2].cells[0].span).toBeUndefined();
+  });
+
   it("gives every column a width", () => {
     expect(normalise({ ...blankTable(1, 1), colWidths: [] }).colWidths).toEqual([240]);
+  });
+});
+
+const texts = (t: TableData) => t.rows.map((row) => row.cells.map((cell) => cell.text));
+
+describe("merging and splitting cells", () => {
+  it("merges a range into its first cell, keeping every text a line each", () => {
+    const t = blankTable(2, 3);
+    t.rows[0].cells[0].text = "س";
+    t.rows[1].cells[1].text = "ص";
+    const m = mergeCells(t, cellRange(t, [0, 0], [1, 1]));
+    expect(m.rows[0].cells[0]).toEqual({ text: "س\nص", span: [2, 2] });
+    expect(texts(m)).toEqual([["س\nص", "", ""], ["", "", ""]]);
+    expect(coveredBy(m)[1][1]).toEqual([0, 0]);
+    expect(coveredBy(m)[1][2]).toBeNull();
+  });
+
+  it("grows a selection to take in a merged cell it cuts through", () => {
+    const m = mergeCells(blankTable(3, 3), { top: 0, left: 1, bottom: 1, right: 2 });
+    expect(cellRange(m, [1, 0], [1, 1])).toEqual({ top: 0, left: 0, bottom: 1, right: 2 });
+  });
+
+  it("splits back to single cells, the text in the first", () => {
+    const t = blankTable(1, 2);
+    t.rows[0].cells[1].text = "ب";
+    const s = splitCell(mergeCells(t, { top: 0, left: 0, bottom: 0, right: 1 }), 0, 0);
+    expect(s.rows[0].cells).toEqual([{ text: "ب" }, { text: "" }]);
+  });
+
+  it("a removed column cuts the merge short", () => {
+    const m = mergeCells(blankTable(1, 3), { top: 0, left: 0, bottom: 0, right: 2 });
+    const cut = normalise({ ...m, colWidths: m.colWidths.slice(0, -1), rows: m.rows.map((row) => ({ cells: row.cells.slice(0, -1) })) });
+    expect(cut.rows[0].cells[0].span).toEqual([1, 2]);
   });
 });
