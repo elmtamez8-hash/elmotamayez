@@ -48,7 +48,14 @@ function compiler(): Promise<MathJs["compile"]> {
       throw new Error(`${name} is disabled`);
     };
     math.import(
-      Object.fromEntries(["import", "createUnit", "reviver", "evaluate", "parse", "simplify", "derivative", "resolve"].map((name) => [name, off(name)])),
+      Object.fromEntries(
+        [
+          ...["import", "createUnit", "reviver", "evaluate", "parse", "simplify", "derivative", "resolve"],
+          // `config` changed mathjs for every later graph (all curves went blank), and the
+          // matrix makers let one formula fill the tab's memory (caught in review).
+          ...["config", "compile", "parser", "zeros", "ones", "identity", "range", "matrix", "sparse", "diag", "random", "randomInt", "pickRandom"],
+        ].map((name) => [name, off(name)]),
+      ),
       { override: true },
     );
     return compile;
@@ -68,7 +75,37 @@ const DEGREES = {
   asin: (v: number) => Math.asin(v) / RAD,
   acos: (v: number) => Math.acos(v) / RAD,
   atan: (v: number) => Math.atan(v) / RAD,
+  acot: (v: number) => Math.atan(1 / v) / RAD,
+  asec: (v: number) => Math.acos(1 / v) / RAD,
+  acsc: (v: number) => Math.asin(1 / v) / RAD,
+  atan2: (y: number, x: number) => Math.atan2(y, x) / RAD,
 };
+
+/**
+ * The graph as this code draws it, whatever the scene carried: at most four
+ * functions as text, numbers where numbers go. A crafted or broken element
+ * opened with «تعديل» must not take the board down (caught in review).
+ */
+export function normaliseGraph(data: Partial<GraphData>): GraphData {
+  const num = (n: unknown, fallback: number) => (typeof n === "number" && Number.isFinite(n) ? n : fallback);
+  const pair = (p: unknown, fallback: [number, number]): [number, number] =>
+    Array.isArray(p) ? [num(p[0], fallback[0]), num(p[1], fallback[1])] : fallback;
+  const functions = (Array.isArray(data.functions) ? data.functions : [])
+    .slice(0, MAX_FUNCTIONS)
+    .map((f, i) => ({ expr: typeof f?.expr === "string" ? f.expr : "", color: GRAPH_COLORS[i] }));
+  return {
+    kind: "graph",
+    v: 1,
+    functions: functions.length > 0 ? functions : [{ expr: "", color: GRAPH_COLORS[0] }],
+    x: pair(data.x, [-5, 5]),
+    y: data.y ? pair(data.y, [-5, 5]) : null,
+    points: (Array.isArray(data.points) ? data.points : [])
+      .slice(0, MAX_POINTS)
+      .filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+      .map((p) => ({ x: p.x, y: p.y, label: typeof p.label === "string" ? p.label : "" })),
+    angle: data.angle === "deg" ? "deg" : "rad",
+  };
+}
 
 /** «y = …» and «f(x) = …» are what a teacher writes; the formula is what follows. */
 export function formula(expr: string): string {
@@ -131,6 +168,18 @@ export function niceStep(span: number, lines = 10): number {
   return (unit < 1.5 ? 1 : unit < 3.5 ? 2 : unit < 7.5 ? 5 : 10) * power;
 }
 
+/**
+ * The grid lines' values from `low` to `high`, or none when there would be too
+ * many to draw or the step no longer moves a number that size (1e20 + 5000 is
+ * 1e20) — both froze the tab in a loop (caught in review).
+ */
+export function ticks(low: number, high: number, step: number): number[] {
+  const first = Math.ceil(low / step);
+  const count = Math.floor(high / step + 1e-6) - first + 1;
+  if (!Number.isFinite(count) || count < 1 || count > 200 || first * step + step === first * step) return [];
+  return Array.from({ length: count }, (_, i) => (first + i) * step);
+}
+
 /** A number on an axis: no float noise (0.30000000000000004), a minus sign that reads. */
 export function tickLabel(value: number): string {
   const clean = Math.abs(value) < 1e-9 ? 0 : Number(value.toPrecision(10));
@@ -148,7 +197,8 @@ export function ranges(data: GraphData, curves: Compiled[]): { x: [number, numbe
 }
 
 /** The graph's picture, PNG, in the board's units. Always left to right: it is mathematics. */
-export async function renderGraph(data: GraphData): Promise<{ blob: Blob; width: number; height: number }> {
+export async function renderGraph(input: GraphData): Promise<{ blob: Blob; width: number; height: number }> {
+  const data = normaliseGraph(input);
   const curves = await compileFunctions(data);
   const { x: [x0, x1], y: [y0, y1] } = ranges(data, curves);
   const font = (size: number) => `${size}px "${FALLBACK_FAMILY}", sans-serif`;
@@ -175,8 +225,10 @@ export async function renderGraph(data: GraphData): Promise<{ blob: Blob; width:
   const stepY = niceStep(y1 - y0, 8);
   ctx.strokeStyle = "#d4d4d8";
   ctx.lineWidth = 1;
-  for (let v = Math.ceil(x0 / stepX) * stepX; v <= x1 + 1e-9; v += stepX) line(ctx, px(v), top, px(v), top + h);
-  for (let v = Math.ceil(y0 / stepY) * stepY; v <= y1 + 1e-9; v += stepY) line(ctx, left, py(v), left + w, py(v));
+  const columns = ticks(x0, x1, stepX);
+  const rows = ticks(y0, y1, stepY);
+  for (const v of columns) line(ctx, px(v), top, px(v), top + h);
+  for (const v of rows) line(ctx, left, py(v), left + w, py(v));
 
   const axisX = py(Math.min(Math.max(0, y0), y1));
   const axisY = px(Math.min(Math.max(0, x0), x1));
@@ -190,14 +242,14 @@ export async function renderGraph(data: GraphData): Promise<{ blob: Blob; width:
   ctx.direction = "ltr";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  for (let v = Math.ceil(x0 / stepX) * stepX; v <= x1 + 1e-9; v += stepX) {
+  for (const v of columns) {
     if (Math.abs(v) < stepX / 2) continue;
     line(ctx, px(v), axisX - 6, px(v), axisX + 6);
     ctx.fillText(tickLabel(v), px(v), Math.min(axisX + 10, top + h - NUMBER_FONT));
   }
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let v = Math.ceil(y0 / stepY) * stepY; v <= y1 + 1e-9; v += stepY) {
+  for (const v of rows) {
     if (Math.abs(v) < stepY / 2) continue;
     line(ctx, axisY - 6, py(v), axisY + 6, py(v));
     ctx.fillText(tickLabel(v), Math.max(axisY - 10, left + 60), py(v));
@@ -217,7 +269,8 @@ export async function renderGraph(data: GraphData): Promise<{ blob: Blob; width:
     for (let s = 0; s <= SAMPLES; s++) {
       const x = x0 + ((x1 - x0) * s) / SAMPLES;
       const y = f(x);
-      const leap = Number.isFinite(previous) && ((previous > y1 && y < y0) || (previous < y0 && y > y1));
+      // A jump of half the view between two neighbouring samples is an asymptote, not a slope.
+      const leap = Number.isFinite(previous) && Math.abs(y - previous) > (y1 - y0) / 2;
       if (!Number.isFinite(y) || leap || !Number.isFinite(previous)) {
         if (Number.isFinite(y)) ctx.moveTo(px(x), py(y));
       } else {

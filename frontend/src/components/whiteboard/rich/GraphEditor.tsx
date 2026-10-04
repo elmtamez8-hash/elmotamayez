@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { GRAPH_COLORS, GraphError, MAX_FUNCTIONS, MAX_POINTS, renderGraph, type GraphData } from "@/lib/whiteboard/graph";
+import { GRAPH_COLORS, GraphError, MAX_FUNCTIONS, MAX_POINTS, normaliseGraph, renderGraph, type GraphData } from "@/lib/whiteboard/graph";
 import { WB } from "@/lib/whiteboard/strings";
 
 /** The form keeps what is typed (a lone «-» is on its way to a number); the data is read from it. */
@@ -17,7 +17,8 @@ type Form = {
 
 const PREVIEW_DELAY_MS = 400;
 
-function toForm(data: GraphData): Form {
+function toForm(input: GraphData): Form {
+  const data = normaliseGraph(input);
   return {
     functions: data.functions.map((f) => f.expr).slice(0, MAX_FUNCTIONS),
     x: [String(data.x[0]), String(data.x[1])],
