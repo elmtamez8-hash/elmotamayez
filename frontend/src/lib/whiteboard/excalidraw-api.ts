@@ -11,12 +11,13 @@ import {
   useHandleLibrary,
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
-import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, LibraryItem, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
 import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
 import { recognise } from "@/lib/whiteboard/magic-pen";
+import { loadStarter } from "@/lib/whiteboard/starter-file";
 import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
@@ -651,16 +652,60 @@ const LIBRARY_KEY = "whiteboard.library";
  * `save` may throw (storage full or blocked) — Excalidraw then says so.
  */
 const libraryAdapter = {
-  load: () => {
+  load: async ({ source }: { source: string }) => {
     try {
-      const raw = localStorage.getItem(LIBRARY_KEY);
-      return raw ? { libraryItems: portableItems(JSON.parse(raw)) } : null;
+      const mine = (): LibraryItem[] => {
+        const raw = localStorage.getItem(LIBRARY_KEY);
+        return raw ? portableItems(JSON.parse(raw)) : [];
+      };
+      // Excalidraw reads the library again before every save: only the opening adds the starter.
+      return { libraryItems: source === "load" ? await withStarter(mine) : mine() };
     } catch {
       return null;
     }
   },
   save: ({ libraryItems }: { libraryItems: unknown }) => localStorage.setItem(LIBRARY_KEY, JSON.stringify(portableItems(libraryItems))),
 };
+
+const STARTER_KEY = "whiteboard.library.starter";
+
+/**
+ * The starter shapes (owner, 2026-10-04: maths, symbols, circuits, organic
+ * chemistry, music — `public/whiteboard/library/NOTICE.md`) join the teacher's
+ * library ONCE: each item is offered a single time, so one they removed never
+ * comes back, and a later file adds only what is new. A failed fetch leaves the
+ * library as it is and tries again next time.
+ */
+export async function withStarter<T extends { id: string }>(readMine: () => T[], fetchStarter: () => Promise<T[]> = loadStarter): Promise<T[]> {
+  let starter: T[];
+  try {
+    starter = await fetchStarter();
+  } catch {
+    return readMine();
+  }
+  // Read AFTER the fetch: another tab may have saved while it was on its way.
+  const mine = readMine();
+  let offered: string[] = [];
+  try {
+    offered = JSON.parse(localStorage.getItem(STARTER_KEY) ?? "[]") as string[];
+  } catch {
+    // unreadable: offer again; ids already in the library are skipped below
+  }
+  const have = new Set([...offered, ...mine.map((item) => item.id)]);
+  const fresh = starter.filter((item) => !have.has(item.id));
+  if (fresh.length === 0) return mine;
+  const library = [...mine, ...fresh];
+  try {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+    localStorage.setItem(STARTER_KEY, JSON.stringify([...offered, ...fresh.map((item) => item.id)]));
+  } catch {
+    // Storage full: added now, every later save of the teacher's own item would
+    // fail with it — so not added at all, and offered again next visit.
+    return mine;
+  }
+  return library;
+}
+
 
 /**
  * Only items that work on ANY board are kept: an uploaded picture belongs to the

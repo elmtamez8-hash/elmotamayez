@@ -298,6 +298,18 @@ test.describe("الجدول", () => {
   });
 });
 
+test.describe("المكتبة", () => {
+  test("the board's library holds the starter shapes", async ({ page, request }) => {
+    const board = await createBoard(request, "المكتبة");
+    await openBoard(page, board);
+    await page.locator(".default-sidebar-trigger").click();
+    // Drawn items only: the empty placeholders shown while loading share the class.
+    const drawn = page.locator(".library-unit:not(.library-unit--skeleton) svg");
+    await expect.poll(() => drawn.count(), { timeout: 30_000 }).toBeGreaterThan(20);
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-library.png` });
+  });
+});
+
 test.describe("رسم الدوال", () => {
   test("a graph is drawn from its functions and saved with them", async ({ page, request }) => {
     const board = await createBoard(request, "رسم دالة");
