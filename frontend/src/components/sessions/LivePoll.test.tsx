@@ -9,6 +9,7 @@ const room = vi.hoisted(() => {
     handlers,
     remoteParticipants: new Map<string, { identity: string; attributes: Record<string, string> }>(),
     localParticipant: {
+      identity: "me",
       attributes: {} as Record<string, string>,
       publishData: vi.fn(async (_payload: Uint8Array, _options: unknown) => undefined),
       setAttributes: vi.fn(async (_attributes: Record<string, string>) => undefined),
@@ -157,16 +158,27 @@ describe("LivePoll — the student", () => {
     arrive(poll);
     room.localParticipant.setAttributes.mockImplementationOnce(() => new Promise(() => {})); // reloaded before the answer came back
     fireEvent.click(await screen.findByRole("button", { name: "٤" }));
-    expect(sessionStorage.getItem("live-poll-vote")).toBe("abcd1234:1");
+    expect(sessionStorage.getItem("live-poll-vote:me")).toBe("abcd1234:1");
     unmount();
 
     // The reload: a fresh connection with no attribute, and the teacher re-sends the poll.
     vi.clearAllMocks();
     room.handlers.clear();
     room.localParticipant.attributes = {};
-    render(<LivePoll sessionUuid="sess" isHost={false} />);
+    const { unmount: unmount2 } = render(<LivePoll sessionUuid="sess" isHost={false} />);
     arrive(poll);
     await waitFor(() => expect(room.localParticipant.setAttributes).toHaveBeenCalledWith({ poll: "abcd1234:1" }));
+
+    // Another student signed into this tab says nothing in her name.
+    unmount2();
+    vi.clearAllMocks();
+    room.handlers.clear();
+    room.localParticipant.identity = "someone-else";
+    render(<LivePoll sessionUuid="sess" isHost={false} />);
+    arrive(poll);
+    await screen.findByRole("button", { name: "٤" });
+    expect(room.localParticipant.setAttributes).not.toHaveBeenCalled();
+    room.localParticipant.identity = "me";
 
     // A later poll is a new question: nothing is said for it.
     vi.clearAllMocks();

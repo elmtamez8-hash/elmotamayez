@@ -268,7 +268,8 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
   );
 }
 
-const VOTE_KEY = "live-poll-vote";
+/** Per person: a tab another student signs into must not vote in their name. */
+const voteKey = (identity: string) => `live-poll-vote:${identity}`;
 
 function StudentPoll() {
   const room = useRoomContext();
@@ -300,11 +301,11 @@ function StudentPoll() {
     if (poll?.state !== "open" || readVote(current, poll) !== null) return;
     let saved: string | null = null;
     try {
-      saved = sessionStorage.getItem(VOTE_KEY);
+      saved = sessionStorage.getItem(voteKey(localParticipant.identity));
     } catch {
       return; // no storage: the student answers again
     }
-    if (saved && readVote(saved, poll) !== null) localParticipant.setAttributes({ [POLL_ATTRIBUTE]: saved }).catch(() => undefined);
+    if (saved && readVote(saved, poll) !== null) localParticipant.setAttributes({ [POLL_ATTRIBUTE]: saved }).then(() => setError(""), () => undefined);
   }, [poll, current, localParticipant]);
 
   if (!poll) return null;
@@ -317,7 +318,7 @@ function StudentPoll() {
     const value = voteValue(poll.id, choice);
     // Kept as pressed, not as confirmed: a reload before the answer came back said the earlier choice again.
     try {
-      sessionStorage.setItem(VOTE_KEY, value);
+      sessionStorage.setItem(voteKey(localParticipant.identity), value);
     } catch {
       // a private window: the vote stands until a reload
     }
