@@ -86,8 +86,10 @@ import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVi
 import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
 import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
 import { AcademyLibrary } from "@/components/whiteboard/AcademyLibrary";
+import { GraphEditor } from "@/components/whiteboard/rich/GraphEditor";
 import { MathEditor } from "@/components/whiteboard/rich/MathEditor";
 import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
+import { blankGraph, GraphError, renderGraph } from "@/lib/whiteboard/graph";
 import { MathError, renderMath } from "@/lib/whiteboard/math";
 import { blankTable, parseClipboardTable, renderTable } from "@/lib/whiteboard/table";
 import { PageCover } from "@/components/whiteboard/PageCover";
@@ -805,7 +807,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     setRichSaving(true);
     try {
       const { blob, width, height } =
-        data.kind === "table" ? await renderTable(data) : await renderMath(data.latex, data.display, api.getAppState().currentItemStrokeColor);
+        data.kind === "table"
+          ? await renderTable(data)
+          : data.kind === "graph"
+            ? await renderGraph(data)
+            : await renderMath(data.latex, data.display, api.getAppState().currentItemStrokeColor);
       const file = new File([blob], `${data.kind}.png`, { type: "image/png" });
       const id = await uploadBoardImage(board.uuid, session.tab(), file, async (bytes) => bytes);
       const dataURL = await new Promise<string>((resolve, reject) => {
@@ -820,7 +826,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       if (!elementId) placeRichObject(api, id, width, height, data);
       setRichEdit(null);
     } catch (error) {
-      setNotice(error instanceof MathError ? WB.math.invalid : WB.imageFailed);
+      setNotice(error instanceof MathError ? WB.math.invalid : error instanceof GraphError ? WB.graph.invalid : WB.imageFailed);
     } finally {
       setRichSaving(false);
     }
@@ -976,6 +982,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
                     onInstrument={(kind) => setInstrument((current) => (current?.kind === kind ? null : { kind, id: Date.now() }))}
                     onTable={() => setRichEdit({ data: blankTable(), elementId: null })}
                     onMath={() => setRichEdit({ data: { kind: "math", v: 1, latex: "", display: true }, elementId: null })}
+                    onGraph={() => setRichEdit({ data: blankGraph(), elementId: null })}
                     onCalculator={() => setCalculator((shown) => !shown)}
                   />
                 ),
@@ -1087,11 +1094,19 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
           onClick={() => setRichEdit({ data: richSelected.data, elementId: richSelected.id })}
           className="absolute top-16 left-1/2 z-20 -translate-x-1/2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground shadow-lg"
         >
-          {richSelected.data.kind === "table" ? WB.table.edit : WB.math.edit}
+          {WB[richSelected.data.kind].edit}
         </button>
       )}
       {richEdit?.data.kind === "table" && (
         <TableEditor
+          initial={richEdit.data}
+          saving={richSaving}
+          onClose={() => setRichEdit(null)}
+          onSave={(data) => void saveRich(data, richEdit.elementId)}
+        />
+      )}
+      {richEdit?.data.kind === "graph" && (
+        <GraphEditor
           initial={richEdit.data}
           saving={richSaving}
           onClose={() => setRichEdit(null)}

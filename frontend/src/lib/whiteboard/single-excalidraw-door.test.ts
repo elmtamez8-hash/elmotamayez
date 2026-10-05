@@ -18,12 +18,13 @@ import { describe, expect, it } from "vitest";
 |
 | ⚠️ AND NO RAW `fetch(` UNDER lib/whiteboard: the session's headers (token, device,
 | workspace) are built once, in `lib/api.ts` (`api.blob`, `deleteKeepalive`). The
-| one exception reads PUBLIC font files that need no session.
+| exceptions read PUBLIC files that need no session: the fonts and the starter library.
 |
 | Comments are stripped first (see `no-hand-rolled-sign-in.test.ts`); type-only
 | imports are erased at build and allowed anywhere.
 */
 const SRC = join(process.cwd(), "src");
+const PUBLIC_FILES = ["lib/whiteboard/arabic-font.ts", "lib/whiteboard/starter-file.ts"];
 
 function strip(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
@@ -87,7 +88,7 @@ describe("the whiteboard's one door to Excalidraw", () => {
 
   it("builds no request by hand under lib/whiteboard", () => {
     const offenders = files
-      .filter((file) => file.path.startsWith("lib/whiteboard/") && file.path !== "lib/whiteboard/arabic-font.ts")
+      .filter((file) => file.path.startsWith("lib/whiteboard/") && !PUBLIC_FILES.includes(file.path))
       .filter((file) => /(?<![.\w$])fetch\s*\(/.test(file.code))
       .map((file) => file.path);
 

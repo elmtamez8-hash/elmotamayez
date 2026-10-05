@@ -327,3 +327,38 @@ test.describe("مكتبة الأكاديمية", () => {
       .toEqual(["القلب", "القلب"]);
   });
 });
+
+test.describe("المكتبة", () => {
+  test("the board's library holds the starter shapes", async ({ page, request }) => {
+    const board = await createBoard(request, "المكتبة");
+    await openBoard(page, board);
+    await page.locator(".default-sidebar-trigger").click();
+    // Drawn items only: the empty placeholders shown while loading share the class.
+    const drawn = page.locator(".library-unit:not(.library-unit--skeleton) svg");
+    await expect.poll(() => drawn.count(), { timeout: 30_000 }).toBeGreaterThan(20);
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-library.png` });
+  });
+});
+
+test.describe("رسم الدوال", () => {
+  test("a graph is drawn from its functions and saved with them", async ({ page, request }) => {
+    const board = await createBoard(request, "رسم دالة");
+    await openBoard(page, board);
+    await openTools(page, "أدوات");
+    await page.getByRole("button", { name: "رسم دالة" }).click();
+
+    const editor = page.getByRole("dialog", { name: "رسم الدوال" });
+    await editor.getByRole("button", { name: "إضافة دالة" }).click();
+    await editor.getByLabel("الدالة ٢").fill("sin(x)");
+    await expect(editor.getByRole("img", { name: "معاينة الرسم" })).toBeVisible({ timeout: 30_000 });
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-editor.png` });
+    await editor.getByRole("button", { name: "إدراج" }).click();
+    await expect(editor).toBeHidden({ timeout: 30_000 });
+
+    type Graph = { customData?: { kind?: string; functions?: { expr: string }[] } };
+    await expect
+      .poll(async () => (liveTypes((await serverPages(request, board))[0]) as Graph[]).find((e) => e.customData?.kind === "graph")?.customData?.functions?.map((f) => f.expr), { timeout: 30_000 })
+      .toEqual(["x^2 - 3", "sin(x)"]);
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-board.png` });
+  });
+});
