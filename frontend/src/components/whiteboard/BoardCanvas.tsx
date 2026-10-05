@@ -3,6 +3,7 @@
 import "@excalidraw/excalidraw/index.css";
 
 import { Excalidraw } from "@excalidraw/excalidraw";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api";
@@ -83,12 +84,8 @@ import { PresenterBar } from "@/components/whiteboard/PresenterBar";
 import { TeachingBar, type PassingTool } from "@/components/whiteboard/TeachingBar";
 import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
-import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
-import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
+import type { ImportView } from "@/components/whiteboard/ImportPanel";
 import { AcademyLibrary } from "@/components/whiteboard/AcademyLibrary";
-import { GraphEditor } from "@/components/whiteboard/rich/GraphEditor";
-import { MathEditor } from "@/components/whiteboard/rich/MathEditor";
-import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
 import { blankGraph, GraphError, renderGraph } from "@/lib/whiteboard/graph";
 import { MathError, renderMath } from "@/lib/whiteboard/math";
 import { blankTable, parseClipboardTable, renderTable } from "@/lib/whiteboard/table";
@@ -96,19 +93,58 @@ import { PageCover } from "@/components/whiteboard/PageCover";
 import { PageStore } from "@/lib/whiteboard/page-store";
 import { PagesSidebar, PagesTab } from "@/components/whiteboard/PagesSidebar";
 import { AttentionBanner } from "@/components/whiteboard/overlays/AttentionBanner";
-import { BalloonPop } from "@/components/whiteboard/overlays/BalloonPop";
-import { Stunt } from "@/components/whiteboard/overlays/Stunt";
-import { Celebrate } from "@/components/whiteboard/overlays/Celebrate";
-import { PointerTrail } from "@/components/whiteboard/overlays/PointerTrail";
-import { Curtain } from "@/components/whiteboard/overlays/Curtain";
-import { GeometryTool, OverlayLayer, type View } from "@/components/whiteboard/overlays/GeometryTool";
-import { Magnifier } from "@/components/whiteboard/overlays/Magnifier";
-import { Spotlight } from "@/components/whiteboard/overlays/Spotlight";
-import { Wheel } from "@/components/whiteboard/overlays/Wheel";
-import { Timer } from "@/components/whiteboard/overlays/Timer";
-import { Calculator } from "@/components/whiteboard/overlays/Calculator";
+import type { View } from "@/components/whiteboard/overlays/GeometryTool";
 import { SaveIndicator } from "@/components/whiteboard/SaveIndicator";
 import { useBoardSession, type PageAccess } from "@/components/whiteboard/useBoardSession";
+
+/*
+ * Windows and classroom tools a lesson may never open load on their own, after
+ * the board: the opening carries the canvas only. Warmed once the board is shown
+ * (`warmWindows`), so the class never waits for one either.
+ */
+const ImportPanel = dynamic(() => import("@/components/whiteboard/ImportPanel").then((m) => m.ImportPanel));
+const LessonExportPanel = dynamic(() => import("@/components/whiteboard/LessonExportPanel").then((m) => m.LessonExportPanel));
+const GraphEditor = dynamic(() => import("@/components/whiteboard/rich/GraphEditor").then((m) => m.GraphEditor));
+const MathEditor = dynamic(() => import("@/components/whiteboard/rich/MathEditor").then((m) => m.MathEditor));
+const TableEditor = dynamic(() => import("@/components/whiteboard/rich/TableEditor").then((m) => m.TableEditor));
+const BalloonPop = dynamic(() => import("@/components/whiteboard/overlays/BalloonPop").then((m) => m.BalloonPop));
+const Stunt = dynamic(() => import("@/components/whiteboard/overlays/Stunt").then((m) => m.Stunt));
+const Celebrate = dynamic(() => import("@/components/whiteboard/overlays/Celebrate").then((m) => m.Celebrate));
+const PointerTrail = dynamic(() => import("@/components/whiteboard/overlays/PointerTrail").then((m) => m.PointerTrail));
+const Curtain = dynamic(() => import("@/components/whiteboard/overlays/Curtain").then((m) => m.Curtain));
+const GeometryTool = dynamic(() => import("@/components/whiteboard/overlays/GeometryTool").then((m) => m.GeometryTool));
+const OverlayLayer = dynamic(() => import("@/components/whiteboard/overlays/GeometryTool").then((m) => m.OverlayLayer));
+const Magnifier = dynamic(() => import("@/components/whiteboard/overlays/Magnifier").then((m) => m.Magnifier));
+const Spotlight = dynamic(() => import("@/components/whiteboard/overlays/Spotlight").then((m) => m.Spotlight));
+const Wheel = dynamic(() => import("@/components/whiteboard/overlays/Wheel").then((m) => m.Wheel));
+const Timer = dynamic(() => import("@/components/whiteboard/overlays/Timer").then((m) => m.Timer));
+const Calculator = dynamic(() => import("@/components/whiteboard/overlays/Calculator").then((m) => m.Calculator));
+
+let warmed = false;
+function warmWindows(): void {
+  if (warmed) return;
+  warmed = true;
+  const warm = () => {
+    void import("@/components/whiteboard/ImportPanel");
+    void import("@/components/whiteboard/LessonExportPanel");
+    void import("@/components/whiteboard/rich/GraphEditor");
+    void import("@/components/whiteboard/rich/MathEditor");
+    void import("@/components/whiteboard/rich/TableEditor");
+    void import("@/components/whiteboard/overlays/BalloonPop");
+    void import("@/components/whiteboard/overlays/Stunt");
+    void import("@/components/whiteboard/overlays/Celebrate");
+    void import("@/components/whiteboard/overlays/PointerTrail");
+    void import("@/components/whiteboard/overlays/Curtain");
+    void import("@/components/whiteboard/overlays/GeometryTool");
+    void import("@/components/whiteboard/overlays/Magnifier");
+    void import("@/components/whiteboard/overlays/Spotlight");
+    void import("@/components/whiteboard/overlays/Wheel");
+    void import("@/components/whiteboard/overlays/Timer");
+    void import("@/components/whiteboard/overlays/Calculator");
+  };
+  if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 5000 });
+  else setTimeout(warm, 2000);
+}
 
 /**
  * The teacher's board (spec 039 · US1): Excalidraw, one 16:9 page at a time.
@@ -423,6 +459,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         pictures.prefetch(pages.current.pictureIds());
         setBackground(detail.background);
         setBoard(detail);
+        warmWindows();
       })
       .catch((error: unknown) => {
         if (alive) setFailure(error instanceof ApiError && error.status === 404 ? WB.notFound : WB.loadFailed);
