@@ -17,6 +17,7 @@ import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
 import { recognise } from "@/lib/whiteboard/magic-pen";
+import { loadStarter } from "@/lib/whiteboard/starter-file";
 import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
@@ -667,7 +668,6 @@ const libraryAdapter = {
 };
 
 const STARTER_KEY = "whiteboard.library.starter";
-const STARTER_URL = "/whiteboard/library/starter.excalidrawlib";
 
 /**
  * The starter shapes (owner, 2026-10-04: maths, symbols, circuits, organic
@@ -706,21 +706,6 @@ export async function withStarter<T extends { id: string }>(readMine: () => T[],
   return library;
 }
 
-// Excalidraw reads the library again before every save: the file is fetched once a visit.
-let starterItems: Promise<unknown[]> | null = null;
-
-function loadStarter<T>(): Promise<T[]> {
-  starterItems ??= fetch(STARTER_URL)
-    .then(async (response) => {
-      if (!response.ok) throw new Error(`starter library ${response.status}`);
-      return ((await response.json()) as { libraryItems: unknown[] }).libraryItems;
-    })
-    .catch((error: unknown) => {
-      starterItems = null;
-      throw error;
-    });
-  return starterItems as Promise<T[]>;
-}
 
 /**
  * Only items that work on ANY board are kept: an uploaded picture belongs to the
