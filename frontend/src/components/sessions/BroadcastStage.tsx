@@ -184,11 +184,17 @@ function Stage() {
  * A shared screen is the lesson — usually the board — so it takes the whole
  * width and every camera moves to a strip of small tiles under it (owner,
  * 2026-10-05). Half the stage, beside the teacher's face, made the writing
- * hard to read, and on a phone worse. Two shares at once: the first is shown
- * large, the other joins the strip.
+ * hard to read, and on a phone worse.
+ *
+ * Never one's OWN share: a student allowed to share saw her screen large and
+ * the teacher's board shrunk (and a tunnel of mirrors when her screen is this
+ * page) — caught in review. Own shares stay in the strip; a second share from
+ * someone else joins it too.
  */
-export function arrangeStage<T extends { source: string; publication?: unknown }>(tracks: readonly T[]): { main: T | null; strip: T[] } {
-  const main = tracks.find((t) => t.source === Track.Source.ScreenShare && t.publication !== undefined) ?? null;
+export function arrangeStage<T extends { source: string; publication?: unknown; participant: { isLocal: boolean } }>(
+  tracks: readonly T[],
+): { main: T | null; strip: T[] } {
+  const main = tracks.find((t) => t.source === Track.Source.ScreenShare && t.publication !== undefined && !t.participant.isLocal) ?? null;
   return { main, strip: main ? tracks.filter((t) => t !== main) : [...tracks] };
 }
 
