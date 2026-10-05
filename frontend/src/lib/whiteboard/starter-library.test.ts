@@ -29,9 +29,9 @@ describe("the starter library", () => {
   });
 
   it("never brings back an item the teacher removed, and adds only what a newer file has", async () => {
-    await withStarter(() => [], starter("s1", "s2"));
+    await withStarter(() => [], starter("s1", "s2"), "v1");
     // s1 removed by the teacher; the file later gains s3.
-    const library = await withStarter(() => [item("s2")], starter("s1", "s2", "s3"));
+    const library = await withStarter(() => [item("s2")], starter("s1", "s2", "s3"), "v2");
     expect(library.map((i) => i.id)).toEqual(["s2", "s3"]);
   });
 
@@ -41,6 +41,15 @@ describe("the starter library", () => {
     expect(localStorage.getItem("whiteboard.library.starter")).toBeNull();
   });
 
+  it("never downloads the file again once this version is in the library, and does for a newer one", async () => {
+    await withStarter(() => [], starter("s1"), "v1");
+    const fetchStarter = vi.fn(starter("s1", "s2"));
+    expect((await withStarter(() => [item("s1")], fetchStarter, "v1")).map((i) => i.id)).toEqual(["s1"]);
+    expect(fetchStarter).not.toHaveBeenCalled();
+    expect((await withStarter(() => [item("s1")], fetchStarter, "v2")).map((i) => i.id)).toEqual(["s1", "s2"]);
+    expect(fetchStarter).toHaveBeenCalledOnce();
+  });
+
   it("adds nothing when storage is full, so the teacher's own saves keep working", async () => {
     const mine = [item("mine")];
     const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
@@ -48,5 +57,7 @@ describe("the starter library", () => {
     });
     expect(await withStarter(() => mine, starter("s1"))).toBe(mine);
     setItem.mockRestore();
+    // …and asks again next visit.
+    expect(localStorage.getItem("whiteboard.library.starter.version")).toBeNull();
   });
 });
