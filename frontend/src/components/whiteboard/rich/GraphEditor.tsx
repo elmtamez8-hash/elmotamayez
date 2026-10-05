@@ -120,7 +120,7 @@ export function GraphEditor({
                     </Button>
                   )}
                 </div>
-                {wrong === i && <p role="alert" className="text-xs text-danger">{WB.graph.invalid}</p>}
+                {wrong === i && <p role="alert" className="text-xs text-danger-ink">{WB.graph.invalid}</p>}
               </div>
             ))}
             {form.functions.length < MAX_FUNCTIONS && (
