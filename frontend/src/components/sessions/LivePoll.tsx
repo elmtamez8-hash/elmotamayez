@@ -7,6 +7,7 @@ import { RoomEvent, type Participant } from "livekit-client";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { classSessions } from "@/lib/class-sessions";
+import { arabicNumber } from "@/lib/numerals";
 import {
   decodePoll,
   encodePoll,
@@ -235,7 +236,7 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">{poll.question || "تصويت"}</h3>
         <span className="text-sm text-ink-muted">
-          {poll.state === "open" ? "التصويت مفتوح" : "النتيجة ظاهرة للطلاب"} · صوّت {shownTotal}
+          {poll.state === "open" ? "التصويت مفتوح" : "النتيجة ظاهرة للطلاب"} · صوّت {arabicNumber(shownTotal)}
         </span>
       </div>
       <ul className="space-y-2">
@@ -267,6 +268,8 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
   );
 }
 
+const VOTE_KEY = "live-poll-vote";
+
 function StudentPoll() {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
@@ -287,16 +290,40 @@ function StudentPoll() {
     };
   }, [room]);
 
+  /*
+   * A vote lives on the connection, and a reload is a new one: the teacher's
+   * count dropped her vote and her choice was no longer marked (measured in a
+   * live room, 2026-10-05). This tab remembers it and says it again.
+   */
+  const current = attributes?.[POLL_ATTRIBUTE];
+  useEffect(() => {
+    if (poll?.state !== "open" || readVote(current, poll) !== null) return;
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(VOTE_KEY);
+    } catch {
+      return; // no storage: the student answers again
+    }
+    if (saved && readVote(saved, poll) !== null) localParticipant.setAttributes({ [POLL_ATTRIBUTE]: saved }).catch(() => undefined);
+  }, [poll, current, localParticipant]);
+
   if (!poll) return null;
 
-  const mine = readVote(attributes?.[POLL_ATTRIBUTE], poll);
+  const mine = readVote(current, poll);
   const total = poll.counts?.reduce((sum, n) => sum + n, 0) ?? 0;
 
   const vote = (choice: number) => {
     setError("");
+    const value = voteValue(poll.id, choice);
+    // Kept as pressed, not as confirmed: a reload before the answer came back said the earlier choice again.
+    try {
+      sessionStorage.setItem(VOTE_KEY, value);
+    } catch {
+      // a private window: the vote stands until a reload
+    }
     localParticipant
       // The one key: setAttributes merges, and resending the others could raise a hand the teacher just cleared.
-      .setAttributes({ [POLL_ATTRIBUTE]: voteValue(poll.id, choice) })
+      .setAttributes({ [POLL_ATTRIBUTE]: value })
       .catch(() => setError("لم يصل اختيارك. أعد المحاولة."));
   };
 
@@ -306,7 +333,7 @@ function StudentPoll() {
       {poll.state === "open" ? (
         <div className="flex flex-wrap gap-2">
           {poll.options.map((option, index) => (
-            <Button key={index} variant={mine === index ? "primary" : "secondary"} aria-pressed={mine === index} onClick={() => vote(index)}>
+            <Button key={index} variant={mine === index ? "primary" : "secondary"} pressed={mine === index} onClick={() => vote(index)}>
               {option}
             </Button>
           ))}
@@ -335,7 +362,7 @@ function ResultBar({ label, count, total }: { label: string; count: number; tota
       <div className="flex justify-between text-sm">
         <span>{label}</span>
         <span className="text-ink-muted">
-          {count} · {share}٪
+          {arabicNumber(count)} · {arabicNumber(share)}٪
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
