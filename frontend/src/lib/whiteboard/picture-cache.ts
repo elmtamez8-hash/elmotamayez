@@ -42,8 +42,14 @@ export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | nu
   };
 
   return {
-    prefetch(ids: Iterable<string>): void {
-      for (const id of ids) void fetchOnce(id);
+    /**
+     * `first` before the `rest`: asked for together, the first screen's pictures
+     * shared the line with every other page's. A stuck one holds the rest back
+     * `wait` ms at most, and a board closed meanwhile (`open()`) asks for no more.
+     */
+    async prefetch(first: Iterable<string>, rest: Iterable<string> = [], open = () => true, wait = 10_000): Promise<void> {
+      await Promise.race([Promise.all([...first].map(fetchOnce)), new Promise((resolve) => setTimeout(resolve, wait))]);
+      if (open()) for (const id of rest) void fetchOnce(id);
     },
 
     /** The pictures among `ids` the canvas does not have yet; each is handed over once. */

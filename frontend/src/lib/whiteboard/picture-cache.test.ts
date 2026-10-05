@@ -30,4 +30,31 @@ describe("createPictureCache", () => {
     expect(await stale).toHaveLength(0);
     expect(await cache.take(["b"])).toHaveLength(1);
   });
+
+  it("prefetches the first screen's pictures before the rest, each once", async () => {
+    const asked: string[] = [];
+    let release = () => {};
+    const cache = createPictureCache((id) => {
+      asked.push(id);
+      return id === "a" ? new Promise<Blob>((resolve) => (release = () => resolve(new Blob(["x"])))) : Promise.resolve(new Blob(["x"]));
+    });
+    const done = cache.prefetch(["a"], ["a", "b", "c"]);
+    await Promise.resolve();
+    expect(asked).toEqual(["a"]); // the rest waits for the first screen
+    release();
+    await done;
+    expect(asked).toEqual(["a", "b", "c"]);
+  });
+
+  it("a stuck picture holds the rest back only so long, and a closed board asks for no more", async () => {
+    const asked: string[] = [];
+    const cache = createPictureCache((id) => {
+      asked.push(id);
+      return id === "stuck" ? new Promise<Blob>(() => {}) : Promise.resolve(new Blob(["x"]));
+    });
+    await cache.prefetch(["stuck"], ["b"], () => true, 10);
+    expect(asked).toEqual(["stuck", "b"]);
+    await cache.prefetch(["c"], ["d"], () => false);
+    expect(asked).toEqual(["stuck", "b", "c"]);
+  });
 });

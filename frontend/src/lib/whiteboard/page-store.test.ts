@@ -52,6 +52,9 @@ describe("PageStore", () => {
       restore,
     );
     expect(store.pictureIds().sort()).toEqual(["p1", "p3"]);
+    expect(store.pictureIds(["b"])).toEqual(["p3"]); // the pages named only: the first screen's go first
     expect(restore).not.toHaveBeenCalled();
+    store.get("a");
+    expect(store.pictureIds(["a", "missing"])).toEqual(["p1"]); // a restored page still counts
   });
 });
