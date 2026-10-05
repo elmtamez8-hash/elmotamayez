@@ -1,6 +1,6 @@
 # The board's starter library
 
-`starter.excalidrawlib` joins five libraries from the Excalidraw libraries
+`starter.json` (an Excalidraw library file, named `.json` so the server compresses it) joins five libraries from the Excalidraw libraries
 collection (https://github.com/excalidraw/excalidraw-libraries), unchanged
 except for their item ids:
 

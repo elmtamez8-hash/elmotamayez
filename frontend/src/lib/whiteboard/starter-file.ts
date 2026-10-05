@@ -3,7 +3,11 @@
  * so a plain `fetch` with no session, like the fonts in `arabic-font.ts`; the
  * one-door test exempts these two files only.
  */
-const STARTER_URL = "/whiteboard/library/starter.excalidrawlib";
+// `.json`, not `.excalidrawlib`: served as JSON, the server compresses it (331 KB → 53 KB).
+const STARTER_URL = "/whiteboard/library/starter.json";
+
+/** Bump with every change to the file: a browser that holds this version never downloads it again. */
+export const STARTER_VERSION = "2026-10-04";
 
 // Excalidraw reads the library again before every save: the file is fetched once a visit.
 let starterItems: Promise<unknown[]> | null = null;

@@ -14,7 +14,12 @@ vi.mock("@excalidraw/excalidraw", () => ({
   useHandleLibrary: vi.fn(),
 }));
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { withStarter } from "@/lib/whiteboard/excalidraw-api";
+import { STARTER_VERSION } from "@/lib/whiteboard/starter-file";
 
 const item = (id: string) => ({ id });
 const starter = (...ids: string[]) => () => Promise.resolve(ids.map(item));
@@ -29,9 +34,9 @@ describe("the starter library", () => {
   });
 
   it("never brings back an item the teacher removed, and adds only what a newer file has", async () => {
-    await withStarter(() => [], starter("s1", "s2"));
+    await withStarter(() => [], starter("s1", "s2"), "v1");
     // s1 removed by the teacher; the file later gains s3.
-    const library = await withStarter(() => [item("s2")], starter("s1", "s2", "s3"));
+    const library = await withStarter(() => [item("s2")], starter("s1", "s2", "s3"), "v2");
     expect(library.map((i) => i.id)).toEqual(["s2", "s3"]);
   });
 
@@ -41,12 +46,32 @@ describe("the starter library", () => {
     expect(localStorage.getItem("whiteboard.library.starter")).toBeNull();
   });
 
+  it("never downloads the file again once this version is in the library, and does for a newer one", async () => {
+    await withStarter(() => [], starter("s1"), "v1");
+    const fetchStarter = vi.fn(starter("s1", "s2"));
+    expect((await withStarter(() => [item("s1")], fetchStarter, "v1")).map((i) => i.id)).toEqual(["s1"]);
+    expect(fetchStarter).not.toHaveBeenCalled();
+    expect((await withStarter(() => [item("s1")], fetchStarter, "v2")).map((i) => i.id)).toEqual(["s1", "s2"]);
+    expect(fetchStarter).toHaveBeenCalledOnce();
+  });
+
   it("adds nothing when storage is full, so the teacher's own saves keep working", async () => {
     const mine = [item("mine")];
-    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("full", "QuotaExceededError");
+    // Only the library itself is too big: the small stamp alone would still fit.
+    const real = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === "whiteboard.library") throw new DOMException("full", "QuotaExceededError");
+      real.call(this, key, value);
     });
     expect(await withStarter(() => mine, starter("s1"))).toBe(mine);
     setItem.mockRestore();
+    // …and asks again next visit.
+    expect(localStorage.getItem("whiteboard.library.starter.version")).toBeNull();
+  });
+
+  it("names a new version whenever the file changes, or browsers that hold the old one never get it", () => {
+    const file = readFileSync(join(process.cwd(), "public/whiteboard/library/starter.json"));
+    // Changed the file? Bump STARTER_VERSION in starter-file.ts, then the hash here.
+    expect([STARTER_VERSION, createHash("sha256").update(file).digest("hex").slice(0, 16)]).toEqual(["2026-10-04", "4e39275f3975100f"]);
   });
 });

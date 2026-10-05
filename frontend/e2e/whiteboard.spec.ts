@@ -337,6 +337,15 @@ test.describe("المكتبة", () => {
     const drawn = page.locator(".library-unit:not(.library-unit--skeleton) svg");
     await expect.poll(() => drawn.count(), { timeout: 30_000 }).toBeGreaterThan(20);
     if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-library.png` });
+
+    // Opened again, the board does not download the file a second time (331 KB on every open, once).
+    const fetched: string[] = [];
+    page.on("request", (r) => r.url().includes("/whiteboard/library/") && fetched.push(r.url()));
+    await page.reload();
+    await expect(page.locator("[data-save-state]")).toBeVisible({ timeout: 30_000 });
+    await page.locator(".default-sidebar-trigger").click();
+    await expect.poll(() => drawn.count(), { timeout: 30_000 }).toBeGreaterThan(20);
+    expect(fetched).toEqual([]);
   });
 });
 

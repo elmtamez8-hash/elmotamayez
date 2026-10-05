@@ -22,7 +22,7 @@ import { injectFontsIntoSvg } from "@/lib/whiteboard/arabic-font";
 import { paintTemplate, templateFileId, type TemplateName } from "@/lib/whiteboard/templates";
 import type { Pen } from "@/lib/whiteboard/pens";
 import { recognise } from "@/lib/whiteboard/magic-pen";
-import { loadStarter } from "@/lib/whiteboard/starter-file";
+import { loadStarter, STARTER_VERSION } from "@/lib/whiteboard/starter-file";
 import type { WbCustomData } from "@/lib/whiteboard/custom-data";
 import {
   BACKGROUNDS,
@@ -673,15 +673,27 @@ const libraryAdapter = {
 };
 
 const STARTER_KEY = "whiteboard.library.starter";
+const STARTER_VERSION_KEY = "whiteboard.library.starter.version";
 
 /**
  * The starter shapes (owner, 2026-10-04: maths, symbols, circuits, organic
  * chemistry, music — `public/whiteboard/library/NOTICE.md`) join the teacher's
  * library ONCE: each item is offered a single time, so one they removed never
  * comes back, and a later file adds only what is new. A failed fetch leaves the
- * library as it is and tries again next time.
+ * library as it is and tries again next time. A browser that already holds this
+ * version of the file does not download it at all: it was 331 KB on every board
+ * opened, the library closed (measured 2026-10-05).
  */
-export async function withStarter<T extends { id: string }>(readMine: () => T[], fetchStarter: () => Promise<T[]> = loadStarter): Promise<T[]> {
+export async function withStarter<T extends { id: string }>(
+  readMine: () => T[],
+  fetchStarter: () => Promise<T[]> = loadStarter,
+  version: string = STARTER_VERSION,
+): Promise<T[]> {
+  try {
+    if (localStorage.getItem(STARTER_VERSION_KEY) === version) return readMine();
+  } catch {
+    // unreadable storage: fetch, as before
+  }
   let starter: T[];
   try {
     starter = await fetchStarter();
@@ -698,11 +710,14 @@ export async function withStarter<T extends { id: string }>(readMine: () => T[],
   }
   const have = new Set([...offered, ...mine.map((item) => item.id)]);
   const fresh = starter.filter((item) => !have.has(item.id));
-  if (fresh.length === 0) return mine;
   const library = [...mine, ...fresh];
   try {
-    localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
-    localStorage.setItem(STARTER_KEY, JSON.stringify([...offered, ...fresh.map((item) => item.id)]));
+    if (fresh.length > 0) {
+      localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+      localStorage.setItem(STARTER_KEY, JSON.stringify([...offered, ...fresh.map((item) => item.id)]));
+    }
+    // Written last: only a library that really took the file stops asking for it.
+    localStorage.setItem(STARTER_VERSION_KEY, version);
   } catch {
     // Storage full: added now, every later save of the teacher's own item would
     // fail with it — so not added at all, and offered again next visit.
