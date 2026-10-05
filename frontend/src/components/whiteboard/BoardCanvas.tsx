@@ -274,8 +274,6 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   const session = useBoardSession(board, user?.uuid ?? null, access);
   const sessionRef = useRef(session);
   sessionRef.current = session;
-  const accessRef = useRef(access);
-  accessRef.current = access;
 
   // The element library: kept in this browser, and filled from libraries.excalidraw.com.
   useBoardLibrary(api);
@@ -492,8 +490,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         // Their pictures too, before the class needs them (T072).
         void pictures.prefetch([], pages.current.pictureIds(filled.map((page) => page.uuid)));
       }
-      // A page deleted elsewhere meanwhile (a reader's tab): the board as it is now, once.
-      if (pages.current.pending() > 0) accessRef.current.reload(whole);
+      // A page deleted elsewhere while it was on its way: dropped from the list,
+      // and nothing else touched — a reload here put an older copy of the page
+      // shown back on screen, and the autosave saved it over newer work (caught in review).
+      const arrived = new Set(whole.pages.map((page) => page.uuid));
+      const gone = [...known].filter((uuid) => pages.current.isPending(uuid) && !arrived.has(uuid));
+      if (gone.length > 0) {
+        for (const uuid of gone) pages.current.delete(uuid);
+        const shown = boardRef.current?.pages[pageIndexRef.current]?.uuid;
+        const list = (boardRef.current?.pages ?? []).filter((page) => !gone.includes(page.uuid));
+        setBoard((current) => current && { ...current, pages: current.pages.filter((page) => !gone.includes(page.uuid)) });
+        setPageIndex(Math.max(0, list.findIndex((page) => page.uuid === shown)));
+      }
     })().catch((error: unknown) => {
       if (rest.current === loading) rest.current = null;
       throw error;
