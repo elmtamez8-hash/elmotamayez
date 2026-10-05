@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Whiteboard;
 
 use App\Modules\Whiteboard\Models\Board;
+use App\Modules\Whiteboard\Models\BoardLibraryItem;
+use App\Modules\Whiteboard\Policies\BoardLibraryItemPolicy;
 use App\Modules\Whiteboard\Policies\BoardPolicy;
 use App\Modules\Whiteboard\Support\MemberRoles;
 use App\Modules\Whiteboard\Support\WhiteboardPersonalData;
@@ -43,5 +45,6 @@ class WhiteboardServiceProvider extends Module
 
         // Bound explicitly: the guesser fails OPEN (StoreServiceProvider explains).
         Gate::policy(Board::class, BoardPolicy::class);
+        Gate::policy(BoardLibraryItem::class, BoardLibraryItemPolicy::class);
     }
 }

@@ -100,4 +100,45 @@ final class SceneValidator
             throw new WhiteboardRefusal('unknown_file');
         }
     }
+
+    /**
+     * A shape shared to the academy's library: the page's element rules, and no
+     * picture.
+     *
+     * @param  array<mixed>  $elements
+     *
+     * @throws WhiteboardRefusal
+     */
+    public function validateLibraryElements(array $elements): void
+    {
+        // The page's own reading: what a page would refuse once placed on it is refused here
+        // — deeper than 64 levels, or `dataURL` anywhere (caught in review: a deep shape also
+        // failed every later list of the academy's library with a 500).
+        $json = json_encode($elements, JSON_THROW_ON_ERROR);
+        if (str_contains($json, '"dataURL"')) {
+            throw new WhiteboardRefusal('inline_file');
+        }
+        try {
+            json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new WhiteboardRefusal('bad_element');
+        }
+
+        foreach ($elements as $element) {
+            if (! is_array($element) || ! is_string($element['type'] ?? null) || in_array($element['type'], self::REFUSED_TYPES, true)) {
+                throw new WhiteboardRefusal('bad_element');
+            }
+
+            $link = $element['link'] ?? null;
+            if ($link !== null && $link !== '' && (! is_string($link) || preg_match(self::LINK, $link) !== 1)) {
+                throw new WhiteboardRefusal('bad_link');
+            }
+
+            // No picture at all: an uploaded one belongs to its board, and a template's picture is
+            // drawn by the board that placed it — a colleague's board showed an empty box.
+            if ($element['type'] === 'image') {
+                throw new WhiteboardRefusal('unknown_file');
+            }
+        }
+    }
 }

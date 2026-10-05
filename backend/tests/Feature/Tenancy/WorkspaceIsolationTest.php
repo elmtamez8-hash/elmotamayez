@@ -85,6 +85,7 @@ use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
 use App\Modules\Whiteboard\Models\BoardLessonExport;
+use App\Modules\Whiteboard\Models\BoardLibraryItem;
 use App\Modules\Whiteboard\Models\BoardPage;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
@@ -1436,12 +1437,15 @@ it('scopes the four whiteboard tables to the workspace that owns them', function
             'board_id' => $board->getKey(),
             'lesson_id' => Lesson::factory()->create(['workspace_id' => $workspace->getKey()])->getKey(),
         ]);
+
+        // The academy's shared board library (2026-10-05).
+        BoardLibraryItem::factory()->create(['workspace_id' => $workspace->getKey(), 'created_by_user_id' => $owner->getKey()]);
     });
 
     $seed($workspaceA, $ownerA);
     $seed($workspaceB, $ownerB);
 
-    foreach ([Board::class, BoardPage::class, BoardLessonExport::class] as $model) {
+    foreach ([Board::class, BoardPage::class, BoardLessonExport::class, BoardLibraryItem::class] as $model) {
         expect($context->forWorkspace($workspaceA, fn () => $model::query()->count()))->toBe(1)
             ->and($context->forWorkspace($workspaceB, fn () => $model::query()->count()))->toBe(1)
             ->and($model::query()->withoutGlobalScopes()->count())->toBe(2)

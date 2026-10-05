@@ -28,6 +28,7 @@ final class WhiteboardRefusal extends DomainException
         'already_exported' => 409,
         'locked' => 423,
         'replace_forbidden' => 403,
+        'library_full' => 409,
     ];
 
     /** @param array<string, mixed> $extra */
