@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api";
 import { createAutosave, type Autosave, type SaveState } from "@/lib/whiteboard/autosave";
-import { boards, type BoardDetail } from "@/lib/whiteboard/api";
+import { boards, type BoardDetail, type BoardPagePayload } from "@/lib/whiteboard/api";
 import { classifyDraft, draftKey, indexedDbDrafts, type PageDraft } from "@/lib/whiteboard/draft-store";
 import type { BoardElement } from "@/lib/whiteboard/excalidraw-api";
 
@@ -72,6 +72,9 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
   const everHeld = useRef(false);
   const pagesRef = useRef(pages);
   pagesRef.current = pages;
+  // Read by `arrived`, which is called from a request begun renders ago.
+  const boardRef = useRef(board);
+  boardRef.current = board;
 
   const boardUuid = board?.uuid ?? null;
 
@@ -80,16 +83,21 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
    * out when the page first changes — reading a page restores it, and doing that
    * for every page here undid the lazy opening (caught in review).
    */
-  const trackAll = (fresh: BoardDetail) => {
+  const trackAll = (fresh: Pick<BoardDetail, "pages">) => {
     const p = pagesRef.current;
-    for (const page of fresh.pages) save.current?.track(page.uuid, page.version, () => p.hash(p.read(page.uuid)));
+    // A page that has not arrived is not tracked at all: its version is tracked
+    // with its scene, when it comes (`arrived`), never with another response's.
+    for (const page of fresh.pages) {
+      if (page.scene !== null) save.current?.track(page.uuid, page.version, () => p.hash(p.read(page.uuid)));
+    }
   };
 
   /** A draft left by a crash, a lost network or a lost lock, page by page (R-08). */
-  const offerDrafts = (fresh: BoardDetail) => {
+  const offerDrafts = (fresh: Pick<BoardDetail, "uuid" | "pages">, more = false) => {
     if (!userUuid) return;
     void Promise.all(
       fresh.pages.map(async (page) => {
+        if (page.scene === null) return null; // asked when it arrives
         const key = draftKey(fresh.uuid, page.uuid, userUuid);
         const draft = await indexedDbDrafts.get(key);
         if (draft === "unavailable" || draft === null) return null;
@@ -101,7 +109,10 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
         }
         return { page: page.uuid, verdict, draft } satisfies RestoreQuestion;
       }),
-    ).then((found) => setRestores(found.filter((q): q is RestoreQuestion => q !== null)));
+    ).then((found) => {
+      const questions = found.filter((q): q is RestoreQuestion => q !== null);
+      setRestores((asked) => (more ? [...asked, ...questions] : questions));
+    });
   };
   const canEdit = board?.can.edit ?? false;
 
@@ -275,6 +286,13 @@ export function useBoardSession(board: BoardDetail | null, userUuid: string | nu
     takeServer,
     dismissConflict: () => setConflict(null),
     pageRemoved: (page: string) => save.current?.remove(page),
+    /** Pages that arrived after the opening: tracked with their own version, and any draft offered. */
+    arrived: (pages: BoardPagePayload[]) => {
+      const current = boardRef.current;
+      if (!current || pages.length === 0) return;
+      trackAll({ pages });
+      if (current.can.edit) offerDrafts({ uuid: current.uuid, pages }, true);
+    },
     /** This tab's id — every structural request carries it. */
     tab: () => tab.current,
     /** Send what is waiting and let it land — before a page is copied, moved or deleted. */
