@@ -347,8 +347,8 @@ export function placeSticker(api: BoardApi, fileId: string, name: string, offset
   api.updateScene({ elements: [...elements, sticker], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
 }
 
-/** A rich object's source (story 6): a table now, an equation next. */
-export type RichData = Extract<WbCustomData, { kind: "table" | "math" }>;
+/** A rich object's source (story 6): a table, an equation, a graph. */
+export type RichData = Extract<WbCustomData, { kind: "table" | "math" | "graph" }>;
 
 /**
  * Put a rich object on the page shown: an image element, its source in
@@ -428,7 +428,7 @@ export function selectedRichObject(api: BoardApi): { id: string; data: RichData 
   if (ids.length !== 1) return null;
   const element = api.getSceneElements().find((e) => e.id === ids[0]);
   const data = element?.customData as RichData | undefined;
-  return element && (data?.kind === "table" || data?.kind === "math") ? { id: element.id, data } : null;
+  return element && (data?.kind === "table" || data?.kind === "math" || data?.kind === "graph") ? { id: element.id, data } : null;
 }
 
 /** A ready pen (US9): the freehand tool with that pen's width, opacity and colour. */

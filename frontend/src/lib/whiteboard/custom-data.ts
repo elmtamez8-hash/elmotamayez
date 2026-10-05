@@ -24,6 +24,16 @@ export type WbCustomData =
       colWidths: number[];
     }
   | { kind: "math"; v: 1; latex: string; display: boolean }
+  | {
+      kind: "graph";
+      v: 1;
+      // Each function as typed (mathjs syntax, «y =» allowed); `y` null = worked out from the curves.
+      functions: { expr: string; color: string }[];
+      x: [number, number];
+      y: [number, number] | null;
+      points: { x: number; y: number; label: string }[];
+      angle: "deg" | "rad";
+    }
   | { kind: "quran"; v: 1; surah: number; from: number; to: number; edition: "tanzil-uthmani-1.1" }
   | { kind: "sticker"; v: 1; name: string };
 
@@ -35,6 +45,7 @@ const CURRENT: Record<WbKind, number> = {
   template: 1,
   sticker: 1,
   table: 1,
+  graph: 1,
   math: 1,
   quran: 1,
 };
