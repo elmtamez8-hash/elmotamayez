@@ -100,4 +100,35 @@ final class SceneValidator
             throw new WhiteboardRefusal('unknown_file');
         }
     }
+
+    /**
+     * A shape shared to the academy's library: the page's element rules, and a
+     * picture only when it is a template — an uploaded one belongs to the board
+     * it was uploaded to, and every other board would refuse it (`unknown_file`).
+     *
+     * @param  array<mixed>  $elements
+     *
+     * @throws WhiteboardRefusal
+     */
+    public function validateLibraryElements(array $elements): void
+    {
+        foreach ($elements as $element) {
+            if (! is_array($element) || ! is_string($element['type'] ?? null) || in_array($element['type'], self::REFUSED_TYPES, true)) {
+                throw new WhiteboardRefusal('bad_element');
+            }
+
+            if (array_key_exists('dataURL', $element)) {
+                throw new WhiteboardRefusal('inline_file');
+            }
+
+            $link = $element['link'] ?? null;
+            if ($link !== null && $link !== '' && (! is_string($link) || preg_match(self::LINK, $link) !== 1)) {
+                throw new WhiteboardRefusal('bad_link');
+            }
+
+            if ($element['type'] === 'image' && preg_match(self::TEMPLATE, (string) ($element['fileId'] ?? '')) !== 1) {
+                throw new WhiteboardRefusal('unknown_file');
+            }
+        }
+    }
 }

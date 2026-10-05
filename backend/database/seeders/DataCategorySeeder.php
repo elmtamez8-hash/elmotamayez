@@ -932,6 +932,21 @@ class DataCategorySeeder extends Seeder
                 'expiry_behaviour' => null,
                 'erasure_mode' => ErasureMode::Anonymise,
             ],
+            // The academy's shared board library (2026-10-05): who shared each shape.
+            [
+                'key' => 'whiteboard_library_item',
+                'subject_roles' => ['teacher'],
+                'label' => 'الأشكال التي شاركتَها في مكتبة الأكاديمية',
+                'purpose' => 'ليعرفَ زملاؤك مَن شاركَ الشكل، وليحذفَه مَن شاركه.',
+                'audience' => 'مدرّسو الأكاديمية التي تدرّس فيها',
+                'is_required' => true,
+                'owning_module' => 'whiteboard',
+                'table_name' => 'board_library_items',
+                'column_name' => 'created_by_user_id',
+                'retain_days' => null,
+                'expiry_behaviour' => null,
+                'erasure_mode' => ErasureMode::Anonymise,
+            ],
 
             // ── Analytics (spec 011 · US6) ────────────────────────────
             /*

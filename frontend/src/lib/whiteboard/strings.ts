@@ -126,6 +126,23 @@ export const WB = {
     save: "إدراج",
     cancel: "إلغاء",
   },
+  /** The academy's shared board library, a tab in Excalidraw's «مكتبة». */
+  academy: {
+    tab: "الأكاديمية",
+    title: "مكتبة الأكاديمية",
+    intro: "أشكال يشاركها مدرّسو الأكاديمية. اضغط شكلًا لتضعه على السبّورة، أو اسحبه إليها.",
+    name: "اسم الشكل",
+    share: "شارك المحدَّد مع الأكاديمية",
+    selectFirst: "حدّد أشكالًا على السبّورة أولًا، ثم اكتب لها اسمًا.",
+    empty: "لم يشارك أحدٌ شكلًا بعد.",
+    sharedBy: (name: string) => `شاركه ${name}`,
+    remove: "حذف",
+    confirmRemove: "اضغط مرة أخرى للحذف",
+    loadFailed: "تعذّر تحميل مكتبة الأكاديمية.",
+    tooLarge: "الشكل كبير جدًّا للمشاركة. شارك جزءًا أصغر.",
+    full: "مكتبة الأكاديمية ممتلئة. احذفوا أشكالًا قديمة أولًا.",
+    pictures: "الصور المرفوعة لا تُشارك: تبقى في سبّورتها.",
+  },
   /** Story 5: the whole board as a PDF in a lesson's attachments. */
   lessonExport: {
     course: "الكورس",

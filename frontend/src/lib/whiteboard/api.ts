@@ -151,3 +151,19 @@ export const boards = {
   /** A picture's bytes, with the session's headers (an <img src> cannot carry them). */
   fileBytes: (uuid: string, file: string) => api.blob(`/boards/${uuid}/files/${file}`),
 };
+
+/** One shape of the academy's shared board library (2026-10-05). */
+export interface SharedShape {
+  uuid: string;
+  name: string;
+  elements: unknown[];
+  shared_by: string | null;
+  created_at: string;
+  can_delete: boolean;
+}
+
+export const boardLibrary = {
+  list: () => api.get<{ data: SharedShape[] }>("/board-library"),
+  share: (body: { name: string; elements: unknown[] }) => api.post<SharedShape>("/board-library", body),
+  remove: (uuid: string) => api.delete<void>(`/board-library/${uuid}`),
+};

@@ -85,6 +85,7 @@ import { LockBanner } from "@/components/whiteboard/LockBanner";
 import { PanelModesMenu, PanelVisibility } from "@/components/whiteboard/PanelVisibility";
 import { ImportPanel, type ImportView } from "@/components/whiteboard/ImportPanel";
 import { LessonExportPanel } from "@/components/whiteboard/LessonExportPanel";
+import { AcademyLibrary } from "@/components/whiteboard/AcademyLibrary";
 import { MathEditor } from "@/components/whiteboard/rich/MathEditor";
 import { TableEditor } from "@/components/whiteboard/rich/TableEditor";
 import { MathError, renderMath } from "@/lib/whiteboard/math";
@@ -1043,7 +1044,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             }
           />
         )}
-      />
+      >
+        <AcademyLibrary api={api} canEdit={session.held} />
+      </Excalidraw>
       {api && <PageCover api={api} background={background} template={template} />}
       {showPages && !presenting && (
         // Over the canvas, on the side the toolbar is not, and hidden for «عرض»: the class sees the whole tab.

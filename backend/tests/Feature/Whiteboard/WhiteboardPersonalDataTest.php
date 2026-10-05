@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Tenancy\Support\Roles;
 use App\Modules\Whiteboard\Models\Board;
+use App\Modules\Whiteboard\Models\BoardLibraryItem;
 use App\Modules\Whiteboard\Support\WhiteboardPersonalData;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -56,4 +57,19 @@ it('re-points authorship to the workspace owner on erasure and keeps every page'
 it('leaves everything when the mode is Retain', function (): void {
     expect((new WhiteboardPersonalData)->erase(new DataSubject(user: $this->teacher), ErasureMode::Retain, 100))->toBe(0)
         ->and(DB::table('boards')->where('id', $this->board->id)->value('owner_user_id'))->toBe($this->teacher->getKey());
+});
+
+it('exports the shapes a teacher shared, and on erasure keeps them for the academy without their name', function (): void {
+    $item = BoardLibraryItem::factory()->create(['workspace_id' => $this->workspace->getKey(), 'created_by_user_id' => $this->teacher->getKey(), 'name' => 'خلية']);
+
+    $rows = [];
+    foreach ((new WhiteboardPersonalData)->export(new DataSubject(user: $this->teacher)) as $category => $chunk) {
+        $rows[$category] = [...($rows[$category] ?? []), ...$chunk];
+    }
+    expect(array_column($rows['whiteboard_library_item'], 'name'))->toBe(['خلية']);
+
+    $processed = (new WhiteboardPersonalData)->erase(new DataSubject(user: $this->teacher), ErasureMode::Anonymise, 100);
+
+    expect($processed)->toBe(2) // the board and the shape
+        ->and(DB::table('board_library_items')->where('id', $item->id)->value('created_by_user_id'))->toBeNull();
 });

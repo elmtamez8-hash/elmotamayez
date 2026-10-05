@@ -7,9 +7,14 @@ import {
   hashElementsVersion,
   newElementWith,
   restoreElements,
+  MIME_TYPES,
+  serializeLibraryAsJSON,
   setCustomTextMetricsProvider,
   useHandleLibrary,
 } from "@excalidraw/excalidraw";
+
+// The library sidebar's tabs (the academy's shared shapes) — through this door like every other call.
+export { DefaultSidebar, Sidebar } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement, ExcalidrawFrameElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFileData, DataURL, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 
@@ -682,6 +687,80 @@ function portableItems<T>(items: T): T {
  */
 export function useBoardLibrary(api: BoardApi | null): void {
   useHandleLibrary({ excalidrawAPI: api, adapter: libraryAdapter });
+}
+
+/** The teacher's selection, as a shape to share: never the page frame, never a deleted element. */
+export function selectedShape(api: BoardApi): BoardElement[] {
+  const selected = api.getAppState().selectedElementIds;
+  return api.getSceneElements().filter((element) => selected[element.id] && element.type !== "frame");
+}
+
+/**
+ * A shared shape put on the page at the middle of the view, as ONE undoable
+ * step: fresh ids (and group ids, bindings, containers renamed with them), so
+ * placing it twice gives two shapes, and inside the page frame like every
+ * other element.
+ */
+export function placeShape(api: BoardApi, shape: readonly BoardElement[]): void {
+  if (shape.length === 0) return;
+  const fresh = new Map<string, string>();
+  const rename = (id: string) => fresh.get(id) ?? fresh.set(id, crypto.randomUUID()).get(id)!;
+  const left = Math.min(...shape.map((e) => e.x));
+  const top = Math.min(...shape.map((e) => e.y));
+  const right = Math.max(...shape.map((e) => e.x + Math.abs(e.width)));
+  const bottom = Math.max(...shape.map((e) => e.y + Math.abs(e.height)));
+  const { scrollX, scrollY, zoom, width, height } = api.getAppState();
+  const dx = width / 2 / zoom.value - scrollX - (left + right) / 2;
+  const dy = height / 2 / zoom.value - scrollY - (top + bottom) / 2;
+  const elements = api.getSceneElementsIncludingDeleted();
+  const frame = pageFrame(elements);
+  type Binding = { elementId: string } | null | undefined;
+  const rebind = (binding: Binding) => (binding ? { ...binding, elementId: rename(binding.elementId) } : binding);
+
+  const copies = shape.map((element) => {
+    const e = element as BoardElement & { containerId?: string | null; startBinding?: Binding; endBinding?: Binding };
+    return {
+      ...e,
+      id: rename(e.id),
+      x: e.x + dx,
+      y: e.y + dy,
+      groupIds: e.groupIds.map(rename),
+      frameId: frame?.id ?? null,
+      boundElements: e.boundElements?.map((bound) => ({ ...bound, id: rename(bound.id) })) ?? null,
+      ...(e.containerId ? { containerId: rename(e.containerId) } : {}),
+      ...("startBinding" in e ? { startBinding: rebind(e.startBinding) } : {}),
+      ...("endBinding" in e ? { endBinding: rebind(e.endBinding) } : {}),
+      isDeleted: false,
+      locked: false,
+    };
+  });
+  const placed = restoreElements(copies as unknown as BoardElement[], null, { refreshDimensions: false, repairBindings: true });
+  api.updateScene({
+    elements: [...elements, ...placed],
+    appState: { selectedElementIds: Object.fromEntries(placed.map((e) => [e.id, true as const])) },
+    captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+  });
+}
+
+/** A shape dragged out of the academy's tab drops onto the board as Excalidraw's own library items do. */
+export function dragShape(event: React.DragEvent, id: string, shape: readonly BoardElement[]): void {
+  event.dataTransfer.setData(
+    MIME_TYPES.excalidrawlib,
+    serializeLibraryAsJSON([{ id, status: "published", elements: shape as BoardElement[], created: Date.now() }]),
+  );
+}
+
+/**
+ * A small picture of a shared shape, as an object URL for an <img>: a shape
+ * another teacher shared is never put into the page as markup.
+ */
+export async function shapePreview(shape: readonly BoardElement[]): Promise<string> {
+  const svg = await exportToSvg({
+    elements: shape as BoardElement[],
+    files: null,
+    appState: { exportBackground: false },
+  });
+  return URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }));
 }
 
 /**

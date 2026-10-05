@@ -297,3 +297,25 @@ test.describe("الجدول", () => {
     if (process.env.E2E_SHOT) await page.screenshot({ path: process.env.E2E_SHOT });
   });
 });
+
+test.describe("مكتبة الأكاديمية", () => {
+  test("a shape shared to the academy is listed and placed on a board", async ({ page, request }) => {
+    const board = await createBoard(request, "مكتبة الأكاديمية");
+    await openBoard(page, board);
+    await drawRectangle(page);
+    // Saved first, so the count below starts from the frame and the rectangle.
+    await expect.poll(async () => liveTypes((await serverPages(request, board))[0]).length, { timeout: 30_000 }).toBe(2);
+    await page.keyboard.press("Control+a");
+
+    await page.locator(".default-sidebar-trigger").click();
+    await page.getByRole("tab", { name: "مكتبة الأكاديمية" }).click();
+    const name = `مستطيل ${Date.now()}`;
+    await page.getByLabel("اسم الشكل").fill(name);
+    await page.getByRole("button", { name: "شارك المحدَّد مع الأكاديمية" }).click();
+    await expect(page.getByTitle(name)).toBeVisible({ timeout: 30_000 });
+    if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-academy.png` });
+
+    await page.getByTitle(name).click();
+    await expect.poll(async () => liveTypes((await serverPages(request, board))[0]).length, { timeout: 30_000 }).toBe(3);
+  });
+});

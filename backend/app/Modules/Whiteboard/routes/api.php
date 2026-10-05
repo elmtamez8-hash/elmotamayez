@@ -19,6 +19,7 @@ declare(strict_types=1);
 use App\Modules\Whiteboard\Http\Controllers\BoardController;
 use App\Modules\Whiteboard\Http\Controllers\BoardFileController;
 use App\Modules\Whiteboard\Http\Controllers\BoardLessonExportController;
+use App\Modules\Whiteboard\Http\Controllers\BoardLibraryController;
 use App\Modules\Whiteboard\Http\Controllers\BoardLockController;
 use App\Modules\Whiteboard\Http\Controllers\BoardPageController;
 use Illuminate\Support\Facades\Route;
@@ -54,4 +55,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/boards/{board}/files/{file}', [BoardFileController::class, 'show'])
         ->middleware('throttle:whiteboard-files')
         ->withoutMiddleware('throttle:api');
+
+    // The academy's shared board library — its doors are in BoardLibraryTest.
+    Route::get('/board-library', [BoardLibraryController::class, 'index']);
+    Route::post('/board-library', [BoardLibraryController::class, 'store'])->middleware('throttle:authoring');
+    Route::delete('/board-library/{item}', [BoardLibraryController::class, 'destroy'])->middleware('throttle:authoring');
 });

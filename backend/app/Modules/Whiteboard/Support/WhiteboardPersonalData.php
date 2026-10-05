@@ -6,6 +6,7 @@ namespace App\Modules\Whiteboard\Support;
 
 use App\Modules\Tenancy\Models\Workspace;
 use App\Modules\Whiteboard\Models\Board;
+use App\Modules\Whiteboard\Models\BoardLibraryItem;
 use App\Shared\Contracts\PersonalDataOwner;
 use App\Shared\Data\DataSubject;
 use App\Shared\Support\ErasureMode;
@@ -35,7 +36,7 @@ class WhiteboardPersonalData implements PersonalDataOwner
 
     public function describe(): array
     {
-        return ['whiteboard_board'];
+        return ['whiteboard_board', 'whiteboard_library_item'];
     }
 
     public function export(DataSubject $subject): iterable
@@ -55,6 +56,20 @@ class WhiteboardPersonalData implements PersonalDataOwner
             ],
             column: 'id',
         );
+
+        yield from ExportWalk::keyed(
+            'whiteboard_library_item',
+            BoardLibraryItem::query()
+                ->withoutWorkspaceScope()
+                ->where('created_by_user_id', $subject->user->getKey())
+                ->select(['id', 'uuid', 'name', 'created_at']),
+            fn (BoardLibraryItem $item): array => [
+                'uuid' => $item->uuid,
+                'name' => $item->name,
+                'created_at' => ExportWalk::at($item->created_at),
+            ],
+            column: 'id',
+        );
     }
 
     public function erase(DataSubject $subject, ErasureMode $mode, int $limit): int
@@ -65,14 +80,20 @@ class WhiteboardPersonalData implements PersonalDataOwner
 
         $userId = (int) $subject->user->getKey();
 
+        // A shared shape stays the academy's; only the name of who shared it goes.
+        $processed = BoardLibraryItem::query()
+            ->withoutWorkspaceScope()
+            ->where('created_by_user_id', $userId)
+            ->limit($limit)
+            ->pluck('id')
+            ->pipe(fn ($ids): int => $ids->isEmpty() ? 0 : DB::table('board_library_items')->whereIn('id', $ids)->update(['created_by_user_id' => null]));
+
         // The edit lock names a person only while they hold it — clear it outright.
         DB::table('boards')->where('editor_user_id', $userId)->update([
             'editor_user_id' => null,
             'editor_tab_id' => null,
             'editor_seen_at' => null,
         ]);
-
-        $processed = 0;
 
         foreach ([Board::class => 'owner_user_id'] as $model => $column) {
             $model::query()
