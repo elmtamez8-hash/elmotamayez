@@ -156,7 +156,8 @@ export const boards = {
 export interface SharedShape {
   uuid: string;
   name: string;
-  elements: unknown[];
+  /** The elements as stored JSON TEXT: the server never decodes 500 shapes to list them. */
+  elements: string;
   shared_by: string | null;
   created_at: string;
   can_delete: boolean;

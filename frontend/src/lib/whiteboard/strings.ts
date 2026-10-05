@@ -141,7 +141,7 @@ export const WB = {
     loadFailed: "تعذّر تحميل مكتبة الأكاديمية.",
     tooLarge: "الشكل كبير جدًّا للمشاركة. شارك جزءًا أصغر.",
     full: "مكتبة الأكاديمية ممتلئة. احذفوا أشكالًا قديمة أولًا.",
-    pictures: "الصور المرفوعة لا تُشارك: تبقى في سبّورتها.",
+    pictures: "الصور لا تُشارك مع الأكاديمية؛ شاركنا الباقي.",
   },
   /** Story 5: the whole board as a PDF in a lesson's attachments. */
   lessonExport: {

@@ -303,8 +303,13 @@ test.describe("مكتبة الأكاديمية", () => {
     const board = await createBoard(request, "مكتبة الأكاديمية");
     await openBoard(page, board);
     await drawRectangle(page);
-    // Saved first, so the count below starts from the frame and the rectangle.
-    await expect.poll(async () => liveTypes((await serverPages(request, board))[0]).length, { timeout: 30_000 }).toBe(2);
+    // Text written inside the shape travels with it (Excalidraw keeps it out of the selection).
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("القلب");
+    await page.keyboard.press("Escape");
+    // Saved first, so the count below starts from the frame, the rectangle and its text.
+    await expect.poll(async () => liveTypes((await serverPages(request, board))[0]).length, { timeout: 30_000 }).toBe(3);
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Control+a");
 
     await page.locator(".default-sidebar-trigger").click();
@@ -316,6 +321,9 @@ test.describe("مكتبة الأكاديمية", () => {
     if (process.env.E2E_SHOT) await page.screenshot({ path: `${process.env.E2E_SHOT}-academy.png` });
 
     await page.getByTitle(name).click();
-    await expect.poll(async () => liveTypes((await serverPages(request, board))[0]).length, { timeout: 30_000 }).toBe(3);
+    type Text = { type: string; text?: string };
+    await expect
+      .poll(async () => (liveTypes((await serverPages(request, board))[0]) as Text[]).filter((e) => e.type === "text").map((e) => e.text), { timeout: 30_000 })
+      .toEqual(["القلب", "القلب"]);
   });
 });

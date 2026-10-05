@@ -18,6 +18,12 @@ import {
   type BoardApi,
   type BoardElement,
 } from "@/lib/whiteboard/excalidraw-api";
+
+/** Whether the selection held a picture, which is left out of a shared shape. */
+function selectedPictures(api: BoardApi): boolean {
+  const selected = api.getAppState().selectedElementIds;
+  return api.getSceneElements().some((e) => selected[e.id] && e.type === "image");
+}
 import { WB } from "@/lib/whiteboard/strings";
 
 const TAB = "academy";
@@ -45,7 +51,7 @@ export function AcademyLibrary({ api, canEdit }: { api: BoardApi | null; canEdit
 }
 
 function AcademyShapes({ api, canEdit }: { api: BoardApi | null; canEdit: boolean }) {
-  const [shapes, setShapes] = useState<SharedShape[] | null>(null);
+  const [shapes, setShapes] = useState<(SharedShape & { parsed: BoardElement[] })[] | null>(null);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -53,22 +59,22 @@ function AcademyShapes({ api, canEdit }: { api: BoardApi | null; canEdit: boolea
   const load = useCallback(() => {
     boardLibrary
       .list()
-      .then(({ data }) => setShapes(data))
+      // Parsed once here: the server sends each shape as its stored text.
+      .then(({ data }) => setShapes(data.map((s) => ({ ...s, parsed: JSON.parse(s.elements) as BoardElement[] }))))
       .catch(() => setError(WB.academy.loadFailed));
   }, []);
   useEffect(load, [load]);
 
   const share = async () => {
     if (!api) return;
-    const shape = selectedShape(api);
-    // An uploaded picture belongs to its own board; a template draws anywhere.
-    const portable = shape.filter((e) => e.type !== "image" || String((e as { fileId?: string }).fileId ?? "").startsWith("template:"));
+    const hadPicture = selectedPictures(api);
+    const portable = selectedShape(api);
     if (portable.length === 0 || !name.trim()) {
-      setError(WB.academy.selectFirst);
+      setError(hadPicture ? WB.academy.pictures : WB.academy.selectFirst);
       return;
     }
     setBusy(true);
-    setError(portable.length < shape.length ? WB.academy.pictures : "");
+    setError(hadPicture ? WB.academy.pictures : "");
     try {
       await boardLibrary.share({ name: name.trim(), elements: portable });
       setName("");
@@ -117,12 +123,12 @@ function AcademyShapes({ api, canEdit }: { api: BoardApi | null; canEdit: boolea
               type="button"
               disabled={!canEdit || !api}
               draggable={canEdit}
-              onDragStart={(event) => dragShape(event, shape.uuid, shape.elements as BoardElement[])}
-              onClick={() => api && placeShape(api, shape.elements as BoardElement[])}
+              onDragStart={(event) => dragShape(event, shape.uuid, shape.parsed)}
+              onClick={() => api && placeShape(api, shape.parsed)}
               className="flex aspect-square items-center justify-center rounded bg-surface p-1 disabled:cursor-default"
               title={shape.name}
             >
-              <Preview elements={shape.elements as BoardElement[]} name={shape.name} />
+              <Preview elements={shape.parsed} name={shape.name} />
             </button>
             <span className="truncate text-xs font-medium">{shape.name}</span>
             {shape.shared_by && <span className="truncate text-[11px] text-ink-muted">{WB.academy.sharedBy(shape.shared_by)}</span>}

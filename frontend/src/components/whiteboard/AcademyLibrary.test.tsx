@@ -24,9 +24,10 @@ vi.mock("@/lib/whiteboard/excalidraw-api", () => ({
 
 import { AcademyLibrary } from "./AcademyLibrary";
 
-const mine = { uuid: "s1", name: "مثلث", elements: [{ id: "a", type: "line" }], shared_by: "أحمد", created_at: "", can_delete: true };
+const mine = { uuid: "s1", name: "مثلث", elements: '[{"id":"a","type":"line"}]', shared_by: "أحمد", created_at: "", can_delete: true };
 const theirs = { ...mine, uuid: "s2", name: "خلية", can_delete: false };
-const api = {} as never;
+let scene: { id: string; type: string }[] = [];
+const api = { getAppState: () => ({ selectedElementIds: Object.fromEntries(scene.map((e) => [e.id, true])) }), getSceneElements: () => scene } as never;
 
 describe("AcademyLibrary", () => {
   beforeEach(() => {
@@ -40,21 +41,19 @@ describe("AcademyLibrary", () => {
     expect(screen.getAllByRole("button", { name: WB.academy.remove })).toHaveLength(1);
 
     fireEvent.click(screen.getByTitle("مثلث"));
-    expect(placeShape).toHaveBeenCalledWith(api, mine.elements);
+    expect(placeShape).toHaveBeenCalledWith(api, [{ id: "a", type: "line" }]);
   });
 
-  it("shares the selection without its uploaded pictures, and names a full library", async () => {
-    selected.mockReturnValue([
-      { id: "r", type: "rectangle" },
-      { id: "p", type: "image", fileId: "0190-uploaded" },
-      { id: "t", type: "image", fileId: "template:grid:v1" },
-    ]);
+  it("shares the selection, says its pictures stay behind, and names a full library", async () => {
+    scene = [{ id: "r", type: "rectangle" }, { id: "p", type: "image" }];
+    selected.mockReturnValue([{ id: "r", type: "rectangle" }]);
     share.mockResolvedValueOnce(mine).mockRejectedValueOnce(new ApiError("full", 409, { code: "library_full" }));
     render(<AcademyLibrary api={api} canEdit />);
 
     fireEvent.change(screen.getByLabelText(WB.academy.name), { target: { value: "شكل" } });
     fireEvent.click(screen.getByRole("button", { name: WB.academy.share }));
-    await waitFor(() => expect(share).toHaveBeenCalledWith({ name: "شكل", elements: [{ id: "r", type: "rectangle" }, { id: "t", type: "image", fileId: "template:grid:v1" }] }));
+    await waitFor(() => expect(share).toHaveBeenCalledWith({ name: "شكل", elements: [{ id: "r", type: "rectangle" }] }));
+    expect(screen.getByText(WB.academy.pictures)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(WB.academy.name), { target: { value: "آخر" } });
     fireEvent.click(screen.getByRole("button", { name: WB.academy.share }));

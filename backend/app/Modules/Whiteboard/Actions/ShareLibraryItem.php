@@ -21,10 +21,11 @@ class ShareLibraryItem extends Action
 {
     public const MAX_ELEMENTS = 300;
 
-    public const MAX_BYTES = 200_000;
+    /** Every board downloads the whole library: 200 × 50 KB is 10 MB at worst. */
+    public const MAX_BYTES = 50_000;
 
     /** ponytail: a flat count per academy; per-teacher quotas if one teacher fills it. */
-    public const MAX_ITEMS = 500;
+    public const MAX_ITEMS = 200;
 
     public function __construct(private readonly SceneValidator $validator) {}
 

@@ -689,10 +689,22 @@ export function useBoardLibrary(api: BoardApi | null): void {
   useHandleLibrary({ excalidrawAPI: api, adapter: libraryAdapter });
 }
 
-/** The teacher's selection, as a shape to share: never the page frame, never a deleted element. */
+/**
+ * The teacher's selection, as a shape to share: with the text written inside a
+ * shape or on an arrow (Excalidraw leaves it out of the selection — its own
+ * «add to library» asks for it the same way), never the page frame, and never a
+ * picture: an uploaded one belongs to its board, and a template's picture is
+ * drawn by the board that placed it, which a colleague's board did not
+ * (caught in review).
+ */
 export function selectedShape(api: BoardApi): BoardElement[] {
   const selected = api.getAppState().selectedElementIds;
-  return api.getSceneElements().filter((element) => selected[element.id] && element.type !== "frame");
+  const elements = api.getSceneElements();
+  const picked = new Set(elements.filter((e) => selected[e.id]).map((e) => e.id));
+  return elements.filter((e) => {
+    const container = (e as { containerId?: string | null }).containerId;
+    return (picked.has(e.id) || (container != null && picked.has(container))) && e.type !== "frame" && e.type !== "image";
+  });
 }
 
 /**
@@ -701,7 +713,11 @@ export function selectedShape(api: BoardApi): BoardElement[] {
  * placing it twice gives two shapes, and inside the page frame like every
  * other element.
  */
-export function placeShape(api: BoardApi, shape: readonly BoardElement[]): void {
+export function placeShape(api: BoardApi, stored: readonly BoardElement[]): void {
+  // Restored FIRST: a shape from the server may lack fields (groupIds, sizes) a drawn one has.
+  const shape = restoreElements(stored as BoardElement[], null, { refreshDimensions: false, repairBindings: true }).filter(
+    (e) => e.type !== "frame" && e.type !== "image",
+  );
   if (shape.length === 0) return;
   const fresh = new Map<string, string>();
   const rename = (id: string) => fresh.get(id) ?? fresh.set(id, crypto.randomUUID()).get(id)!;
@@ -725,7 +741,6 @@ export function placeShape(api: BoardApi, shape: readonly BoardElement[]): void 
       x: e.x + dx,
       y: e.y + dy,
       groupIds: e.groupIds.map(rename),
-      frameId: frame?.id ?? null,
       boundElements: e.boundElements?.map((bound) => ({ ...bound, id: rename(bound.id) })) ?? null,
       ...(e.containerId ? { containerId: rename(e.containerId) } : {}),
       ...("startBinding" in e ? { startBinding: rebind(e.startBinding) } : {}),
@@ -734,7 +749,10 @@ export function placeShape(api: BoardApi, shape: readonly BoardElement[]): void 
       locked: false,
     };
   });
-  const placed = restoreElements(copies as unknown as BoardElement[], null, { refreshDimensions: false, repairBindings: true });
+  // The frame is set AFTER restoring: restore looks for it among the copies and, not finding it, clears it.
+  const placed = restoreElements(copies as unknown as BoardElement[], null, { refreshDimensions: false, repairBindings: true }).map((e) =>
+    frame ? newElementWith(e, { frameId: frame.id }) : e,
+  );
   api.updateScene({
     elements: [...elements, ...placed],
     appState: { selectedElementIds: Object.fromEntries(placed.map((e) => [e.id, true as const])) },
@@ -755,11 +773,10 @@ export function dragShape(event: React.DragEvent, id: string, shape: readonly Bo
  * another teacher shared is never put into the page as markup.
  */
 export async function shapePreview(shape: readonly BoardElement[]): Promise<string> {
-  const svg = await exportToSvg({
-    elements: shape as BoardElement[],
-    files: null,
-    appState: { exportBackground: false },
-  });
+  const elements = restoreElements(shape as BoardElement[], null, { refreshDimensions: false, repairBindings: true });
+  // As the page's SVG export: Excalidraw's own font inlining needs what the site's policy refuses.
+  const svg = await exportToSvg({ elements, files: null, appState: { exportBackground: false }, skipInliningFonts: true });
+  await injectFontsIntoSvg(svg);
   return URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }));
 }
 

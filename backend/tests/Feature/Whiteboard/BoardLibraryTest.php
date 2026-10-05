@@ -51,7 +51,7 @@ it('lets a teacher share a shape that every teacher of the academy then sees', f
     $this->postJson('/api/v1/board-library', ['name' => 'خلية نباتية', 'elements' => WBLIB_SHAPE])
         ->assertCreated()
         ->assertJsonPath('name', 'خلية نباتية')
-        ->assertJsonPath('elements.0.type', 'rectangle')
+        ->assertJsonPath('elements', json_encode(WBLIB_SHAPE))
         ->assertJsonPath('shared_by', $this->colleague->name)
         ->assertJsonPath('can_delete', true);
 
@@ -98,13 +98,20 @@ it('refuses what a page refuses: an embed, inline bytes, an uploaded picture, a 
     'embed' => [['type' => 'embeddable'], 'bad_element'],
     'inline bytes' => [['type' => 'image', 'fileId' => 'template:grid:v1', 'dataURL' => 'data:image/png;base64,AA'], 'inline_file'],
     'uploaded picture' => [['type' => 'image', 'fileId' => '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b'], 'unknown_file'],
+    'template picture' => [['type' => 'image', 'fileId' => 'template:graph:v1'], 'unknown_file'],
+    'dataURL deep inside' => [['type' => 'rectangle', 'customData' => ['dataURL' => 'x']], 'inline_file'],
     'script link' => [['type' => 'rectangle', 'link' => 'javascript:alert(1)'], 'bad_link'],
 ]);
 
-it('keeps a template picture, which draws on any board', function (): void {
+it('refuses a shape nested deeper than a page may be, which would also break the list', function (): void {
     wblibAs($this->teacher, $this->workspace);
-    $this->postJson('/api/v1/board-library', ['name' => 'ورق رسم بياني', 'elements' => [['type' => 'image', 'fileId' => 'template:graph:v1']]])
-        ->assertCreated();
+    $deep = 'x';
+    for ($i = 0; $i < 70; $i++) {
+        $deep = ['a' => $deep];
+    }
+    $this->postJson('/api/v1/board-library', ['name' => 'x', 'elements' => [['type' => 'rectangle', 'customData' => $deep]]])
+        ->assertStatus(422)->assertJsonPath('code', 'bad_element');
+    $this->getJson('/api/v1/board-library')->assertOk();
 });
 
 it('refuses a shape too large to send to every board, and an academy library that is full', function (): void {

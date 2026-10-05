@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One shape of the academy's library. `elements` is the stored JSON, decoded;
+ * One shape of the academy's library. `elements` is the stored JSON text;
  * `can_delete` is the policy's answer for the reader, so the screen never
  * guesses who may remove what.
  *
@@ -23,7 +23,8 @@ class BoardLibraryItemResource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'name' => $this->name,
-            'elements' => json_decode($this->elements, true),
+            // The stored TEXT, parsed by the browser: no decode and re-encode of every shape per list.
+            'elements' => $this->elements,
             'shared_by' => $this->creator?->name,
             'created_at' => $this->created_at?->toIso8601String(),
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
