@@ -14,7 +14,12 @@ vi.mock("@excalidraw/excalidraw", () => ({
   useHandleLibrary: vi.fn(),
 }));
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { withStarter } from "@/lib/whiteboard/excalidraw-api";
+import { STARTER_VERSION } from "@/lib/whiteboard/starter-file";
 
 const item = (id: string) => ({ id });
 const starter = (...ids: string[]) => () => Promise.resolve(ids.map(item));
@@ -52,12 +57,21 @@ describe("the starter library", () => {
 
   it("adds nothing when storage is full, so the teacher's own saves keep working", async () => {
     const mine = [item("mine")];
-    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("full", "QuotaExceededError");
+    // Only the library itself is too big: the small stamp alone would still fit.
+    const real = Storage.prototype.setItem;
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === "whiteboard.library") throw new DOMException("full", "QuotaExceededError");
+      real.call(this, key, value);
     });
     expect(await withStarter(() => mine, starter("s1"))).toBe(mine);
     setItem.mockRestore();
     // …and asks again next visit.
     expect(localStorage.getItem("whiteboard.library.starter.version")).toBeNull();
+  });
+
+  it("names a new version whenever the file changes, or browsers that hold the old one never get it", () => {
+    const file = readFileSync(join(process.cwd(), "public/whiteboard/library/starter.json"));
+    // Changed the file? Bump STARTER_VERSION in starter-file.ts, then the hash here.
+    expect([STARTER_VERSION, createHash("sha256").update(file).digest("hex").slice(0, 16)]).toEqual(["2026-10-04", "4e39275f3975100f"]);
   });
 });
