@@ -113,7 +113,7 @@ function AcademyShapes({ api, canEdit }: { api: BoardApi | null; canEdit: boolea
           <Button size="sm" onClick={() => void share()} loading={busy}>{WB.academy.share}</Button>
         </div>
       )}
-      {error && <p role="alert" className="text-xs text-danger">{error}</p>}
+      {error && <p role="alert" className="text-xs text-danger-ink">{error}</p>}
 
       {shapes?.length === 0 && <p className="text-sm text-ink-muted">{WB.academy.empty}</p>}
       <ul className="grid grid-cols-2 gap-2">
