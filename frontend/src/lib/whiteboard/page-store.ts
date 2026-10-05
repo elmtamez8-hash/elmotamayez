@@ -87,12 +87,13 @@ export class PageStore<E> extends Map<string, readonly E[]> {
     return super.has(uuid);
   }
 
-  /** Every picture any page uses, restored or not (the scene's own image elements). */
-  pictureIds(): string[] {
+  /** Every picture the pages use (all of them, or those named, in that order), restored or not. */
+  pictureIds(only?: readonly string[]): string[] {
     const ids = (elements: readonly unknown[]) =>
       (elements as { type?: string; fileId?: string | null; isDeleted?: boolean }[]).flatMap((e) =>
         e.type === "image" && !e.isDeleted && e.fileId && !e.fileId.startsWith("template:") ? [e.fileId] : [],
       );
+    if (only) return only.flatMap((uuid) => ids(this.parsed.get(uuid) ?? super.get(uuid) ?? [])); // super: no restore
     return [...[...this.parsed.values()].flatMap(ids), ...[...super.values()].flatMap((elements) => ids(elements))]; // super: no restore
   }
 }

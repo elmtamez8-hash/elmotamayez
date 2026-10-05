@@ -42,8 +42,9 @@ export function createPictureCache(fetchBytes: (id: string) => Promise<Blob | nu
   };
 
   return {
-    prefetch(ids: Iterable<string>): void {
-      for (const id of ids) void fetchOnce(id);
+    /** Settles when every one has arrived or failed. */
+    prefetch(ids: Iterable<string>): Promise<void> {
+      return Promise.all([...ids].map(fetchOnce)).then(() => undefined);
     },
 
     /** The pictures among `ids` the canvas does not have yet; each is handed over once. */

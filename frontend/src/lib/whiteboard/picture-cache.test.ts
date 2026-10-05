@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPictureCache } from "@/lib/whiteboard/picture-cache";
 
@@ -29,5 +29,16 @@ describe("createPictureCache", () => {
     cache.forget();
     expect(await stale).toHaveLength(0);
     expect(await cache.take(["b"])).toHaveLength(1);
+  });
+
+  it("a prefetch settles once every picture arrived or failed, and fetches each once", async () => {
+    const fetch = vi.fn(async (id: string) => {
+      if (id === "bad") throw new Error("gone");
+      return new Blob(["x"], { type: "image/png" });
+    });
+    const cache = createPictureCache(fetch);
+    await expect(cache.prefetch(["a", "bad"])).resolves.toBeUndefined();
+    await cache.prefetch(["a", "b"]);
+    expect(fetch.mock.calls.map(([id]) => id)).toEqual(["a", "bad", "b"]);
   });
 });

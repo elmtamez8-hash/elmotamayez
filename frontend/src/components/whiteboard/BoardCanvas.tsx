@@ -420,7 +420,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         // Restored page by page as each is first read; every picture's bytes now,
         // before the class needs them (T072).
         pages.current = PageStore.of(detail.pages, restorePage);
-        pictures.prefetch(pages.current.pictureIds());
+        // The first screen's pictures first: asked for together with every other
+        // page's, they shared the line with all of them.
+        const store = pages.current;
+        const first = detail.pages.slice(0, PICTURE_REACH + 1).map((page) => page.uuid);
+        void pictures.prefetch(store.pictureIds(first)).then(() => pictures.prefetch(store.pictureIds()));
         setBackground(detail.background);
         setBoard(detail);
       })
