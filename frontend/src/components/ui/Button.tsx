@@ -65,6 +65,8 @@ type ButtonProps = CommonProps & {
   expanded?: boolean;
   /** The id of the region a disclosure toggle opens. */
   controls?: string;
+  /** A toggle or one choice of several: whether it is the one chosen (`aria-pressed`). */
+  pressed?: boolean;
   href?: never;
 };
 
@@ -104,7 +106,7 @@ export function Button(props: ButtonProps | LinkProps) {
     );
   }
 
-  const { type = "button", disabled, loading, loadingLabel, onClick, expanded, controls } =
+  const { type = "button", disabled, loading, loadingLabel, onClick, expanded, controls, pressed } =
     props as ButtonProps;
 
   return (
@@ -115,6 +117,7 @@ export function Button(props: ButtonProps | LinkProps) {
       aria-busy={loading || undefined}
       aria-expanded={expanded}
       aria-controls={controls}
+      aria-pressed={pressed}
       className={className}
     >
       {loading ? (
