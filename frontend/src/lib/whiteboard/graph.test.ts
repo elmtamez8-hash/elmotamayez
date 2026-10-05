@@ -14,7 +14,7 @@ describe("compileFunctions", () => {
     expect(f(2)).toBe(1);
     expect(g(3)).toBe(7);
     expect(formula("Y= sin(x)")).toBe("sin(x)");
-  });
+  }, 15_000); // the first test loads mathjs itself
 
   it("leaves a gap where there is no real value", async () => {
     const [f] = await compileFunctions(graph(["sqrt(x)"]));
