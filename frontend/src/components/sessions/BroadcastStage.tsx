@@ -155,17 +155,41 @@ function Stage() {
     );
   }
 
+  const { main, strip } = arrangeStage(tracks);
+  const tile = (trackRef: TrackReferenceOrPlaceholder) => (
+    <StageTile key={`${trackRef.participant.identity}-${trackRef.source}`} trackRef={trackRef} />
+  );
+
+  if (main) {
+    return (
+      <div className="space-y-3" role="region" aria-label="مسرح البثّ">
+        {tile(main)}
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-6">{strip.map(tile)}</div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="grid grid-cols-1 gap-3 sm:grid-cols-2"
       role="region"
       aria-label="مسرح البثّ"
     >
-      {tracks.map((trackRef) => (
-        <StageTile key={`${trackRef.participant.identity}-${trackRef.source}`} trackRef={trackRef} />
-      ))}
+      {tracks.map(tile)}
     </div>
   );
+}
+
+/**
+ * A shared screen is the lesson — usually the board — so it takes the whole
+ * width and every camera moves to a strip of small tiles under it (owner,
+ * 2026-10-05). Half the stage, beside the teacher's face, made the writing
+ * hard to read, and on a phone worse. Two shares at once: the first is shown
+ * large, the other joins the strip.
+ */
+export function arrangeStage<T extends { source: string; publication?: unknown }>(tracks: readonly T[]): { main: T | null; strip: T[] } {
+  const main = tracks.find((t) => t.source === Track.Source.ScreenShare && t.publication !== undefined) ?? null;
+  return { main, strip: main ? tracks.filter((t) => t !== main) : [...tracks] };
 }
 
 /**
