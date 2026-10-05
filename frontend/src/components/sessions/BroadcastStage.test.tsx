@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BroadcastStage } from "./BroadcastStage";
+import { arrangeStage, BroadcastStage } from "./BroadcastStage";
 import type { JoinTicket } from "@/lib/class-sessions";
 
 /*
@@ -255,5 +255,32 @@ describe("BroadcastStage — what the teacher and a student may do (2026-09-30)"
     expect(screen.queryByRole("button", { name: "مشاركة الشاشة" })).toBeNull();
     // Nothing was refused yet, so the microphone is not drawn as taken.
     expect(screen.queryByText(/كتمك المدرّس/)).toBeNull();
+  });
+});
+
+describe("arrangeStage — a shared screen is the lesson", () => {
+  const camera = (who: string) => ({ who, source: "camera", publication: {}, participant: { isLocal: who === "me" } });
+  const screen = (who: string, published = true) => ({
+    who,
+    source: "screen_share",
+    publication: published ? {} : undefined,
+    participant: { isLocal: who === "me" },
+  });
+
+  it("puts a shared screen alone on top and every camera in the strip", () => {
+    const tracks = [camera("t"), camera("s"), screen("t")];
+    expect(arrangeStage(tracks)).toEqual({ main: tracks[2], strip: [tracks[0], tracks[1]] });
+  });
+
+  it("keeps the even grid with no share, and a second share joins the strip", () => {
+    expect(arrangeStage([camera("t"), screen("t", false)]).main).toBeNull();
+    const two = [screen("t"), screen("s"), camera("t")];
+    expect(arrangeStage(two)).toEqual({ main: two[0], strip: [two[1], two[2]] });
+  });
+
+  it("never puts one's own share on top: the other's is, and alone it stays in the grid", () => {
+    const mine = [screen("me"), camera("me"), screen("t")];
+    expect(arrangeStage(mine)).toEqual({ main: mine[2], strip: [mine[0], mine[1]] });
+    expect(arrangeStage([screen("me"), camera("t")]).main).toBeNull();
   });
 });
