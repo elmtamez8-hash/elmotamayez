@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
+import { MenuChip, MenuRow } from "@/components/whiteboard/MenuParts";
 import type { InstrumentKind } from "@/lib/whiteboard/geometry";
 import { PENS, type PenId } from "@/lib/whiteboard/pens";
 import { WB } from "@/lib/whiteboard/strings";
@@ -32,61 +32,54 @@ export interface TeachingBarProps {
 /** The «أدوات» menu (US9): page templates, ready pens, and the passing tools. */
 export function TeachingBar(props: TeachingBarProps) {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line pt-1.5">
+    <div className="flex flex-col gap-2.5">
       {props.canEdit && (
         <>
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-xs text-ink-muted">{WB.tools.template}</span>
-            <Button size="sm" variant={props.template === null ? "secondary" : "ghost"} onClick={() => props.onTemplate(null)}>
+          <MenuRow label={WB.tools.template}>
+            <MenuChip active={props.template === null} onClick={() => props.onTemplate(null)}>
               {WB.tools.templates.none}
-            </Button>
+            </MenuChip>
             {TEMPLATES.map((name) => (
-              <Button key={name} size="sm" variant={props.template === name ? "secondary" : "ghost"} onClick={() => props.onTemplate(name)}>
+              <MenuChip key={name} active={props.template === name} onClick={() => props.onTemplate(name)}>
                 {WB.tools.templates[name]}
-              </Button>
+              </MenuChip>
             ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-xs text-ink-muted">{WB.tools.pen}</span>
+          </MenuRow>
+          <MenuRow label={WB.tools.pen}>
             {PENS.map((pen) => (
-              <Button key={pen.id} size="sm" variant={pen.id === "magic" && props.magic ? "secondary" : "ghost"} expanded={pen.id === "magic" ? Boolean(props.magic) : undefined} onClick={() => props.onPen(pen.id)}>
+              <MenuChip
+                key={pen.id}
+                active={pen.id === "magic" ? Boolean(props.magic) : undefined}
+                expanded={pen.id === "magic" ? Boolean(props.magic) : undefined}
+                onClick={() => props.onPen(pen.id)}
+              >
                 {WB.tools.pens[pen.id]}
-              </Button>
+              </MenuChip>
             ))}
             {props.magic && <p className="w-full text-xs text-ink-muted">{WB.tools.magicHint}</p>}
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <span className="text-xs text-ink-muted">{WB.tools.geometry}</span>
+          </MenuRow>
+          <MenuRow label={WB.tools.geometry}>
             {(["ruler", "set-square", "protractor", "compass"] as const).map((kind) => (
-              <Button key={kind} size="sm" variant={props.instrument === kind ? "secondary" : "ghost"} expanded={props.instrument === kind} onClick={() => props.onInstrument(kind)}>
+              <MenuChip key={kind} active={props.instrument === kind} expanded={props.instrument === kind} onClick={() => props.onInstrument(kind)}>
                 {WB.tools.instruments[kind]}
-              </Button>
+              </MenuChip>
             ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={props.onTable}>
-              {WB.table.insert}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={props.onMath}>
-              {WB.math.insert}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={props.onGraph}>
-              {WB.graph.insert}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={props.onCalculator}>
-              {WB.calc.open}
-            </Button>
-          </div>
+          </MenuRow>
+          <MenuRow label={WB.tools.insert}>
+            <MenuChip onClick={props.onTable}>{WB.table.insert}</MenuChip>
+            <MenuChip onClick={props.onMath}>{WB.math.insert}</MenuChip>
+            <MenuChip onClick={props.onGraph}>{WB.graph.insert}</MenuChip>
+            <MenuChip onClick={props.onCalculator}>{WB.calc.open}</MenuChip>
+          </MenuRow>
         </>
       )}
-      <div className="flex flex-wrap items-center gap-1">
-        <span className="text-xs text-ink-muted">{WB.tools.passing}</span>
+      <MenuRow label={WB.tools.passing}>
         {(["magnifier", "curtain", "wheel"] as const).map((tool) => (
-          <Button key={tool} size="sm" variant={props.open === tool ? "secondary" : "ghost"} expanded={props.open === tool} onClick={() => props.onTool(tool)}>
+          <MenuChip key={tool} active={props.open === tool} expanded={props.open === tool} onClick={() => props.onTool(tool)}>
             {WB.tools.names[tool]}
-          </Button>
+          </MenuChip>
         ))}
-      </div>
+      </MenuRow>
     </div>
   );
 }

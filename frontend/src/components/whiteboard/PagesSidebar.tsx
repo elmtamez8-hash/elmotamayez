@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon, ChevronStartIcon, PagesIcon } from "@/components/icons";
 import { Button } from "@/components/ui/Button";
 import { ConfirmButton } from "@/components/ui/ConfirmButton";
+import { arabicNumber } from "@/lib/numerals";
 import { WB } from "@/lib/whiteboard/strings";
 
 export interface SidebarPage {
@@ -115,7 +116,11 @@ export function PagesTab({ current, count, onOpen }: { current: number; count: n
       className="flex flex-col items-center gap-1 rounded-2xl border border-line bg-surface-raised px-2 py-2.5 text-ink shadow-[0_6px_24px_-8px_rgb(0_0_0/0.25)] transition duration-200 ease-out hover:bg-surface active:scale-[0.96] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <PagesIcon className="h-5 w-5" />
-      <span className="text-xs font-semibold tabular-nums">{WB.pagesShort(current + 1, count)}</span>
+      {/* «١ من ١», as the bar says it; stacked, the tab stays narrow. */}
+      <span className="flex flex-col items-center text-xs font-semibold leading-tight tabular-nums">
+        <span>{arabicNumber(current + 1)}</span>
+        <span className="text-[0.65rem] font-normal text-ink-muted">{WB.pagesTotal(count)}</span>
+      </span>
     </button>
   );
 }

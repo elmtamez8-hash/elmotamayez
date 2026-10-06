@@ -22,7 +22,7 @@ export const WB = {
   newBoard: "سبّورة جديدة",
   rename: "إعادة التسمية",
   title: "عنوان السبّورة",
-  background: "الخلفية",
+  background: "لون الصفحة",
   backgrounds: { white: "بيضاء", blackboard: "سبّورة سوداء", greenboard: "سبّورة خضراء" },
   save: "حفظ",
   cancel: "إلغاء",
@@ -38,7 +38,7 @@ export const WB = {
   pages: (n: number) => counted(n, NOUNS.pages),
   boardsCount: (n: number) => counted(n, NOUNS.boards),
 
-  export: "تصدير الصفحة:",
+  export: "تصدير الصفحة",
   exportPng: "PNG",
   exportJpg: "JPG",
   exportSvg: "SVG",
@@ -201,7 +201,7 @@ export const WB = {
 
   /** Teaching tools (US9). */
   tools: {
-    template: "خلفية الصفحة:",
+    template: "خلفية الصفحة",
     templates: {
       none: "بلا",
       lined: "مسطّرة",
@@ -212,10 +212,11 @@ export const WB = {
       "arabic-lines": "كرّاسة عربية",
       music: "مدرج موسيقي",
     },
-    pen: "القلم:",
+    pen: "القلم",
+    insert: "إدراج",
     pens: { marker: "ماركر", brush: "فرشاة عريضة", highlighter: "قلم تظليل", magic: "قلم سحري ✦" },
     magicHint: "ارسم دائرة أو مربعاً أو سهماً، ويتحوّل لشكل مضبوط.",
-    passing: "أدوات مؤقّتة:",
+    passing: "أدوات مؤقّتة",
     names: { magnifier: "عدسة", curtain: "ستارة", wheel: "عجلة الاختيار" },
     curtain: "حافة الستارة: اسحبها لكشف ما تحتها",
     reveal: "اكشف قليلاً",
@@ -229,7 +230,7 @@ export const WB = {
     wheelNoPicks: "لم يُختر أحد بعد.",
     spin: "أدر العجلة",
     closeWheel: "إغلاق",
-    geometry: "هندسة:",
+    geometry: "هندسة",
     instruments: { ruler: "مسطرة", protractor: "منقلة", compass: "فرجار", "set-square": "مثلث قائم" },
     turn: "اسحب لتدوير الأداة",
     open: "اسحب لفتح الفرجار",
@@ -239,12 +240,12 @@ export const WB = {
 
   /** The presenter's tools (US8). */
   presenter: {
-    title: "عرض:",
+    title: "عرض",
     laser: "ليزر",
     spotlight: "كشّاف",
     spotlightOff: "إطفاء الكشّاف",
     spotlightOn: "الكشّاف يعمل: [ و ] لتصغير الدائرة وتكبيرها، وEsc لإطفائه",
-    timer: "مؤقّت:",
+    timer: "مؤقّت",
     minutes: (n: number) => counted(n, NOUNS.minutes),
     pause: "إيقاف مؤقّت",
     resume: "متابعة",
@@ -254,8 +255,8 @@ export const WB = {
 
   /** Encouragement and pointer effects (US10, US12). */
   effects: {
-    title: "تشجيع:",
-    groups: { praise: "تشجيع:", order: "تنبيه:", fun: "هزار:" },
+    title: "تشجيع",
+    groups: { praise: "تشجيع", order: "تنبيه", fun: "هزار" },
     names: {
       applause: "تصفيق",
       balloons: "بالونات",
@@ -280,10 +281,10 @@ export const WB = {
     warning: "تنبيه!",
     attention: "انتباه!",
     popBalloon: "فرقع البالونة",
-    stickers: "ملصق:",
+    stickers: "ملصق",
     sound: "صوت المؤثرات",
     soundHint: "يسمعه الطلاب فقط إذا شاركت صوت التبويب مع الشاشة.",
-    trail: "أثر المؤشّر:",
+    trail: "أثر المؤشّر",
     trails: { off: "بلا أثر", neon: "نيون", sparks: "شرارات", rainbow: "ألوان" },
   },
 
@@ -292,7 +293,9 @@ export const WB = {
   showPages: "الصفحات",
   pagesFold: "اطوِ قائمة الصفحات",
   pagesUnfold: "افتح قائمة الصفحات",
-  pagesShort: (n: number, total: number) => `${arabicNumber(n)} / ${arabicNumber(total)}`,
+  pagesTotal: (total: number) => `من ${arabicNumber(total)}`,
+  pageWord: "صفحة",
+  screenWord: "شاشة",
   pageNumber: (n: number) => `صفحة ${arabicNumber(n)}`,
   addPage: "صفحة جديدة",
   duplicatePage: "نسخ",

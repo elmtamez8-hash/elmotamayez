@@ -19,7 +19,7 @@ export function ImportPanel({ view, onFile }: { view: ImportView; onFile: (file:
   const busy = view.phase === "reading" || view.phase === "converting";
 
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line pt-1.5 text-sm">
+    <div className="flex flex-col gap-1.5 text-sm">
       <label className="flex flex-col gap-1">
         <span className="font-medium">{WB.importing.choose}</span>
         <input

@@ -3,7 +3,8 @@
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { SelectField, TextField } from "@/components/ui/Field";
+import { TextField } from "@/components/ui/Field";
+import { MenuChip, MenuSelect } from "@/components/whiteboard/MenuParts";
 import type { BoardBackground } from "@/lib/whiteboard/page-model";
 import { WB } from "@/lib/whiteboard/strings";
 
@@ -13,9 +14,10 @@ const BACKGROUND_OPTIONS = (Object.keys(WB.backgrounds) as BoardBackground[]).ma
 }));
 
 /**
- * The board's name and background, in the board itself (US1, FR-001, FR-007).
- * Changing the background is immediate — the canvas recolours what is drawn — and
- * the caller saves it. Renaming opens a small field and saves on «حفظ».
+ * The board's name and page colour, in the board itself (US1, FR-001, FR-007).
+ * The name is shown whole here: the folded bar has room for a few letters of it
+ * only. Changing the colour is immediate — the canvas recolours what is drawn —
+ * and the caller saves it. Renaming opens a small field and saves on «حفظ».
  */
 export function BoardSettings({
   title,
@@ -50,9 +52,9 @@ export function BoardSettings({
   };
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-2.5">
       {renaming ? (
-        <>
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <TextField id="wb-title" label={WB.title} labelHidden value={draft} onChange={setDraft} maxLength={160} />
           </div>
@@ -62,23 +64,28 @@ export function BoardSettings({
           <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>
             {WB.cancel}
           </Button>
-        </>
+        </div>
       ) : (
-        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => { setDraft(title); setRenaming(true); }}>
-          {WB.rename}
-        </Button>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="min-w-0 break-words pt-0.5 text-base font-bold leading-snug">{title}</h2>
+          <MenuChip
+            disabled={disabled}
+            onClick={() => {
+              setDraft(title);
+              setRenaming(true);
+            }}
+          >
+            {WB.rename}
+          </MenuChip>
+        </div>
       )}
-      <div className="w-40 shrink-0">
-        <SelectField
-        id="wb-background"
+      <MenuSelect
         label={WB.background}
-        labelHidden
         value={background}
         disabled={disabled}
         options={BACKGROUND_OPTIONS}
-          onChange={(value) => onBackground(value as BoardBackground)}
-        />
-      </div>
+        onChange={(value: BoardBackground) => onBackground(value)}
+      />
     </div>
   );
 }

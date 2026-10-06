@@ -123,7 +123,7 @@ export function LessonExportPanel({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-1.5 text-sm">
+    <div className="flex flex-col gap-2 text-sm">
       <SelectField
         id="wb-export-course"
         label={WB.lessonExport.course}

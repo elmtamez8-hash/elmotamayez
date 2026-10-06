@@ -3,6 +3,7 @@
 import { useEffect, useState, type RefObject } from "react";
 
 import { PANELS, PANEL_MODES, isNear, type PanelId, type PanelMode } from "@/lib/whiteboard/panels";
+import { MenuSelect } from "@/components/whiteboard/MenuParts";
 import { WB } from "@/lib/whiteboard/strings";
 
 type Modes = Partial<Record<PanelId, PanelMode>>;
@@ -121,22 +122,15 @@ export function PanelVisibility({
 /** The choice for every panel, in the «عرض» menu. */
 export function PanelModesMenu({ modes, onMode }: { modes: Modes; onMode: (id: PanelId, mode: PanelMode) => void }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       {PANELS.map(({ id }) => (
-        <label key={id} className="flex items-center justify-between gap-2 text-sm">
-          <span>{WB.panels[id]}</span>
-          <select
-            className="rounded-md border border-line bg-surface px-1 py-0.5 text-sm"
-            value={modes[id] ?? "shown"}
-            onChange={(event) => onMode(id, event.target.value as PanelMode)}
-          >
-            {PANEL_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {WB.panelModes[mode]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MenuSelect
+          key={id}
+          label={WB.panels[id]}
+          value={modes[id] ?? "shown"}
+          options={PANEL_MODES.map((mode) => ({ value: mode, label: WB.panelModes[mode] }))}
+          onChange={(mode: PanelMode) => onMode(id, mode)}
+        />
       ))}
     </div>
   );

@@ -115,7 +115,9 @@ describe("folding the pages list", () => {
     unmount();
 
     render(<PagesTab current={1} count={5} onOpen={onOpen} />);
-    expect(screen.getByText("٢ / ٥")).toBeTruthy();
+    // «٢» over «من ٥», as the bar says it.
+    expect(screen.getByText("٢")).toBeTruthy();
+    expect(screen.getByText("من ٥")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "افتح قائمة الصفحات" }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
