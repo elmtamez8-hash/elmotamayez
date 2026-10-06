@@ -14,16 +14,44 @@ import { parseScene, type BoardPagePayload } from "@/lib/whiteboard/api";
  * ⚠️ WALKING IT RESTORES EVERY PAGE FIRST (`values`, `entries`, `forEach`,
  * `size`, `new Map(store)`): a copy of only the pages shown so far was a board
  * PDF with blank pages (caught in review).
+ *
+ * A page can also be PENDING: the board opens on its first screen and the rest
+ * arrive behind it (`fill`). A pending page reads as absent (`get` → undefined),
+ * and walking the store while any is pending THROWS — the same blank-PDF bug,
+ * one level down. Wait for `pending() === 0` first.
  */
 export class PageStore<E> extends Map<string, readonly E[]> {
   private parsed = new Map<string, readonly unknown[]>();
+  private waiting = new Set<string>();
   private restore: (elements: readonly unknown[]) => readonly E[] = () => [];
 
   static of<E>(pages: BoardPagePayload[], restore: (elements: readonly unknown[]) => readonly E[]): PageStore<E> {
     const store = new PageStore<E>();
     store.restore = restore;
-    for (const page of pages) store.parsed.set(page.uuid, parseScene(page).elements);
+    for (const page of pages) {
+      if (page.scene === null) store.waiting.add(page.uuid);
+      else store.parsed.set(page.uuid, parseScene(page).elements);
+    }
     return store;
+  }
+
+  /** Pages that arrived after the opening; only a page still pending is written. Returns those. */
+  fill<P extends BoardPagePayload>(pages: readonly P[]): P[] {
+    const filled = pages.filter((page) => this.waiting.has(page.uuid) && page.scene !== null);
+    for (const page of filled) {
+      this.waiting.delete(page.uuid);
+      this.parsed.set(page.uuid, parseScene(page).elements);
+    }
+    return filled;
+  }
+
+  /** How many pages have not arrived yet. */
+  pending(): number {
+    return this.waiting.size;
+  }
+
+  isPending(uuid: string): boolean {
+    return this.waiting.has(uuid);
   }
 
   override get(uuid: string): readonly E[] | undefined {
@@ -41,15 +69,17 @@ export class PageStore<E> extends Map<string, readonly E[]> {
 
   override set(uuid: string, elements: readonly E[]): this {
     this.parsed?.delete(uuid); // `parsed` is not there yet while `Map`'s own constructor runs
+    this.waiting?.delete(uuid);
     return super.set(uuid, elements);
   }
 
   override delete(uuid: string): boolean {
-    const waiting = this.parsed.delete(uuid);
+    const waiting = this.parsed.delete(uuid) || this.waiting.delete(uuid);
     return super.delete(uuid) || waiting;
   }
 
   private restoreAll(): void {
+    if (this.waiting.size > 0) throw new Error(`${this.waiting.size} pages have not arrived: wait for them before walking the board`);
     for (const uuid of [...this.parsed.keys()]) this.get(uuid);
   }
 

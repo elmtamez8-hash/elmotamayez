@@ -57,4 +57,23 @@ describe("PageStore", () => {
     store.get("a");
     expect(store.pictureIds(["a", "missing"])).toEqual(["p1"]); // a restored page still counts
   });
+
+  it("holds a page that has not arrived as absent, refuses to be walked, and takes it once it comes", () => {
+    const pending = (uuid: string) => ({ ...page(uuid, []), scene: null });
+    const store = PageStore.of([page("a", [{ id: 1 }]), pending("b"), pending("c")], (elements) => elements);
+
+    expect(store.get("b")).toBeUndefined();
+    expect(store.has("b")).toBe(false);
+    expect(store.pending()).toBe(2);
+    expect(() => new Map(store)).toThrow(/have not arrived/); // the PDF waits, never prints a blank page
+
+    // A page the teacher wrote meanwhile (or deleted) is not overwritten by the late copy.
+    store.set("c", [{ id: "mine" }]);
+    const filled = store.fill([page("b", [{ id: 2 }]), page("c", [{ id: "late" }])]);
+    expect(filled.map((p) => p.uuid)).toEqual(["b"]);
+    expect(store.get("b")).toEqual([{ id: 2 }]);
+    expect(store.get("c")).toEqual([{ id: "mine" }]);
+    expect(store.pending()).toBe(0);
+    expect(new Map(store).size).toBe(3);
+  });
 });

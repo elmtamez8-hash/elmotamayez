@@ -27,7 +27,8 @@ class PageResource extends JsonResource
             'uuid' => $page->uuid,
             'position' => $page->position,
             'version' => $page->version,
-            'scene' => $page->scene,
+            // Null when not read: a page past the opening screen (`?scenes=first`).
+            'scene' => array_key_exists('scene', $page->getAttributes()) ? $page->scene : null,
             'background_file' => $page->background_asset_id === null ? null : $page->backgroundAsset?->uuid,
         ];
     }

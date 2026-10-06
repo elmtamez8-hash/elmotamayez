@@ -188,3 +188,17 @@ it('refuses adding or deleting a page while the board is being copied, and says 
     $this->postJson(wbUrl(), ['tab' => $this->tab])->assertStatus(409)->assertJsonPath('code', 'operation_pending');
     $this->deleteJson(wbUrl('/'.$first), ['tab' => $this->tab])->assertStatus(409)->assertJsonPath('code', 'operation_pending');
 });
+
+it('opens on its first screen with `?scenes=first`: every page and version, the first three scenes only', function (): void {
+    $this->postJson(wbUrl(), ['tab' => $this->tab, 'after' => wbOrder()[2]])->assertCreated();
+    $this->postJson(wbUrl(), ['tab' => $this->tab, 'after' => wbOrder()[3]])->assertCreated();
+
+    $first = $this->getJson('/api/v1/boards/'.$this->board->uuid.'?scenes=first')->assertOk()->json('pages');
+    $whole = $this->getJson('/api/v1/boards/'.$this->board->uuid)->assertOk()->json('pages');
+
+    expect(array_column($first, 'uuid'))->toBe(wbOrder())
+        ->and(array_column($first, 'version'))->toBe(array_column($whole, 'version'))
+        ->and(array_slice(array_column($first, 'scene'), 0, 3))->toBe(array_slice(array_column($whole, 'scene'), 0, 3))
+        ->and(array_slice(array_column($first, 'scene'), 3))->toBe([null, null])
+        ->and(array_filter(array_column($whole, 'scene'), 'is_null'))->toBe([]);
+});

@@ -159,6 +159,46 @@ test.describe("الصفحات", () => {
     await expect(indicator(page)).toBeVisible({ timeout: 30_000 });
     expect((await serverPages(request, board)).map((p) => p.uuid)).toEqual([before[1], before[0], ...before.slice(2)]);
   });
+
+  test("a board opens on its first screen; a page still on its way is waited for, then drawn on and saved", async ({ page, request }) => {
+    const board = await createBoard(request, "صفحات في الطريق");
+    const headers = { Authorization: `Bearer ${token()}`, Accept: "application/json" };
+    const tab = crypto.randomUUID();
+    await request.post(`${API}/boards/${board}/lock`, { headers, data: { tab } });
+    let after = (await serverPages(request, board))[0].uuid;
+    for (let i = 0; i < 5; i++) {
+      const added = await request.post(`${API}/boards/${board}/pages`, { headers, data: { tab, after } });
+      after = ((await added.json()) as { uuid: string }).uuid;
+    }
+    await request.delete(`${API}/boards/${board}/lock`, { headers, data: { tab } });
+
+    // The whole board is held back: the opening (`?scenes=first`) must not wait for it.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(new RegExp(`/api/v1/boards/${board}$`), async (route) => {
+      await held;
+      await route.continue();
+    });
+    await openBoard(page, board);
+    await expect(page.getByText("١ من ٦")).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("PageDown");
+    await page.keyboard.press("PageDown");
+    await expect(page.getByText("٣ من ٦")).toBeVisible();
+    // The fourth page has not arrived: the teacher is told, and stays where they are.
+    await page.keyboard.press("PageDown");
+    await expect(page.getByText("الصفحة في الطريق…")).toBeVisible();
+    await expect(page.getByText("٣ من ٦")).toBeVisible();
+
+    release();
+    await expect(page.getByText("٤ من ٦")).toBeVisible({ timeout: 15_000 });
+    await drawRectangle(page);
+    // Saved under that page's own version: no conflict, and the page holds the drawing.
+    await expect(indicator(page)).toHaveAttribute("data-save-state", "saved", { timeout: 20_000 });
+    await expect.poll(async () => typesOf((await serverPages(request, board))[3]), { timeout: 20_000 }).toContain("rectangle");
+    await expect(page.getByText("هذه الصفحة تغيّرت في مكان آخر")).toHaveCount(0);
+  });
 });
 
 test.describe("الاستعادة من الجهاز", () => {

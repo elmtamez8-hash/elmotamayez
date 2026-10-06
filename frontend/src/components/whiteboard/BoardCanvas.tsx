@@ -247,7 +247,11 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const access = useMemo<PageAccess>(
     () => ({
-      read: (page) => pages.current.get(page) ?? [],
+      read: (page) => {
+        // Never `[]` for a page not arrived: that is a blank page, and a save of it erases the page.
+        if (pages.current.isPending(page)) throw new Error(`page ${page} has not arrived`);
+        return pages.current.get(page) ?? [];
+      },
       replace: (page, scene) => {
         const elements = restorePage(parseScene({ uuid: page, position: 0, version: 0, scene, background_file: null }).elements);
         pages.current.set(page, elements);
@@ -268,6 +272,9 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     [],
   );
   const session = useBoardSession(board, user?.uuid ?? null, access);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
   // The element library: kept in this browser, and filled from libraries.excalidraw.com.
   useBoardLibrary(api);
   useEffect(() => {
@@ -294,6 +301,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       return value;
     });
   const [pagesBusy, setPagesBusy] = useState(false);
+  // Waiting for a page still on its way: moving is held, and nothing else is.
+  const [arriving, setArriving] = useState(false);
   // Story 6: the rich object selected (its «تعديل» button), and the one being edited.
   const [richSelected, setRichSelected] = useState<{ id: string; data: RichData } | null>(null);
   const [richEdit, setRichEdit] = useState<{ data: RichData; elementId: string | null } | null>(null);
@@ -446,11 +455,67 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     [boardUuid],
   );
 
+  /*
+   * The board opens on its first screen (`firstScenes`) and the rest of its pages
+   * arrive behind it, in ONE request for the whole board: a page's scene and its
+   * version come from the same response, and a jump past the first screen waits
+   * no longer than the whole board took before.
+   *
+   * Anything that needs every page waits here first: turning to a page not
+   * arrived, a change to the pages, the PDF, a thumbnail. A failure is retried
+   * twice, then by the next thing that waits.
+   *
+   * ponytail: one background request; chunk it by page if a jump mid-download is measured slow.
+   */
+  const rest = useRef<Promise<void> | null>(null);
+  const whenArrived = useCallback((): Promise<void> => {
+    if (pages.current.pending() === 0) return Promise.resolve();
+    rest.current ??= (async () => {
+      let whole: BoardDetail | null = null;
+      for (let attempt = 0; !whole; attempt++) {
+        try {
+          whole = await boards.show(boardUuid);
+        } catch (error) {
+          if (attempt >= 2) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
+      }
+      // Only pages still waiting, of this board as shown: a page added, written or deleted meanwhile keeps its own.
+      const known = new Set((boardRef.current?.pages ?? []).map((page) => page.uuid));
+      const filled = pages.current.fill(whole.pages.filter((page) => known.has(page.uuid)));
+      if (filled.length > 0) {
+        const byUuid = new Map(filled.map((page) => [page.uuid, page]));
+        setBoard((shown) => shown && { ...shown, pages: shown.pages.map((page) => byUuid.get(page.uuid) ?? page) });
+        sessionRef.current.arrived(filled);
+        // Their pictures too, before the class needs them (T072).
+        void pictures.prefetch([], pages.current.pictureIds(filled.map((page) => page.uuid)));
+      }
+      // A page deleted elsewhere while it was on its way: dropped from the list,
+      // and nothing else touched — a reload here put an older copy of the page
+      // shown back on screen, and the autosave saved it over newer work (caught in review).
+      const arrived = new Set(whole.pages.map((page) => page.uuid));
+      const gone = [...known].filter((uuid) => pages.current.isPending(uuid) && !arrived.has(uuid));
+      if (gone.length > 0) {
+        for (const uuid of gone) pages.current.delete(uuid);
+        const shown = boardRef.current?.pages[pageIndexRef.current]?.uuid;
+        const list = (boardRef.current?.pages ?? []).filter((page) => !gone.includes(page.uuid));
+        setBoard((current) => current && { ...current, pages: current.pages.filter((page) => !gone.includes(page.uuid)) });
+        setPageIndex(Math.max(0, list.findIndex((page) => page.uuid === shown)));
+      }
+    })().catch((error: unknown) => {
+      if (rest.current === loading) rest.current = null;
+      throw error;
+    });
+    const loading = rest.current;
+    return loading;
+  }, [boardUuid, pictures]);
+
   // The face first, then the pages: text measured before Cairo loads is clipped.
   useEffect(() => {
     let alive = true;
+    rest.current = null; // another board's pages are not this one's
     installTextMetrics();
-    Promise.all([ensureArabicFont(), boards.show(boardUuid)])
+    Promise.all([ensureArabicFont(), boards.show(boardUuid, { firstScenes: true })])
       .then(([, detail]) => {
         if (!alive) return;
         // Restored page by page as each is first read; every picture's bytes now,
@@ -460,6 +525,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         void pictures.prefetch(pages.current.pictureIds(first), pages.current.pictureIds(), () => alive);
         setBackground(detail.background);
         setBoard(detail);
+        // The rest of the pages, behind the first screen.
+        void whenArrived().catch(() => undefined);
         warmWindows();
       })
       .catch((error: unknown) => {
@@ -468,7 +535,7 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     return () => {
       alive = false;
     };
-  }, [boardUuid, pictures]);
+  }, [boardUuid, pictures, whenArrived]);
 
   /** Fit one screen of the page: `screen`, or the one the teacher is on (a resize keeps it). */
   const fit = useCallback(
@@ -567,12 +634,17 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   /** Keep what is on screen in the page map before anything replaces it. */
   const keepShown = useCallback(() => {
-    const shown = board?.pages[pageIndex]?.uuid;
+    // Read NOW, never from the render that began the action: an action that
+    // waited (the PDF, a page change) filed the page then shown under the page
+    // the teacher had moved to meanwhile, and the autosave wrote it over that
+    // page's work (caught in review).
+    const api = apiRef.current;
+    const shown = boardRef.current?.pages[pageIndexRef.current]?.uuid;
     // Copies, not Excalidraw's own objects: its drawing caches are keyed by the
     // element object, so keeping the originals kept every page's bitmaps alive
     // for the whole lesson. A page shown again is drawn afresh once.
     if (api && shown) pages.current.set(shown, api.getSceneElementsIncludingDeleted().map((e) => ({ ...e })));
-  }, [api, board, pageIndex]);
+  }, []);
 
   /** Show `index` of `list` (a list that may have just changed). */
   const showPage = useCallback(
@@ -590,7 +662,25 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       // Not while pages change: an import adds pages for a minute and shows the
       // first at the end, keeping the page it started on — moving meanwhile
       // filed one page's drawing under another (caught in review).
-      if (!api || !board || pagesBusy || target < 0 || target >= board.pages.length || target === pageIndex) return;
+      if (!api || !board || pagesBusy || arriving || target < 0 || target >= board.pages.length || target === pageIndex) return;
+      // A page still on its way: wait for it (moving meanwhile is held, as during a page change).
+      // Its own hold, never `pagesBusy`: releasing that mid-import let the page
+      // turn under an import still running (caught in review).
+      if (pages.current.isPending(board.pages[target].uuid)) {
+        const uuid = board.pages[target].uuid;
+        setArriving(true);
+        setNotice(WB.pageArriving);
+        whenArrived()
+          .then(
+            () => {
+              setNotice(null);
+              setResume(uuid);
+            },
+            () => setNotice(WB.loadFailed), // no retry loop: the next turn asks again
+          )
+          .finally(() => setArriving(false));
+        return;
+      }
       keepShown();
       if (pictures.held() > MAX_HELD_PICTURES) {
         const carried = carriedState(api);
@@ -605,8 +695,18 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
       }
       showPage(board.pages, target);
     },
-    [api, board, pageIndex, pagesBusy, keepShown, showPage, pictures],
+    [api, board, pageIndex, pagesBusy, arriving, keepShown, showPage, pictures, whenArrived],
   );
+
+  // The page asked for while it was on its way, once it has come — by uuid, so
+  // a list changed meanwhile still finds it (or drops it, if deleted).
+  const [resume, setResume] = useState<string | null>(null);
+  useEffect(() => {
+    if (resume === null || pagesBusy || arriving || !board) return;
+    setResume(null);
+    const target = board.pages.findIndex((page) => page.uuid === resume);
+    if (target >= 0) goTo(target);
+  }, [resume, pagesBusy, arriving, board, goTo]);
 
   // Next / previous page from the keyboard — never while typing.
   useEffect(() => {
@@ -687,6 +787,8 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
     setPagesBusy(true);
     setNotice(null);
     try {
+      // Every page first: a change shows a neighbour, and one not arrived would show blank.
+      await whenArrived();
       await session.settle();
       await change();
     } catch (error) {
@@ -892,15 +994,17 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
   /** Story 5: every page, drawn off the canvas from the page map, into one PDF. */
   const renderBoardPdf = async (onPage: (done: number) => void): Promise<Blob> => {
     if (!board) throw new Error("no board");
+    await whenArrived(); // every page, or the PDF has blank ones
     keepShown(); // what is on screen now is in the PDF
-    const list = board.pages;
+    const list = boardRef.current?.pages ?? board.pages;
+    const paper = backgroundRef.current;
     // A snapshot: a reload from another tab mid-draw must not turn pages blank.
     const snapshot = new Map(pages.current);
     return boardPdf(
       list.length,
       async (index) => {
         const elements = snapshot.get(list[index].uuid) ?? [];
-        return pageImage(elements, await pictures.peek(pagePictureIds(elements)), background);
+        return pageImage(elements, await pictures.peek(pagePictureIds(elements)), paper);
       },
       onPage,
     );
@@ -908,11 +1012,12 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
 
   const thumbnail = useCallback(
     async (uuid: string) => {
+      if (pages.current.isPending(uuid)) await whenArrived();
       const shownUuid = board?.pages[pageIndex]?.uuid;
       const elements = api && uuid === shownUuid ? api.getSceneElements() : (pages.current.get(uuid) ?? []);
       return pageThumbnail(elements, await pictures.peek(pictureIds(elements)), backgroundRef.current);
     },
-    [api, board, pageIndex, pictures],
+    [api, board, pageIndex, pictures, whenArrived],
   );
 
   if (failure) {

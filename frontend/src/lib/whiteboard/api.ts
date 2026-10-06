@@ -35,8 +35,12 @@ export interface BoardPagePayload {
   uuid: string;
   position: number;
   version: number;
-  /** The scene document, as stored — parse with `parseScene`. */
-  scene: string;
+  /**
+   * The scene document, as stored — parse with `parseScene`. Null on a page past
+   * the opening screen of `show(uuid, { firstScenes: true })`: it arrives with
+   * the whole board behind it.
+   */
+  scene: string | null;
   background_file: string | null;
 }
 
@@ -68,6 +72,8 @@ interface Paginated<T> {
 }
 
 export function parseScene(page: BoardPagePayload): SceneDocument {
+  // Loud, never `[]`: an empty page is a real scene, and saving one would erase the page.
+  if (page.scene === null) throw new Error(`page ${page.uuid} has not arrived`);
   const doc = JSON.parse(page.scene) as Partial<SceneDocument>;
 
   return {
@@ -95,7 +101,9 @@ export const boards = {
   create: (data: { title: string; course?: string; lesson?: string; class_session?: string; background?: BoardBackground }) =>
     api.post<BoardSummary>("/boards", data),
 
-  show: (uuid: string) => api.get<BoardDetail>(`/boards/${uuid}`),
+  /** `firstScenes`: only the first pages carry their scene (the opening); the rest are null. */
+  show: (uuid: string, options: { firstScenes?: boolean } = {}) =>
+    api.get<BoardDetail>(`/boards/${uuid}${options.firstScenes ? "?scenes=first" : ""}`),
 
   update: (
     uuid: string,
