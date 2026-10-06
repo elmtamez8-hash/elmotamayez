@@ -12,7 +12,6 @@ import {
   ChevronUpIcon,
   ConfettiIcon,
   ImportIcon,
-  PagesIcon,
   PanelLayoutIcon,
   PlusIcon,
   PresentIcon,
@@ -41,8 +40,6 @@ export interface BoardToolbarProps {
   /** The screen of the page shown, and how many it has (a page grows downward). */
   screen?: { index: number; count: number };
   onScreen?: (delta: number) => void;
-  pagesOpen?: boolean;
-  onTogglePages?: () => void;
   /**
    * The tool groups (teaching tools, presenting, encouragement), each behind one
    * tile so the panel stays small over the board. One open at a time.
@@ -135,16 +132,20 @@ export function BoardToolbar(props: BoardToolbarProps) {
         <IconButton label={expanded ? WB.panel.fold : WB.panel.unfold} expanded={expanded} controls="wb-panel-body" onClick={toggle}>
           {expanded ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
         </IconButton>
-        <span className="hidden min-w-0 max-w-[10rem] truncate px-1 text-sm font-bold lg:inline" title={props.title}>
-          {props.title}
-        </span>
+        {/* Open, the name is shown whole in the panel itself: cut short here it read «مراجعة ا…». */}
+        {!expanded && (
+          <span className="hidden min-w-0 max-w-[10rem] truncate px-1 text-sm font-bold lg:inline" title={props.title}>
+            {props.title}
+          </span>
+        )}
 
         <div className="ms-auto flex items-center gap-0.5 rounded-xl bg-surface px-0.5" role="group" aria-label={WB.panel.pages}>
           <IconButton label={WB.previousPage} disabled={pageIndex === 0} onClick={props.onPrevious}>
             <ChevronStartIcon />
           </IconButton>
-          <span className="min-w-[3.5rem] text-center text-sm font-semibold tabular-nums" aria-live="polite">
-            {WB.pageOf(pageIndex + 1, pageCount)}
+          {/* Named: beside it is a second «١ من ١», the screens, and the two read alike. */}
+          <span className="min-w-[3.5rem] whitespace-nowrap text-center text-sm font-semibold tabular-nums" aria-live="polite">
+            <span className="text-xs font-normal text-ink-muted">{WB.pageWord}</span> {WB.pageOf(pageIndex + 1, pageCount)}
           </span>
           <IconButton label={WB.nextPage} disabled={pageIndex >= pageCount - 1} onClick={props.onNext}>
             <ChevronEndIcon />
@@ -157,8 +158,8 @@ export function BoardToolbar(props: BoardToolbarProps) {
             <IconButton label={WB.screenUp} disabled={props.screen.index === 0} onClick={() => props.onScreen?.(-1)}>
               <ArrowUpIcon className="h-4 w-4" />
             </IconButton>
-            <span className="min-w-[3rem] whitespace-nowrap text-center text-xs font-semibold tabular-nums text-ink-muted" aria-hidden="true" title={WB.screenOf(props.screen.index + 1, props.screen.count)}>
-              {WB.pageOf(props.screen.index + 1, props.screen.count)}
+            <span className="min-w-[3rem] whitespace-nowrap text-center text-xs font-semibold tabular-nums text-ink-muted" aria-hidden="true">
+              <span className="font-normal">{WB.screenWord}</span> {WB.pageOf(props.screen.index + 1, props.screen.count)}
             </span>
             <span className="sr-only" aria-live="polite">
               {WB.screenOf(props.screen.index + 1, props.screen.count)}
@@ -172,11 +173,6 @@ export function BoardToolbar(props: BoardToolbarProps) {
               {props.screen.index >= props.screen.count - 1 ? <PlusIcon /> : <ArrowDownIcon className="h-4 w-4" />}
             </IconButton>
           </div>
-        )}
-        {props.onTogglePages && (
-          <IconButton label={WB.showPages} expanded={props.pagesOpen} onClick={props.onTogglePages}>
-            <PagesIcon className="h-[1.15rem] w-[1.15rem]" />
-          </IconButton>
         )}
         <Button size="sm" variant={props.presenting ? "secondary" : "primary"} iconStart={<PresentIcon />} onClick={props.onTogglePresenting}>
           {props.presenting ? WB.stopPresenting : WB.present}
@@ -211,7 +207,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
             </div>
           )}
           {shown && (
-            <div id={`wb-menu-${shown.id}`} className="rounded-xl bg-surface p-2">
+            <div id={`wb-menu-${shown.id}`} className="rounded-xl bg-surface p-3">
               {shown.content}
             </div>
           )}

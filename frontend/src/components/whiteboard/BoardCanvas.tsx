@@ -1042,6 +1042,39 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper,
         .wb-board[data-presenting="true"]:not([data-reveal="true"]) .layer-ui__wrapper * { visibility: hidden !important; }
         .wb-board .LoadingMessage { display: none !important; }
+        /*
+         * One accent on the board, the site's (owner, 2026-10-06). Excalidraw names
+         * its violet \`--color-primary\` too, so inside its layer OUR buttons
+         * («عرض», a chosen tile) read violet beside the maroon of everything else.
+         * Dark: a lighter maroon that still carries white text (4.9:1).
+         */
+        /* Not under .wb-board: Excalidraw's dialogs (help, export) open outside it. Only this page loads Excalidraw. */
+        .excalidraw {
+          --color-primary: #8a1538; --color-primary-darker: #741230; --color-primary-darkest: #5e0e27;
+          --color-primary-hover: #741230; --color-primary-light: #f7ebef; --color-primary-light-darker: #efd5dd;
+          --color-surface-primary-container: #f7ebef;
+        }
+        .excalidraw.theme--dark {
+          --color-primary: #c0436a; --color-primary-darker: #d0607f; --color-primary-darkest: #e9a0b2;
+          --color-primary-hover: #d0607f; --color-primary-light: #331520; --color-primary-light-darker: #4a1d2c;
+          --color-surface-primary-container: #4a1d2c;
+        }
+        /*
+         * The board's own panels stay light in the site's dark mode, like
+         * Excalidraw's toolbar beside them: half the screen dark and half light
+         * read as two products. Excalidraw's dark theme is no way out — it
+         * inverts the drawing itself, in its renderer.
+         */
+        .wb-board {
+          color-scheme: light;
+          --color-ink: #2a2224; --color-overlay: rgb(42 34 36 / 0.55); --color-ink-muted: #6e625e;
+          --color-surface: #faf6f0; --color-surface-raised: #ffffff; --color-line: #e8dfd4;
+          --color-primary-soft: #f7ebef; --color-primary-ink: #8a1538; --color-secondary-ink: #0b5c44;
+          --color-danger-ink: #8f2a19; --color-trust-high-ink: #0b5c44; --color-trust-medium-ink: #2a2224;
+          --color-star: #c89b2e; --color-trust-low-ink: #8f2a19;
+        }
+        /* The library's corner button as an icon, like its neighbours; its name is its tooltip. */
+        .wb-board .default-sidebar-trigger .sidebar-trigger__label { display: none; }
       `}</style>
       {!sceneReady && <BoardLoading overlay />}
       {!presenting && <PanelVisibility root={containerRef} modes={panelModes} onMode={changePanelMode} layout={`${session.held}:${showPages}`} />}
@@ -1165,8 +1198,6 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
             ]}
             screen={screen}
             onScreen={moveScreen}
-            pagesOpen={showPages}
-            onTogglePages={() => setShowPages((value) => !value)}
             status={
               <>
                 {session.held && !session.handoverRequested ? (

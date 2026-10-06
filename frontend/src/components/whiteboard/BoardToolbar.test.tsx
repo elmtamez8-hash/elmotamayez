@@ -99,7 +99,7 @@ describe("BoardToolbar", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "حفظ" }));
     });
-    fireEvent.change(screen.getByLabelText("الخلفية"), { target: { value: "blackboard" } });
+    fireEvent.change(screen.getByLabelText("لون الصفحة"), { target: { value: "blackboard" } });
 
     expect(p.onRename).toHaveBeenCalledWith("مراجعة الفيزياء");
     expect(p.onBackground).toHaveBeenCalledWith("blackboard");
@@ -110,7 +110,7 @@ describe("BoardToolbar", () => {
     unfold();
 
     expect((screen.getByRole("button", { name: "إعادة التسمية" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText("الخلفية") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("لون الصفحة") as HTMLSelectElement).disabled).toBe(true);
   });
 
   it("toggles «عرض»", () => {

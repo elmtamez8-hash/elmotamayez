@@ -21,7 +21,7 @@ import {
   WrongIcon,
   type IconProps,
 } from "@/components/icons";
-import { Button } from "@/components/ui/Button";
+import { MenuChip, MenuRow, MenuSelect } from "@/components/whiteboard/MenuParts";
 import { EFFECT_GROUPS, TRAIL_STYLES, type Effect, type TrailStyle } from "@/lib/whiteboard/effects";
 import { STICKERS, stickerText, type StickerName } from "@/lib/whiteboard/stickers";
 import { WB } from "@/lib/whiteboard/strings";
@@ -42,47 +42,36 @@ export interface EffectsBarProps {
  */
 export function EffectsBar(props: EffectsBarProps) {
   return (
-    <div className="flex flex-col gap-1 border-t border-line pt-1.5">
+    <div className="flex flex-col gap-2.5">
       {EFFECT_GROUPS.map((group) => (
-        <div key={group.id} className="flex flex-wrap items-center gap-1">
-          <span className="text-xs text-ink-muted">{WB.effects.groups[group.id]}</span>
+        <MenuRow key={group.id} label={WB.effects.groups[group.id]}>
           {group.effects.map((kind) => (
-            <Button key={kind} size="sm" variant="ghost" onClick={() => props.onEffect(kind)}>
-              <EffectIcon kind={kind} />
+            <MenuChip key={kind} icon={<EffectIcon kind={kind} />} onClick={() => props.onEffect(kind)}>
               {WB.effects.names[kind]}
-            </Button>
+            </MenuChip>
           ))}
-        </div>
+        </MenuRow>
       ))}
       {props.onSticker && (
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="text-xs text-ink-muted">{WB.effects.stickers}</span>
+        <MenuRow label={WB.effects.stickers}>
           {STICKERS.map((name) => (
-            <Button key={name} size="sm" variant="ghost" onClick={() => props.onSticker?.(name)}>
+            <MenuChip key={name} onClick={() => props.onSticker?.(name)}>
               {stickerText(name)}
-            </Button>
+            </MenuChip>
           ))}
-        </div>
+        </MenuRow>
       )}
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <label className="flex items-center gap-1">
-          <input type="checkbox" checked={props.sound} onChange={(event) => props.onSound(event.target.checked)} />
+      <div className="flex flex-col gap-2 border-t border-line pt-2.5">
+        <label className="flex items-center justify-between gap-2 text-xs font-semibold text-ink-muted">
           {WB.effects.sound}
+          <input type="checkbox" className="h-4 w-4 accent-primary" checked={props.sound} onChange={(event) => props.onSound(event.target.checked)} />
         </label>
-        <label className="flex items-center gap-1">
-          {WB.effects.trail}
-          <select
-            value={props.trail}
-            onChange={(event) => props.onTrail(event.target.value as TrailStyle)}
-            className="rounded-md border border-line bg-surface px-1 py-0.5 text-ink"
-          >
-            {TRAIL_STYLES.map((style) => (
-              <option key={style} value={style}>
-                {WB.effects.trails[style]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <MenuSelect
+          label={WB.effects.trail}
+          value={props.trail}
+          options={TRAIL_STYLES.map((style) => ({ value: style, label: WB.effects.trails[style] }))}
+          onChange={(style: TrailStyle) => props.onTrail(style)}
+        />
       </div>
       {/* FR-035: said wherever a sound can be played. */}
       {props.sound && <p className="text-xs text-ink-muted">{WB.effects.soundHint}</p>}

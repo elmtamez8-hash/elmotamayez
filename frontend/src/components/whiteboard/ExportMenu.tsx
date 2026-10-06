@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { MenuChip, MenuRow } from "@/components/whiteboard/MenuParts";
 import type { ExportKind } from "@/lib/whiteboard/excalidraw-api";
 import { WB } from "@/lib/whiteboard/strings";
+
+const KINDS: { kind: ExportKind; label: string }[] = [
+  { kind: "png", label: WB.exportPng },
+  { kind: "jpg", label: WB.exportJpg },
+  { kind: "svg", label: WB.exportSvg },
+];
 
 /** The current page as a PNG, a JPG or an SVG file (US1). The work is the caller's. */
 export function ExportMenu({ onExport }: { onExport: (kind: ExportKind) => Promise<void> }) {
@@ -24,24 +30,20 @@ export function ExportMenu({ onExport }: { onExport: (kind: ExportKind) => Promi
   };
 
   return (
-    <div className="flex items-center gap-1" role="group" aria-label={WB.export}>
-      <span className="text-xs text-ink-muted" aria-hidden="true">
-        {WB.export}
-      </span>
-      <Button size="sm" variant="ghost" loading={busy === "png"} loadingLabel={WB.exporting} onClick={() => run("png")}>
-        {WB.exportPng}
-      </Button>
-      <Button size="sm" variant="ghost" loading={busy === "jpg"} loadingLabel={WB.exporting} onClick={() => run("jpg")}>
-        {WB.exportJpg}
-      </Button>
-      <Button size="sm" variant="ghost" loading={busy === "svg"} loadingLabel={WB.exporting} onClick={() => run("svg")}>
-        {WB.exportSvg}
-      </Button>
-      {failed && (
-        <p role="alert" className="text-xs text-danger-ink">
-          {WB.exportFailed}
-        </p>
-      )}
+    // The row's own label names it: an `aria-label` here too was read twice.
+    <div>
+      <MenuRow label={WB.export}>
+        {KINDS.map(({ kind, label }) => (
+          <MenuChip key={kind} loading={busy === kind} loadingLabel={WB.exporting} onClick={() => run(kind)}>
+            {label}
+          </MenuChip>
+        ))}
+        {failed && (
+          <p role="alert" className="w-full text-xs text-danger-ink">
+            {WB.exportFailed}
+          </p>
+        )}
+      </MenuRow>
     </div>
   );
 }
