@@ -1048,12 +1048,13 @@ export default function BoardCanvas({ boardUuid }: { boardUuid: string }) {
          * («عرض», a chosen tile) read violet beside the maroon of everything else.
          * Dark: a lighter maroon that still carries white text (4.9:1).
          */
-        .wb-board .excalidraw {
+        /* Not under .wb-board: Excalidraw's dialogs (help, export) open outside it. Only this page loads Excalidraw. */
+        .excalidraw {
           --color-primary: #8a1538; --color-primary-darker: #741230; --color-primary-darkest: #5e0e27;
           --color-primary-hover: #741230; --color-primary-light: #f7ebef; --color-primary-light-darker: #efd5dd;
           --color-surface-primary-container: #f7ebef;
         }
-        .wb-board .excalidraw.theme--dark {
+        .excalidraw.theme--dark {
           --color-primary: #c0436a; --color-primary-darker: #d0607f; --color-primary-darkest: #e9a0b2;
           --color-primary-hover: #d0607f; --color-primary-light: #331520; --color-primary-light-darker: #4a1d2c;
           --color-surface-primary-container: #4a1d2c;

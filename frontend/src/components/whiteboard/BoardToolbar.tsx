@@ -145,8 +145,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
           </IconButton>
           {/* Named: beside it is a second «١ من ١», the screens, and the two read alike. */}
           <span className="min-w-[3.5rem] whitespace-nowrap text-center text-sm font-semibold tabular-nums" aria-live="polite">
-            <span className="me-1 text-xs font-normal text-ink-muted">{WB.pageWord}</span>
-            {WB.pageOf(pageIndex + 1, pageCount)}
+            <span className="text-xs font-normal text-ink-muted">{WB.pageWord}</span> {WB.pageOf(pageIndex + 1, pageCount)}
           </span>
           <IconButton label={WB.nextPage} disabled={pageIndex >= pageCount - 1} onClick={props.onNext}>
             <ChevronEndIcon />
@@ -160,8 +159,7 @@ export function BoardToolbar(props: BoardToolbarProps) {
               <ArrowUpIcon className="h-4 w-4" />
             </IconButton>
             <span className="min-w-[3rem] whitespace-nowrap text-center text-xs font-semibold tabular-nums text-ink-muted" aria-hidden="true">
-              <span className="me-1 font-normal">{WB.screenWord}</span>
-              {WB.pageOf(props.screen.index + 1, props.screen.count)}
+              <span className="font-normal">{WB.screenWord}</span> {WB.pageOf(props.screen.index + 1, props.screen.count)}
             </span>
             <span className="sr-only" aria-live="polite">
               {WB.screenOf(props.screen.index + 1, props.screen.count)}

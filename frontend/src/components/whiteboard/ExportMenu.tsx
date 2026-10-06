@@ -30,7 +30,8 @@ export function ExportMenu({ onExport }: { onExport: (kind: ExportKind) => Promi
   };
 
   return (
-    <div role="group" aria-label={WB.export}>
+    // The row's own label names it: an `aria-label` here too was read twice.
+    <div>
       <MenuRow label={WB.export}>
         {KINDS.map(({ kind, label }) => (
           <MenuChip key={kind} loading={busy === kind} loadingLabel={WB.exporting} onClick={() => run(kind)}>
