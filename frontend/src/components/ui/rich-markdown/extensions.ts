@@ -95,13 +95,14 @@ export function escapeBlockStarts(markdown: string): string {
   );
 }
 
-// The stock renderer reads nothing from `this`, so it is called as a plain
-// function and only its output is post-processed.
+// The stock renderer is called with this extension's own `this`, and only its
+// output is post-processed.
 const renderParagraph = Paragraph.config.renderMarkdown;
 
 const EscapingParagraph = Paragraph.extend({
-  renderMarkdown: (node, helpers, context) =>
-    escapeBlockStarts(renderParagraph ? renderParagraph(node, helpers, context) : ""),
+  renderMarkdown(node, helpers, context) {
+    return escapeBlockStarts(renderParagraph?.call(this, node, helpers, context) ?? "");
+  },
 });
 
 /**
