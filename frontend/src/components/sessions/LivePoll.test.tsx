@@ -94,6 +94,9 @@ describe("LivePoll — the teacher", () => {
     fireEvent.click(screen.getByRole("button", { name: "فهمت؟" }));
     fireEvent.click(screen.getByRole("button", { name: "ابدأ التصويت" }));
     await screen.findByText(/التصويت مفتوح/);
+    // The greeting subscribes in an effect after that render; an arrival
+    // emitted before it lands on nobody (flaked on CI).
+    await waitFor(() => expect(room.handlers.get("active")?.size).toBe(1));
 
     act(() => room.emit("active", { identity: "late" }));
 
