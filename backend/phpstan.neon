@@ -31,3 +31,11 @@ parameters:
         - app/Modules/Store/Database/Migrations
         - app/Modules/Tenancy/Database/Migrations
         - app/Modules/Whiteboard/Database/Migrations
+
+    # Laravel 13.35 types an eager-load constraint `with(['x' => fn ($q) => ...])`
+    # as a bare `Relation<*,*,*>`, which carries no model, so every local scope
+    # and builder macro called on it reads as undefined. At runtime `Relation`
+    # forwards these to its query builder. Only the model-less wildcard type is
+    # ignored; a typed relation is still checked.
+    ignoreErrors:
+        - '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\Relation<\*, \*, \*>::\w+\(\)\.$#'
