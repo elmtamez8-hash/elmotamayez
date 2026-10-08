@@ -15,6 +15,14 @@ declare(strict_types=1);
 
 return [
 
+    // أضافَتها الحزمةُ في 5.9.0.
+    'builder' => [
+        'block_picker' => [
+            'no_search_results_message' => 'لا توجد كتل مطابقة لبحثك.',
+            'search_prompt' => 'ابحث في الكتل',
+        ],
+    ],
+
     'color_picker' => [
         'panel_label' => 'مُنتقي الألوان',
     ],
@@ -111,6 +119,39 @@ return [
             'label' => 'شريط أدوات المحرِّر',
         ],
 
+        'actions' => [
+            'close_panel' => [
+                'label' => 'إغلاق اللوحة',
+            ],
+        ],
+
+        'custom_blocks' => [
+            'actions' => [
+                'delete' => [
+                    'label' => 'حذف الكتلة',
+                ],
+                'edit' => [
+                    'label' => 'تعديل الكتلة',
+                ],
+            ],
+            'no_search_results_message' => 'لا توجد كتل مطابقة لبحثك.',
+            'search_label' => 'البحث في الكتل',
+            'search_prompt' => 'ابحث في الكتل',
+        ],
+
+    ],
+
+    // أضافَتها الحزمةُ في 5.9.0.
+    'select' => [
+        'actions' => [
+            'clear' => [
+                'label' => 'مسح الاختيار',
+            ],
+            'remove_option' => [
+                'label' => 'إزالة :label',
+            ],
+        ],
+        'search_label' => 'بحث',
     ],
 
     'tags_input' => [
