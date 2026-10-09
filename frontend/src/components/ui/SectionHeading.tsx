@@ -28,11 +28,11 @@ export function SectionHeading({
     <div className="space-y-1">
       <Tag
         id={id}
-        className={`flex items-center gap-2 font-bold text-ink ${level === 3 ? "text-lg" : "text-sm"}`}
+        className={`flex items-center gap-3 font-extrabold text-ink ${level === 3 ? "text-lg" : "text-sm"}`}
       >
         {Icon !== undefined && (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink">
-            <Icon className="h-4 w-4" />
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+            <Icon className="h-5 w-5" />
           </span>
         )}
         <span>{title}</span>

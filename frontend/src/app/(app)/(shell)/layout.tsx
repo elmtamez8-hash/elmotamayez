@@ -507,7 +507,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               {collapsed ? <ChevronEndIcon /> : <ChevronStartIcon />}
             </button>
 
-            <h1 className="truncate text-lg font-semibold text-ink">
+            <h1 className="truncate text-lg font-extrabold text-ink">
               {pageTitleFor(pathname, user)}
             </h1>
           </div>

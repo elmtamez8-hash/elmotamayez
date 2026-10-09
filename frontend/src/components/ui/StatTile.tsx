@@ -35,28 +35,30 @@ export function StatTile({
 }) {
   return (
     <div
-      className={`group rounded-3xl border p-4 transition duration-200 motion-safe:hover:-translate-y-0.5 ${
+      className={`group rounded-3xl border p-5 shadow-sm transition duration-300 ease-out hover:shadow-lg hover:shadow-primary/10 motion-safe:hover:-translate-y-1 ${
         emphasis
-          ? "border-primary/30 bg-primary-soft hover:border-primary/60"
-          : "border-line bg-surface-raised hover:border-primary/40 hover:bg-primary-soft/30"
+          ? "bg-squares relative isolate overflow-hidden border-primary bg-primary text-white"
+          : "border-line bg-surface-raised hover:border-primary/40"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium text-ink-muted">{label}</p>
+        <p className={`text-sm font-bold ${emphasis ? "text-white/80" : "text-ink-muted"}`}>{label}</p>
         {Icon !== undefined && (
           <span
-            className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg transition duration-200 motion-safe:group-hover:scale-110 ${
-              emphasis ? "bg-primary text-white" : "bg-primary-soft text-primary-ink"
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition duration-300 motion-safe:group-hover:rotate-6 ${
+              emphasis
+                ? "bg-accent text-accent-foreground"
+                : "bg-primary-soft text-primary-ink group-hover:bg-primary group-hover:text-white"
             }`}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-5 w-5" />
           </span>
         )}
       </div>
-      <bdi className="mt-1 block text-2xl font-bold text-ink">
+      <bdi className={`mt-2 block text-3xl font-extrabold ${emphasis ? "text-white" : "text-ink"}`}>
         {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
       </bdi>
-      {hint !== undefined && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
+      {hint !== undefined && <p className={`mt-1 text-xs ${emphasis ? "text-white/75" : "text-ink-muted"}`}>{hint}</p>}
     </div>
   );
 }
