@@ -221,6 +221,9 @@ function studentAnswer(overrides: Record<string, unknown> = {}) {
 }
 
 function asStudent(overrides: Record<string, unknown> = {}) {
+  // The cards mount only after «is this a new student?» resolves, so a rejection
+  // made here waits a tick for its reader — mark it handled; the card still sees it.
+  for (const answer of Object.values(overrides)) void (answer as Promise<unknown>).catch?.(() => undefined);
   mockUser = { first_name: "سلمى", platform_role: "student", permissions: [] };
   get.mockImplementation(studentAnswer(overrides));
 }
