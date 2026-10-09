@@ -1,117 +1,103 @@
-# Implementation Plan: الحصة التجريبية للمدرّس
+# Implementation Plan: الحصة التجريبية لكل كورس
 
-**Branch**: `040-teacher-trial-lesson` | **Date**: 2026-10-09 | **Spec**: [spec.md](./spec.md)
-
-**Input**: Feature specification from `specs/040-teacher-trial-lesson/spec.md`
+**Branch**: `040-teacher-trial-lesson` | **Date**: 2026-10-09 (revised after 4-agent review) | **Spec**: [spec.md](./spec.md)
 
 ## Summary
 
-المدرّس يعلّم درساً واحداً من دروسه «حصتي التجريبية». نحفظ هذا الاختيار **عموداً واحداً على ملفه العام** (`teacher_profiles.trial_lesson_id`). هذا العمود يجعل «حصة واحدة لكل مدرّس» قيداً في البناء نفسه لا في الفحص، فلا يحتاج قفلاً ولا عدّاً.
-
-صلاحية الحصة تُقاس بقاعدة واحدة اسمها `TrialLessonRule`. صفحة المدرّس العامة تسألها قبل عرض الزرّ، والباب يسألها قبل التشغيل. وهي تحلّ محلّ الاختيار التلقائي الذي أضافه #375.
-
-للفيديو المرفوع **باب خاص للزوار** بمساران تحت `/marketplace/teachers/{key}/trial/...`، لا يقبلان معرّف درس أصلاً:
-- **وصف التشغيل**: يعطي ما يحتاجه المشغّل، بلا علامة مائية ولا تجديد.
-- **البثّ**: على Bunny يحوّل إلى رابط موقَّع صلاحيته ١٠ دقائق. وعلى المزوّد المحلي (التطوير) يخدم البايتات بنفسه.
-
-البابان لا يكتبان صفّ تصريح، ولا يلمسان `PlaybackGrant` ولا `IssuePlaybackGrant` ولا مسار الطلاب. ولهما حدّ طلبات خاص بهما حسب مصدر الطلب (IP).
-
-الواجهة:
-- **محرّر الدرس**: مفتاح «اجعل هذا الدرس حصتي التجريبية» يظهر للمدرّس صاحب الملف وحده.
-- **صفحة المدرّس**: تختار بين ثلاث حالات: الحصة التجريبية، ثم الفيديو التعريفي، ثم الكورسات.
-- **صفحة الدرس العامة**: تشغّل الفيديو المرفوع بمشغّل الطلاب الموجود (`VideoPlayer`)، بوصف تشغيل لا علامة مائية فيه.
+- **التخزين**: عمود `courses.trial_lesson_id` يحفظ حصة تجريبية واحدة لكل كورس.
+- **من يكتبه**: من يقرّر سعر الكورس (`CoursePolicy::chooseTrialLesson`)، عبر `SetCourseTrialLesson`.
+- **قاعدة الصلاحية**: واحدة اسمها `TrialLessonRule`، وتُطبَّق قيدَ SQL.
+- **السوق**: يقرأ القاعدة باستعلام واحد للقائمة كلها، فيعرض شارة على الكارت وزرّاً في صفحة الكورس، وفي صفحة المدرّس زرّاً أو قائمة.
+- **باب الزائر**: مسار بمفتاح الكورس فقط. يعيد رابط التضمين، أو وصف تشغيل للفيديو المرفوع (Bunny وحده)، وبثّه 302 إلى رابط موقَّع قصير العمر.
+- **صفحة المشاهدة**: صفحة عامة جديدة `/courses/{slug}/trial` تشغّل الفيديو بـ`TrialPlayer`، وهو نواة مشغّل الطلاب بلا العلامة المائية.
+- **مسار الطلاب**: لا يتغيّر.
 
 ## Technical Context
 
-**Language/Version**: PHP 8.5 (Laravel 13)، TypeScript (Next.js 15 App Router)
+**Language/Version**: PHP 8.5 (Laravel 13)، TypeScript (Next.js 15)
 
 **Primary Dependencies**:
-- وحدة Marketplace: ملف المدرّس والسوق العام.
-- وحدة Courses: الدروس، وقاعدة الجمهور.
-- وحدة Media: `MediaProviderResolver` ومزوّدا Bunny والمحلي.
+- **Courses**: الكورس والدرس والسياسة والمحرّر.
+- **Marketplace**: الحمولات العامة والباب.
+- **Media**: `MediaProviderResolver` و`PlaybackContext` و`BunnyMediaProvider`.
 
-**Storage**: MySQL في الإنتاج وSQLite محلياً. عمود جديد واحد نوعه nullable FK.
+**Storage**: عمود nullable FK على `courses`.
 
-**Testing**: Pest (Feature) للخادم، وvitest للواجهة.
+**Testing**: Pest (Feature)، وvitest.
 
-**Target Platform**: Linux (Docker)، ومتصفّحات حديثة.
-
-**Project Type**: web (backend + frontend)
+**Project Type**: web.
 
 **Performance Goals**:
-- صفحة المدرّس: استعلام واحد إضافي على الأكثر لقراءة الحصة.
-- بدء التشغيل للزائر: أقل من ٣ ثوانٍ (SC-001).
+- لا N+1 في القوائم: استعلام واحد لـ`has_trial` لكل صفحة قائمة.
+- الباب: ٢ إلى ٣ استعلامات بالمفتاح.
 
 **Constraints**:
-- صفر تغيير في مسار تشغيل الطلاب (SC-004).
-- الباب لا يخدم إلا الحصة التجريبية الحالية (SC-003).
+- SC-003: الباب لا يخدم إلا الحصة الحالية.
+- SC-004: اختبارات الطلاب لا تتغيّر.
 
-**Scale/Scope**:
-- عشرات المدرّسين اليوم.
-- الباب عام ومعرَّض للزحف، ولهذا عليه حدّ طلبات خاص.
+**Scale/Scope**: الباب عام ومعرَّض للزحف، وله حدّه الخاص.
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-
 | المبدأ | الحكم | كيف |
 |---|---|---|
-| I. عزل المستأجرين | ✅ | **التصنيف**: `trial_lesson_id` عمود على `teacher_profiles` المملوك للمنصة (ملف السوق العابر لأماكن العمل)، يشير إلى درس مملوك لمكان عمل. هو **جسر قراءة**: يُقرأ في السوق العام فقط، بعد التحقّق أن كورس الدرس عامّ وأن صاحبه هو هذا المدرّس. كل قراءة للدرس من السوق تعلن `withoutWorkspaceScope()` بتعليق واختبار، كما يفعل `ReadPublicPreviewLesson`. لا كيان جديد مملوك لمكان عمل، فلا حالة في `WorkspaceIsolationTest`. وتضاف حالة تؤكّد أن مدرّساً لا يستطيع تعليم درس من مكان عمل لا يدرّس فيه (FR-004) |
-| II. المنطق في الـ Actions | ✅ | `SetTrialLesson` فيه كل قواعد FR-002 وFR-004 وFR-006. المتحكّم يتحقّق من الطلب ثم ينادي الـ Action. القاعدة `TrialLessonRule` يستعملها الـ Action وقراءة السوق معاً |
-| III. استقلال الوحدات | ⚠️ مُبرَّر | Marketplace تقرأ نماذج Courses وتنادي Media. هذا قائم أصلاً: `ReadPublicPreviewLesson` يقرأ `Lesson`، و`PlaybackController` يستعمل `MediaProviderResolver`. لا Action من وحدة أخرى يُنادى؛ نقرأ نماذج ونستعمل العقد العام `MediaProviderInterface::manifest()` |
-| IV. البوابات خضراء | ✅ | pint وphpstan level 8 وtsc وvitest ومجموعة Pest على CI |
-| V. التفويض بالسياسات | ✅ | من يعلّم الحصة يقرّره `TeacherProfilePolicy` (أو قاعدة في الـ Action تعيد 403): صاحب الملف وحده (`teacher_profiles.user_id === actor`). لا صلاحية مستأجر تكفي، والمساعد يُرفض (FR-006) |
-| VI. العقود الظاهرة مقصودة | ✅ | حقلان جديدان على حمولة عامة (`trial_lesson` يتغيّر شكله، و`trial_playback`)، يُضافان إلى `PublicFieldAllowlist`، و`PublicExposureTest` يحرسهما. ومساران عامّان جديدان يوثَّقان في contracts/ |
+| I. عزل المستأجرين | ✅ | عمود على `courses` المملوك لمكان العمل، يشير إلى درس من الكورس نفسه، فلا جسر عبر أماكن العمل. السوق يقرأ الدرس بـ`withoutWorkspaceScope()` معلَّلاً ومختبَراً، كما يفعل الباب العام اليوم. يُضاف اختبار رفض لدرس من كورس آخر ولو في مكان عمل آخر. لا كيان جديد |
+| II. المنطق في الـ Actions | ✅ | `FormRequest` (`WorkspaceRules::exists`) → DTO `SetTrialLessonData` → `SetCourseTrialLesson` → `CourseTrialLessonResource`. وحلّ الباب في Action `ReadCourseTrial`، وموارده `PublicCourseTrialResource` |
+| III. استقلال الوحدات | ⚠️ مُبرَّر | Marketplace تقرأ نماذج Courses وتنادي `MediaProviderInterface::manifest()`. السابقة قائمة (`ReadPublicPreviewLesson` و`PublicCourseDetailResource`). القاعدة في Courses، والسوق يستعملها قراءةً فقط |
+| IV. البوابات | ✅ | pint، وphpstan 8، وtsc، وvitest، وPest على CI |
+| V. التفويض | ✅ | `CoursePolicy::chooseTrialLesson` على نمط `changePricing`، ولا صلاحية جديدة. المساعد يُرفض بالسياسة، والمغادر ليس عضواً |
+| VI. العقود الظاهرة | ✅ | `has_trial`، و`trial`، و`trial_lessons`، وحمولة الباب، كلها في `PublicFieldAllowlist`، و`PublicExposureTest` يحرسها |
 
 ## Project Structure
 
-### Documentation (this feature)
-
 ```text
-specs/040-teacher-trial-lesson/
-├── plan.md
-├── research.md
-├── data-model.md
-├── quickstart.md
-├── contracts/
-│   └── api.md
-└── tasks.md            # /speckit-tasks
-```
-
-### Source Code (repository root)
-
-```text
+backend/app/Modules/Courses/
+├── Database/Migrations/2026_10_09_000100_add_trial_lesson_to_courses.php
+├── Support/TrialLessonRule.php
+├── Data/SetTrialLessonData.php
+├── Actions/SetCourseTrialLesson.php
+├── Http/Requests/SetCourseTrialLessonRequest.php
+├── Http/Controllers/CourseTrialLessonController.php
+├── Http/Resources/CourseTrialLessonResource.php
+├── Http/Resources/{CourseResource,LessonResource}.php      (+ الحقول)
+├── Policies/CoursePolicy.php                                (+ chooseTrialLesson)
+├── Models/Course.php                                        (+ trialLesson)
+└── routes/api.php                                           (+ PUT)
 backend/app/Modules/Marketplace/
-├── Database/Migrations/2026_10_09_000100_add_trial_lesson_to_teacher_profiles.php   (جديد)
-├── Support/TrialLessonRule.php            (جديد: قاعدة الصلاحية الواحدة)
-├── Actions/SetTrialLesson.php             (جديد)
-├── Actions/Public/ShowPublicTeacher.php   (trialLessonOf يقرأ العمود عبر القاعدة)
-├── Actions/Public/ReadTrialPlayback.php   (جديد: يحلّ الحصة الصالحة + أصلها)
-├── Http/Controllers/TrialPlaybackController.php   (جديد: وصف + بثّ)
-├── Http/Controllers/TeacherProfileController.php  (+ updateTrialLesson)
-├── Http/Requests/UpdateTrialLessonRequest.php      (جديد)
-├── Support/PublicFieldAllowlist.php       (+ TRIAL_LESSON بشكله الجديد)
-└── routes/api.php                         (+ PUT /teacher/trial-lesson، + مسارا الباب)
-backend/app/Modules/Marketplace/Models/TeacherProfile.php  (+ trialLesson relation، fillable)
-backend/app/Providers/AppServiceProvider.php               (+ limiter 'trial-playback')
-backend/app/Shared/Support/PlatformSettings + seeder       (+ media.trial_link_ttl_seconds، limiter)
-backend/tests/Feature/Marketplace/TrialLessonTest.php      (جديد)
+├── Actions/Public/ReadCourseTrial.php
+├── Actions/Public/ShowPublicTeacher.php     (trial_lessons + has_trial؛ يُحذف الاختيار التلقائي)
+├── Http/Controllers/PublicCourseTrialController.php
+├── Http/Resources/{PublicCourseTrialResource,PublicCourseCardResource,PublicCourseDetailResource}.php
+├── Support/PublicFieldAllowlist.php
+└── routes/api.php                           (+ المساران، بلا throttle:api)
+backend/app/Modules/Media/Data/PlaybackContext.php           (+ ?expiresAt)
+backend/app/Modules/Media/Providers/BunnyMediaProvider.php   (يقرأ expiresAt إن وُجد)
+backend/app/Modules/Tenancy/Support/PlatformSettings.php     (+ مفتاحان)
+backend/config/media.php                                     (+ قيم افتراضية)
+backend/app/Providers/AppServiceProvider.php                 (+ trial-playback)
+backend/app/Filament/.../ManagePlatformSettings.php          (+ حقلان)
+backend/tests/Feature/Courses/CourseTrialLessonTest.php
+backend/tests/Feature/Marketplace/CourseTrialDoorTest.php
+backend/tests/Feature/Marketplace/PublicPreviewLessonTest.php  (إعادة كتابة اختبارات #375)
 
 frontend/src/
-├── lib/public-api.ts                      (TrialLesson بشكله الجديد، trialPlayback)
-├── lib/teacher-profile.ts | lib/profile.ts  (setTrialLesson)
-├── components/marketplace/TrialCta.tsx    (+ فرع الفيديو التعريفي)
-├── components/marketplace/TrialPlayer.tsx (جديد: VideoPlayer بوصف تجريبي)
-├── components/courses/editors/LessonEditor.tsx  (+ مفتاح الحصة التجريبية)
-└── app/(public)/courses/[slug]/lessons/[lesson]/page.tsx  (يقبل الفيديو المرفوع حين يكون هو الحصة التجريبية)
-   أو صفحة جديدة: app/(public)/teachers/[slug]/trial/page.tsx  — يُحسم في research R5
+├── components/player/VideoPlayerCore.tsx   (جديد: ما في VideoPlayer بلا Watermark)
+├── components/player/VideoPlayer.tsx       (يركّب Core + Watermark؛ السلوك كما هو)
+├── components/marketplace/TrialPlayer.tsx  (جديد)
+├── components/marketplace/TrialCta.tsx     (حصة/قائمة/فيديو تعريفي/كورسات)
+├── components/marketplace/CourseCard.tsx   (+ شارة)
+├── app/(public)/courses/[slug]/trial/page.tsx  (جديد)
+├── app/(public)/courses/[slug]/page.tsx    (+ زرّ)
+├── app/(public)/teachers/[slug]/page.tsx   (+ id="intro-video"، trial_lessons)
+├── components/courses/editors/LessonEditor.tsx  (+ المفتاح)
+├── app/(app)/(shell)/manage/courses/[uuid]/page.tsx  (+ تنبيه FR-019)
+└── lib/{public-api,courses}.ts
 ```
-
-**Structure Decision**: نعمل في الوحدات الموجودة نفسها، ولا ننشئ وحدة جديدة. منطق الحصة التجريبية كله في Marketplace، لأن صاحبها ملف السوق.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
-| Marketplace تقرأ `Lesson`/`MediaAsset` وتستعمل `MediaProviderResolver` | الباب العام يحتاج أن يحلّ الدرس وأصله ويوقّع رابطه | حدث + مستمع لا يناسب قراءة متزامنة في طلب HTTP. والسابقة موجودة (`ReadPublicPreviewLesson`، `PublicCourseDetailResource`) |
-| مسار بثّ ثانٍ بجانب `/playback/{grant}/stream` | مسار الطلاب يفترض صفّ تصريح مربوطاً بحساب وجلسة (أعمدة NOT NULL، وحارس يقرأ `session->status`) | جعل `user_id`/`auth_session_id` nullable يُضعف ضمان «انتهت الجلسة ⇒ مات التصريح» لكل الطلاب، وهو ما يمنعه FR-014 |
+| Marketplace تقرأ `Lesson`/`MediaAsset` وتنادي المزوّد | الباب يحلّ الدرس ويوقّع رابطه في طلب متزامن | لا حدث يناسب قراءة HTTP، والسابقة قائمة |
+| مسار بثّ ثانٍ | مسار الطلاب يفترض تصريحاً بحساب وجلسة | جعل الأعمدة nullable يُضعف ضمانات كل الطلاب (FR-014) |
+| فصل `VideoPlayerCore` | الزائر لا يملك تصريحاً يجدّده | علامة مائية اختيارية تُضعف حارس التجديد في مسار الطلاب |

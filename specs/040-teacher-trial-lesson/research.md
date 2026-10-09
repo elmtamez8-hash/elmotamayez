@@ -1,88 +1,93 @@
-# Research: الحصة التجريبية للمدرّس
+# Research: الحصة التجريبية لكل كورس
 
-كل قرار هنا مبنيّ على قراءة الكود في 2026-10-09. المسارات نسبيّة لجذر المستودع.
+القرارات مبنية على الكود في 2026-10-09، وعلى مراجعة التصميم بأربعة وكلاء (الأمان، والتعارض، والاستعلامات، ثم إعادة الصياغة لكل كورس). ما راجعتُه بنفسي معلَّم ✔.
 
 ## R1 — أين تُحفظ العلامة
 
-- **Decision**: عمود nullable اسمه `teacher_profiles.trial_lesson_id`، وهو FK إلى `lessons.id` مع `nullOnDelete`.
+- **Decision**: عمود `courses.trial_lesson_id` nullable، FK إلى `lessons.id` مع `nullOnDelete`، باسم قيد صريح (≤ ٦٤ حرفاً). يُكتب بـ`forceFill` داخل الـ Action، **ولا يُضاف إلى `$fillable`**. هذا نمط عمود القرار في المستودع (`UpdateTeacherProfile.php:41-53`)، ويمنع أي كتابة جماعية مستقبلية من تخطّي القاعدة.
 - **Rationale**:
-  - FR-002 («حصة واحدة لكل مدرّس») يتحقّق بالبناء: عمود واحد لا يحمل قيمتين.
-  - التعليم الجديد مجرّد `UPDATE` يستبدل القيمة، فلا سباق بين طلبين، ولا يحتاج قفلاً أو عدّاً.
-  - حذف الدرس يُسقط العلامة تلقائياً (Edge case).
-  - والملف العام هو صاحب القرار، بحسب افتراض الـ spec.
-- **Alternatives considered**:
-  - عمود `lessons.is_trial` مع فهرس unique جزئي. هذا يحتاج فهرساً على (مدرّس، علامة)، والمدرّس غير مخزَّن على الدرس؛ مالك الكورس مشتقّ من `Course::teacherUser()`. فـ«واحدة لكل مدرّس» لا يُعبَّر عنها بفهرس، وتصير read-then-write: نفس عائلة عطل `claimCapacity` في live-sessions.md.
-  - استعمال `is_preview`. رفضه المالك صراحةً، لأن مدرّسين علّموا دروساً مفتوحة قاصدين المسجَّلين وحدهم.
+  - «واحدة لكل كورس» تتحقّق بالبناء نفسه.
+  - الكورس والدرس في **مكان العمل نفسه**، فلا جسر بين أماكن عمل. هذا يُسقط ثلاث ملاحظات من المراجعة كانت كلها في تصميم «لكل مدرّس»:
+    - `TeacherProfile` عليه `BelongsToWorkspace` ✔.
+    - الوصول إلى الملف من مكان عمل آخر.
+    - الإشارة عبر أماكن العمل.
+- **حذف الكورس**: `Course` عليه SoftDeletes ✔، فلا تسقط العلامة، بل يخفي القراءةُ الحصة لأن الكورس غير عام. وتعود إن استُرجع الكورس. لا join خام يتخطّى `deleted_at`.
+- **حذف الدرس**: `Lesson` بلا SoftDeletes، فـ`nullOnDelete` يعمل فعلاً.
+- **الهجرة**: `Schema::table('courses')` و`foreignId(...)->nullable()->constrained('lessons', indexName: …)->nullOnDelete()`. ولـ`down()` `dropConstrainedForeignId` في `Schema::table` منفصل، على سابقة `add_promo_video_to_courses.php:51-69`.
 
-## R2 — قاعدة الصلاحية الواحدة (`TrialLessonRule`)
+## R2 — من يكتب
 
-- **Decision**: كلاس واحد له وجهان:
-  - `eligibilityRefusal(TeacherProfile, Lesson): ?string`: سبب الرفض عند **التعليم**، بالعربية.
-  - `currentFor(TeacherProfile): ?Lesson`: هل الحصة المحفوظة صالحة **الآن** للعرض والتشغيل.
-- **الشروط الثابتة** (FR-004)، تُفحص عند التعليم وعند كل قراءة:
-  - النوع `embed` أو `video` فقط.
-  - `class_session_id` فارغ: الدرس ليس تسجيل حصة.
-  - `release_session_id` فارغ، ولا صفوف له في `lesson_cohort_scopes`: جمهوره غير مقصور. هما المحوران اللذان يسألهما `LessonAudience`، والكشف نفسه في `PublicCourseDetailResource::narrowedLessonIds()`.
-  - `is_high_value` = false.
-  - صاحب الكورس هو هذا المدرّس: `Course::teacherUser()->id === teacher_profiles.user_id`. لا «عضو في مكان العمل» ولا «أنشأه».
-- **الشروط المتغيّرة** (FR-007)، تُفحص عند القراءة فقط:
-  - `visibleToStudents()` على الدرس وفصله وقسمه.
-  - الكورس عامّ عبر `ReadPublicCourse`، الذي يشترط منشوراً، وعامّاً، ومدرّساً معتمداً ومعروضاً، ومكان عمل مشاركاً.
-  - المدرّس نفسه `publiclyListed()`.
-  - للدرس المرفوع: أصل الفيديو الأساسي (`mediaAsset()`، role primary، kind video) جاهز للتشغيل (`isPlayable`).
-- **Rationale**: نسختان من القاعدة ستتباعدان، وصفحة المدرّس تعلن حينها حصة يرفضها الباب. هذا رابط ميّت على الزرّ الرئيسي، وهو بالضبط ما حذّر منه `PublicCourseDetailResource` (سطر 202).
-- **Alternatives considered**: توسيع `ReadPublicPreviewLesson::readable()` ليقبل `video`. رُفض لأن `readable()` يجيب عن «أيّ درس مفتوح يقرؤه الزائر»، وفتحه للفيديو المرفوع هو الثغرة بعينها (spec، الجدول).
-
-## R3 — `trialLessonOf` بعد #375
-
-- **Decision**: `ShowPublicTeacher::trialLessonOf($teacher)` يقرأ `TrialLessonRule::currentFor($teacher)` فقط، ويُحذف الاختيار التلقائي (FR-016).
-- **الحمولة**: `trial_lesson` تصير `{course_slug, lesson_uuid, title, kind: "embed"|"video", duration_seconds?}` أو `null`.
-  - `kind` يقول للواجهة أيّ مشغّل تستعمل.
-  - `duration_seconds` يُحذف إن كان صفراً، كما يفعل `PublicPreviewLessonResource`.
-- **Rationale**: المدرّس الذي لم يعلّم شيئاً لا يجب أن يجد درساً قديماً مضمَّناً صار فجأة «حصته التجريبية».
-
-## R4 — باب الزائر للفيديو المرفوع
-
-- **Decision**: مساران عامّان، كلاهما بمفتاح المدرّس **فقط** (slug أو uuid) ولا يقبلان معرّف درس:
-  - `GET /api/v1/marketplace/teachers/{key}/trial/playback`: وصف التشغيل. شكله شكل `PlaybackGrant` في الواجهة، بلا `grant` ولا `watermark`، مع `renew_after_seconds: null` و`resume_at_seconds: 0` (contracts/api.md).
-  - `GET /api/v1/marketplace/teachers/{key}/trial/stream`: البثّ نفسه.
-- **ما يفعله البثّ**: يحلّ `ReadTrialPlayback` الحصة عبر `TrialLessonRule::currentFor`، ثم أصلها، ثم المزوّد بـ`MediaProviderResolver::for($asset)`.
-  - **Bunny**: ينادي `manifest()` بـ`PlaybackContext` يحمل `PlaybackGrant` **غير محفوظ** (`new PlaybackGrant(['expires_at' => now()+TTL])` بلا `save()`). Bunny لا يقرأ منه إلا `expires_at` (`BunnyMediaProvider.php:349`). النتيجة 302 إلى الرابط الموقَّع. والتوقيع نفسه (`token_path`) لا يتغيّر.
-  - **المحلي**: `LocalMediaProvider::manifest()` يبني رابطاً بمعرّف التصريح، فلا ينفعنا. البثّ يخدم البايتات بنفسه، بنفس كتلة `PlaybackController::stream()` (`disk()->response` مع Range). نستخرجها إلى دالة صغيرة يشترك فيها المساران، أو ننسخها بتعليق يشير إلى الأصل؛ الأصغر يُحسم في المهام.
+- **Decision**: `PUT /courses/{course}/trial-lesson`، في وحدة Courses، مع سياسة جديدة `CoursePolicy::chooseTrialLesson()`.
+- **السياسة**: تكرّر شكل `changePricing()`: `belongsToCurrentWorkspace` ثم `decidesCoursePricingIn(workspace)`.
 - **Rationale**:
-  - الباب لا يأخذ معرّف درس، فلا شيء يُخمَّن: مفتاح المدرّس لا يقود إلا لحصته الحالية (FR-009).
-  - لا صفّ يُكتب، فلا مساس بأعمدة التصريح NOT NULL ولا بـ`PlaybackGuard` (FR-014).
-  - الرابط الموقَّع يبقى قصيراً (FR-010)، والمشغّل يعود عبر مسارنا بانتظام بآلية `reload_after_seconds` الموجودة في `VideoPlayer.tsx:131-146`، فالحصة الطويلة لا تنقطع (SC-002).
-- **Alternatives considered**:
-  - جعل `playback_grants.user_id` و`auth_session_id` nullable وإصدار تصريح «زائر». رُفض لأنه يُضعف «انتهت الجلسة ⇒ مات التصريح» لكل الطلاب، ويمسّ `MediaPersonalData` والتجديد.
-  - تسليم رابط Bunny الموقَّع مباشرةً في الحمولة. رُفض لأن `docs/gotchas/media.md` تقول إن `manifest_url` مسارنا دائماً، لا رابط المزوّد، كي لا يظهر معرّف المكتبة والفيديو في أي حمولة (FR-019 في 004).
+  - المساعد يُرفض (FR-006).
+  - المدرّس الذي ترك المكان ليس عضواً، فلا يصل إلى المسار أصلاً. هذا يغلق ملاحظة المراجعة **H1**: `teacherUser()` يرجع إلى المُنشئ المغادر ✔، فلا يُستعمل هنا.
+- **Body**: `{ "lesson": "<uuid>" }` للتعليم، و`{ "lesson": null, "replacing": "<uuid>" }` للإلغاء.
+- **الإلغاء مشروط**: `UPDATE courses SET trial_lesson_id = NULL WHERE id = ? AND trial_lesson_id = ?`، حتى لا يمسح تبويب قديم اختياراً أحدث (FR-007، ملاحظة المراجعة ٥).
+- **التعليم**: `UPDATE` بسيط. آخر من يكتب يربح، ولا قاعدة تنكسر، لأن القراءة تعيد الفحص.
+- **التسلسل**: `FormRequest` (`lesson` uuid عبر `WorkspaceRules::exists('lessons','uuid')`) → DTO `SetTrialLessonData` → `Courses\Actions\SetCourseTrialLesson` → `CourseTrialLessonResource`.
+
+## R3 — القاعدة الواحدة، بصيغة SQL
+
+- **Decision**: `Courses\Support\TrialLessonRule` له وجهان، على **تهجئة واحدة** للشروط الثابتة:
+  - `refusalFor(Course, Lesson): ?string`: عند التعليم، لسبب عربي.
+  - `scopeEligible(Builder<Lesson>)`: قيد SQL يطبّقه كل من يقرأ الحصة. الشروط:
+    - `type IN (embed, video)`.
+    - `class_session_id IS NULL`.
+    - `release_session_id IS NULL`.
+    - `NOT EXISTS lesson_cohort_scopes`.
+    - `is_high_value = false`.
+    - `visibleToStudents()`.
+    - للفيديو المرفوع: `whereHas('mediaAsset', kind = video, provider = bunny, status playable)`.
+- **ملاحظة**: `refusalFor` يُبنى فوق `scopeEligible` بسؤال `exists()` لكل شرط، فلا نسختان. أو يسأل الأعمدة نفسها بثوابت مشتركة؛ والقرار في المهام، **بشرط اختبار** يثبت أن الوجهين يتفقان على كل حالة رفض.
+- **Rationale**: ملاحظتا المراجعة ١ و٢ (الاستعلامات): القاعدة في PHP و`ReadPublicCourse` كانت تكلّف حوالي ٢٠ استعلاماً لكل طلب بثّ. أما القيد فاستعلام واحد بفهارس قائمة: `lesson_cohort_scopes_pair_unique`، و`media_assets_owner_role_index`.
+- **Bunny فقط** (ملاحظة الأمان M2): المزوّد المحلي يخدم البايتات من PHP، وكل طلب Range يمرّ بالحدود ويستهلك عمّال PHP-FPM من زوار مجهولين. والأصول المحلية قديمة، فرفعها من جديد أهون من بناء خدمة بايتات عامة.
+
+## R4 — باب الزائر
+
+- **Decision**: مساران في Marketplace، بمفتاح **الكورس** فقط:
+  - `GET /marketplace/courses/{courseKey}/trial`: يعيد الحصة نفسها (`uuid`، `title`، `kind`، `duration_seconds?`) مع واحد من اثنين:
+    - `embed_url` للمضمَّن، وهذا يغلق ملاحظة التعارض **C1**: المضمَّن غير المعلَّم «مفتوح» كان سيكون رابطاً ميتاً على باب الدرس العام.
+    - أو `playback` (وصف التشغيل) للمرفوع.
+  - `GET /marketplace/courses/{courseKey}/trial/stream`: `302` إلى رابط Bunny موقَّع، مع `Cache-Control: no-store`.
+- **الحلّ**: الكورس عبر `publiclyListed()` (خفيف، **لا** `ReadPublicCourse` الكامل). ثم الدرس عبر `whereKey(course.trial_lesson_id)->where('course_id', course.id)->tap(TrialLessonRule::scopeEligible)->with('mediaAsset')`. من ٢ إلى ٣ استعلامات.
+- **كل رفض** ينتهي إلى `NotFoundHttpException('غير متاح')` واحد (L4)، بما فيه مزوّد مجهول.
+- **التوقيع**: نضيف `?CarbonImmutable $expiresAt` اختيارياً إلى `PlaybackContext`، ويقرؤه Bunny قبل `grant->expires_at` (ملاحظة الأمان L2). لا `PlaybackGrant` غير محفوظ يتسرّب إلى مزوّد مستقبلي.
+- **مدّة الرابط**: إعداد `media.trial_link_ttl_seconds` (افتراضياً ٦٠٠). و`reload_after_seconds` = ثلثا المدة، بحدّ أدنى ٣٠، على نمط `PlaybackGrantResource.php:117-119`.
+- **Rationale**: لا معرّف درس في أي مسار، فلا تخمين (FR-010). ولا صفّ تصريح، فلا مساس بمسار الطلاب (FR-014).
 
 ## R5 — أين يشاهد الزائر
 
-- **Decision**: نعيد استعمال صفحة الدرس العامة `/courses/{slug}/lessons/{uuid}`، فهي تعرض المضمَّن اليوم. نضيف فرعاً: إن لم يُرجع الباب القديم الدرس، وكان هذا الدرس هو الحصة التجريبية المرفوعة لمدرّس الكورس، تشغّله الصفحة بـ`TrialPlayer`.
-- **الطريقة الأبسط**: الصفحة تقرأ حمولة المدرّس، `trial_lesson` و`slug`، من `publicApi.course(slug)`. ثم تقارن `lesson_uuid`، ثم تجلب `trial/playback`.
-- **Rationale**:
-  - رابط واحد لكل حصة تجريبية، أياً كان نوعها.
-  - زرّ صفحة المدرّس يبني الرابط نفسه في الحالتين.
-  - لا صفحة جديدة تحتاج رابطاً داخلياً إليها (ذاكرة «every new surface needs an inbound link»).
-- **Alternatives considered**: صفحة `/teachers/{slug}/trial`. أبسط في الكود، لكنها رابطان مختلفان للشيء نفسه بحسب النوع، والحصة المضمَّنة تُعرض أصلاً في صفحة الدرس. ويبقى هذا البديل مقبولاً إن ظهر في المهام أن فرع صفحة الدرس معقّد.
+- **Decision**: صفحة جديدة `/courses/{slug}/trial`.
+- **الروابط الواردة إليها**: زرّ صفحة الكورس، وشارة الكارت، وقائمة صفحة المدرّس. وصفحة الدرس العام تبقى كما هي لدروس «مفتوح» المضمَّنة (FR-018 السابق، لا تراجع).
+- **الصفحة**: الإطار يُرسم على الخادم (العنوان والكورس)، و**وصف التشغيل يُجلب من المتصفّح** داخل `TrialPlayer`. هذا يغلق ملاحظتي **H1**/**M4**: لو جلبه خادم Next لتشارك كل الزوار مفتاح IP واحداً.
+- **Rationale**: رابط واحد ثابت لكل كورس (FR-009). ولا حاجة لحمولة المدرّس في صفحة الدرس (ملاحظة الاستعلامات ٦، وملاحظة التعارض H2: حمولة الكورس لا تحمل الحقل).
 
-## R6 — حدّ الطلبات
+## R6 — المشغّل
 
-- **Decision**: limiter جديد اسمه `trial-playback`، مفتاحه `ip:` + IP الطلب، على المسارين معاً. رقماه في `platform_settings`:
-  - `media.trial_requests_per_minute`، افتراضياً 30.
-  - `media.trial_link_ttl_seconds`، افتراضياً 600.
-- **حساب الافتراض**: مشاهدة واحدة تحتاج طلب وصف، ثم طلب بثّ عند البدء، ثم طلباً كل ثلثي الـ TTL تقريباً (`reload_after_seconds`). فـ30 في الدقيقة تتّسع لعدّة مشاهدين خلف IP واحد (مدرسة أو شبكة جوال)، وتوقف الزحف.
-- **Rationale**: `throttle:public` يخدم صفحات السوق بـ60 لكل IP، وخلطه بالبثّ يجعل مشاهدة الفيديو تأكل حصّة الصفحات (FR-013). و`throttle:playback` مفتاحه المستخدم، وللزائر يصير دلواً واحداً للجميع.
-- **ملاحظة**: الأرقام التشغيلية في `platform_settings` لا في `config/` (deploy-ops.md).
+- **Decision**: نفصل `VideoPlayer` إلى جزأين:
+  - `VideoPlayerCore`: المشغّل وhls.js وإعادة تحميل المصدر، **بلا** `Watermark`.
+  - `VideoPlayer`: الحالي، يركّب `Core` مع `Watermark` كما اليوم.
+  - و`TrialPlayer` يستعمل `Core` وحده.
+- **Rationale**: ملاحظتا **C2**/**H2**. اليوم `VideoPlayer` يركّب `Watermark` دائماً ✔ (`:272`)، وهي التي تجدّد التصريح كل `renew_after_seconds` ✔، فالزائر يُوقَف. ولا نضيف «علامة اختيارية» لمسار الطلاب، لأن العلامة هي حارس التجديد. الطلاب يرون السلوك نفسه، ويُثبَت باختباراتهم القائمة دون تعديل.
+- **اختبار vitest**: `TrialPlayer` لا يرسل أي طلب `renew` ولا يرسم علامة.
 
-## R7 — الفيديو التعريفي بديلاً
+## R7 — الإعدادات والحدود
 
-- **Decision**: لا تغيير في الخادم؛ `intro_video_url` في الحمولة أصلاً. `TrialCta` يأخذ `introVideo: boolean` و`introHref`:
-  - إن لم توجد حصة ووُجد فيديو تعريفي، فالزرّ «شاهد فيديو المدرّس» ويذهب إلى قسم الفيديو التعريفي على الصفحة نفسها (anchor `#intro-video`، ويُضاف `id` لحاويته). ولا يفتح نافذة جديدة.
-- **Rationale**: الفيديو التعريفي يُعرض مضمَّناً على صفحة المدرّس اليوم، فالزرّ يأخذ الزائر إليه ويبدأ التشغيل بضغطة واحدة دون مشغّل ثانٍ.
+- **الإعدادات**: `media.trial_link_ttl_seconds` و`media.trial_requests_per_minute` في `PlatformSettings::KEYS` (`Modules/Tenancy/Support/PlatformSettings.php`)، مع قيم افتراضية في `config/media.php`، وحقلين في `ManagePlatformSettings`. لا صفوف seeder، فـ`get()` يرجع إلى config (ملاحظة M1).
+- **الحدّ**: limiter `trial-playback` مفتاحه `ip:`، على المسارين، و**بلا** `throttle:api` الجماعي على نمط `/chat-media` ✔ (`Community/routes/api.php:302-313`). وفرع `isOwnServerRender` احتياطاً.
+- **الحساب**: المشاهد الواحد يطلب الوصف مرة، والبثّ عند البدء، ثم مرة كل ثلثي المدة. فـ٣٠ في الدقيقة تتّسع لحوالي ١٥ مشاهداً يبدأون معاً خلف IP واحد.
 
-## R8 — من يرى مفتاح «حصتي التجريبية» في المحرّر
+## R8 — صفحة المدرّس والشارات
 
-- **Decision**: `/auth/me` أو حمولة الدرس في المحرّر تحمل `can_set_trial: boolean` و`is_trial: boolean` من الخادم، كما تحمل الشاشات `can_change_pricing` اليوم (courses.md). الواجهة تقرأ الـ boolean، ولا تستنتج من الدور.
-- **Rationale**: «مساعد يحرّر ولا يقرّر» قاعدة قائمة في الكورسات (`changeVisibility`/`changePricing`)، والشاشة تقرأ قرار الخادم.
+- **الحمولة**:
+  - `coursesOf()` يعيد كورسات المدرّس، ويُضاف إلى كل كارت `has_trial: bool` محسوباً **باستعلام واحد** للقائمة كلها (`whereIn(trial_lesson_id)` + `scopeEligible`)، لا لكل صف.
+  - وحمولة المدرّس تحمل `trial_lessons: [{course_slug, course_title, subject, grade_level, lesson_title, kind}]` من الاستعلام نفسه، بدل `trial_lesson` المفرد في #375.
+  - وتحديث `PublicFieldAllowlist` و`PublicExposureTest`، وإعادة كتابة اختبارات #375 في `PublicPreviewLessonTest.php` التي تثبت الاختيار التلقائي.
+- **قائمة السوق** (`/courses` و`/teachers`): الكارت يحمل `has_trial` بالاستعلام الواحد نفسه.
+- **الفيديو التعريفي**: يُقرَّر بـ`videoEmbedUrl(intro_video_url) !== null`، لا بمجرد وجود الرابط. والرابط `?tab=about#intro-video` يعمل من أي تبويب (ملاحظة M5).
+
+## R9 — المحرّر
+
+- **الحمولة**: `LessonResource` في وحدة Courses يحمل `is_trial` (مقارنة واحدة مع `course.trial_lesson_id`)، و`trial_refusal` (سبب عدم الصلاحية أو null). و`CourseResource` يحمل `can_choose_trial` (السياسة) و`trial_status`. كلها على `make()` فقط، لا لكل صف في الشجرة (ملاحظة الاستعلامات «مناطق سليمة»).
+- **الواجهة**: مفتاح في `LessonEditor` يظهر حين `can_choose_trial`، وتنبيه في صفحة الكورس حين لا حصة (FR-019).

@@ -1,57 +1,49 @@
-# Data Model: الحصة التجريبية للمدرّس
+# Data Model: الحصة التجريبية لكل كورس
 
-## `teacher_profiles` (قائم، مملوك للمنصة: ملف السوق)
+## `courses` (قائم، مملوك لمكان العمل)
 
 | عمود | نوع | قيود | ملاحظة |
 |---|---|---|---|
-| `trial_lesson_id` | unsigned bigint, nullable | FK → `lessons.id`, `nullOnDelete`, index | **جديد.** «حصتي التجريبية». يُكتب عبر `SetTrialLesson` فقط. يُضاف إلى `$fillable`، لأن عموداً لا يُضاف إليها لا يُكتب أبداً (database.md) |
+| `trial_lesson_id` | unsigned bigint, nullable | FK → `lessons.id`، `nullOnDelete`، باسم قيد صريح ≤ ٦٤ حرفاً | **جديد.** يُكتب عبر `SetCourseTrialLesson` بـ`forceFill` وحده، **وليس** في `$fillable` |
 
-**العلاقة**: `TeacherProfile::trialLesson(): BelongsTo<Lesson>`، وتُقرأ دائماً `withoutWorkspaceScope()`. الدرس مملوك لمكان عمل، والقارئ قد يكون زائراً، أو مدرّساً من مكان عمل آخر.
+**العلاقة**: `Course::trialLesson(): BelongsTo<Lesson>`. الدرس والكورس في مكان العمل نفسه دائماً، والـ Action يتحقّق أن `lesson.course_id = course.id`.
 
-**التصنيف** (المبدأ I): جسر قراءة من ملف السوق إلى درس مملوك لمكان عمل. لا يحمل `workspace_id`، ولا يُقرأ إلا عبر `TrialLessonRule`، والقاعدة تتحقّق أن صاحب كورس الدرس هو صاحب الملف.
+**التصنيف** (المبدأ I): عمود على كيان مملوك لمكان العمل، يشير إلى كيان من مكان العمل نفسه. لا كيان جديد، فلا حالة جديدة في `WorkspaceIsolationTest`. لكن يُضاف اختبار: درس من كورس آخر (ولو في مكان عمل آخر) يُرفَض.
 
-## القواعد (`TrialLessonRule`)
+## الشروط الثابتة: `TrialLessonRule` (تهجئة واحدة)
 
-### عند التعليم: `SetTrialLesson(actor, lessonUuid|null)`
-
-| الشرط | الرفض |
+| الشرط | رسالة الرفض عند التعليم |
 |---|---|
-| `actor` ليس صاحب ملف معتمد (`teacher_profiles.user_id`) | 403: «الحصة التجريبية يختارها المدرّس صاحب الملف.» |
-| الدرس غير موجود، أو صاحب كورسه (`Course::teacherUser()`) ليس `actor` | 422: «اختر درساً من كورساتك.» |
-| النوع ليس `embed` ولا `video` | 422: «الحصة التجريبية فيديو: مضمَّن من يوتيوب أو فيميو، أو مرفوع على المنصة.» |
-| `class_session_id` ليس فارغاً | 422: «تسجيلات الحصص المباشرة لا تكون حصة تجريبية.» |
-| `release_session_id`، أو صفوف في `lesson_cohort_scopes` | 422: «هذا الدرس مقصور على مجموعة أو حصة؛ اختر درساً لكل الطلاب.» |
-| `is_high_value` | 422: «الدروس المعلَّمة عالية القيمة لا تكون حصة تجريبية.» |
-| `null` | يمسح العلامة (FR-001 إلغاء) |
+| `lesson.course_id = course.id` | «اختر درساً من هذا الكورس.» |
+| `type IN (embed, video)` | «الحصة التجريبية فيديو: مضمَّن من يوتيوب أو فيميو، أو مرفوع على المنصة.» |
+| `class_session_id IS NULL` | «تسجيلات الحصص المباشرة لا تكون حصة تجريبية.» |
+| `release_session_id IS NULL` و`NOT EXISTS lesson_cohort_scopes` | «هذا الدرس مقصور على مجموعة أو حصة؛ اختر درساً لكل الطلاب.» |
+| `is_high_value = false` | «الدروس المعلَّمة عالية القيمة لا تكون حصة تجريبية.» |
+| للنوع `video`: أصل أساسي `kind = video` و`provider = bunny` | «هذا الفيديو مخزَّن بالطريقة القديمة؛ ارفعه من جديد ليصلح حصة تجريبية.» |
 
-النجاح يكتب `trial_lesson_id = lesson.id`. هذا استبدال، والقديم يسقط تلقائياً (FR-002).
+## شروط القراءة الإضافية (FR-008)
 
-**ما لا يُشترط عند التعليم**: النشر وجاهزية الفيديو. المدرّس قد يعلّم درساً قبل نشره أو قبل اكتمال تجهيزه، والقراءة هي التي تقرّر العرض (FR-007). والمحرّر يُظهر «لن تظهر للزوار حتى …» بحسب الحالة.
+- `visibleToStudents()`: الدرس وفصله وقسمه منشورة.
+- الكورس `publiclyListed()`، ويشمل غير المحذوف والعام ومدرّساً معروضاً ومكان عمل مشاركاً.
+- للفيديو: الأصل جاهز للتشغيل.
 
-### عند القراءة: `currentFor(teacher): ?Lesson`
+**ما لا يُشترط عند التعليم**: النشر والجاهزية. المدرّس قد يعلّم درساً قبل نشره، والمحرّر يُظهر الحالة.
 
-يُعيد الدرس **فقط** إن تحقّقت كلها:
+## الكتابة: `SetCourseTrialLesson(SetTrialLessonData)`
 
-- الملف `publiclyListed()`.
-- الشروط الثابتة أعلاه ما زالت صحيحة، لأن الدرس قد يُعدَّل بعد التعليم.
-- `visibleToStudents()` على الدرس وفصله وقسمه.
-- الكورس يحلّه `ReadPublicCourse`.
-- للنوع `video`: أصله الأساسي kind video وجاهز للتشغيل.
+- **التعليم**: `lesson` uuid. الـ Action يفحص الشروط الثابتة، ثم `forceFill(['trial_lesson_id' => $lesson->id])->save()`.
+- **الإلغاء**: `lesson = null` مع `replacing` = uuid. يُنفَّذ بـ`UPDATE … WHERE id = ? AND trial_lesson_id = ?`. صفر صفوف تأثّرت معناه أن الحصة تغيّرت منذ فتح الصفحة، فتُعاد الحالة الحالية دون خطأ.
+- **الإذن**: `CoursePolicy::chooseTrialLesson` (= `changePricing`).
 
-## الحمولة العامة: `trial_lesson`
+## حالة المحرّر
 
-```text
-null | {
-  course_slug: string,
-  lesson_uuid: string,
-  title: string,
-  kind: "embed" | "video",
-  duration_seconds?: int   // يُحذف إن كان 0
-}
-```
+- `trial_status`: `"visible" | "unpublished" | "processing" | "unavailable" | null`.
+- `LessonResource.is_trial`، و`LessonResource.trial_refusal`.
+- `CourseResource.can_choose_trial`.
 
-`PublicFieldAllowlist::TRIAL_LESSON` يُحدَّث بهذه المفاتيح.
+## الحمولات العامة
 
-## الحالة المعروضة في المحرّر
-
-`is_trial: boolean`، و`can_set_trial: boolean`، و`trial_status: "visible" | "unpublished" | "processing" | null`. الأخير لرسالة «لن تظهر للزوار حتى …».
+- **كارت الكورس**: `has_trial: bool`.
+- **تفاصيل الكورس**: `trial: null | { title, kind: "embed"|"video", duration_seconds? }`.
+- **تفاصيل المدرّس**: `trial_lessons: [{ course_slug, course_title, subject, grade_level, lesson_title, kind }]`، ويحلّ محلّ `trial_lesson` من #375.
+- كلها تُضاف إلى `PublicFieldAllowlist`.

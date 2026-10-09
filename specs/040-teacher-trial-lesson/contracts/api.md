@@ -1,51 +1,53 @@
-# API Contracts: الحصة التجريبية للمدرّس
+# API Contracts: الحصة التجريبية لكل كورس
 
 كل المسارات تحت `/api/v1`.
 
-## 1. اختيار الحصة: `PUT /teacher/trial-lesson`
+## 1. التعليم والإلغاء: `PUT /courses/{course}/trial-lesson` (Courses)
 
-- **Auth**: `auth:sanctum`، والمستخدم صاحب ملف مدرّس.
-- **Body**: `{ "lesson": "<uuid>" | null }`
-- **200**: `{ "data": { "trial_lesson": <TrialLesson|null>, "status": "visible"|"unpublished"|"processing"|null } }`
-- **403**: الفاعل ليس صاحب ملف مدرّس.
-- **422**: `{ "message": "<سبب عربي>", "errors": { "lesson": ["<سبب>"] } }`. الأسباب في data-model.md.
+- **Auth**: `auth:sanctum`. **Policy**: `CoursePolicy::chooseTrialLesson`.
+- **Body**:
+  - للتعليم: `{ "lesson": "<uuid>" }`.
+  - للإلغاء: `{ "lesson": null, "replacing": "<uuid>" }`.
+- **200**: `{ "data": { "trial_lesson": { "uuid", "title", "kind" } | null, "trial_status": "visible"|"unpublished"|"processing"|"unavailable"|null } }`
+- **403**: `{ "message": "الحصة التجريبية يختارها مدرّس الكورس." }`، للمساعد ولمن لا يقرّر السعر.
+- **422**: `{ "message", "errors": { "lesson": [...] } }` بأسباب data-model.
 
-## 2. صفحة المدرّس: `GET /marketplace/teachers/{key}` (قائم)
+## 2. السوق (قائمة)
 
-- `trial_lesson`: الشكل الجديد في data-model.md، أو `null`. يقرأ العلامة الصريحة فقط (FR-016).
-- `intro_video_url`: قائم، بلا تغيير.
+- **كارت الكورس** (`/marketplace/courses`، و`courses` داخل حمولة المدرّس): `+ has_trial`.
+- **تفاصيل الكورس** (`/marketplace/courses/{key}`): `+ trial`.
+- **تفاصيل المدرّس** (`/marketplace/teachers/{key}`): `trial_lessons` بدل `trial_lesson`.
 
-## 3. وصف تشغيل الحصة المرفوعة: `GET /marketplace/teachers/{key}/trial/playback`
+## 3. الحصة: `GET /marketplace/courses/{courseKey}/trial` (Marketplace)
 
-- **Auth**: لا يوجد. **Limiter**: `throttle:trial-playback`.
-- **200** (الحصة الحالية `kind = video` وصالحة):
+- **Auth**: لا يوجد. **Middleware**: `throttle:trial-playback`، و**بلا** `throttle:api`.
+- **Cache-Control**: `no-store`.
+- **200** للمضمَّن:
 
 ```json
-{
-  "data": {
-    "manifest_url": "/api/v1/marketplace/teachers/{key}/trial/stream",
-    "format": "hls" | "progressive",
-    "reload_after_seconds": 400 | null,
-    "duration_seconds": 1800 | null,
-    "captions": [],
-    "renditions": []
-  }
-}
+{ "data": { "uuid": "...", "title": "...", "kind": "embed", "duration_seconds": 1200,
+            "embed_url": "https://www.youtube-nocookie.com/embed/...",
+            "course": { "uuid": "...", "title": "...", "slug": "..." } } }
 ```
 
-  - `manifest_url` مسارنا دائماً، لا رابط Bunny.
-  - لا `grant`، ولا `watermark`، ولا `renew_after_seconds`، ولا `resume_at_seconds`.
-  - الواجهة تكمل الشكل بقيم محايدة قبل تمريره إلى `VideoPlayer`.
-- **404** (ردّ واحد بنصّ ثابت، لكل الأسباب): المدرّس غير معروض، أو بلا حصة، أو الحصة مضمَّنة، أو غير صالحة الآن، أو أصلها غير جاهز. لا يقول السبب، كما يفعل باب الدرس العام اليوم.
+- **200** للمرفوع: `kind: "video"`، و**بدل** `embed_url`:
 
-## 4. بثّ الحصة المرفوعة: `GET /marketplace/teachers/{key}/trial/stream`
+```json
+"playback": { "manifest_url": "/api/v1/marketplace/courses/{courseKey}/trial/stream",
+              "format": "hls", "reload_after_seconds": 400, "duration_seconds": 1800 }
+```
 
-- **Auth**: لا يوجد. **Limiter**: `throttle:trial-playback`.
-- **Bunny**: `302` إلى رابط موقَّع صلاحيته `media.trial_link_ttl_seconds`. التوقيع نفسه الذي يُستعمل للطلاب (`token_path`).
-- **المحلي**: `200`/`206` بايتات مع `Accept-Ranges: bytes`، و`Cache-Control: no-store`، و`inline` دائماً. لا تنزيل ولو كان الأصل `is_downloadable`.
-- **404**: الشروط نفسها التي في (3).
-- **لا آثار جانبية**: لا صفّ تصريح، ولا تقدّم، ولا `PlaybackSustained`، ولا سجلّ مرتبط بشخص (FR-011).
+- لا `grant`، ولا `watermark`، ولا `renew_after_seconds`، ولا `resume_at_seconds`، ولا `captions`.
+- **404** `{ "message": "غير متاح" }`، بنصّ ثابت لكل الأسباب.
 
-## 5. المحرّر: حمولة الدرس للمدرّس (قائمة)
+## 4. البثّ: `GET /marketplace/courses/{courseKey}/trial/stream`
 
-تُضاف: `is_trial: boolean`، و`can_set_trial: boolean`، و`trial_status`.
+- **Auth**: لا يوجد. **Middleware**: كما في (3).
+- **302**: إلى `https://{zone}.b-cdn.net/bcdn_token=…&token_path=/{videoId}/&expires=…/{videoId}/playlist.m3u8`، صلاحيته `media.trial_link_ttl_seconds`، مع `Cache-Control: no-store`.
+- **404**: كما في (3)، ويشمل الحصة المضمَّنة.
+- **لا آثار جانبية**: لا صفّ، ولا حدث، ولا تقدّم.
+
+## 5. المحرّر (Courses)
+
+- `CourseResource`: `+ can_choose_trial`، و`trial_status`، و`trial_lesson_uuid`.
+- `LessonResource` (على `make()` فقط): `+ is_trial`، و`trial_refusal`.
