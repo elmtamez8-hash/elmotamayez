@@ -112,10 +112,16 @@ function Stat({ label, value, Icon }: { label: string; value: number | null; Ico
       </span>
       <div className="min-w-0">
       <dt className="text-sm font-bold text-ink-muted">{label}</dt>
-      {/* «—» لا «٠»: الصفرُ جملةٌ عن طالبٍ لا كورسَ له، وهذه حالةُ رقمٍ لم يصل. */}
-      <dd className="mt-1 text-3xl font-extrabold leading-none text-primary-ink">
-        <bdi>{value === null ? "—" : arabicNumber(value)}</bdi>
-      </dd>
+      {/* «—» لا «٠»: الصفرُ جملةٌ عن طالبٍ لا كورسَ له، وهذه حالةُ رقمٍ لم يصل.
+          والصفرُ نفسُه كلمةٌ لا رقم: «٠» بالأرقامِ العربيّةِ نقطةٌ صغيرةٌ تُقرأُ
+          كأنّ الرقمَ لم يُحمَّل (تقريرُ المراجعة ٢٠٢٦-١٠-٠٩). */}
+      {value === 0 ? (
+        <dd className="mt-1.5 text-base font-bold leading-none text-ink-muted">لا شيء بعد</dd>
+      ) : (
+        <dd className="mt-1 text-3xl font-extrabold leading-none text-primary-ink">
+          <bdi>{value === null ? "—" : arabicNumber(value)}</bdi>
+        </dd>
+      )}
       </div>
     </div>
   );

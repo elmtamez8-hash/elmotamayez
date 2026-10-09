@@ -644,6 +644,82 @@ export const platformNav: NavItem[] = [
 export const allNav = [...mainNav, ...adminNav, ...platformNav];
 
 /**
+ * `mainNav` in titled groups — the review of 2026-10-09: a new student met
+ * sixteen-plus links in one flat column.
+ *
+ * ⚠️ AN ORDER, NEVER A GATE. Grouping runs AFTER {@link allowedNav}, so a group
+ * whose every link the reader may not open is simply absent, and a link this
+ * map forgets lands in the untitled tail rather than disappearing.
+ */
+const NAV_GROUPS: { title: string | null; hrefs: string[] }[] = [
+  { title: null, hrefs: ["/dashboard"] },
+  // The student's side.
+  { title: "دراستي", hrefs: ["/enrollments", "/exams", "/assignments", "/mistakes", "/practice", "/certificates"] },
+  { title: "حصصي", hrefs: ["/schedule", "/private-sessions"] },
+  { title: "إنجازاتي", hrefs: ["/progress", "/reviews", "/report-cards", "/leaderboard", "/shop"] },
+  // The teacher's side.
+  {
+    title: "التدريس",
+    hrefs: [
+      "/manage/courses",
+      "/manage/sessions",
+      "/manage/private-sessions",
+      "/manage/reschedule-requests",
+      "/manage/unlock-rules",
+      "/manage/boards",
+    ],
+  },
+  {
+    title: "الاختبارات والتقييم",
+    hrefs: [
+      "/manage/exams",
+      "/manage/bank",
+      "/manage/analytics/questions",
+      "/manage/grading",
+      "/manage/accommodations",
+      "/manage/assignments",
+      "/manage/grading-schemes",
+      "/manage/certificates",
+    ],
+  },
+  { title: "التواصل والمحتوى", hrefs: ["/manage/announcements", "/manage/blog"] },
+  {
+    title: "المبيعات والمستحقّات",
+    hrefs: ["/manage/plans", "/manage/store", "/manage/store/shipments", "/manage/rewards", "/manage/settlement"],
+  },
+  // Everyone's.
+  {
+    title: "حسابي",
+    hrefs: [
+      "/messages",
+      "/notifications",
+      "/plans",
+      "/billing",
+      "/orders",
+      "/purchases",
+      "/referrals",
+      "/family",
+      "/settings/privacy",
+    ],
+  },
+];
+
+export type NavSection = { title: string | null; items: NavItem[] };
+
+/** Already-allowed items, bucketed by {@link NAV_GROUPS}; empty groups dropped. */
+export function groupNav(items: NavItem[]): NavSection[] {
+  const placed = new Set(NAV_GROUPS.flatMap((group) => group.hrefs));
+  const sections = NAV_GROUPS.map((group) => ({
+    title: group.title,
+    items: group.hrefs.flatMap((href) => items.filter((item) => item.href === href)),
+  }));
+  // ponytail: a link missing from the map still shows, untitled, at the end.
+  sections.push({ title: null, items: items.filter((item) => !placed.has(item.href)) });
+
+  return sections.filter((section) => section.items.length > 0);
+}
+
+/**
  * ما يراهُ هذا الحسابُ من قائمةٍ ما: الصلاحيّةُ والجمهورُ معاً.
  *
  * كانتْ دالّةً داخلَ المكوّن؛ وهي هنا لأنّ ترويسةَ الموقعِ العامّةَ تحتاجُ الجوابَ

@@ -21,6 +21,7 @@ import {
   adminNav,
   allNav,
   allowedNav,
+  groupNav,
   mainNav,
   pageTitleFor,
   platformNav,
@@ -348,7 +349,22 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         {/* The one thing that scrolls. Everything else keeps its height, so a
             long nav never pushes the account panel off the screen. */}
         <nav aria-label="التنقّل الرئيسي" className={`flex-1 overflow-y-auto py-4 px-3 ${collapsed ? "md:px-2" : ""}`}>
-          {placeLabelled(allowed(mainNav)).map(renderItem)}
+          {/* Titled groups (review 2026-10-09). A light heading, not the bordered
+              «الإدارة» block below: these are chapters of one list, not a second
+              list. On the rail the heading goes and a short rule stands in. */}
+          {groupNav(placeLabelled(allowed(mainNav))).map((section, index) => (
+            <div key={section.title ?? `untitled-${index}`} className={index === 0 ? "" : "mt-4"}>
+              {section.title !== null && (
+                <>
+                  <p className={`mb-1.5 px-3 text-[11px] font-extrabold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
+                    {section.title}
+                  </p>
+                  <span aria-hidden className={`mx-auto mb-2 hidden h-px w-6 bg-line ${collapsed ? "md:block" : ""}`} />
+                </>
+              )}
+              {section.items.map(renderItem)}
+            </div>
+          ))}
           {/* ⚠️ The heading is hidden with its list, not left standing over an
               empty box. A section title with nothing under it reads as content
               that failed to load. */}
