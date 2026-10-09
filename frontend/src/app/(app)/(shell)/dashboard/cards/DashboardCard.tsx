@@ -129,3 +129,28 @@ export function PermissionMissingNote({ label }: { label: string }) {
     </p>
   );
 }
+
+/**
+ * The row every list card on the dashboard draws: an icon tile, then the text.
+ * One spelling so the notifications, the courses, the papers and the sessions
+ * read as one family — and the tile is decoration, its meaning is in the text.
+ *
+ * `tone` is the tile's colour (`TONE_CLASSES`, or a category's own); `linked`
+ * gives the hover a row that is itself a link.
+ */
+export const ROW_CLASS =
+  "group/row flex gap-3 rounded-2xl border border-line p-3 transition duration-200";
+
+export const ROW_LINK_CLASS =
+  "hover:border-primary/40 hover:bg-primary-soft/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
+export function RowIcon({ icon, tone = "bg-primary-soft text-primary-ink" }: { icon: ReactNode; tone?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition duration-200 group-hover/row:scale-110 motion-reduce:group-hover/row:scale-100 ${tone}`}
+    >
+      {icon}
+    </span>
+  );
+}

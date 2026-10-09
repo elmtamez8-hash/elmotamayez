@@ -11,7 +11,7 @@ import { can, P } from "@/lib/permissions";
 import type { Course } from "@/lib/types";
 import { Badge } from "@/components/ui/Badge";
 import { CoursesIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { DashboardCard, ROW_CLASS, ROW_LINK_CLASS, RowIcon } from "./DashboardCard";
 import { isRefusal } from "./shared-read";
 
 const SHOWN = 5;
@@ -78,9 +78,10 @@ export function LatestCoursesCard() {
           <li key={course.uuid}>
             <Link
               href={`/manage/courses/${course.uuid}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-line p-3 transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className={`${ROW_CLASS} ${ROW_LINK_CLASS} items-center`}
             >
-              <span className="min-w-0 truncate text-sm font-medium text-ink">{course.title}</span>
+              <RowIcon icon={<CoursesIcon className="h-4 w-4" />} />
+              <span className="min-w-0 flex-1 truncate text-sm font-bold text-ink">{course.title}</span>
               <Badge tone={statusTone(course.status)}>{statusLabel(course.status)}</Badge>
             </Link>
           </li>

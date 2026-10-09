@@ -11,7 +11,8 @@ import {
   type NotificationItem,
 } from "@/lib/notifications";
 import { BellIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { categoryIcon, categoryTone } from "@/components/notifications/categoryIcons";
+import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
 
 /**
  * آخرُ خمسةِ إشعارات، غيرُ المقروءِ أوّلاً.
@@ -69,32 +70,48 @@ export function LatestNotificationsCard() {
         ) : null
       }
     >
-      <ul className="space-y-3">
-        {latest.map((row) => (
-          <li key={row.uuid} className="rounded-lg border border-line p-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium text-ink">
-                {row.action_url === null ? (
-                  row.title
-                ) : (
-                  <NotificationLink
-                    href={row.action_url}
-                    className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  >
-                    {row.title}
-                  </NotificationLink>
-                )}
-              </p>
-              {/* غيرُ المقروءِ يُعلَّمُ بنصٍّ كذلك لا بلونٍ وحدَه: نقطةٌ ملوّنةٌ
-                  بلا اسمٍ لا تقولُ شيئاً لقارئِ الشاشة. */}
-              {row.read_at === null && (
-                <span className="shrink-0 text-xs font-medium text-primary-ink">جديد</span>
-              )}
-            </div>
-            {row.body !== "" && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{row.body}</p>}
-            <p className="text-xs text-ink-muted">{formatDateTime(row.created_at)}</p>
-          </li>
-        ))}
+      <ul className="space-y-2">
+        {latest.map((row) => {
+          const unread = row.read_at === null;
+          const subject = row.category?.key ?? null;
+
+          return (
+            <li
+              key={row.uuid}
+              className={`${ROW_CLASS} ${unread ? "border-primary/30 bg-primary-soft/30" : "hover:border-primary/30"}`}
+            >
+              {/* أيقونةُ الموضوعِ نفسُها التي ترسمُها صفحةُ الإشعارات
+                  (`categoryIcons`)، لا رسمٌ ثانٍ للمعنى نفسِه. */}
+              <RowIcon icon={categoryIcon(subject, "h-4 w-4")} tone={categoryTone(subject)} />
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className={`text-sm text-ink ${unread ? "font-bold" : "font-medium"}`}>
+                    {row.action_url === null ? (
+                      row.title
+                    ) : (
+                      <NotificationLink
+                        href={row.action_url}
+                        className="rounded hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        {row.title}
+                      </NotificationLink>
+                    )}
+                  </p>
+                  {/* غيرُ المقروءِ يُعلَّمُ بنصٍّ كذلك لا بلونٍ وحدَه: نقطةٌ ملوّنةٌ
+                      بلا اسمٍ لا تقولُ شيئاً لقارئِ الشاشة. */}
+                  {unread && (
+                    <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-white">
+                      جديد
+                    </span>
+                  )}
+                </div>
+                {row.body !== "" && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{row.body}</p>}
+                <p className="mt-1 text-xs text-ink-muted">{formatDateTime(row.created_at)}</p>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </DashboardCard>
   );

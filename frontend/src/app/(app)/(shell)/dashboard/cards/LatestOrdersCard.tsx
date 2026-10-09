@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { formatDate, statusLabel } from "@/lib/labels";
+import { formatDate, statusLabel, statusTone } from "@/lib/labels";
+import { Badge } from "@/components/ui/Badge";
 import type { Order } from "@/lib/types";
 import { OrdersIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
 
 /** ما اشتراهُ الصفّ، بالكلمةِ التي تقولُها شاشةُ الطلباتِ نفسُها. */
 const KIND_LABELS: Record<string, string> = {
@@ -59,16 +60,17 @@ export function LatestOrdersCard() {
     >
       <ul className="space-y-3">
         {orders.slice(0, 3).map((order) => (
-          <li key={order.uuid} className="rounded-lg border border-line p-3">
+          <li key={order.uuid} className={ROW_CLASS}>
+            <RowIcon icon={<OrdersIcon className="h-4 w-4" />} />
+            <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="text-sm font-medium text-ink">
+              <p className="text-sm font-bold text-ink">
                 {order.store_item_title ?? order.course_title ?? KIND_LABELS[order.kind] ?? order.kind}
               </p>
-              <span className="shrink-0 text-xs text-ink-muted">
-                {statusLabel(order.status)}
-              </span>
+              <Badge tone={statusTone(order.status)}>{statusLabel(order.status)}</Badge>
             </div>
             <p className="text-xs text-ink-muted">{formatDate(order.created_at)}</p>
+            </div>
           </li>
         ))}
       </ul>

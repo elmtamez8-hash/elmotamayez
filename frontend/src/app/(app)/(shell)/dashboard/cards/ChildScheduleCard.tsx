@@ -7,8 +7,8 @@ import { userMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/labels";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
-import { ScheduleIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { ScheduleIcon, SessionsIcon } from "@/components/icons";
+import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /**
@@ -63,8 +63,10 @@ export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) 
           if (session === null) return null;
 
           return (
-            <li key={booking.uuid} className="rounded-2xl border border-line p-3">
-              <p className="text-sm font-medium text-ink">{session.title}</p>
+            <li key={booking.uuid} className={ROW_CLASS}>
+              <RowIcon icon={<SessionsIcon className="h-4 w-4" />} />
+              <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-ink">{session.title}</p>
               <p className="text-xs text-ink-muted">
                 {/* بساعةِ وليِّ الأمرِ نفسِه (٢٠٢٦-٠٩-٢٥): المنطقةُ المخزَّنةُ
                     على حسابِه، وإلّا منطقةُ متصفّحِه — كما في كلِّ شاشةِ حصص. */}
@@ -76,6 +78,7 @@ export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) 
                 {/* الغرفةُ تُغلَقُ قبلَ أن تلحقَ بها الحالة، فهي تتقدَّمُ عليها. */}
                 {session.room_closed ? "انتهت" : session.status_label}
               </p>
+              </div>
             </li>
           );
         })}
