@@ -112,7 +112,7 @@ function LoginForm() {
   return (
     <AuthShell
       subtitle="سجّل الدخول إلى حسابك"
-      image="/marketplace/auth-login.webp"
+      image="/marketplace/auth-login-teacher.webp"
       slides={LOGIN_SLIDES}
     >
       <form

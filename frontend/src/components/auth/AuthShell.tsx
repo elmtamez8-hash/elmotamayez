@@ -38,7 +38,7 @@ import { usePlatformName } from "@/lib/platform-context";
  */
 export function AuthShell({
   subtitle,
-  image = "/marketplace/auth-login.webp",
+  image = "/marketplace/auth-login-teacher.webp",
   slides = [],
   children,
 }: {
