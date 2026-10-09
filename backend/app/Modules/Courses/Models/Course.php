@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Exceptions\CourseDeletionRefused;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\TrialLessonRule;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
@@ -364,6 +365,23 @@ class Course extends BaseModel
     {
         return $this->belongsTo(Lesson::class, 'trial_lesson_id')
             ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * `has_trial` on each row: whether the course's «حصة تجريبية» may be shown
+     * NOW — `TrialLessonRule::scopeEligible()` as a correlated EXISTS, so a list
+     * of cards pays no extra query (spec 040 · FR-016). Read by
+     * `PublicCourseCardResource`; a list that does not ask gets `false`.
+     *
+     * @param  Builder<Course>  $query
+     * @return Builder<Course>
+     */
+    public function scopeWithTrialFlag(Builder $query): Builder
+    {
+        return $query->withExists([
+            'trialLesson as has_trial' => fn ($lesson) => TrialLessonRule::scopeEligible($lesson)
+                ->whereColumn('lessons.course_id', 'courses.id'),
+        ]);
     }
 
     /**

@@ -91,8 +91,8 @@ final class PublicFieldAllowlist
         'availability',
         'faqs',
         'intro_video_url',
-        // «حصة تجريبية» — see `TRIAL_LESSON` below.
-        'trial_lesson',
+        // «حصص تجريبية» — see `TEACHER_TRIAL` below (spec 040).
+        'trial_lessons',
         // «تواصل مع المدرّس» — see `CONTACT` below.
         'contact',
     ];
@@ -110,6 +110,8 @@ final class PublicFieldAllowlist
         'subject',
         'type',
         'lessons_count',
+        // Spec 040 — the «حصة تجريبية» badge (`Course::scopeWithTrialFlag`).
+        'has_trial',
         'duration_seconds',
         'price_minor',
         'price_before_discount_minor',
@@ -338,7 +340,7 @@ final class PublicFieldAllowlist
      *
      * @var list<string>
      */
-    public const TRIAL_LESSON = ['course_slug', 'lesson_uuid', 'title'];
+    public const TEACHER_TRIAL = ['course_slug', 'course_title', 'subject', 'grade_level', 'lesson_title', 'kind'];
 
     /**
      * The guest door to a course's «حصة تجريبية» (spec 040,

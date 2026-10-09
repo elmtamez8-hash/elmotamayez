@@ -355,10 +355,13 @@ class PublicCourseDetailResource extends JsonResource
         $isVideo = $lesson->type === LessonType::Video->value;
         $duration = (int) ($isVideo ? ($lesson->mediaAsset->duration_seconds ?? $lesson->duration_seconds) : $lesson->duration_seconds);
 
-        return [
-            'title' => (string) $lesson->title,
-            'kind' => $isVideo ? 'video' : 'embed',
-            ...($duration > 0 ? ['duration_seconds' => $duration] : []),
-        ];
+        $shape = ['title' => (string) $lesson->title, 'kind' => $isVideo ? 'video' : 'embed'];
+
+        // Absent rather than 0: «not written» is not «zero minutes».
+        if ($duration > 0) {
+            $shape['duration_seconds'] = $duration;
+        }
+
+        return $shape;
     }
 }
