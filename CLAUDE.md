@@ -245,6 +245,7 @@ _Read before touching `Modules/Media/`, Bunny/R2, recording ingest, the video pl
 - The player needed hls.js, and «صيغة غير مدعومة» was the shipped answer until 019.
 - `ReconcileAssetStatus` existed since 004 and was never scheduled.
 - The magic bytes name the CONTAINER, not the content — every browser voice note is `video/webm` or `video/mp4` to libmagic, so an audio asset proves its tracks (`AudioContainer`), and a chat attachment has its own mime list.
+- A course's «حصة تجريبية» (`courses.trial_lesson_id`, spec 040) is the ONLY guest path to an uploaded video: keyed by the course, `TrialLessonRule` re-checked per request, a signed link with no grant, Bunny-only (`media.trial_providers`), and played by `VideoPlayerCore` — never `VideoPlayer`, whose watermark renews a grant a guest does not have.
 
 ### Billing, credits, payments and plans → [`docs/gotchas/billing.md`](docs/gotchas/billing.md)
 _Read before touching `Modules/Billing/`, `Modules/Payments/`, credits, withholding, webhooks, subscriptions._
