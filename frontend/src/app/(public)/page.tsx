@@ -277,25 +277,29 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
       */}
       <dl className="mx-auto grid max-w-7xl grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-x-4 gap-y-6 px-4 py-10 sm:grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] sm:gap-6 sm:px-6">
         {items.map(({ label, value, suffix, Icon }) => (
-          // Icon on one side, the number and its label on the other. `text-start`
-          // and not `text-left`: the row mirrors with the page and needs no
-          // second rule to do it.
-          <div key={label} className="flex items-center gap-3 text-start sm:gap-4">
-            <span
+          /*
+            ⚠️ `dt` FIRST, THEN ITS `dd`s, AND NOTHING ELSE IN THE ROW — the only
+            shape a `<dl>` group may take. It used to be `span` + `div > dd + dt`,
+            which Lighthouse (and a screen reader's term/definition pairing)
+            read as a broken list. The grid puts them back where the eye wants
+            them: icon on the start side, the number over its label.
+          */
+          <div
+            key={label}
+            className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 text-start sm:gap-x-4"
+          >
+            <dt className="col-start-2 row-start-2 text-sm text-ink-muted">{label}</dt>
+            <dd
               aria-hidden="true"
               // Smaller on a phone: at the 7.5rem floor a 3rem disc plus its
               // gap leaves «حصة مكتملة» too little to sit on one line.
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink sm:h-12 sm:w-12"
+              className="col-start-1 row-span-2 row-start-1 grid h-10 w-10 place-items-center rounded-2xl bg-primary-soft text-primary-ink sm:h-12 sm:w-12"
             >
               <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-            </span>
-
-            <div className="min-w-0">
-              <dd className="text-2xl font-extrabold leading-tight text-primary-ink sm:text-3xl lg:text-4xl">
-                <AnimatedNumber value={value} suffix={suffix} />
-              </dd>
-              <dt className="text-sm text-ink-muted">{label}</dt>
-            </div>
+            </dd>
+            <dd className="col-start-2 row-start-1 text-2xl font-extrabold leading-tight text-primary-ink sm:text-3xl lg:text-4xl">
+              <AnimatedNumber value={value} suffix={suffix} />
+            </dd>
           </div>
         ))}
       </dl>
