@@ -20,11 +20,13 @@ import { arabicNumber } from "@/lib/numerals";
 import {
   AcademicCapIcon,
   AlertIcon,
+  ChevronEndIcon,
   CoursesIcon,
   FamilyIcon,
   HumanReviewIcon,
   MembersIcon,
   MessagesIcon,
+  NoSignupFeeIcon,
   PlayIcon,
   ProgressIcon,
   QuestionIcon,
@@ -32,6 +34,7 @@ import {
   SessionsIcon,
   SettlementIcon,
   StarIcon,
+  TeacherIcon,
   TrustShieldIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -111,6 +114,12 @@ const STEPS = [
  | academic warnings) and the report cards. Add a point only for something a
  | visitor can use today.
 */
+const CTA_POINTS: { Icon: Feature["Icon"]; label: string }[] = [
+  { Icon: NoSignupFeeIcon, label: "حساب مجاني" },
+  { Icon: TeacherIcon, label: "تصفّح المدرّسين" },
+  { Icon: SessionsIcon, label: "حصة تجريبية" },
+];
+
 const TRUST_FEATURES: Feature[] = [
   {
     Icon: HumanReviewIcon,
@@ -592,23 +601,59 @@ export default async function HomePage() {
       />
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <FaqAccordion items={home.faqs} heading="الأسئلة الشائعة" />
+        <FaqAccordion
+          items={home.faqs}
+          heading="الأسئلة الشائعة"
+          description="قبل أن تسجّل: كيف تختار مدرّسك، وكيف تجري الحصص، وما الذي يراه وليّ الأمر."
+        />
       </section>
 
+      {/* The three points restate the paragraph's own promise (free account,
+          browse teachers, a first trial lesson) — no claim the product does not
+          already make above. */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="rounded-3xl bg-primary px-6 py-12 text-center">
-          <h2 className="mb-3 text-2xl font-extrabold text-white sm:text-3xl">
-            ابدأ رحلتك مع {name} اليوم
-          </h2>
-          <p className="mx-auto mb-7 max-w-xl text-white/85">
-            أنشئ حسابك مجاناً، وتصفّح المدرّسين، واحجز حصتك التجريبية الأولى.
-          </p>
-          <Link
-            href="/signup/student"
-            className="inline-block rounded-xl bg-accent px-6 py-3 text-base font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            سجّل كطالب مجاناً
-          </Link>
+        <div className="bg-squares relative isolate overflow-hidden rounded-3xl bg-primary px-6 py-12 shadow-xl shadow-primary/20 sm:px-10 lg:px-14 lg:py-16">
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <div>
+              <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
+                ابدأ رحلتك مع {name} اليوم
+              </h2>
+              <p className="mb-8 max-w-xl leading-relaxed text-white/85">
+                أنشئ حسابك مجاناً، وتصفّح المدرّسين، واحجز حصتك التجريبية الأولى.
+              </p>
+              <ul className="grid gap-4 sm:grid-cols-3">
+                {CTA_POINTS.map(({ Icon, label }) => (
+                  <li key={label} className="flex items-center gap-3 font-semibold text-white">
+                    <span
+                      aria-hidden="true"
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground"
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex flex-col items-stretch gap-4 sm:items-start lg:items-stretch">
+              <Link
+                href="/signup/student"
+                className="rounded-2xl bg-accent px-8 py-4 text-center text-lg font-bold text-accent-foreground shadow-lg shadow-primary/30 transition duration-300 ease-out hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+              >
+                سجّل كطالب مجاناً
+              </Link>
+              <Link
+                href="/teachers"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl px-2 py-2 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                <span className="underline decoration-white/40 underline-offset-8 transition group-hover:decoration-white">
+                  أو تصفّح المدرّسين أولاً
+                </span>
+                <ChevronEndIcon className="h-4 w-4 transition duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </>

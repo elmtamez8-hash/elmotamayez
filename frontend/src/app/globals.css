@@ -280,6 +280,19 @@ dialog[open] {
   mask-image: linear-gradient(to bottom, #000, transparent 65%);
 }
 
+/* Square dots for the closing call to action — the wordmark's own dots are
+   square, so the one burgundy panel on the page carries its pattern. Painted on
+   `bg-primary` in BOTH themes, hence one rule and a white fill. */
+.bg-squares::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Crect x='1' y='1' width='3' height='3' fill='%23ffffff' fill-opacity='.14'/%3E%3C/svg%3E");
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 90% at 0% 50%, #000 20%, transparent 70%);
+}
+
 [data-theme="dark"] .bg-dots::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%23e9a0b2' fill-opacity='.14'/%3E%3C/svg%3E");
 }
