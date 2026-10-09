@@ -103,7 +103,7 @@ function RegisterForm() {
         image="/marketplace/auth-register.webp"
         slides={REGISTER_SLIDES}
       >
-        <div className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8">
+        <div className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm">
           <Alert tone="info" title="هذه الصفحة لمن وصلته دعوة">
             يُنشأ الحساب هنا من رابط دعوةٍ وصلك على بريدك من أكاديمية أو مدرّس. إن كنت طالباً
             أو وليّ أمر أو مدرّساً فسجّل من صفحة التسجيل، ففيها ما يحتاجه حسابك.
@@ -138,7 +138,7 @@ function RegisterForm() {
     >
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm"
       >
         {error && <Alert tone="danger" title={error} />}
 

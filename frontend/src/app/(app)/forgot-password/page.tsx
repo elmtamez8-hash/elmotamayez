@@ -44,7 +44,7 @@ function ForgotPasswordForm() {
     <AuthShell subtitle="استعادة كلمة المرور">
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm"
       >
         {sent !== null ? (
           <Alert tone="success" title={sent}>

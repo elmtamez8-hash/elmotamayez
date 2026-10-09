@@ -194,7 +194,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       image="/marketplace/auth-invitation.webp"
       slides={INVITATION_SLIDES}
     >
-      <div className="rounded-2xl border border-line bg-surface-raised p-8">
+      <div className="rounded-3xl border border-line bg-surface-raised p-8 shadow-sm">
         {children}
       </div>
     </AuthShell>

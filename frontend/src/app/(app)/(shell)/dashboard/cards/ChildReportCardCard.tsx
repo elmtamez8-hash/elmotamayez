@@ -64,7 +64,7 @@ export function ChildReportCardCard({ studentUuid, studentName }: ChildCardProps
       }
     >
       {latest === null ? null : (
-        <div className="rounded-lg border border-line p-3">
+        <div className="rounded-2xl border border-line p-3">
           <p className="text-sm font-medium text-ink">{periodLabel(latest)}</p>
           <p className="mt-1 text-sm text-ink">
             {/* ⚠️ لا شيءَ هنا يُعيدُ حسابَ درجة: الكشفُ لقطةٌ، ومتصفّحٌ يشتقُّ

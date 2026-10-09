@@ -358,7 +358,7 @@ export function ParticipantsPanel({
         nobody chose.
       */}
       {isHost && removed.length > 0 && (
-        <div className="space-y-2 rounded-xl border border-line p-3">
+        <div className="space-y-2 rounded-2xl border border-line p-3">
           <p className="text-sm font-bold text-ink">أُخرجوا من هذه الحصة</p>
 
           <ul className="space-y-2">

@@ -170,7 +170,7 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
 
   if (!poll) {
     return (
-      <section aria-label="تصويت سريع" className="space-y-3 rounded-2xl border border-line bg-surface-raised p-4">
+      <section aria-label="تصويت سريع" className="space-y-3 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {POLL_PRESETS.map((preset) => (
             <Button
@@ -232,7 +232,7 @@ function HostPoll({ sessionUuid }: { sessionUuid: string }) {
   }
 
   return (
-    <section aria-label="تصويت سريع" className="space-y-3 rounded-2xl border border-line bg-surface-raised p-4">
+    <section aria-label="تصويت سريع" className="space-y-3 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-semibold">{poll.question || "تصويت"}</h3>
         <span className="text-sm text-ink-muted">
@@ -329,7 +329,7 @@ function StudentPoll() {
   };
 
   return (
-    <section aria-label="تصويت" className="space-y-3 rounded-2xl border border-line bg-surface-raised p-4">
+    <section aria-label="تصويت" className="space-y-3 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm">
       <h3 className="font-semibold">{poll.question || "تصويت من المدرّس"}</h3>
       {poll.state === "open" ? (
         <div className="flex flex-wrap gap-2">

@@ -109,7 +109,7 @@ export function LessonRow({ lesson }: { lesson: CurriculumLesson }) {
   return (
     <Link
       href={`/learn/${lesson.uuid}`}
-      className="flex items-start gap-3 rounded-lg border border-line p-3 text-sm transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className="flex items-start gap-3 rounded-2xl border border-line p-3 text-sm transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {body}
     </Link>

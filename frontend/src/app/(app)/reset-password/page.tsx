@@ -63,7 +63,7 @@ function ResetPasswordForm() {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8">
+    <form onSubmit={submit} className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm">
       {error && (
         <Alert tone="danger" title={error}>
           <Link href="/forgot-password" className="underline underline-offset-4">

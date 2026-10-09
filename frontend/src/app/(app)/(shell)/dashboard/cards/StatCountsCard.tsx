@@ -103,7 +103,7 @@ export function StatCountsCard() {
 
 function Stat({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-lg border border-line p-4">
+    <div className="rounded-2xl border border-line p-4">
       <dt className="text-sm text-ink-muted">{label}</dt>
       {/* «—» لا «٠»: الصفرُ جملةٌ عن طالبٍ لا كورسَ له، وهذه حالةُ رقمٍ لم يصل. */}
       <dd className="text-2xl font-bold text-ink">

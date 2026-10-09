@@ -98,7 +98,7 @@ async function offersFor(title: string): Promise<HTMLElement> {
 
   fireEvent.change(await screen.findByLabelText("اختر الكورس"), { target: { value: COURSE } });
 
-  const row = (await screen.findByText(title)).closest("div.rounded-xl");
+  const row = (await screen.findByText(title)).closest("div.rounded-2xl");
 
   if (!(row instanceof HTMLElement)) throw new Error(`no row for ${title}`);
 

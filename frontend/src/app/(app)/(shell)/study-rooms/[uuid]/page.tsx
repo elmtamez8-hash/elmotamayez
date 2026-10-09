@@ -183,7 +183,7 @@ export default function StudyRoomPage() {
             {questions
               .filter((question) => question.answered)
               .map((question) => (
-                <li key={question.question_id} className="rounded-lg border border-line p-3">
+                <li key={question.question_id} className="rounded-2xl border border-line p-3">
                   <p className="text-sm text-ink">{question.content}</p>
                   <p className="mt-1 text-xs text-ink-muted">
                     <Badge tone={question.is_correct === true ? "success" : "danger"}>
@@ -232,7 +232,7 @@ function Question({
       <ul className="space-y-2">
         {question.options.map((option) => (
           <li key={option.id}>
-            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink has-checked:border-primary">
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line p-3 text-sm text-ink has-checked:border-primary">
               <input
                 type="radio"
                 name={`question-${question.question_id}`}

@@ -424,7 +424,7 @@ export default function ProfileSettingsPage() {
               الملفَّ كاملاً في كلِّ حفظ، فنموذجٌ ثانٍ يُرسِلُ الأسئلةَ وحدَها كانَ
               سيمسحُ ما في الحقولِ فوقَه.
             */}
-            <fieldset id="faqs" className="scroll-mt-24 rounded-xl border border-line p-4">
+            <fieldset id="faqs" className="scroll-mt-24 rounded-2xl border border-line p-4">
               <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-ink">
                 <QuestionIcon className="h-4 w-4 text-primary-ink" />
                 الأسئلة الشائعة
@@ -446,7 +446,7 @@ export default function ProfileSettingsPage() {
                        السؤالِ يتغيّرُ عندَ كلِّ حرفٍ يُكتَب — فمفتاحٌ منه يُعيدُ
                        بناءَ الحقلِ ويفقدُ التركيزَ بعدَ كلِّ ضغطةِ مفتاح. */
                     key={index}
-                    className="space-y-3 rounded-lg border border-line p-3"
+                    className="space-y-3 rounded-2xl border border-line p-3"
                   >
                     <TextField
                       id={`faq-question-${index}`}

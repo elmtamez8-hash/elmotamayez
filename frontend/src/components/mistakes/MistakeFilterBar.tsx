@@ -70,7 +70,7 @@ export function MistakeFilterBar({
   return (
     <section
       aria-label="تصفية دفتر الأخطاء"
-      className="rounded-2xl border border-line bg-surface-raised p-4"
+      className="rounded-3xl border border-line bg-surface-raised p-4 shadow-sm"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shown.map((facet) => (
