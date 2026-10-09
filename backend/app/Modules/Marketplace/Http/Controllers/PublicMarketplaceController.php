@@ -222,7 +222,7 @@ class PublicMarketplaceController extends Controller
         $prices = $action->startingPrices($course, $joinable);
 
         $payload['cohorts'] = array_map(
-            static fn (array $cohort): array => [...$cohort, 'price' => $prices['cohorts'][$cohort['uuid']] ?? null],
+            static fn (array $cohort): array => [...$cohort, 'price' => $prices['groups'][$cohort['uuid']] ?? null],
             $payload['cohorts'],
         );
         $payload['private_price'] = $payload['private_subscription_available'] ? $prices['private'] : null;

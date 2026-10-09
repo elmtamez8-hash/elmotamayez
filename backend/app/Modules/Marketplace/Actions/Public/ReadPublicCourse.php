@@ -305,7 +305,7 @@ class ReadPublicCourse extends Action
      * The page's prices — {@see SubscriptionDirectory::startingPricesFor()}.
      *
      * @param  list<string>  $cohortUuids
-     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, cohorts: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
+     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, groups: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
      */
     public function startingPrices(Course $course, array $cohortUuids): array
     {

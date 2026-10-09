@@ -88,7 +88,7 @@ interface SubscriptionDirectory
      * answer null alike. One query for the whole page.
      *
      * @param  list<string>  $cohortUuids
-     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, cohorts: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
+     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, groups: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
      */
     public function startingPricesFor(int $courseId, array $cohortUuids): array;
 }

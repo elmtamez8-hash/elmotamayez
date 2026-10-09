@@ -352,7 +352,7 @@ class SubscriptionEligibility implements SubscriptionDirectory
         $course = Course::query()->withoutWorkspaceScope()->find($courseId);
 
         if ($course === null) {
-            return ['private' => null, 'cohorts' => array_fill_keys($cohortUuids, null)];
+            return ['private' => null, 'groups' => array_fill_keys($cohortUuids, null)];
         }
 
         $courseUuid = (string) $course->uuid;
@@ -386,7 +386,7 @@ class SubscriptionEligibility implements SubscriptionDirectory
             $cohorts[$cohortUuid] = $cheapest($own->isNotEmpty() ? $own->filter($sellable) : $courseLevel, 'group');
         }
 
-        return ['private' => $cheapest($courseLevel, 'individual'), 'cohorts' => $cohorts];
+        return ['private' => $cheapest($courseLevel, 'individual'), 'groups' => $cohorts];
     }
 
     /**
