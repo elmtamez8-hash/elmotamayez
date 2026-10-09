@@ -171,7 +171,7 @@ export default function FamilyPage() {
   const following = relations.filter((relation) => relation.viewer_side === "student");
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-8">
       <PageHeader Icon={FamilyIcon} title="وليّ الأمر والأوصياء" />
 
       {error && <Alert tone="danger" title={error} />}

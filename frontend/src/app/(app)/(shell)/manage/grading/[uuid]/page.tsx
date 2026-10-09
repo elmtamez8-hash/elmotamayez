@@ -56,7 +56,7 @@ export default function GradePaperPage() {
   const outstanding = paper.answers.filter((answer) => !answer.is_graded).length;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={GradingIcon}
         title={paper.exam_title ?? "ورقة"}

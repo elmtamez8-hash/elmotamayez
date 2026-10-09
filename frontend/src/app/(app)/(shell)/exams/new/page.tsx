@@ -81,7 +81,7 @@ export default function NewExamPage() {
   const courseOptions = courses.map((course) => ({ value: course.uuid, label: course.title }));
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <PageHeader Icon={ExamIcon} title="اختبار جديد" />
 
       <Card as="section">

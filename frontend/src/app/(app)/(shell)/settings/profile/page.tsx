@@ -250,7 +250,7 @@ export default function ProfileSettingsPage() {
   const hasProfile = teacher !== null || user?.student_profile != null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-8">
       <PageHeader Icon={UserIcon} title="ملفّي" />
 
       {/*

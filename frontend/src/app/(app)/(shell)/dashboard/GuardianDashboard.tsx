@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { FamilyIcon } from "@/components/icons";
+import { DashboardHero } from "./DashboardHero";
 import { userMessage } from "@/lib/errors";
 import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -82,10 +84,11 @@ export function GuardianDashboard() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-ink">أهلاً، {user?.first_name}</h2>
-        <p className="text-ink-muted">هذه متابعة أبنائك — كلٌّ بحسب الإذن الممنوح لك.</p>
-      </div>
+      <DashboardHero
+        greeting={`أهلاً، ${user?.first_name ?? ""}`}
+        line="هذه متابعة أبنائك — كلٌّ بحسب الإذن الممنوح لك."
+        Icon={FamilyIcon}
+      />
 
       {children.length === 0 ? (
         <NoLinkedChild />

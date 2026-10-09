@@ -83,10 +83,10 @@ export function CountCard({
         <p className="text-sm text-ink-muted">{empty}</p>
       ) : null}
     >
-      <p className="text-3xl font-bold text-ink">
+      <p className="text-5xl font-extrabold leading-none text-primary-ink">
         <bdi>{count === null ? "—" : arabicNumber(count)}</bdi>
       </p>
-      <p className="text-sm text-ink-muted">{label}</p>
+      <p className="mt-2 text-sm text-ink-muted">{label}</p>
     </DashboardCard>
   );
 }

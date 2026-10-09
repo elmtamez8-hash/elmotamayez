@@ -68,7 +68,7 @@ export default function PaymentReturnPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div>
         <RowsSkeleton />
       </div>
     );
@@ -76,7 +76,7 @@ export default function PaymentReturnPage() {
 
   if (transactionUuid === null || payment === null) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div>
         <EmptyState
           title="لا نعرف أي عملية تسأل عنها"
           description={error !== "" ? error : "تحقّق من حالة طلباتك من صفحة الطلبات."}
@@ -91,7 +91,7 @@ export default function PaymentReturnPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <PageHeader Icon={CreditsIcon} title="نتيجة الدفع" />
 
       {!isSettled(payment.status) && (

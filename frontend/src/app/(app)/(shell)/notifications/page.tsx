@@ -186,7 +186,7 @@ export default function NotificationsPage() {
   const openCategory = categories.find((category) => category.key === active);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={BellIcon}
         title="الإشعارات"

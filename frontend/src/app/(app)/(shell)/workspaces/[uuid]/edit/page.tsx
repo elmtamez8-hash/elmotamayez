@@ -68,7 +68,7 @@ export default function EditWorkspacePage({
   if (failed) return <ErrorState onRetry={load} />;
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
+    <div className="space-y-6">
       <PageHeader Icon={WorkspaceIcon} title="إعدادات مكان العمل" />
 
       <Card as="section">

@@ -242,7 +242,7 @@ export default function CreateCoursePage() {
   const TypeIcon = chosenType ? TYPE_ICONS[chosenType.value] : CoursesIcon;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={CoursesIcon}
         title="كورس جديد"

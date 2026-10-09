@@ -116,7 +116,7 @@ export default function TakeExamPage({
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div>
         <Alert tone="danger" title={error || "تعذّر بدء الاختبار."}>
           <Button href="/exams" variant="secondary" size="sm">
             عُد إلى الاختبارات
@@ -131,7 +131,7 @@ export default function TakeExamPage({
   ).length;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={ExamIcon}
         title="اختبار جارٍ"

@@ -100,7 +100,7 @@ export default function SchedulePage() {
       — ends up across an empty band. A timetable is a list scanned downwards, so
       it is given a column to be scanned down.
     */
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader Icon={ScheduleIcon} title="جدولي" />
 
       {loading ? (

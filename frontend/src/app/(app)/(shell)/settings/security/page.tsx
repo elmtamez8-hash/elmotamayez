@@ -69,7 +69,7 @@ export default function SecuritySettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       {/*
         ⚠️ THE SECOND FACTOR COMES FIRST, AND THE DEVICE LIST IS WHY.
         Reported 2026-09-22: that list is one row per signed-in device and has no

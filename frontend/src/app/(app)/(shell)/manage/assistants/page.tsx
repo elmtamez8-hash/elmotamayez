@@ -120,7 +120,7 @@ export default function AssistantsPage() {
   const academy = teachers > 1;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="space-y-8">
       <div className="space-y-4">
         <PageHeader
           Icon={MembersIcon}

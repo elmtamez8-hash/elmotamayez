@@ -102,7 +102,7 @@ export default function SessionPage({
   const offer = session.content_offer ?? null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <PageHeader
         Icon={SessionsIcon}
         title={session.title}

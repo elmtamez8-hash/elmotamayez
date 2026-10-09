@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { LearningIcon } from "@/components/icons";
+import { DashboardHero } from "./DashboardHero";
 import { CourseBalancesCard } from "./cards/CourseBalancesCard";
 import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
 import { LatestOrdersCard } from "./cards/LatestOrdersCard";
@@ -27,10 +29,11 @@ export function StudentDashboard() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-ink">أهلاً بعودتك، {user?.first_name}</h2>
-        <p className="text-ink-muted">هذه نظرة عامة على دراستك.</p>
-      </div>
+      <DashboardHero
+        greeting={`أهلاً بعودتك، ${user?.first_name ?? ""}`}
+        line="هذه نظرة عامة على دراستك."
+        Icon={LearningIcon}
+      />
 
       <StatCountsCard />
 
