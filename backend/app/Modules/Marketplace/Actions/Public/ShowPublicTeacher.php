@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Marketplace\Actions\Public;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Marketplace\Models\Review;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -195,5 +197,51 @@ class ShowPublicTeacher extends Action
         Course::primeCreatorTeaches($courses);
 
         return $courses;
+    }
+
+    /**
+     * The teacher's free «حصة تجريبية»: the first lesson a guest may watch in
+     * their newest listed course that has one (owner decision 2026-10-09 — the
+     * trial is a RECORDED lesson, free, with no booking and no approval).
+     *
+     * ⚠️ `ReadPublicPreviewLesson::readable()`, never a second spelling: the
+     * link built from this answer is opened by that door, and advertising a
+     * lesson it refuses is a dead link on the page's main button.
+     *
+     * `$courses` is `coursesOf()`'s answer, already newest first and already
+     * public, so the course rules are not asked twice. One query, whatever the
+     * number of courses.
+     *
+     * @param  Collection<int, Course>  $courses
+     * @return array{course_slug: string, lesson_uuid: string, title: string}|null
+     */
+    public function trialLessonOf(Collection $courses): ?array
+    {
+        if ($courses->isEmpty()) {
+            return null;
+        }
+
+        $lessons = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('course_id', $courses->modelKeys())
+            ->tap(fn (Builder $query) => ReadPublicPreviewLesson::readable($query))
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get(['id', 'uuid', 'course_id', 'title'])
+            ->groupBy('course_id');
+
+        foreach ($courses as $course) {
+            $lesson = $lessons->get($course->getKey())?->first();
+
+            if ($lesson instanceof Lesson) {
+                return [
+                    'course_slug' => (string) ($course->slug ?? $course->uuid),
+                    'lesson_uuid' => (string) $lesson->uuid,
+                    'title' => (string) $lesson->title,
+                ];
+            }
+        }
+
+        return null;
     }
 }

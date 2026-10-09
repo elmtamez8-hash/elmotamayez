@@ -4,7 +4,6 @@ import { counted, YEARS_OF_EXPERIENCE } from "@/lib/labels";
 import type { TeacherCard as Teacher } from "@/lib/public-api";
 import { AvailableNowChip, AvailableNowDot } from "./AvailableNow";
 import { StarRating } from "./StarRating";
-import { TrialCta } from "./TrialCta";
 import { TrustScoreBadge } from "./TrustScoreBadge";
 import { subjectIcon } from "./subject-icon";
 
@@ -124,18 +123,16 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
           </ul>
         )}
 
-        {/* One filled action, one quiet one. Two buttons of equal weight make the
-            visitor choose between them before choosing a teacher; the trial is
-            what this page is for, and the profile is already reachable from the
-            name above. Pills, matching every other control in the world. */}
+        {/* ONE action. The card's trial button went to the student signup form
+            (owner audit 2026-10-09), and the list does not know which teacher
+            has a free recorded lesson — the profile does, and shows it as its
+            main button. So the card leads there. */}
         <div className="mt-auto flex gap-2 pt-5">
-          {/* Role-aware: a signed-in visitor is never sent to a signup form. */}
-          <TrialCta teacherUuid={teacher.uuid} />
           <Link
             href={profileHref}
-            className="flex-1 rounded-full border border-line px-3 py-2.5 text-center text-sm font-semibold text-ink transition duration-200 ease-out hover:border-primary hover:bg-primary-soft hover:text-primary-ink active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="flex-1 rounded-full bg-accent px-3 py-2.5 text-center text-sm font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            عرض الملف
+            عرض الملف والحصة التجريبية
           </Link>
         </div>
       </div>

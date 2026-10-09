@@ -28,7 +28,7 @@ export function generateMetadata(): Promise<Metadata> {
     path: "/teachers",
     title: "المدرسون",
     description:
-      "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والتقييم ودرجة الثقة، واحجز حصة تجريبية.",
+      "تصفّح المدرّسين المعتمدين حسب المادة والمرحلة الدراسية والتقييم ودرجة الثقة، وشاهد حصة تجريبية مجاناً.",
     image: "/marketplace/banner-teachers.webp",
   });
 }

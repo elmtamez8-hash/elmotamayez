@@ -8,6 +8,7 @@ use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Shared\Actions\Action;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * One open embedded lesson, read by a visitor with no account (032 · US2).
@@ -66,13 +67,7 @@ class ReadPublicPreviewLesson extends Action
             | has spread would otherwise leave a public door working for ever —
             | the defect `IssuePlaybackGrant` was fixed for once already.
             */
-            ->visibleToStudents()
-            ->where('type', LessonType::Embed->value)
-            /*
-            | ⚠️ GROUPED. A bare `orWhere` at the top level swallows every
-            | condition above it and hands the whole tree to any visitor.
-            */
-            ->where(fn ($query) => $query->where('is_preview', true)->orWhere('is_free', true))
+            ->tap(fn (Builder $query) => self::readable($query))
             ->where('uuid', $lessonUuid)
             ->first();
 
@@ -86,5 +81,29 @@ class ReadPublicPreviewLesson extends Action
         $lesson->setRelation('course', $course);
 
         return [$course, $lesson];
+    }
+
+    /**
+     * «May a guest watch this lesson?» — the ONE spelling of it.
+     *
+     * The door above asks it of one uuid, and the teacher page asks it of every
+     * lesson in the teacher's courses to find the free «حصة تجريبية» (owner
+     * decision 2026-10-09: the trial IS a recorded lesson anyone can watch). Two
+     * copies would drift, and the teacher page would then advertise a lesson the
+     * door refuses — a permanently dead link.
+     *
+     * @param  Builder<Lesson>  $query
+     * @return Builder<Lesson>
+     */
+    public static function readable(Builder $query): Builder
+    {
+        return $query
+            ->visibleToStudents()
+            ->where('type', LessonType::Embed->value)
+            /*
+            | ⚠️ GROUPED. A bare `orWhere` at the top level swallows every
+            | condition above it and hands the whole tree to any visitor.
+            */
+            ->where(fn ($query) => $query->where('is_preview', true)->orWhere('is_free', true));
     }
 }

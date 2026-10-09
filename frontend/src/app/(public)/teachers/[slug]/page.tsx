@@ -421,15 +421,18 @@ export default async function TeacherProfilePage({
               </div>
 
               {/*
-                ⚠️ ONE CONTROL NOW, NOT TWO — and the pair was the defect. Both
-                pointed at `/signup/student`, so a signed-in visitor of ANY role
-                was offered a student registration form twice on the same panel.
-                `TrialCta` renders them for a guest and replaces them with the
-                way into the reader's own panel otherwise; there is no
-                trial-booking flow for an existing account to send them to yet.
+                ⚠️ ONE CONTROL: the teacher's free recorded lesson, for every
+                reader (owner decision 2026-10-09). It used to send a guest to
+                signup and a signed-in reader to their panel — a loop with no
+                booking in it. Without a watchable lesson it leads to the
+                teacher's courses, where groups and private lessons are booked.
               */}
               <div className="px-6 pt-5 pb-3">
-                <TrialCta teacherUuid={teacher.uuid} variant="profile" />
+                <TrialCta
+                  trial={teacher.trial_lesson}
+                  coursesHref={`/teachers/${teacher.slug}?tab=courses`}
+                  variant="profile"
+                />
               </div>
             </div>
 
@@ -703,7 +706,11 @@ export default async function TeacherProfilePage({
               Two of them were fixed and this one sat under `lg:hidden`, so the
               defect survived on exactly the screen the redesign is aimed at.
               Grep for the route, never for the button's label. */}
-          <TrialCta teacherUuid={teacher.uuid} variant="bar" />
+          <TrialCta
+            trial={teacher.trial_lesson}
+            coursesHref={`/teachers/${teacher.slug}?tab=courses`}
+            variant="bar"
+          />
         </div>
       </StickyCtaBar>
     </div>

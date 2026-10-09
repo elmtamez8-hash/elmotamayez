@@ -103,7 +103,7 @@ const STEPS = [
   {
     Icon: ScheduleIcon,
     title: "احجز الحصة",
-    body: "اختر الوقت المناسب من جدول المدرّس واحجز حصة تجريبية أو باقة كاملة.",
+    body: "شاهد حصته التجريبية المسجّلة مجاناً، ثم اختر الوقت المناسب من جدوله واحجز باقتك.",
   },
   {
     Icon: LearningIcon,
@@ -145,7 +145,7 @@ const TRUST_FEATURES: Feature[] = [
   {
     Icon: SessionsIcon,
     title: "حصة تجريبية أولاً",
-    body: "جرّب المدرّس في حصة واحدة قبل أن تشترك في باقة.",
+    body: "شاهد درساً مسجّلاً من شرح المدرّس مجاناً قبل أن تشترك.",
   },
 ];
 
@@ -543,7 +543,7 @@ export default async function HomePage() {
         {home.featured_courses.length === 0 ? (
           <EmptyState
             title="لا توجد كورسات منشورة بعد"
-            description="ابدأ بتصفّح المدرّسين واحجز حصة تجريبية مباشرة معهم."
+            description="ابدأ بتصفّح المدرّسين وشاهد حصة تجريبية مسجّلة لكلّ منهم مجاناً."
             action={
               <Link
                 href="/teachers"
@@ -653,7 +653,7 @@ export default async function HomePage() {
                 ابدأ رحلتك مع {name} اليوم
               </h2>
               <p className="mb-8 max-w-xl leading-relaxed text-white/85">
-                أنشئ حسابك مجاناً، وتصفّح المدرّسين، واحجز حصتك التجريبية الأولى.
+                تصفّح المدرّسين، وشاهد حصصهم التجريبية مجاناً، وأنشئ حسابك حين تختار.
               </p>
               <ul className="grid gap-4 sm:grid-cols-3">
                 {CTA_POINTS.map(({ Icon, label }) => (

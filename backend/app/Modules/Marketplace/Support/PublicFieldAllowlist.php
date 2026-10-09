@@ -91,6 +91,8 @@ final class PublicFieldAllowlist
         'availability',
         'faqs',
         'intro_video_url',
+        // «حصة تجريبية» — see `TRIAL_LESSON` below.
+        'trial_lesson',
         // «تواصل مع المدرّس» — see `CONTACT` below.
         'contact',
     ];
@@ -325,6 +327,16 @@ final class PublicFieldAllowlist
     */
     /** @var list<string> */
     public const PREVIEW_LESSON_COURSE = ['uuid', 'title', 'slug'];
+
+    /**
+     * The teacher's free recorded lesson (`ShowPublicTeacher::trialLessonOf()`,
+     * owner decision 2026-10-09): what the link to the public lesson door needs,
+     * and its title for the line under the button. Nothing the door would not
+     * itself show a guest.
+     *
+     * @var list<string>
+     */
+    public const TRIAL_LESSON = ['course_slug', 'lesson_uuid', 'title'];
 
     /*
     | A group as the public sees it (FR-010 · FR-014).

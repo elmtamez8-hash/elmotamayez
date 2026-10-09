@@ -254,3 +254,46 @@ it('refuses a lesson from a DIFFERENT course under the same teacher', function (
     $this->getJson("/api/v1/marketplace/courses/{$courseA->uuid}/lessons/{$lessonB->uuid}")
         ->assertNotFound();
 });
+
+/*
+| Owner decision 2026-10-09 — «حصة تجريبية» IS a recorded lesson anyone may
+| watch. The teacher page names it from the same rule the lesson door applies
+| (`ReadPublicPreviewLesson::readable()`), so the button can never point at a
+| lesson the door refuses.
+*/
+function trialOf(Course $course): mixed
+{
+    $teacher = TeacherProfile::query()->withoutGlobalScopes()->where('user_id', $course->created_by)->firstOrFail();
+
+    return test()->getJson('/api/v1/marketplace/teachers/'.$teacher->uuid)->assertOk()->json('data.trial_lesson');
+}
+
+it('names the teacher\'s free lesson as the trial, and the door opens it', function (): void {
+    [$course, $lesson] = previewFixture();
+
+    $trial = trialOf($course);
+
+    expect($trial)->toBe([
+        'course_slug' => $course->slug,
+        'lesson_uuid' => (string) $lesson->uuid,
+        'title' => $lesson->title,
+    ]);
+
+    $this->getJson("/api/v1/marketplace/courses/{$trial['course_slug']}/lessons/{$trial['lesson_uuid']}")->assertOk();
+});
+
+it('names no trial when the open lesson is one a guest cannot watch', function (array $attributes): void {
+    [$course] = previewFixture(lessonAttributes: $attributes);
+
+    expect(trialOf($course))->toBeNull();
+})->with([
+    'not an embed' => [['type' => 'video']],
+    'not marked open' => [['is_preview' => false, 'is_free' => false]],
+    'unpublished' => [['status' => ContentStatus::Draft]],
+]);
+
+it('names no trial when the lesson sits in an unpublished section', function (): void {
+    [$course] = previewFixture(sectionStatus: ContentStatus::Draft);
+
+    expect(trialOf($course))->toBeNull();
+});
