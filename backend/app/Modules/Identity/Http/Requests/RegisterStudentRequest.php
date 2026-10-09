@@ -36,7 +36,9 @@ class RegisterStudentRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:100'],
             'last_name' => ['nullable', 'string', 'max:100'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // No `confirmed` (owner decision 2026-10-09): the form shows the
+            // password behind an eye toggle instead of asking for it twice.
+            'password' => ['required', 'string', 'min:8'],
             // E.164, which is what "phone with a country code" means once you stop
             // hand-parsing separators (FR-063).
             'phone' => ['required', 'string', 'regex:/^\+[1-9]\d{6,14}$/'],

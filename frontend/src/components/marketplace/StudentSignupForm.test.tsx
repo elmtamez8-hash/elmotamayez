@@ -43,9 +43,19 @@ const REGIONS: Taxonomy[] = [
   { slug: "al-rayyan", name: "الريان" },
 ];
 
+/** Fill step one and press «التالي» — every field below lives on step two. */
+function toStepTwo(container: HTMLElement, email = "salma@example.com") {
+  fireEvent.change(screen.getByLabelText(/^الاسم الأول/), { target: { value: "سلمى" } });
+  fireEvent.change(screen.getByLabelText(/^البريد الإلكتروني/), { target: { value: email } });
+  fireEvent.change(container.querySelector("#phone") as HTMLInputElement, { target: { value: "55512345" } });
+  fireEvent.change(container.querySelector("#password") as HTMLInputElement, { target: { value: "secret-123" } });
+  fireEvent.click(screen.getByRole("button", { name: "التالي" }));
+}
+
 describe("StudentSignupForm", () => {
   it("renders every school year it is handed", () => {
-    render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    toStepTwo(container);
 
     const select = screen.getByLabelText(/^الصف الدراسي/) as HTMLSelectElement;
 
@@ -67,7 +77,8 @@ describe("StudentSignupForm", () => {
   | now scrolls to and focuses the first refused field.
   */
   it("starts with no year chosen, so the grade is one the student picked", () => {
-    render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    toStepTwo(container);
 
     const select = screen.getByLabelText(/^الصف الدراسي/) as HTMLSelectElement;
 
@@ -105,6 +116,7 @@ describe("StudentSignupForm — a minor awaiting consent", () => {
     );
 
     const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    toStepTwo(container);
 
     fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
@@ -120,14 +132,17 @@ describe("StudentSignupForm — a minor awaiting consent", () => {
 */
 describe("StudentSignupForm — the referral code", () => {
   function submit(container: HTMLElement) {
+    if (container.querySelector("#terms_accepted") === null) toStepTwo(container);
     fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
     fireEvent.submit(container.querySelector("form") as HTMLFormElement);
   }
 
   it("prefills the field from the invitation link's code", () => {
-    render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} referralCode="FRIEND23" />);
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} referralCode="FRIEND23" />);
+    toStepTwo(container);
 
-    expect((screen.getByLabelText("كود الإحالة (اختياري)") as HTMLInputElement).value).toBe("FRIEND23");
+    // Open already: the link put a code in it.
+    expect((screen.getByLabelText("كود الدعوة (اختياري)") as HTMLInputElement).value).toBe("FRIEND23");
   });
 
   it("sends the code when the field is filled, upper-cased", () => {
@@ -135,8 +150,12 @@ describe("StudentSignupForm — the referral code", () => {
     registerStudent.mockReturnValueOnce(new Promise(() => {}));
 
     const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    toStepTwo(container);
 
-    fireEvent.change(screen.getByLabelText("كود الإحالة (اختياري)"), { target: { value: " friend23 " } });
+    // Behind a link when nobody prefilled it.
+    expect(screen.queryByLabelText("كود الدعوة (اختياري)")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "عندك كود دعوة من صديق؟" }));
+    fireEvent.change(screen.getByLabelText("كود الدعوة (اختياري)"), { target: { value: " friend23 " } });
     submit(container);
 
     expect(registerStudent).toHaveBeenCalledTimes(1);
@@ -173,7 +192,64 @@ describe("StudentSignupForm — the referral code", () => {
     const message = await screen.findByText(sentence);
 
     expect(message.id).toBe("referral_code-error");
-    expect(screen.getByLabelText("كود الإحالة (اختياري)").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("كود الدعوة (اختياري)").getAttribute("aria-invalid")).toBe("true");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+/*
+| The shorter form (owner decision 2026-10-09): two steps, no password twice,
+| the country taken from the phone's dial code, the invite code behind a link.
+*/
+describe("StudentSignupForm — two steps", () => {
+  it("keeps step one until its fields are filled, and says which", () => {
+    registerStudent.mockReset();
+    render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "التالي" }));
+
+    expect(screen.getByText("أدخل اسمك الأول.")).toBeDefined();
+    expect(screen.getByText("كلمة المرور ثمانية أحرف على الأقل.")).toBeDefined();
+    expect(screen.queryByLabelText(/^الصف الدراسي/)).toBeNull();
+    expect(registerStudent).not.toHaveBeenCalled();
+  });
+
+  it("asks for the password once and the country never — it is the phone's", () => {
+    registerStudent.mockReset();
+    registerStudent.mockReturnValueOnce(new Promise(() => {}));
+
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+
+    expect(container.querySelector("#password_confirmation")).toBeNull();
+    expect(screen.queryByLabelText("الدولة")).toBeNull();
+
+    toStepTwo(container);
+    fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+
+    const sent = registerStudent.mock.calls[0][0];
+    expect(sent.country).toBe("QA");
+    expect(sent.phone).toBe("+97455512345");
+    expect("password_confirmation" in sent).toBe(false);
+  });
+
+  it("goes back to step one when the server refuses the email", async () => {
+    const { ApiError } = await import("@/lib/api");
+
+    registerStudent.mockReset();
+    registerStudent.mockRejectedValueOnce(
+      new ApiError("invalid", 422, { message: "invalid", errors: { email: ["هذا البريد مسجّل من قبل."] } }),
+    );
+
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
+    toStepTwo(container);
+    fireEvent.click(container.querySelector("#terms_accepted") as HTMLInputElement);
+    fireEvent.submit(container.querySelector("form") as HTMLFormElement);
+
+    expect(await screen.findByText("هذا البريد مسجّل من قبل.")).toBeDefined();
+    expect(screen.getByLabelText(/^البريد الإلكتروني/).getAttribute("aria-invalid")).toBe("true");
+    // …and what was typed on step two is still there behind «التالي».
+    fireEvent.click(screen.getByRole("button", { name: "التالي" }));
+    expect((container.querySelector("#terms_accepted") as HTMLInputElement).checked).toBe(true);
   });
 });
