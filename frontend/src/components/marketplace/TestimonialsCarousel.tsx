@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
+import { ChevronEndIcon, ChevronStartIcon, QuoteMarkIcon } from "@/components/icons";
+import { arabicNumber } from "@/lib/numerals";
 import Link from "next/link";
 import { StarRating } from "./StarRating";
 import { useState } from "react";
@@ -48,7 +49,6 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
 
   return (
     <div
-      className="mx-auto max-w-3xl"
       role="group"
       aria-roledescription="عارض مراجعات"
       aria-label="مراجعات الطلاب"
@@ -66,19 +66,33 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
           aria-label={`${i + 1} من ${items.length}`}
           // min-h, because every slide is in the DOM and only one is shown: a
           // one-line quote followed by a three-line one made the whole band jump
-          // on each arrow press. rounded-3xl to match Card and the pill buttons.
-          className="flex min-h-72 flex-col justify-center rounded-3xl border border-line bg-surface-raised p-10 text-center"
+          // on each arrow press. bg-surface on the raised band, so the card
+          // reads as a sheet laid on it rather than a hole cut in it.
+          className="flex min-h-80 flex-col rounded-3xl border border-line bg-surface p-7 shadow-sm sm:p-10"
         >
-          <blockquote className="mb-8 text-xl leading-relaxed text-ink sm:text-2xl">
-            «{item.comment}»
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <span
+              aria-hidden="true"
+              className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20"
+            >
+              <QuoteMarkIcon />
+            </span>
+            {/* The rating replaces the invented "role". It is a real number the
+                reviewer chose, and it is why the quote carries weight. */}
+            <StarRating value={item.rating} />
+          </div>
+
+          <blockquote className="mb-8 flex-1 text-xl leading-loose text-ink sm:text-2xl sm:leading-loose">
+            {item.comment}
           </blockquote>
+
           {/* The face belongs to the TEACHER, never the reviewer.
               `studentDisplayName()` truncates the family name on purpose so a
               reviewer cannot be identified to the teacher they just rated, and a
               photo beside that truncation would identify them completely. The
               teacher's photo is already published on their own card. */}
-          <figcaption className="flex flex-col items-center gap-3">
-            {item.teacher_name && (
+          <figcaption className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
+            {item.teacher_name ? (
               <Link
                 href={item.teacher_slug ? `/teachers/${item.teacher_slug}` : "/teachers"}
                 className="flex items-center gap-3 rounded-full py-1 ps-1 pe-4 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -90,7 +104,7 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
                   <img
                     src={item.teacher_photo_url}
                     alt=""
-                    className="h-12 w-12 rounded-full object-cover"
+                    className="h-12 w-12 rounded-full object-cover ring-2 ring-primary-soft"
                     loading="lazy"
                   />
                 ) : (
@@ -103,30 +117,24 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
                 )}
                 <span className="text-start">
                   <span className="block text-xs text-ink-muted">مراجعة عن</span>
-                  <span className="block font-semibold text-ink">{item.teacher_name}</span>
+                  <span className="block font-bold text-ink">{item.teacher_name}</span>
                 </span>
               </Link>
+            ) : (
+              <span />
             )}
 
-            <span className="text-sm text-ink-muted">
+            <span className="text-sm font-semibold text-ink-muted">
               {item.student_display_name}
             </span>
-            {/* The rating replaces the invented "role". It is a real number the
-                reviewer chose, and it is why the quote carries weight. */}
-            <StarRating value={item.rating} />
           </figcaption>
         </figure>
       ))}
 
-      <div className="mt-6 flex items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => move(-1)}
-          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          aria-label="الشهادة السابقة"
-        >
-          <ChevronStartIcon />
-        </button>
+      <div className="mt-6 flex items-center justify-between gap-4">
+        <span className="text-sm font-semibold tabular-nums text-ink-muted" aria-hidden="true">
+          {arabicNumber(index + 1)} / {arabicNumber(items.length)}
+        </span>
 
         <ul className="flex gap-2">
           {items.map((item, i) => (
@@ -136,22 +144,32 @@ export function TestimonialsCarousel({ items }: { items: Testimonial[] }) {
                 onClick={() => setIndex(i)}
                 aria-current={i === index}
                 aria-label={`المراجعة ${i + 1}`}
-                className={`h-2.5 w-2.5 rounded-full transition ${
-                  i === index ? "bg-primary" : "bg-line hover:bg-ink-muted"
+                className={`h-2.5 rounded-full transition-all duration-300 ease-out ${
+                  i === index ? "w-6 bg-primary" : "w-2.5 bg-line hover:bg-ink-muted"
                 }`}
               />
             </li>
           ))}
         </ul>
 
-        <button
-          type="button"
-          onClick={() => move(1)}
-          className="rounded-full border border-line p-2 text-ink transition hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          aria-label="الشهادة التالية"
-        >
-          <ChevronEndIcon />
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => move(-1)}
+            className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-ink transition hover:border-primary hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            aria-label="الشهادة السابقة"
+          >
+            <ChevronStartIcon />
+          </button>
+          <button
+            type="button"
+            onClick={() => move(1)}
+            className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-ink transition hover:border-primary hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            aria-label="الشهادة التالية"
+          >
+            <ChevronEndIcon />
+          </button>
+        </div>
       </div>
     </div>
   );

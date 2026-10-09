@@ -24,6 +24,7 @@ import {
   CoursesIcon,
   FamilyIcon,
   HumanReviewIcon,
+  LearningIcon,
   MembersIcon,
   MessagesIcon,
   NoSignupFeeIcon,
@@ -34,6 +35,7 @@ import {
   SessionsIcon,
   SettlementIcon,
   StarIcon,
+  SubjectIcon,
   TeacherIcon,
   TrustShieldIcon,
   UsersIcon,
@@ -89,18 +91,22 @@ export const revalidate = 60;
 
 const STEPS = [
   {
+    Icon: SubjectIcon,
     title: "اختر المادة",
     body: "تصفّح المواد والمراحل الدراسية وحدّد ما يحتاجه ابنك أو تحتاجه أنت.",
   },
   {
+    Icon: TeacherIcon,
     title: "اختر المدرّس",
     body: "قارن بين المدرّسين بالتقييمات ودرجة الثقة والسعر وأوقات التوفّر.",
   },
   {
+    Icon: ScheduleIcon,
     title: "احجز الحصة",
     body: "اختر الوقت المناسب من جدول المدرّس واحجز حصة تجريبية أو باقة كاملة.",
   },
   {
+    Icon: LearningIcon,
     title: "ابدأ التعلّم",
     body: "احضر الحصة مباشرة أو شاهد المسجّلة في وقتك، وتابع تقدّمك أولاً بأول.",
   },
@@ -394,18 +400,24 @@ export default async function HomePage() {
         | hidden below `lg`, where the steps stack and a horizontal rule would
         | run through nothing.
       */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <h2 className="mb-12 text-center text-2xl font-extrabold text-ink sm:text-3xl">
-          كيف تعمل المنصة
-        </h2>
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+        <div className="mx-auto mb-14 max-w-2xl text-center">
+          <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+            كيف تعمل المنصة
+          </h2>
+          <p className="leading-relaxed text-ink-muted">
+            أربع خطوات من اختيار المادة إلى أول حصة.
+          </p>
+        </div>
 
         <div className="relative">
           {/* Spans marker centre to marker centre, not edge to edge. With four
               equal columns those centres sit at 12.5% and 87.5%, so a rule that
               runs the full width sticks out past the first and last steps and
-              reads as a track the journey is only part of. */}
+              reads as a track the journey is only part of. `top-8` is the
+              centre of the h-16 tile. */}
           <div
-            className="absolute inset-x-[12.5%] top-5 hidden h-px bg-line lg:block"
+            className="absolute inset-x-[12.5%] top-8 hidden border-t-2 border-dashed border-primary/25 lg:block dark:border-primary-ink/30"
             aria-hidden="true"
           />
 
@@ -417,35 +429,38 @@ export default async function HomePage() {
             {STEPS.map((step, index) => (
               <li
                 key={step.title}
-                className="group relative flex gap-4 text-start lg:block lg:text-center lg:px-3"
+                className="group relative flex gap-5 text-start lg:block lg:px-3 lg:text-center"
               >
                 {/* The vertical half of the same rule, for the stacked layout.
                     Qatar reads this on a phone first, and a connector that only
                     exists on desktop leaves the journey as four unrelated blocks
                     exactly where most people meet it.
 
-                    `start-5` is the marker's centre (w-10 ÷ 2), and `-bottom-10`
+                    `start-8` is the tile's centre (w-16 ÷ 2), and `-bottom-10`
                     is the `gap-10` between items, so the line lands ON the next
-                    marker instead of stopping short of it. Not drawn after the
+                    tile instead of stopping short of it. Not drawn after the
                     last step, and gone at `lg` where the horizontal rule takes
                     over. */}
                 {index < STEPS.length - 1 && (
                   <span
-                    className="absolute start-5 top-12 -bottom-10 w-px bg-line lg:hidden"
+                    className="absolute start-8 top-[4.5rem] -bottom-10 border-s-2 border-dashed border-primary/25 lg:hidden dark:border-primary-ink/30"
                     aria-hidden="true"
                   />
                 )}
 
-                <span
-                  // bg-surface, not transparent: the marker has to punch a hole
-                  // in the rule it sits on, or the line runs through the digit.
-                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-base font-bold text-primary-ink transition duration-300 ease-out group-hover:border-primary group-hover:bg-primary group-hover:text-white lg:mx-auto lg:mb-5"
-                >
-                  {arabicNumber((index + 1))}
+                {/* bg-surface-raised, not transparent: the tile has to punch a
+                    hole in the rule it sits on, or the line runs through it.
+                    The number stays — here the order is the information — as a
+                    badge on the tile's corner. */}
+                <span className="relative grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-line bg-surface-raised text-primary-ink shadow-sm transition duration-300 ease-out group-hover:-translate-y-1 group-hover:border-primary group-hover:bg-primary group-hover:text-white group-hover:shadow-lg group-hover:shadow-primary/20 motion-reduce:transition-none lg:mx-auto lg:mb-6">
+                  <step.Icon className="h-7 w-7" />
+                  <span className="absolute -top-2 -end-2 grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-primary text-xs font-bold text-white">
+                    {arabicNumber(index + 1)}
+                  </span>
                 </span>
 
-                <span className="lg:block">
-                  <span className="mb-2 block text-base font-bold text-ink">
+                <span className="pt-1 lg:block lg:pt-0">
+                  <span className="mb-2 block text-lg font-bold text-ink">
                     {step.title}
                   </span>
                   <span className="mx-auto block max-w-xs text-sm leading-relaxed text-ink-muted">
@@ -556,11 +571,22 @@ export default async function HomePage() {
           empty list, so a launch-day page simply does not carry this section
           rather than carrying invented quotes. */}
       {home.testimonials.length > 0 && (
-        <section className="bg-surface-raised py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
-              ماذا كتب الطلاب عن مدرّسيهم
-            </h2>
+        <section className="bg-surface-raised py-16 lg:py-20">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16">
+            <div>
+              <span
+                aria-hidden="true"
+                className="mb-6 grid h-16 w-16 place-items-center rounded-2xl bg-primary-soft text-primary-ink"
+              >
+                <StarIcon className="h-8 w-8" />
+              </span>
+              <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+                ماذا كتب الطلاب عن مدرّسيهم
+              </h2>
+              <p className="max-w-md leading-relaxed text-ink-muted">
+                مراجعات كتبها الطلاب على صفحات مدرّسيهم، كما نشروها.
+              </p>
+            </div>
             <TestimonialsCarousel items={home.testimonials} />
           </div>
         </section>
