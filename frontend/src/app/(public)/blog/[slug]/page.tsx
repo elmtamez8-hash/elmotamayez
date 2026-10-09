@@ -5,7 +5,6 @@ import { publicApi, NotFoundError, type ArticleDetail } from "@/lib/public-api";
 import { SITE_URL, siteUrl } from "@/lib/site";
 import { platformName } from "@/lib/platform";
 import { JsonLd, absoluteHttpUrl } from "@/components/seo/JsonLd";
-import { Badge } from "@/components/ui/Badge";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { ArticleBody } from "@/components/blog/ArticleBody";
 import { ArticleToc } from "@/components/blog/ArticleToc";
@@ -21,6 +20,7 @@ import {
   AcademicCapIcon,
   ChevronDownIcon,
   ChevronEndIcon,
+  ChevronStartIcon,
   ClockIcon,
   CoursesIcon,
   QuestionIcon,
@@ -224,10 +224,10 @@ export default async function ArticlePage({
         }}
       />
 
-      <nav aria-label="مسار التصفّح" className="mb-6">
+      <nav aria-label="مسار التصفّح" className="mb-8">
         <Link
           href="/blog"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-ink hover:underline"
+          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-raised px-4 py-2 text-sm font-bold text-primary-ink shadow-sm transition duration-200 ease-out hover:border-primary hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
         >
           <ChevronEndIcon className="h-4 w-4" aria-hidden="true" />
           المدوّنة
@@ -241,7 +241,7 @@ export default async function ArticlePage({
           أي مقالٌ يبدأُ تحتَ الطيّة. والأغلفةُ مرسومةٌ ‏١٦:٩ وحركتُها في المنتصفِ
           عمداً، فالقصُّ هنا ‏١٠٧ بكسلاً من أعلى ومثلُها من أسفل ولا يمسُّ الرسم.
         */
-        <div className="banner-rise mb-8 aspect-[21/9] overflow-hidden rounded-3xl border border-line bg-primary-soft">
+        <div className="banner-rise mb-10 aspect-[21/9] overflow-hidden rounded-3xl border border-line bg-primary-soft shadow-xl shadow-primary/10">
           {/*
             ⚠️ `<img>` لا `next/image`: المسارُ يكتبُه مدرّسٌ من اللوحة، أي مدخلٌ
             غيرُ حرفيّ — وملاحظةُ هذا المستودعِ عن تحذيراتِ npm تقولُ إنّ ثغرةَ
@@ -259,17 +259,20 @@ export default async function ArticlePage({
         </div>
       ) : null}
 
-      <header className="banner-rise mb-8">
+      <header className="banner-rise mb-10 max-w-4xl">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           {article.category ? (
-            <Link href={`/blog?category=${article.category.slug}`}>
-              <Badge tone="neutral">{article.category.name}</Badge>
+            <Link
+              href={`/blog?category=${article.category.slug}`}
+              className="rounded-full bg-primary px-3.5 py-1 text-xs font-bold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+            >
+              {article.category.name}
             </Link>
           ) : null}
 
           <time
             dateTime={article.published_at}
-            className="text-sm text-ink-muted"
+            className="text-sm font-semibold text-ink-muted"
           >
             {formatDate(article.published_at)}
           </time>
@@ -278,7 +281,7 @@ export default async function ArticlePage({
             ⚠️ «‏٥ دقائق قراءة» لا «5 min read»: رقمٌ ونصٌّ لاتينيّانِ داخلَ سطرٍ
             عربيٍّ يُعادُ ترتيبُهما بقواعدِ bidi.
           */}
-          <span className="flex items-center gap-1 text-sm text-ink-muted">
+          <span className="flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary-ink">
             <ClockIcon className="h-4 w-4" aria-hidden="true" />
             {counted(minutes, {
               one: "دقيقة قراءة",
@@ -290,7 +293,7 @@ export default async function ArticlePage({
           </span>
         </div>
 
-        <h1 className="text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+        <h1 className="text-balance text-4xl font-extrabold leading-tight text-ink sm:text-5xl">
           {article.title}
         </h1>
 
@@ -298,9 +301,9 @@ export default async function ArticlePage({
           /*
             ⚠️ المقتطفُ خلاصةٌ مقروءةٌ لا زخرفة: محرّكُ الإجابةِ يقتبسُ أوّلَ فقرةٍ
             مكتفيةٍ بنفسِها، فوضعُها أوّلاً وبخطٍّ أكبرَ يخدمُ القارئَ والآلةَ معاً.
-            الحدُّ الجانبيُّ منطقيٌّ (`border-s`) لا `border-l`.
+            يُميَّزُ بالحجمِ لا بحدٍّ جانبيٍّ ملوَّن، والإزاحاتُ منطقيّةٌ (`ps-`) إن عادت.
           */
-          <p className="mt-4 border-s-4 border-primary/30 ps-4 text-lg leading-relaxed text-ink-muted">
+          <p className="mt-5 text-xl leading-relaxed text-ink-muted">
             {article.excerpt}
           </p>
         ) : null}
@@ -315,16 +318,22 @@ export default async function ArticlePage({
         */
         <section
           aria-labelledby="summary-heading"
-          className="my-8 rounded-3xl border border-primary/20 bg-primary-soft p-5 sm:p-6"
+          className="relative isolate my-10 overflow-hidden rounded-3xl border border-primary/20 bg-primary-soft p-6 shadow-sm sm:p-8"
         >
+          <SparkIcon className="pointer-events-none absolute -bottom-8 -end-8 -z-10 h-40 w-40 text-primary-ink/10" />
           <h2
             id="summary-heading"
-            className="mb-2 flex items-center gap-2 text-sm font-bold text-primary-ink"
+            className="mb-3 flex items-center gap-2.5 text-base font-extrabold text-primary-ink"
           >
-            <SparkIcon className="h-4 w-4" aria-hidden="true" />
+            <span
+              aria-hidden="true"
+              className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-white"
+            >
+              <SparkIcon className="h-5 w-5" />
+            </span>
             باختصار
           </h2>
-          <p className="text-base leading-relaxed text-ink">
+          <p className="max-w-3xl text-lg leading-relaxed text-ink">
             {article.summary}
           </p>
         </section>
@@ -372,8 +381,11 @@ export default async function ArticlePage({
               {article.tags.map((tag) => (
                 <li key={tag.slug}>
                   {/* وسمٌ يُنقَرُ: `?tag=` مدعومٌ في الواجهةِ الخلفيّةِ سلفاً. */}
-                  <Link href={`/blog?tag=${tag.slug}`}>
-                    <Badge tone="neutral">{tag.name}</Badge>
+                  <Link
+                    href={`/blog?tag=${tag.slug}`}
+                    className="inline-flex rounded-full border border-line bg-surface-raised px-3 py-1 text-xs font-semibold text-ink transition hover:border-primary hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+                  >
+                    {tag.name}
                   </Link>
                 </li>
               ))}
@@ -387,12 +399,14 @@ export default async function ArticlePage({
             >
               <h2
                 id="faq-heading"
-                className="mb-5 flex items-center gap-2 text-xl font-bold text-ink"
+                className="mb-6 flex items-center gap-3 text-2xl font-extrabold text-ink sm:text-3xl"
               >
-                <QuestionIcon
-                  className="h-5 w-5 text-primary-ink"
+                <span
                   aria-hidden="true"
-                />
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+                >
+                  <QuestionIcon className="h-5 w-5" />
+                </span>
                 أسئلة شائعة
               </h2>
 
@@ -405,13 +419,15 @@ export default async function ArticlePage({
               <ul className="space-y-3">
                 {article.faq.map((entry) => (
                   <li key={entry.question}>
-                    <details className="group rounded-2xl border border-line bg-surface-raised p-4 transition hover:border-primary/40">
-                      <summary className="flex cursor-pointer items-center justify-between gap-3 font-semibold text-ink">
+                    <details className="group rounded-2xl border border-line bg-surface-raised p-5 shadow-sm transition hover:border-primary/40 open:border-primary/40 open:shadow-md open:shadow-primary/10 motion-reduce:transition-none">
+                      <summary className="flex cursor-pointer items-center justify-between gap-3 font-bold text-ink">
                         {entry.question}
-                        <ChevronDownIcon
-                          className="h-4 w-4 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+                        <span
                           aria-hidden="true"
-                        />
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-ink transition duration-200 group-open:bg-primary group-open:text-white motion-reduce:transition-none"
+                        >
+                          <ChevronDownIcon className="h-4 w-4 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" />
+                        </span>
                       </summary>
                       <p className="mt-3 leading-relaxed text-ink-muted">
                         {entry.answer}
@@ -447,11 +463,13 @@ export default async function ArticlePage({
 
       {article.related_teachers.length > 0 ? (
         <section className="mt-14 border-t border-line pt-10">
-          <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
-            <AcademicCapIcon
-              className="h-5 w-5 text-primary-ink"
+          <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold text-ink sm:text-3xl">
+            <span
               aria-hidden="true"
-            />
+              className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+            >
+              <AcademicCapIcon className="h-5 w-5" />
+            </span>
             مدرّسون في هذا التخصّص
           </h2>
 
@@ -464,14 +482,23 @@ export default async function ArticlePage({
               >
                 <Link
                   href={`/teachers/${teacher.slug ?? teacher.uuid}`}
-                  className="flex h-full flex-col rounded-2xl border border-line bg-surface-raised p-4 transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                  className="group flex h-full items-center gap-4 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 >
-                  <span className="font-semibold text-ink">{teacher.name}</span>
-                  {teacher.headline ? (
-                    <span className="mt-1 text-sm text-ink-muted">
-                      {teacher.headline}
-                    </span>
-                  ) : null}
+                  <span
+                    aria-hidden="true"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink transition duration-300 ease-out group-hover:bg-primary group-hover:text-white motion-reduce:transition-none"
+                  >
+                    <AcademicCapIcon className="h-6 w-6" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-extrabold text-ink">{teacher.name}</span>
+                    {teacher.headline ? (
+                      <span className="mt-1 block text-sm text-ink-muted">
+                        {teacher.headline}
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronStartIcon className="h-5 w-5 shrink-0 text-primary-ink transition duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
                 </Link>
               </li>
             ))}
@@ -481,11 +508,13 @@ export default async function ArticlePage({
 
       {article.related_courses.length > 0 ? (
         <section className="mt-12">
-          <h2 className="mb-5 flex items-center gap-2 text-xl font-bold text-ink">
-            <CoursesIcon
-              className="h-5 w-5 text-primary-ink"
+          <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold text-ink sm:text-3xl">
+            <span
               aria-hidden="true"
-            />
+              className="grid h-10 w-10 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+            >
+              <CoursesIcon className="h-5 w-5" />
+            </span>
             كورسات ذات صلة
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -499,7 +528,11 @@ export default async function ArticlePage({
       <CtaBand />
 
       <p className="mt-10">
-        <Link href="/blog" className="font-semibold text-primary-ink underline">
+        <Link
+          href="/blog"
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-5 py-2.5 font-bold text-primary-ink transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+        >
+          <ChevronEndIcon className="h-4 w-4" />
           كلّ المقالات
         </Link>
       </p>

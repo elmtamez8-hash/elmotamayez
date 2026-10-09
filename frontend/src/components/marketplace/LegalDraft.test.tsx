@@ -14,6 +14,7 @@ const Icon = () => null;
 function draft(supportWhatsapp: string) {
   return render(
     <LegalDraft
+      current="terms"
       icon={Icon}
       image="/x.webp"
       title="الشروط والأحكام"
@@ -51,6 +52,7 @@ describe("LegalDraft", () => {
   it("names who is responsible, and drops each line that is unset", () => {
     render(
       <LegalDraft
+        current="refunds"
         icon={Icon}
         image="/x.webp"
         title="سياسة الاسترجاع"

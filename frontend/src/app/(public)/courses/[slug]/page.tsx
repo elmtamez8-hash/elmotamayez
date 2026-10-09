@@ -2,7 +2,16 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { BookIcon, ClockIcon, OrdersIcon, SparkIcon, UsersIcon } from "@/components/icons";
+import {
+  AcademicCapIcon,
+  BookIcon,
+  ChevronEndIcon,
+  ClockIcon,
+  OrdersIcon,
+  SparkIcon,
+  UsersIcon,
+} from "@/components/icons";
+import { subjectIcon } from "@/components/marketplace/subject-icon";
 import { PublicStoreCard } from "@/components/store/PublicStoreCard";
 import { CohortList } from "@/components/marketplace/CohortList";
 import { CourseCover } from "@/components/marketplace/CourseCover";
@@ -320,59 +329,71 @@ export default async function CoursePage({
           الغلافُ شريطٌ عريضٌ لا مربّعٌ جانبيّ: صفحةُ الكورسِ تُفتَحُ لقرار،
           وأوّلُ ما يُرى يجبُ أن يكونَ الكورسَ نفسَه.
         */}
-        <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-primary sm:aspect-[21/7]">
-          {/* The hero crops the cover to a band; pressed, the whole picture
-              opens in the page's viewer. No cover, nothing to enlarge. */}
-          {course.cover_url !== null ? (
-            <ViewableImage src={course.cover_url} alt={`غلاف ${course.title}`} layout="fill">
-              <CourseCover
-                title={course.title}
-                coverUrl={course.cover_url}
-                subject={course.subject}
-                variant="hero"
-              />
-            </ViewableImage>
-          ) : (
-            <CourseCover title={course.title} coverUrl={null} subject={course.subject} variant="hero" />
-          )}
+        <div className="flex flex-col">
+          <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-primary sm:aspect-[21/7]">
+            {/* The hero crops the cover to a band; pressed, the whole picture
+                opens in the page's viewer. No cover, nothing to enlarge. */}
+            {course.cover_url !== null ? (
+              <ViewableImage src={course.cover_url} alt={`غلاف ${course.title}`} layout="fill">
+                <CourseCover
+                  title={course.title}
+                  coverUrl={course.cover_url}
+                  subject={course.subject}
+                  variant="hero"
+                />
+              </ViewableImage>
+            ) : (
+              <CourseCover title={course.title} coverUrl={null} subject={course.subject} variant="hero" />
+            )}
 
-          <CourseOwnedBadge />
+            <CourseOwnedBadge />
+          </div>
+
+          {/*
+            ⚠️ الترويسةُ لوحٌ عنّابيٌّ يركبُ حافّةَ الغلاف، لا سطرٌ تحتَه.
+            العنوانُ أوّلُ ما يُقرَأُ بعدَ الصورة، فيُعطى وزنَ الصفحةِ كلِّها.
+            و`ring-surface` هو ما يفصلُه عن غلافٍ مولَّدٍ لا صورةَ له — بدونِه
+            يذوبُ العنّابيُّ في العنّابيّ.
+
+            ⚠️ ولا شاراتٍ فوقَ العنوان: النوعُ والمادّةُ في سطرِ الحقائقِ تحتَه،
+            مع بقيّةِ ما يُقرَّرُ به. العنوانُ يحملُ وزنَه بلا لافتةٍ تعلوه.
+          */}
+          <header className="bg-squares relative isolate z-10 mx-3 -mt-10 flex flex-col gap-5 overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20 ring-4 ring-surface sm:mx-8 sm:-mt-16 sm:p-10">
+            <HeroMark subject={course.subject} />
+
+            <h1 className="max-w-4xl text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
+              {course.title}
+            </h1>
+
+            {/* ⚠️ الحقيقةُ أيقونةٌ وكلمة، والصفرُ يسقطُ ولا يُنطَق — انظر `facts`. */}
+            <ul className="flex flex-wrap items-center gap-2 text-sm">
+              <li className="rounded-full bg-accent px-3.5 py-1.5 font-extrabold text-accent-foreground shadow-md shadow-primary-ink/20">
+                {courseTypeLabel(course.type)}
+              </li>
+              {course.subject && (
+                <li className="rounded-full bg-white/15 px-3.5 py-1.5 font-bold text-white ring-1 ring-white/25">
+                  {course.subject.name}
+                </li>
+              )}
+              {facts.map(({ key, Icon, text }) => (
+                <li
+                  key={key}
+                  className="flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1.5 font-semibold text-white ring-1 ring-white/15"
+                >
+                  <span aria-hidden="true">
+                    <Icon />
+                  </span>
+                  <bdi>{text}</bdi>
+                </li>
+              ))}
+            </ul>
+
+            <StarRating value={course.average_rating} tone="overlay" />
+          </header>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
           <div className="flex min-w-0 flex-col gap-9">
-            <header className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">
-                  {courseTypeLabel(course.type)}
-                </span>
-                {course.subject && (
-                  <span className="rounded-lg bg-primary-soft px-2.5 py-1 font-semibold text-primary-ink">
-                    {course.subject.name}
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-balance text-3xl font-black leading-tight text-ink sm:text-4xl">
-                {course.title}
-              </h1>
-
-              {/* ⚠️ الحقيقةُ أيقونةٌ وكلمة، والصفرُ يسقطُ ولا يُنطَق — انظر `facts`. */}
-              {facts.length > 0 && (
-                <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-muted">
-                  {facts.map(({ key, Icon, text }) => (
-                    <li key={key} className="flex items-center gap-1.5">
-                      <span aria-hidden="true">
-                        <Icon />
-                      </span>
-                      <bdi>{text}</bdi>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <StarRating value={course.average_rating} />
-            </header>
 
             {/*
               The promo video (018 · US1). Mounted only when there is an approved
@@ -478,9 +499,10 @@ export default async function CoursePage({
                 </div>
                 <Link
                   href={`/store?course=${encodeURIComponent(course.uuid)}`}
-                  className="w-fit text-sm font-semibold text-primary-ink hover:underline"
+                  className="group inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-4 py-2 text-sm font-extrabold text-primary-ink transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
                 >
                   كل منتجات الكورس في المتجر
+                  <ChevronEndIcon className="h-4 w-4 transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none" />
                 </Link>
               </section>
             )}
@@ -525,11 +547,33 @@ export default async function CoursePage({
  */
 function SectionHeading({ Icon, children }: { Icon: Glyph; children: ReactNode }) {
   return (
-    <h2 className="flex items-center gap-2.5 text-lg font-extrabold text-ink">
-      <span className="text-primary-ink" aria-hidden="true">
-        <Icon />
+    <h2 className="flex items-center gap-3 text-2xl font-extrabold text-ink">
+      <span
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+        aria-hidden="true"
+      >
+        <Icon className="h-5 w-5" />
       </span>
       {children}
     </h2>
+  );
+}
+
+/**
+ * علامةُ المادّةِ باهتةً كبيرةً في ركنِ الترويسة — زخرفةٌ لا معلومة.
+ *
+ * ⚠️ `subjectIcon()` لا خريطةٌ ثانية (القاعدةُ في `CourseCover`)، و`aria-hidden`
+ * لأنّ المادّةَ مكتوبةٌ نصّاً في سطرِ الحقائقِ على بُعدِ سطرَين.
+ */
+function HeroMark({ subject }: { subject: CourseDetail["subject"] }) {
+  const Mark = subject ? subjectIcon(subject) : AcademicCapIcon;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute -bottom-8 -end-6 -z-10 text-white/10"
+    >
+      <Mark className="h-44 w-44 sm:h-56 sm:w-56" />
+    </span>
   );
 }

@@ -52,12 +52,20 @@ export function ArticleCard({
     بعرضِ البطاقة، وأغلبُ ما يكتبُه المدرّسونَ من اللوحةِ بلا غلاف.
   */
   const wide = featured && article.cover_url !== null;
+  /*
+    الصدارةُ بلا غلافٍ شريطٌ عنّابيٌّ بنقاطِ الشعار: أغلبُ المقالاتِ بلا غلاف،
+    فبطاقةٌ بيضاءُ أعرضُ قليلاً لا تقولُ «هذا مقالُ اليوم». وكلُّ لونِ نصٍّ فيها
+    يتبعُ هذا الشرطَ — `text-white` على `bg-primary` وحدَه.
+  */
+  const onBrand = featured && article.cover_url === null;
 
   return (
     <article
-      className={`group relative flex h-full overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100 ${
-        wide ? "flex-col lg:grid lg:grid-cols-[1.05fr_1fr]" : "flex-col"
-      }`}
+      className={`group relative isolate flex h-full overflow-hidden rounded-3xl transition duration-300 ease-out hover:-translate-y-1 active:translate-y-0 active:duration-100 motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+        onBrand
+          ? "bg-squares bg-primary shadow-xl shadow-primary/20 hover:shadow-2xl hover:shadow-primary/30"
+          : "border border-line bg-surface-raised shadow-sm hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
+      } ${wide ? "flex-col lg:grid lg:grid-cols-[1.05fr_1fr]" : "flex-col"}`}
     >
       {article.cover_url ? (
         <div
@@ -73,19 +81,30 @@ export function ArticleCard({
             // قارئِ الشاشةِ لا وصول. وهي زخرفةٌ بجانبِ رابطٍ مسمّىً سلفاً.
             aria-hidden="true"
             loading="lazy"
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
           />
         </div>
-      ) : null}
+      ) : (
+        // رسمٌ خالصٌ في الزاوية: أثرُ الأيقونةِ مكبَّراً وباهتاً، لا ادّعاءَ تصنيف.
+        <DocumentIcon
+          className={`pointer-events-none absolute -bottom-8 -end-8 -z-10 ${
+            onBrand ? "h-56 w-56 text-white/10" : "h-36 w-36 text-primary-ink/10"
+          }`}
+        />
+      )}
 
-      <div className={`flex h-full flex-col p-6 ${featured ? "sm:p-8" : ""}`}>
+      <div className={`flex h-full flex-col p-6 ${featured ? "sm:p-10" : ""}`}>
         {featured ? (
           /*
             شارةٌ لا رقم: «٠١» فوقَ مقالٍ تقولُ إنّ هناك ترتيباً يُتبَع، والمدوّنةُ
             قائمةٌ بالأحدثِ لا سلسلةٌ تُقرَأُ بالترتيب. وهي نصٌّ مقروءٌ لا لونٌ
             وحدَه، فالتمييزُ بالحجمِ لا يصلُ قارئَ الشاشة.
           */
-          <p className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary-ink">
+          <p
+            className={`mb-4 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+              onBrand ? "bg-accent text-accent-foreground" : "bg-primary text-white"
+            }`}
+          >
             <SparkIcon className="h-4 w-4" aria-hidden="true" />
             أحدث مقال
           </p>
@@ -94,12 +113,14 @@ export function ArticleCard({
         <div className="mb-4 flex items-center gap-3">
           {article.cover_url ? null : (
             <span
-              className={`flex items-center justify-center rounded-2xl bg-primary-soft text-primary-ink transition duration-200 group-hover:scale-105 ${
-                featured ? "h-12 w-12" : "h-10 w-10"
+              className={`grid shrink-0 place-items-center rounded-2xl transition duration-300 ease-out group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:rotate-0 ${
+                onBrand
+                  ? "h-14 w-14 bg-accent text-accent-foreground shadow-lg shadow-primary-ink/30"
+                  : "h-11 w-11 bg-primary-soft text-primary-ink group-hover:bg-primary group-hover:text-white"
               }`}
               aria-hidden="true"
             >
-              <DocumentIcon className={featured ? "h-6 w-6" : "h-5 w-5"} />
+              <DocumentIcon className={onBrand ? "h-7 w-7" : "h-5 w-5"} />
             </span>
           )}
 
@@ -114,17 +135,21 @@ export function ArticleCard({
               */
               <Link
                 href={`/blog?category=${article.category.slug}`}
-                className="relative z-10 text-xs font-semibold text-primary-ink hover:underline"
+                className={`relative z-10 text-xs font-bold hover:underline ${
+                  onBrand ? "text-white" : "text-primary-ink"
+                }`}
               >
                 {article.category.name}
               </Link>
             ) : (
-              <span className="text-xs font-semibold text-ink-muted">مقال</span>
+              <span className={`text-xs font-semibold ${onBrand ? "text-white/80" : "text-ink-muted"}`}>
+                مقال
+              </span>
             )}
 
             <time
               dateTime={article.published_at}
-              className="block text-xs text-ink-muted"
+              className={`block text-xs ${onBrand ? "text-white/80" : "text-ink-muted"}`}
             >
               {formatDate(article.published_at)}
             </time>
@@ -132,7 +157,9 @@ export function ArticleCard({
         </div>
 
         <h2
-          className={`font-bold text-ink ${featured ? "text-2xl leading-snug sm:text-3xl" : "text-lg leading-snug"}`}
+          className={`text-balance font-extrabold ${onBrand ? "text-white" : "text-ink"} ${
+            featured ? "text-3xl leading-tight sm:text-4xl" : "text-xl leading-snug"
+          }`}
         >
           {/*
           الرابطُ يغطّي البطاقةَ كلَّها (`after:absolute inset-0`) فتصيرُ المساحةُ
@@ -149,7 +176,9 @@ export function ArticleCard({
               ⚠️ وحلقةُ التركيزِ **تبقى**: `focus-visible:outline-none` كانت تحذفُ
               الدليلَ الوحيدَ لمن يتنقّلُ بلوحةِ المفاتيحِ على أينَ هو.
             */
-            className="after:absolute after:inset-0 after:rounded-3xl after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary hover:underline"
+            className={`after:absolute after:inset-0 after:rounded-3xl after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 hover:underline ${
+              onBrand ? "focus-visible:outline-white" : "focus-visible:outline-primary"
+            }`}
           >
             {article.title}
           </Link>
@@ -157,17 +186,28 @@ export function ArticleCard({
 
         {article.excerpt ? (
           <p
-            className={`mt-3 leading-relaxed text-ink-muted ${featured ? "text-base" : "text-sm"}`}
+            className={`mt-3 leading-relaxed ${onBrand ? "max-w-2xl text-white/85" : "text-ink-muted"} ${
+              featured ? "text-base sm:text-lg" : "text-sm"
+            }`}
           >
             {article.excerpt}
           </p>
         ) : null}
 
         {article.tags && article.tags.length > 0 ? (
-          <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+          <p
+            className={`mt-4 flex flex-wrap items-center gap-2 text-xs ${onBrand ? "text-white/80" : "text-ink-muted"}`}
+          >
             <TagIcon className="h-4 w-4" aria-hidden="true" />
             {article.tags.slice(0, 3).map((tag) => (
-              <span key={tag.slug}>{tag.name}</span>
+              <span
+                key={tag.slug}
+                className={`rounded-full px-2.5 py-0.5 font-semibold ${
+                  onBrand ? "bg-white/15 text-white" : "bg-primary-soft text-primary-ink"
+                }`}
+              >
+                {tag.name}
+              </span>
             ))}
           </p>
         ) : null}
@@ -177,12 +217,20 @@ export function ArticleCard({
         و`ChevronStartIcon` لا `ChevronLeft`: الاتّجاهُ يسكنُ اسمَ الأيقونةِ لا
         قلباً في CSS.
       */}
-        <span className="mt-auto flex items-center gap-1 pt-5 text-sm font-semibold text-primary-ink">
+        <span
+          className={`mt-auto flex items-center gap-2 pt-6 text-sm font-bold ${onBrand ? "text-white" : "text-primary-ink"}`}
+        >
           اقرأ المقال
-          <ChevronStartIcon
-            className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1"
+          <span
             aria-hidden="true"
-          />
+            className={`grid h-8 w-8 place-items-center rounded-full transition duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 ${
+              onBrand
+                ? "bg-accent text-accent-foreground"
+                : "bg-primary-soft text-primary-ink group-hover:bg-primary group-hover:text-white"
+            }`}
+          >
+            <ChevronStartIcon className="h-4 w-4" />
+          </span>
         </span>
       </div>
     </article>

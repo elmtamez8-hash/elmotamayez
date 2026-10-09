@@ -60,8 +60,10 @@ const SOCIAL = [
   { href: null, label: "يوتيوب", Icon: YouTubeIcon },
 ];
 
+// The bottom bar is burgundy, so these are drawn in white over it — the one
+// place `text-white` is earned, as the foreground of `bg-primary`.
 const SOCIAL_CLASS =
-  "flex h-9 w-9 items-center justify-center rounded-full border border-line transition duration-200 motion-reduce:transition-none";
+  "flex h-10 w-10 items-center justify-center rounded-full border border-white/30 text-white transition duration-200 motion-reduce:transition-none";
 
 export async function SiteFooter() {
   const { name, supportWhatsapp } = await platformIdentity();
@@ -69,16 +71,23 @@ export async function SiteFooter() {
   return (
     // relative + isolate: bg-dots paints on ::before at z-index -1, which needs a
     // stacking context of its own or it slides behind the page background.
-    <footer className="bg-dots relative isolate mt-20 overflow-hidden border-t border-line bg-surface print:hidden">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+    <footer className="bg-dots relative isolate mt-24 overflow-hidden border-t border-line bg-surface-raised print:hidden">
+      {/* The wordmark again, enormous and faint in the corner — the footer's
+          one bold move, and the brand's own shape rather than a decoration
+          borrowed from somewhere else. */}
+      <span
+        aria-hidden="true"
+        className="wordmark pointer-events-none absolute -bottom-16 -end-16 -z-10 h-[26rem] opacity-[0.05]"
+      />
+      <div className="mx-auto max-w-7xl px-4 pb-14 pt-16 sm:px-6">
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="sm:col-span-2 lg:col-span-1">
             {/* The mark, where the name was set as text — the same one the
                 header and the panel paint, from the same file. */}
-            <div className="mb-3">
-              <BrandMark size="lg" />
+            <div className="mb-5">
+              <BrandMark size="xl" />
             </div>
-            <p className="mb-5 max-w-sm text-sm leading-relaxed text-ink-muted">
+            <p className="mb-5 max-w-sm leading-relaxed text-ink-muted">
               نربط الطلاب في العالم العربي بمدرّسين موثوقين، بحصص مباشرة ومسجّلة،
               ودرجة ثقة توضّح التزام كل مدرّس قبل أن تحجز.
             </p>
@@ -94,17 +103,25 @@ export async function SiteFooter() {
 
           {COLUMNS.map((column) => (
             <nav key={column.title} aria-label={column.title}>
-              <h2 className="mb-4 text-sm font-bold text-ink">{column.title}</h2>
-              <ul className="space-y-2.5">
+              <h2 className="mb-5 flex items-center gap-2 text-base font-extrabold text-ink">
+                <span aria-hidden="true" className="h-4 w-1 rounded-full bg-primary" />
+                {column.title}
+              </h2>
+              <ul className="space-y-3">
                 {column.links.map(({ href, label, Icon }) => (
                   <li key={href}>
                     {/* The icon nudges toward the text on hover — a small cue
                         that the whole row is one target, not two. */}
                     <Link
                       href={href}
-                      className="group inline-flex items-center gap-2 text-sm text-ink-muted transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
+                      className="group inline-flex items-center gap-3 text-sm font-semibold text-ink-muted transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
                     >
-                      <Icon className="h-4 w-4 shrink-0 text-ink-muted transition duration-200 group-hover:-translate-x-0.5 group-hover:text-primary-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 rtl:group-hover:translate-x-0.5" />
+                      <span
+                        aria-hidden="true"
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition duration-200 group-hover:bg-primary group-hover:text-white"
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
                       <span className="link-underline">{label}</span>
                     </Link>
                   </li>
@@ -114,15 +131,18 @@ export async function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-6 border-t border-line pt-8 lg:flex-row lg:items-center lg:justify-between">
-          <p className="order-3 text-sm text-ink-muted lg:order-1">
+      </div>
+
+      <div className="bg-squares relative isolate overflow-hidden bg-primary">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-7 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <p className="order-3 text-sm text-white/80 lg:order-1">
             © {arabicDigits(new Date().getFullYear())} {name}. جميع الحقوق محفوظة.
           </p>
 
           <div className="order-1 flex flex-wrap items-center gap-2 lg:order-2">
-            <span className="text-sm text-ink-muted">طرق الدفع:</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm font-medium text-ink">
-              <BankIcon className="h-4 w-4 text-primary-ink" />
+            <span className="text-sm text-white/80">طرق الدفع:</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 px-3 py-1 text-sm font-semibold text-white">
+              <BankIcon className="h-4 w-4" />
               تحويل بنكي
             </span>
           </div>
@@ -135,7 +155,7 @@ export async function SiteFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="تواصل معنا عبر واتساب"
-                  className={`${SOCIAL_CLASS} border-secondary/40 text-secondary-ink hover:-translate-y-0.5 hover:bg-secondary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary motion-reduce:hover:translate-y-0`}
+                  className={`${SOCIAL_CLASS} bg-secondary hover:-translate-y-0.5 hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:hover:translate-y-0`}
                 >
                   <WhatsAppIcon className="h-5 w-5" />
                 </a>
@@ -150,7 +170,7 @@ export async function SiteFooter() {
                   // cannot be named — axe flags it as aria-prohibited-attr.
                   <span
                     title={`${label} — قريباً`}
-                    className={`${SOCIAL_CLASS} cursor-not-allowed text-ink-muted opacity-60`}
+                    className={`${SOCIAL_CLASS} cursor-not-allowed opacity-50`}
                   >
                     <Icon className="h-5 w-5" />
                     <span className="sr-only">{label} — قريباً</span>
@@ -161,7 +181,7 @@ export async function SiteFooter() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={label}
-                    className={`${SOCIAL_CLASS} text-ink-muted hover:-translate-y-0.5 hover:border-primary hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:hover:translate-y-0`}
+                    className={`${SOCIAL_CLASS} hover:-translate-y-0.5 hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:hover:translate-y-0`}
                   >
                     <Icon className="h-5 w-5" />
                   </a>

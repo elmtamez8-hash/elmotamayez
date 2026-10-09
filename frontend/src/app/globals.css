@@ -280,6 +280,19 @@ dialog[open] {
   mask-image: linear-gradient(to bottom, #000, transparent 65%);
 }
 
+/* Square dots for the closing call to action — the wordmark's own dots are
+   square, so the one burgundy panel on the page carries its pattern. Painted on
+   `bg-primary` in BOTH themes, hence one rule and a white fill. */
+.bg-squares::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22'%3E%3Crect x='1' y='1' width='3' height='3' fill='%23ffffff' fill-opacity='.14'/%3E%3C/svg%3E");
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 90% at 0% 50%, #000 20%, transparent 70%);
+}
+
 [data-theme="dark"] .bg-dots::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='2' r='1.4' fill='%23e9a0b2' fill-opacity='.14'/%3E%3C/svg%3E");
 }
@@ -558,6 +571,7 @@ button:not(:disabled):not([aria-disabled="true"]),
   font-size: 1rem;
 }
 
+
 .prose-article h1,
 .prose-policy h1 {
   font-size: 1.5rem;
@@ -571,6 +585,52 @@ button:not(:disabled):not([aria-disabled="true"]),
 .prose-article h3,
 .prose-policy h3 {
   font-size: 1.075rem;
+}
+
+/*
+| The policies only (not `.prose-article`): each section heading carries the
+| brand rule beside it, list markers take the brand ink, and links are marked.
+| A policy is navigated by its headings — they are what «في هذه الصفحة» lists —
+| so they get the weight a reader scans for. Nothing here sets a property a
+| utility on these elements sets: the article's children carry no classes.
+*/
+.prose-policy h2,
+.prose-policy h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.375rem;
+  font-weight: 800;
+  margin-block-start: 2.5rem;
+}
+
+.prose-policy h3 {
+  font-size: 1.2rem;
+}
+
+.prose-policy h2::before,
+.prose-policy h3::before {
+  content: "";
+  flex-shrink: 0;
+  width: 0.375rem;
+  height: 1.4em;
+  border-radius: 9999px;
+  background-color: var(--color-primary);
+}
+
+.prose-policy > :first-child {
+  margin-block-start: 0;
+}
+
+.prose-policy li::marker {
+  color: var(--color-primary-ink);
+}
+
+.prose-policy a {
+  color: var(--color-primary-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .prose-article ul,

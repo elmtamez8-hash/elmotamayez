@@ -79,6 +79,7 @@ export default async function TermsPage() {
 
   return (
     <LegalDraft
+      current="terms"
       icon={DocumentIcon}
       image="/marketplace/banner-terms.webp"
       title="الشروط والأحكام"

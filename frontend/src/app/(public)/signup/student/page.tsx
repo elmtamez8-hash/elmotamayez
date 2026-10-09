@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { publicApi } from "@/lib/public-api";
 import { StudentSignupForm } from "@/components/marketplace/StudentSignupForm";
+import { SignupFrame } from "@/components/marketplace/SignupFrame";
 import { sanitiseReferralCode } from "@/lib/referral-link";
 
 export const metadata: Metadata = {
@@ -38,35 +39,30 @@ export default async function StudentSignupPage({
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold text-ink sm:text-3xl">
-          إنشاء حساب طالب
-        </h1>
-        <p className="text-ink-muted">
-          خطوة واحدة وتبدأ التعلّم مع مدرّس تختاره بنفسك.
-        </p>
-      </div>
-
-      {teacher && (
-        <p className="mb-6 rounded-xl bg-primary-soft p-4 text-sm text-primary-ink">
-          {trial
-            ? "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام حجز الحصة التجريبية."
-            : "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام الحجز."}{" "}
-          <Link href={`/teachers/${teacher}`} className="underline">
-            العودة لصفحة المدرّس
-          </Link>
-        </p>
-      )}
-
+    <SignupFrame
+      role="student"
+      title="إنشاء حساب طالب"
+      subtitle="خطوة واحدة وتبدأ التعلّم مع مدرّس تختاره بنفسك."
+      notice={
+        teacher && (
+          <p className="mb-5 rounded-2xl bg-primary-soft p-4 text-sm text-primary-ink">
+            {trial
+              ? "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام حجز الحصة التجريبية."
+              : "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام الحجز."}{" "}
+            <Link href={`/teachers/${teacher}`} className="font-bold underline">
+              العودة لصفحة المدرّس
+            </Link>
+          </p>
+        )
+      }
+    >
       <StudentSignupForm
         schoolYears={schoolYears}
         regions={regions}
         teacherUuid={teacher}
         next={next}
-        // Spec 011 · FR-018 — an invitation link lands here as `?ref=CODE`.
         referralCode={sanitiseReferralCode(ref)}
       />
-    </div>
+    </SignupFrame>
   );
 }

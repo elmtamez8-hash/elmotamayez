@@ -142,12 +142,12 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
   return (
     <dl className="grid grid-cols-2 gap-x-8 gap-y-5 sm:gap-x-12">
       {items.map(({ label, value, suffix, Icon }) => (
-        <div key={label} className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+        <div key={label} className="group flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-200 ease-out group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
             <Icon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <dd className="text-2xl font-extrabold leading-none text-primary-ink">
+            <dd className="text-3xl font-extrabold leading-none text-primary-ink">
               <bdi>
                 {value === null ? "—" : `${arabicNumber(value)}${suffix ?? ""}`}
               </bdi>
@@ -177,6 +177,8 @@ export default async function TeacherProfilePage({
     .then((page) => page.data)
     .catch(() => []);
   const active: ProfileTabId = isProfileTab(tab) ? tab : "about";
+  // The shared subject map, as the chips below use it — never a second one.
+  const CoverIcon = teacher.subjects[0] ? subjectIcon(teacher.subjects[0]) : null;
 
   // 308 to the canonical slug when the visitor arrived on the old uuid URL.
   // Serving the same profile at two addresses splits its ranking between them
@@ -207,24 +209,39 @@ export default async function TeacherProfilePage({
         | top of the page. The one thing every visitor is here to read was the
         | narrower of the two.
       */}
-      <header className="banner-rise mb-8 flex flex-col gap-8 rounded-3xl border border-line bg-surface-raised p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+      <header className="banner-rise mb-8 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm">
+        {/* The cover: the brand colour with the wordmark's square dots, and the
+            teacher's first subject drawn large and faint at its end. Decorative
+            only — nothing a reader needs is written on burgundy here, so every
+            chip below (trust, availability, verified) keeps the surface its
+            colours were measured against. */}
+        <div
+          className="bg-squares relative isolate h-28 overflow-hidden bg-primary sm:h-36"
+          aria-hidden="true"
+        >
+          {CoverIcon && (
+            <CoverIcon className="absolute -bottom-10 end-6 -z-10 h-48 w-48 text-white/10 sm:h-60 sm:w-60" />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-8 px-6 pb-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex flex-col gap-6 sm:flex-row">
           {/* ⚠️ `relative` AND `shrink-0` ON THE WRAPPER, not on the photo: the
               dot is positioned against this box, and the box is what has to hold
               its width in the flex row. */}
-          <div className="relative shrink-0 self-start">
+          <div className="relative -mt-16 shrink-0 self-start">
             {teacher.photo_url ? (
               // Pressed, the photo opens in the page's viewer at full size.
               <ViewableImage src={teacher.photo_url} alt={`صورة ${teacher.name}`}>
                 <img
                   src={teacher.photo_url}
                   alt=""
-                  className="h-32 w-32 rounded-2xl object-cover ring-1 ring-line"
+                  className="h-32 w-32 rounded-3xl object-cover shadow-lg shadow-primary/20 ring-4 ring-surface-raised"
                 />
               </ViewableImage>
             ) : (
               <span
-                className="flex h-32 w-32 items-center justify-center rounded-2xl bg-primary-soft text-4xl font-bold text-primary-ink ring-1 ring-line"
+                className="flex h-32 w-32 items-center justify-center rounded-3xl bg-primary-soft text-5xl font-extrabold text-primary-ink shadow-lg shadow-primary/20 ring-4 ring-surface-raised"
                 aria-hidden="true"
               >
                 {teacher.name.charAt(0)}
@@ -234,8 +251,8 @@ export default async function TeacherProfilePage({
             {teacher.available_now && <AvailableNowDot />}
           </div>
 
-          <div>
-            <h1 className="mb-2 flex flex-wrap items-center gap-2 text-2xl font-extrabold text-ink sm:text-3xl">
+          <div className="sm:pt-5">
+            <h1 className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-3xl font-extrabold text-balance text-ink sm:text-4xl">
               {teacher.name}
               {teacher.is_verified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-semibold text-secondary-ink">
@@ -249,7 +266,7 @@ export default async function TeacherProfilePage({
               {teacher.available_now && <AvailableNowChip />}
             </h1>
 
-            <p className="mb-3 text-lg text-ink-muted">{teacher.headline}</p>
+            <p className="mb-4 max-w-2xl text-lg leading-relaxed text-ink-muted">{teacher.headline}</p>
 
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <StarRating
@@ -276,7 +293,7 @@ export default async function TeacherProfilePage({
                     <li key={subject.slug}>
                       <Link
                         href={`/teachers?subject=${subject.slug}`}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-ink transition duration-200 ease-out hover:brightness-95 active:scale-[0.97] active:duration-100"
+                        className="group/chip inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-semibold text-primary-ink transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                       >
                         <Icon className="h-4 w-4" />
                         {subject.name}
@@ -322,6 +339,7 @@ export default async function TeacherProfilePage({
         <div className="shrink-0 border-t border-line pt-6 lg:border-s lg:border-t-0 lg:ps-10 lg:pt-0">
           <h2 className="sr-only">إحصائيات المدرّس</h2>
           <QuickStats stats={teacher.stats} />
+        </div>
         </div>
       </header>
 
@@ -375,7 +393,7 @@ export default async function TeacherProfilePage({
               the PAIR fixed the overlap and caused the zero-travel above. With
               nothing after this card in the column, neither can happen. */}
           <div className="lg:sticky lg:top-24">
-            <div className="rounded-3xl border border-line bg-surface-raised p-6">
+            <div className="overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-lg shadow-primary/10">
               {/* ⚠️ The price is gone from this panel (spec 006, FR-021و · FR-021هـ).
                 It is not hidden pending a redesign: the platform is the seller
                 now, the student's total is computed per package on the purchase
@@ -385,13 +403,22 @@ export default async function TeacherProfilePage({
                 The panel keeps its job. What sold the booking was never the
                 number; it was knowing who this teacher is, which is what stands
                 here instead. */}
-              <p className="mb-1 flex items-center gap-2 text-sm text-ink-muted">
-                <SessionsIcon className="h-4 w-4 text-primary-ink" />
-                الحجز مع
-              </p>
-              <p className="mb-5 text-2xl font-extrabold text-ink">
-                {teacher.name}
-              </p>
+              {/* The burgundy head is the page's one loud panel: the place the
+                  eye returns to while the tabs scroll beside it. White on
+                  `bg-primary` only — the chips that need the light surface stay
+                  in the masthead. */}
+              <div className="bg-squares relative isolate overflow-hidden bg-primary px-6 pt-6 pb-5 text-white">
+                <SessionsIcon className="absolute -top-4 -end-4 -z-10 h-28 w-28 text-white/10" />
+                <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-white/80">
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-foreground">
+                    <SessionsIcon className="h-4 w-4" />
+                  </span>
+                  الحجز مع
+                </p>
+                <p className="mt-2 text-2xl font-extrabold text-balance">
+                  {teacher.name}
+                </p>
+              </div>
 
               {/*
                 ⚠️ ONE CONTROL NOW, NOT TWO — and the pair was the defect. Both
@@ -401,7 +428,9 @@ export default async function TeacherProfilePage({
                 way into the reader's own panel otherwise; there is no
                 trial-booking flow for an existing account to send them to yet.
               */}
-              <TrialCta teacherUuid={teacher.uuid} variant="profile" />
+              <div className="px-6 pt-5 pb-3">
+                <TrialCta teacherUuid={teacher.uuid} variant="profile" />
+              </div>
             </div>
 
           </div>
@@ -426,13 +455,15 @@ export default async function TeacherProfilePage({
                     <section aria-labelledby="intro-video-heading">
                       <h2
                         id="intro-video-heading"
-                        className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
+                        className="mb-4 flex items-center gap-3 text-xl font-extrabold text-ink"
                       >
-                        <SessionsIcon className="h-5 w-5 text-primary-ink" />
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                          <SessionsIcon className="h-5 w-5" />
+                        </span>
                         فيديو تعريفي
                       </h2>
                       {/* نسبةُ ١٦:٩ بالصنفِ القائم، فلا يقفزُ التخطيطُ عندَ التحميل. */}
-                      <div className="aspect-video overflow-hidden rounded-2xl border border-line bg-surface-raised">
+                      <div className="aspect-video overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-lg shadow-primary/10">
                         <iframe
                           src={videoEmbedUrl(teacher.intro_video_url) ?? undefined}
                           title={`فيديو تعريفي عن ${teacher.name}`}
@@ -451,12 +482,14 @@ export default async function TeacherProfilePage({
                         سطر. */}
                     <h2
                       id="bio-heading"
-                      className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
+                      className="mb-4 flex items-center gap-3 text-xl font-extrabold text-ink"
                     >
-                      <UserIcon className="h-5 w-5 text-primary-ink" />
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                        <UserIcon className="h-5 w-5" />
+                      </span>
                       نبذة عن المدرّس
                     </h2>
-                    <p className="whitespace-pre-line leading-relaxed text-ink-muted">
+                    <p className="whitespace-pre-line text-base leading-loose text-ink-muted">
                       {teacher.bio ?? "لم يضف هذا المدرّس نبذة بعد."}
                     </p>
                   </section>
@@ -465,18 +498,22 @@ export default async function TeacherProfilePage({
                     <section aria-labelledby="quals-heading">
                       <h2
                         id="quals-heading"
-                        className="mb-3 flex items-center gap-2 text-lg font-bold text-ink"
+                        className="mb-4 flex items-center gap-3 text-xl font-extrabold text-ink"
                       >
-                        <LearningIcon className="h-5 w-5 text-primary-ink" />
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                          <LearningIcon className="h-5 w-5" />
+                        </span>
                         المؤهلات والشهادات
                       </h2>
-                      <ul className="space-y-2">
+                      <ul className="grid gap-3 sm:grid-cols-2">
                         {teacher.qualifications.map((qualification) => (
                           <li
                             key={qualification}
-                            className="flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 text-sm text-ink-muted"
+                            className="flex items-start gap-3 rounded-2xl border border-line bg-surface-raised px-4 py-3.5 text-sm font-medium leading-relaxed text-ink transition duration-200 ease-out hover:border-primary/40 hover:shadow-md hover:shadow-primary/10 motion-reduce:transition-none"
                           >
-                            <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-secondary-ink" />
+                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-secondary text-white">
+                              <CheckIcon className="h-3.5 w-3.5" />
+                            </span>
                             {qualification}
                           </li>
                         ))}
@@ -544,9 +581,11 @@ export default async function TeacherProfilePage({
                     <div>
                       <h2
                         id="book-heading"
-                        className="flex items-center gap-2 text-lg font-extrabold text-ink"
+                        className="flex items-center gap-3 text-xl font-extrabold text-ink"
                       >
-                        <CoursesIcon className="h-5 w-5 text-primary-ink" />
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                          <CoursesIcon className="h-5 w-5" />
+                        </span>
                         احجز مع {teacher.name}
                       </h2>
                       <p className="mt-1 text-sm text-ink-muted">
@@ -572,8 +611,10 @@ export default async function TeacherProfilePage({
                 {storeItems.length > 0 && (
                   <section aria-labelledby="store-heading" className="space-y-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h2 id="store-heading" className="flex items-center gap-2 text-lg font-extrabold text-ink">
-                        <OrdersIcon className="h-5 w-5 text-primary-ink" />
+                      <h2 id="store-heading" className="flex items-center gap-3 text-xl font-extrabold text-ink">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                          <OrdersIcon className="h-5 w-5" />
+                        </span>
                         كتب ومذكّرات {teacher.name}
                       </h2>
                       <Link
@@ -596,8 +637,10 @@ export default async function TeacherProfilePage({
             {active === "faq" && (
               <div className="space-y-4">
                 <div>
-                  <h2 className="flex items-center gap-2 text-lg font-extrabold text-ink">
-                    <QuestionIcon className="h-5 w-5 text-primary-ink" />
+                  <h2 className="flex items-center gap-3 text-xl font-extrabold text-ink">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
+                      <QuestionIcon className="h-5 w-5" />
+                    </span>
                     أسئلة شائعة عن {teacher.name}
                   </h2>
                   <p className="mt-1 text-sm text-ink-muted">

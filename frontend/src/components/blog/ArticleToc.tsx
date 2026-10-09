@@ -21,17 +21,22 @@ export function ArticleToc({ headings }: { headings: ArticleHeading[] }) {
   return (
     <nav
       aria-labelledby="toc-heading"
-      className="my-8 rounded-3xl border border-line bg-surface p-5"
+      className="my-8 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm lg:my-0"
     >
       <h2
         id="toc-heading"
-        className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"
+        className="mb-4 flex items-center gap-2.5 text-base font-extrabold text-ink"
       >
-        <ListIcon className="h-4 w-4 text-primary-ink" aria-hidden="true" />
+        <span
+          aria-hidden="true"
+          className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+        >
+          <ListIcon className="h-5 w-5" />
+        </span>
         محتويات المقال
       </h2>
 
-      <ol className="space-y-1.5 text-sm">
+      <ol className="space-y-0.5 text-sm">
         {headings.map((heading) => (
           <li
             key={heading.id}
@@ -41,7 +46,7 @@ export function ArticleToc({ headings }: { headings: ArticleHeading[] }) {
           >
             <a
               href={`#${heading.id}`}
-              className="text-ink-muted underline-offset-4 transition hover:text-primary-ink hover:underline"
+              className="block rounded-xl px-3 py-1.5 font-semibold text-ink-muted transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transition-none"
             >
               {heading.text}
             </a>

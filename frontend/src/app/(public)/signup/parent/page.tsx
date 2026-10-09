@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ParentSignupForm } from "@/components/marketplace/ParentSignupForm";
+import { SignupFrame } from "@/components/marketplace/SignupFrame";
 
 export const metadata: Metadata = {
   title: "تسجيل وليّ أمر",
@@ -12,17 +13,12 @@ export const metadata: Metadata = {
 
 export default function ParentSignupPage() {
   return (
-    <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold text-ink sm:text-3xl">
-          تسجيل وليّ أمر
-        </h1>
-        <p className="text-ink-muted">
-          تابع حصص أبنائك وتقدّمهم من مكان واحد. تضيف أبناءك في الخطوة التالية.
-        </p>
-      </div>
-
+    <SignupFrame
+      role="parent"
+      title="تسجيل وليّ أمر"
+      subtitle="تابع حصص أبنائك وتقدّمهم من مكان واحد. تضيف أبناءك في الخطوة التالية."
+    >
       <ParentSignupForm />
-    </div>
+    </SignupFrame>
   );
 }

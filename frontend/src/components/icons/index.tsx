@@ -134,6 +134,7 @@ import {
   IconArrowBackUp,
   IconArrowForwardUp,
   IconBlockquote,
+  IconQuote,
   IconBold,
   IconCode,
   IconH2,
@@ -505,6 +506,8 @@ export const Heading3Icon = wrap(IconH3, "h-4 w-4");
 export const BulletListIcon = wrap(IconList, "h-4 w-4");
 export const NumberedListIcon = wrap(IconListNumbers, "h-4 w-4");
 export const QuoteIcon = wrap(IconBlockquote, "h-4 w-4");
+// The quotation mark on a review — not the editor's blockquote button above.
+export const QuoteMarkIcon = wrap(IconQuote, "h-6 w-6");
 export const LinkIcon = wrap(IconLink, "h-4 w-4");
 export const UnlinkIcon = wrap(IconLinkOff, "h-4 w-4");
 export const InlineCodeIcon = wrap(IconCode, "h-4 w-4");

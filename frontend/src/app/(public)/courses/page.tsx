@@ -91,7 +91,8 @@ export default async function CoursesPage({
         title="الكورسات"
         description="مسارات كاملة — مباشرة ومسجّلة — يبنيها المدرّس ويتابع فيها تقدّمك درساً بدرس، لا حصصاً متفرّقة."
       >
-        <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+        <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-extrabold text-white ring-1 ring-white/25 backdrop-blur-sm">
+          <BookIcon className="h-4 w-4" />
           {counted(courses.meta.total, {
             one: "كورس متاح",
             two: "كورسان متاحان",
@@ -116,7 +117,7 @@ export default async function CoursesPage({
             action={
               <Link
                 href={hasFilters ? "/courses" : "/teachers"}
-                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-primary/20 transition duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 {hasFilters ? "إزالة كل الفلاتر" : "تصفّح المدرّسين"}
               </Link>
@@ -124,13 +125,13 @@ export default async function CoursesPage({
           />
         ) : (
           <>
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 lg:gap-7 xl:grid-cols-3">
               {courses.data.map((course) => (
                 <CourseCard key={course.uuid} course={course} />
               ))}
             </div>
 
-            <Pagination
+            <Pagination basePath="/courses"
               currentPage={courses.meta.current_page}
               lastPage={courses.meta.last_page}
               searchParams={params}
