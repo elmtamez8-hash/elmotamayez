@@ -44,11 +44,16 @@ export function TopicRail({
   return (
     <nav
       aria-label="تصفية المقالات"
-      className="animate-float-in mb-8 rounded-3xl border border-line bg-surface-raised p-4 sm:p-5"
+      className="animate-float-in mb-10 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm sm:p-6"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="me-1 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
-          <BookIcon className="h-4 w-4" aria-hidden="true" />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="me-2 flex items-center gap-2 text-sm font-extrabold text-ink">
+          <span
+            aria-hidden="true"
+            className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+          >
+            <BookIcon className="h-5 w-5" />
+          </span>
           الأبواب
         </span>
 
@@ -66,7 +71,7 @@ export function TopicRail({
       </div>
 
       {tags.length > 0 ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
           <span className="me-1 flex items-center gap-1.5 text-xs font-bold text-ink-muted">
             <TagIcon className="h-4 w-4" aria-hidden="true" />
             وسوم
@@ -109,12 +114,12 @@ function Chip({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`inline-flex items-center gap-1.5 rounded-full font-semibold transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+      className={`inline-flex items-center gap-1.5 rounded-full transition duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
         subtle ? "px-3 py-1 text-xs" : "px-4 py-2 text-sm"
       } ${
         active
-          ? "bg-primary text-white"
-          : "border border-line bg-surface text-ink hover:border-primary hover:text-primary-ink"
+          ? "bg-primary font-extrabold text-white shadow-md shadow-primary/20"
+          : "border border-line bg-surface font-semibold text-ink hover:border-primary hover:bg-primary-soft hover:text-primary-ink"
       }`}
     >
       {label}

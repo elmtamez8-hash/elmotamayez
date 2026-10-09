@@ -90,9 +90,9 @@ export function CohortList({
         أيِّ المواعيدِ يُدرَّس — وهو ما يقرّرُ على أساسِه أن ينتظرَ أو لا.
       */}
       {isFull && (
-        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-line bg-primary-soft p-5">
-          <p className="text-sm font-bold text-ink">اكتملت مجموعات هذا الكورس</p>
-          <p className="text-xs leading-relaxed text-ink-muted">
+        <div className="mb-5 flex flex-col gap-3 rounded-3xl border border-primary/20 bg-primary-soft p-6">
+          <p className="text-lg font-extrabold text-primary-ink">اكتملت مجموعات هذا الكورس</p>
+          <p className="text-sm leading-relaxed text-ink-muted">
             لا مكان شاغراً الآن، فالتسجيل مغلق حتى يفتح المدرّس مكاناً. سجّل في الدَّور
             ونُعلِمك أوّلاً حين يُفتح — <strong>والدَّور لا يحجز مقعداً ولا يَعِد به</strong>.
           </p>
@@ -102,7 +102,7 @@ export function CohortList({
         </div>
       )}
 
-      <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-4">
+      <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-5">
       {cohorts.map((cohort) => {
         const status = STATUS[cohort.status];
         const remaining = seats(cohort.seats_left);
@@ -110,10 +110,10 @@ export function CohortList({
         return (
           <li
             key={cohort.uuid}
-            className="flex flex-col gap-3 rounded-2xl border border-line bg-surface-raised p-5 transition duration-200 ease-out hover:-translate-y-1 hover:border-primary hover:shadow-md"
+            className="flex flex-col gap-3.5 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-6"
           >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-sm font-bold leading-snug text-ink">
+              <h3 className="text-base font-extrabold leading-snug text-ink">
                 {cohort.name}
               </h3>
               <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
@@ -126,7 +126,7 @@ export function CohortList({
                 */}
                 <MyCohortBadge cohortUuid={cohort.uuid} />
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${TONE_CLASSES[status.tone]}`}
+                  className={`rounded-full px-3 py-1 text-xs font-extrabold ${TONE_CLASSES[status.tone]}`}
                 >
                   {status.label}
                 </span>
@@ -144,7 +144,7 @@ export function CohortList({
             <CohortScheduleSlots labels={cohort.schedule} slots={cohort.schedule_slots} />
 
             {remaining && (
-              <p className="mt-auto text-xs font-semibold text-ink-muted">
+              <p className="mt-auto w-fit rounded-full bg-surface px-3 py-1 text-xs font-bold text-ink">
                 {remaining}
               </p>
             )}

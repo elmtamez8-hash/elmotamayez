@@ -87,7 +87,7 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
             action={
               <Link
                 href={hasFilters ? "/store" : "/courses"}
-                className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition duration-300 ease-out hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
               >
                 {hasFilters ? "إزالة كل الفلاتر" : "تصفّح الكورسات"}
               </Link>
@@ -96,12 +96,18 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
         ) : (
           <>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {items.data.map((item) => (
-                <PublicStoreCard key={item.uuid} item={item} />
+              {items.data.map((item, index) => (
+                <div
+                  key={item.uuid}
+                  className="animate-float-in grid"
+                  style={{ animationDelay: `${Math.min(index, 7) * 45}ms` }}
+                >
+                  <PublicStoreCard item={item} />
+                </div>
               ))}
             </div>
 
-            <Pagination currentPage={items.meta.current_page} lastPage={items.meta.last_page} searchParams={params} />
+            <Pagination basePath="/store" currentPage={items.meta.current_page} lastPage={items.meta.last_page} searchParams={params} />
           </>
         )}
       </section>

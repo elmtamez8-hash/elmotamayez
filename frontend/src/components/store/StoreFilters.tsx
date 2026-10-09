@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
+import { CloseIcon, SearchIcon } from "@/components/icons";
 import { Select } from "@/components/ui/Field";
 import { STORE_FILTER_KEYS, type StoreFacets } from "@/lib/public-api";
 
@@ -42,13 +43,13 @@ export function StoreFilters({ facets }: { facets: StoreFacets }) {
   };
 
   const field =
-    "w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+    "w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm font-semibold text-ink transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transition-none";
 
   const hasFilters = STORE_FILTER_KEYS.some((key) => params.get(key));
 
   const select = (id: string, label: string, key: string, options: Array<{ value: string; label: string }>, all?: string) => (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-ink">
+      <label htmlFor={id} className="mb-1.5 block text-xs font-bold text-ink-muted">
         {label}
       </label>
       <Select
@@ -68,32 +69,47 @@ export function StoreFilters({ facets }: { facets: StoreFacets }) {
   );
 
   return (
-    <div aria-busy={pending} className="mb-8 rounded-2xl border border-line bg-surface-raised p-5">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {select(
-          "f-teacher",
-          "المدرّس",
-          "teacher",
-          facets.teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name ?? "مدرّس" })),
-          "كل المدرّسين",
-        )}
-        {select(
-          "f-subject",
-          "المادة",
-          "subject",
-          facets.subjects.map((subject) => ({ value: subject.slug, label: subject.name })),
-          "كل المواد",
-        )}
-        {select("f-kind", "نوع المنتج", "kind", KINDS, "الكل")}
-        {select("f-sort", "ترتيب حسب", "sort", SORTS)}
+    <div
+      aria-busy={pending}
+      className={`relative mb-8 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm transition-opacity motion-reduce:transition-none sm:p-6 ${
+        pending ? "opacity-70" : ""
+      }`}
+    >
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
+        <span
+          aria-hidden="true"
+          className="hidden h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 lg:grid"
+        >
+          <SearchIcon className="h-6 w-6" />
+        </span>
+
+        <div className="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {select(
+            "f-teacher",
+            "المدرّس",
+            "teacher",
+            facets.teachers.map((teacher) => ({ value: teacher.uuid, label: teacher.name ?? "مدرّس" })),
+            "كل المدرّسين",
+          )}
+          {select(
+            "f-subject",
+            "المادة",
+            "subject",
+            facets.subjects.map((subject) => ({ value: subject.slug, label: subject.name })),
+            "كل المواد",
+          )}
+          {select("f-kind", "نوع المنتج", "kind", KINDS, "الكل")}
+          {select("f-sort", "ترتيب حسب", "sort", SORTS)}
+        </div>
       </div>
 
       {hasFilters && (
         <button
           type="button"
           onClick={() => startTransition(() => router.push(pathname))}
-          className="mt-4 text-sm font-semibold text-primary-ink underline"
+          className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-4 py-2 text-sm font-bold text-primary-ink transition duration-200 ease-out hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
         >
+          <CloseIcon className="h-4 w-4" aria-hidden="true" />
           إزالة كل الفلاتر
         </button>
       )}

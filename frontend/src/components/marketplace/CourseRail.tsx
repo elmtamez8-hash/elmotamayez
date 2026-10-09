@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   CertificateIcon,
   CheckIcon,
-  ChevronStartIcon,
+  ChevronEndIcon,
   LearningIcon,
   MessagesIcon,
 } from "@/components/icons";
@@ -86,18 +86,18 @@ export function CourseRail({
       {teacher && (
         <Link
           href={`/teachers/${teacher.slug ?? teacher.uuid}`}
-          className="flex items-center gap-3 rounded-2xl border border-line bg-surface-raised px-4 py-3.5 transition hover:border-primary hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex items-center gap-3 rounded-3xl border border-line bg-surface-raised px-4 py-4 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           {teacher.photo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={teacher.photo_url}
               alt=""
-              className="h-11 w-11 shrink-0 rounded-full object-cover"
+              className="h-12 w-12 shrink-0 rounded-2xl object-cover ring-2 ring-primary-soft"
             />
           ) : (
             <span
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-soft font-black text-primary-ink"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-lg font-black text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none"
               aria-hidden="true"
             >
               {teacher.name.charAt(0)}
@@ -107,7 +107,7 @@ export function CourseRail({
           <span className="flex min-w-0 flex-col gap-1">
             {/* الشارةُ بجوارِ الاسمِ هنا كما في الكارتِ وكما في الملفِّ الشخصيّ. */}
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-sm font-bold text-ink">{teacher.name}</span>
+              <span className="truncate text-base font-extrabold text-ink group-hover:text-primary-ink">{teacher.name}</span>
               {teacher.is_verified && (
                 <VerifiedBadgeIcon
                   className="h-4 w-4 shrink-0 text-secondary-ink"
@@ -183,7 +183,7 @@ function VisitorRail({
   const closed = !isFull && !freeEnrollment && !enrolmentOpen;
 
   return (
-    <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm">
+    <aside className="flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-6 shadow-lg shadow-primary/10">
       {/*
         ⛔ NO PRICE ON A COURSE, EVER (owner decision 2026-09-25). A course is sold
         through a plan and nothing else — the one-off purchase route is gone — so
@@ -195,10 +195,10 @@ function VisitorRail({
         `price_minor === 0`, which is also true of every course that is sold by a
         plan and was never given a price.
       */}
-      {freeEnrollment && !isFull && <p className="text-3xl font-black text-ink">مجاني</p>}
+      {freeEnrollment && !isFull && <p className="text-4xl font-black text-primary-ink">مجاني</p>}
 
       {isFull ? (
-        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
+        <p className="flex flex-col gap-1.5 rounded-2xl bg-primary-soft px-4 py-4 text-sm text-ink">
           <b className="font-extrabold text-primary-ink">اكتملت مجموعات هذا الكورس</b>
           <span className="text-ink-muted">
             لا مكان شاغراً الآن. سجّل في الدَّور من تبويب «المجموعات المتاحة».
@@ -207,7 +207,7 @@ function VisitorRail({
       ) : freeEnrollment ? (
         <FreeEnrollButton courseUuid={courseUuid} />
       ) : closed ? (
-        <p className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-sm text-ink">
+        <p className="flex flex-col gap-1.5 rounded-2xl bg-primary-soft px-4 py-4 text-sm text-ink">
           <b className="font-extrabold text-primary-ink">لم يفتح المدرّس الاشتراك بعد</b>
           <span className="text-ink-muted">
             لا مجموعة ولا باقة متاحة لهذا الكورس الآن. تابع صفحة المدرّس لتعرف حين يفتح
@@ -222,10 +222,13 @@ function VisitorRail({
         />
       )}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3 border-t border-line pt-5">
         {PROMISES.map(({ Icon, text }) => (
-          <li key={text} className="flex items-start gap-2.5 text-sm text-ink-muted">
-            <span className="mt-0.5 shrink-0 text-secondary-ink" aria-hidden="true">
+          <li key={text} className="flex items-center gap-3 text-sm font-semibold text-ink">
+            <span
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink"
+              aria-hidden="true"
+            >
               <Icon />
             </span>
             {text}
@@ -273,12 +276,15 @@ function SubscribeWays({
         <button
           type="button"
           onClick={() => openCourseTab("groups")}
-          className="flex flex-col gap-1.5 rounded-xl bg-primary-soft px-4 py-3.5 text-start text-sm text-ink transition hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col gap-1.5 rounded-2xl border border-primary/20 bg-primary-soft px-4 py-4 text-start text-sm text-ink transition duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
-          <b className="flex items-center gap-1.5 font-extrabold text-primary-ink">
+          <b className="flex items-center gap-1.5 text-base font-extrabold text-primary-ink">
             اختر مجموعتك
-            <span aria-hidden="true">
-              <ChevronStartIcon />
+            <span
+              aria-hidden="true"
+              className="transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none"
+            >
+              <ChevronEndIcon />
             </span>
           </b>
           <span className="text-ink-muted">
@@ -292,7 +298,7 @@ function SubscribeWays({
           href={
             user === null ? `/signup/student?next=${encodeURIComponent(subscribe)}` : subscribe
           }
-          className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-base font-extrabold text-white shadow-lg shadow-primary/20 transition duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           اشترك بحصص خاصة
         </Link>
@@ -312,10 +318,10 @@ function OwnerRail({
   const resume = data.course.resume_lesson_uuid;
 
   return (
-    <aside className="flex flex-col gap-5 overflow-hidden rounded-3xl border border-secondary/40 bg-surface-raised shadow-sm">
+    <aside className="flex flex-col gap-5 overflow-hidden rounded-3xl border border-secondary/40 bg-surface-raised shadow-lg shadow-secondary/10">
       {/* اللون هنا معنى لا زينة: أخضرُ الملكيّة، وفوقه الجملة نفسها بالكلمات. */}
       <p className="flex items-center gap-2.5 bg-secondary/15 px-6 py-4 text-sm font-extrabold text-secondary-ink">
-        <span aria-hidden="true">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-secondary text-white" aria-hidden="true">
           <CheckIcon />
         </span>
         أنت مسجّل في هذا الكورس
@@ -325,7 +331,7 @@ function OwnerRail({
         <div className="flex flex-col gap-2">
           <p className="flex items-baseline justify-between text-sm text-ink-muted">
             <span>تقدّمك</span>
-            <b className="text-base font-extrabold text-ink">
+            <b className="text-3xl font-black text-ink">
               <bdi>{pct}٪</bdi>
             </b>
           </p>
@@ -338,7 +344,7 @@ function OwnerRail({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="نسبة إتمام الكورس"
-            className="h-2.5 overflow-hidden rounded-full bg-primary-soft"
+            className="h-3 overflow-hidden rounded-full bg-primary-soft"
           >
             <span
               className="block h-full rounded-full bg-secondary transition-[width] duration-700 ease-out"
@@ -368,18 +374,21 @@ function OwnerRail({
         {resume !== null && (
           <Link
             href={`/learn/${resume}`}
-            className="flex items-center justify-center gap-2 rounded-xl bg-secondary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+            className="group flex items-center justify-center gap-2 rounded-2xl bg-secondary px-5 py-4 text-base font-extrabold text-white shadow-lg shadow-secondary/20 transition duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-secondary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             {done === 0 ? "ابدأ الكورس" : "تابع من حيث وقفت"}
-            <span aria-hidden="true">
-              <ChevronStartIcon />
+            <span
+              aria-hidden="true"
+              className="transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none"
+            >
+              <ChevronEndIcon />
             </span>
           </Link>
         )}
 
         <Link
           href={`/enrollments/${courseUuid}`}
-          className="flex items-center justify-center gap-2 rounded-xl border border-line px-5 py-3.5 text-sm font-extrabold text-ink transition hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="flex items-center justify-center gap-2 rounded-2xl border border-line px-5 py-3.5 text-sm font-extrabold text-ink transition hover:border-primary hover:bg-primary-soft hover:text-primary-ink motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           صفحة الكورس في «تعلّمي»
         </Link>
@@ -405,7 +414,7 @@ function FreeEnrollButton({ courseUuid }: { courseUuid: string }) {
   const [refusal, setRefusal] = useState<string | null>(null);
 
   const className =
-    "flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-extrabold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60";
+    "flex items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-base font-extrabold text-white shadow-lg shadow-primary/20 transition duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60 disabled:hover:translate-y-0";
 
   // ⚠️ Nothing while the session is being restored — `user` starts null on
   // every page, and the signup link drawn in that instant bounces a signed-in

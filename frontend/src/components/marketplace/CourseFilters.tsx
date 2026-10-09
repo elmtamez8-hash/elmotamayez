@@ -5,6 +5,7 @@ import { useTransition } from "react";
 import type { Taxonomy } from "@/lib/public-api";
 import { Select } from "@/components/ui/Field";
 import { COURSE_TYPES, courseTypeLabel } from "@/lib/labels";
+import { CloseIcon, SearchIcon } from "@/components/icons";
 
 /**
  * Horizontal filter bar for the courses page.
@@ -43,7 +44,7 @@ export function CourseFilters({
   };
 
   const field =
-    "w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+    "w-full rounded-2xl border border-line bg-surface px-3.5 py-3 text-sm font-semibold text-ink transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transition-none";
 
   const hasFilters = ["subject", "grade_level", "type"].some(
     (key) => params.get(key),
@@ -52,11 +53,20 @@ export function CourseFilters({
   return (
     <div
       aria-busy={pending}
-      className="mb-8 rounded-2xl border border-line bg-surface-raised p-5"
+      className="mb-10 flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-5 shadow-lg shadow-primary/5 transition-opacity aria-busy:opacity-70 motion-reduce:transition-none sm:p-6 lg:flex-row lg:items-end"
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* علامةٌ لا عنوان: الحقولُ الأربعةُ تحملُ أسماءَها، والبلاطةُ تقولُ
+          «هنا تُضيِّقُ النتائج» بلا كلمةٍ فوقَها. */}
+      <span
+        aria-hidden="true"
+        className="hidden h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-md shadow-primary/20 lg:grid"
+      >
+        <SearchIcon className="h-6 w-6" />
+      </span>
+
+      <div className="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label htmlFor="f-subject" className="mb-1.5 block text-sm font-semibold text-ink">
+          <label htmlFor="f-subject" className="mb-1.5 block text-sm font-bold text-ink">
             المادة
           </label>
           <Select
@@ -75,7 +85,7 @@ export function CourseFilters({
         </div>
 
         <div>
-          <label htmlFor="f-grade" className="mb-1.5 block text-sm font-semibold text-ink">
+          <label htmlFor="f-grade" className="mb-1.5 block text-sm font-bold text-ink">
             المرحلة الدراسية
           </label>
           <Select
@@ -94,7 +104,7 @@ export function CourseFilters({
         </div>
 
         <div>
-          <label htmlFor="f-type" className="mb-1.5 block text-sm font-semibold text-ink">
+          <label htmlFor="f-type" className="mb-1.5 block text-sm font-bold text-ink">
             نوع الكورس
           </label>
           <Select
@@ -114,7 +124,7 @@ export function CourseFilters({
         </div>
 
         <div>
-          <label htmlFor="f-sort" className="mb-1.5 block text-sm font-semibold text-ink">
+          <label htmlFor="f-sort" className="mb-1.5 block text-sm font-bold text-ink">
             ترتيب حسب
           </label>
           <Select
@@ -136,8 +146,9 @@ export function CourseFilters({
         <button
           type="button"
           onClick={() => startTransition(() => router.push(pathname))}
-          className="mt-4 text-sm font-semibold text-primary-ink underline"
+          className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full bg-primary-soft px-4 py-2.5 text-sm font-extrabold text-primary-ink transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none lg:self-end"
         >
+          <CloseIcon className="h-4 w-4" />
           إزالة كل الفلاتر
         </button>
       )}

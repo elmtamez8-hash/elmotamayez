@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { counted, courseTypeLabel } from "@/lib/labels";
 import type { CourseCard as Course } from "@/lib/public-api";
-import { ClockIcon, PlayIcon, UsersIcon, VerifiedBadgeIcon } from "@/components/icons";
+import {
+  ChevronEndIcon,
+  ClockIcon,
+  PlayIcon,
+  UsersIcon,
+  VerifiedBadgeIcon,
+} from "@/components/icons";
 import { CourseCover } from "./CourseCover";
 import { subjectIcon } from "./subject-icon";
 import { StarRating } from "./StarRating";
@@ -52,7 +58,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
   const Mark = course.subject ? subjectIcon(course.subject) : null;
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised transition duration-200 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg active:translate-y-0 active:duration-100">
+    <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 active:translate-y-0 active:duration-100 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="relative aspect-video bg-primary-soft">
         <CourseCover
           title={course.title}
@@ -62,7 +68,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         />
 
         {course.is_bestseller && (
-          <span className="absolute top-3 start-3 rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
+          <span className="absolute top-3 start-3 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-foreground shadow-md shadow-primary/20">
             الأكثر طلباً
           </span>
         )}
@@ -71,7 +77,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           النوعُ على الغلافِ لا في سطرِ البيانات: هو أوّلُ ما يفرزُ به المتصفّحُ
           («مباشر» أم «مسجَّل»)، وفي طرفٍ لا يزاحمُ «الأكثر طلباً» في الطرفِ الآخَر.
         */}
-        <span className="absolute top-3 end-3 rounded-full bg-surface-raised/95 px-2.5 py-1 text-xs font-bold text-primary-ink shadow-sm">
+        <span className="absolute top-3 end-3 rounded-full bg-primary px-3 py-1 text-xs font-extrabold text-white shadow-md shadow-primary/30">
           {courseTypeLabel(course.type)}
         </span>
 
@@ -90,7 +96,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-5">
+      <div className="flex flex-1 flex-col gap-3.5 p-5">
 
         {/* ⚠️ THE WHOLE CARD, IN ONE CLICK (spec 023 · SC-001).
             The title used to lead to the teacher's courses tab, which cost three
@@ -99,7 +105,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
             nothing. The `after:` overlay stretches this one link across the
             article; the byline below sits above it on the z-axis so «who teaches
             this» stays a separate destination rather than being swallowed. */}
-        <h3 className="text-base font-bold leading-snug text-ink">
+        <h3 className="text-lg font-extrabold leading-snug text-ink transition-colors group-hover:text-primary-ink motion-reduce:transition-none">
           <Link
             href={`/courses/${course.slug ?? course.uuid}${anchor}`}
             className="after:absolute after:inset-0 after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -111,18 +117,18 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         {course.teacher && (
           <Link
             href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
-            className="relative z-10 flex w-fit items-center gap-2 text-sm text-ink-muted hover:text-primary-ink"
+            className="relative z-10 flex w-fit items-center gap-2 text-sm font-semibold text-ink-muted hover:text-primary-ink"
           >
             {course.teacher.photo_url ? (
               <img
                 src={course.teacher.photo_url}
                 alt=""
-                className="h-6 w-6 rounded-full object-cover"
+                className="h-7 w-7 rounded-full object-cover ring-2 ring-primary-soft"
                 loading="lazy"
               />
             ) : (
               <span
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-soft text-xs font-bold text-primary-ink"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-soft text-xs font-extrabold text-primary-ink"
                 aria-hidden="true"
               >
                 {course.teacher.name.charAt(0)}
@@ -152,10 +158,12 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           ⚠️ والصفرُ يسقطُ: `hours()` تُعيدُ «—» لكورسٍ لم تُقَسْ مدّتُه، وسطرٌ
           كاملٌ بأيقونةِ ساعةٍ أمامَ شَرطةٍ أسوأُ من غيابِه.
         */}
-        <dl className="flex flex-col gap-1.5 text-xs text-ink-muted">
+        <dl className="flex flex-col gap-2 text-sm text-ink-muted">
           <dt className="sr-only">عدد الحصص</dt>
-          <dd className="flex items-center gap-2">
-            <PlayIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
+          <dd className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
+                <PlayIcon className="h-4 w-4" />
+              </span>
             {counted(course.lessons_count, {
               zero: "لم تُضَف حصص بعد",
               one: "حصة واحدة",
@@ -181,16 +189,20 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           {length !== null && course.lessons_count > 0 && (
             <>
               <dt className="sr-only">مدة المحتوى</dt>
-              <dd className="flex items-center gap-2">
-                <ClockIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
+              <dd className="flex items-center gap-2.5">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
+                <ClockIcon className="h-4 w-4" />
+              </span>
                 {length}
               </dd>
             </>
           )}
 
           <dt className="sr-only">عدد الطلاب</dt>
-          <dd className="flex items-center gap-2">
-            <UsersIcon className="h-4 w-4 shrink-0 text-primary-ink/70" />
+          <dd className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
+                <UsersIcon className="h-4 w-4" />
+              </span>
             {counted(course.enrolled_count, {
               zero: "لا طلاب بعد",
               one: "طالب واحد",
@@ -203,13 +215,13 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         </dl>
 
         {/*
-          شريحةُ المادّةِ بعرضِ الكارتِ كاملاً، بالعلامةِ نفسِها التي يرسمُها
+          شريحةُ المادّةِ قرصٌ بعرضِ كلمتِها، بالعلامةِ نفسِها التي يرسمُها
           الغلافُ — `subjectIcon()` مرّةً أخرى، لا خريطةً ثانية. وتغيبُ كلّيّاً
           لكورسٍ بلا مادّة: صندوقٌ رماديٌّ فارغٌ يُقرَأُ حقلاً لم يُحمَّل.
         */}
         {course.subject && Mark && (
-          <p className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs font-semibold text-ink">
-            <Mark className="h-4 w-4 shrink-0 text-primary-ink/70" />
+          <p className="flex w-fit items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-bold text-ink">
+            <Mark className="h-4 w-4 shrink-0 text-primary-ink" />
             {course.subject.name}
           </p>
         )}
@@ -223,9 +235,10 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         */}
         <span
           aria-hidden="true"
-          className="mt-auto block rounded-xl bg-primary px-4 py-2.5 text-center text-sm font-bold text-white transition group-hover:brightness-110"
+          className="mt-auto flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-extrabold text-white shadow-md shadow-primary/20 transition duration-300 ease-out group-hover:shadow-lg group-hover:shadow-primary/30 group-hover:brightness-110 motion-reduce:transition-none"
         >
           عرض التفاصيل
+          <ChevronEndIcon className="h-4 w-4 transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
         </span>
       </div>
     </article>

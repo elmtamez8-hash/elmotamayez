@@ -45,33 +45,37 @@ export function ProfileTabs({
 }) {
   return (
     <div>
-      <div className="border-b border-line">
-        <nav aria-label="أقسام ملف المدرّس">
-          <ul className="-mb-px flex gap-1 overflow-x-auto">
-            {PROFILE_TABS.map((tab) => {
-              const isActive = tab.id === active;
+      {/* A pill rail rather than an underlined strip: the current section is a
+          filled burgundy pill, the way the site header marks the current page.
+          `overflow-x-auto` stays — five Arabic labels do not fit a phone. */}
+      <nav
+        aria-label="أقسام ملف المدرّس"
+        className="rounded-full border border-line bg-surface-raised p-1.5 shadow-sm"
+      >
+        <ul className="flex gap-1 overflow-x-auto">
+          {PROFILE_TABS.map((tab) => {
+            const isActive = tab.id === active;
 
-              return (
-                <li key={tab.id}>
-                  <Link
-                    href={`/teachers/${slug}?tab=${tab.id}`}
-                    scroll={false}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
-                      isActive
-                        ? "border-primary text-primary-ink"
-                        : "border-transparent text-ink-muted hover:border-line hover:text-ink"
-                    }`}
-                  >
-                    <tab.Icon className="h-4 w-4" />
-                    {tab.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </div>
+            return (
+              <li key={tab.id} className="shrink-0">
+                <Link
+                  href={`/teachers/${slug}?tab=${tab.id}`}
+                  scroll={false}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-sm transition duration-200 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 motion-reduce:transition-none ${
+                    isActive
+                      ? "bg-primary font-extrabold text-white shadow-md shadow-primary/20 focus-visible:outline-white"
+                      : "font-semibold text-ink-muted hover:bg-primary-soft hover:text-primary-ink focus-visible:outline-primary"
+                  }`}
+                >
+                  <tab.Icon className="h-4 w-4" />
+                  {tab.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
       <div className="py-8">{children}</div>
     </div>

@@ -13,7 +13,7 @@ import { PageBanner } from "@/components/ui/PageBanner";
 import { ArticleCard } from "@/components/blog/ArticleCard";
 import { TopicRail } from "@/components/blog/TopicRail";
 import { CtaBand } from "@/components/blog/CtaBand";
-import { BookIcon, ChevronEndIcon, ChevronStartIcon } from "@/components/icons";
+import { BookIcon, ChevronEndIcon, ChevronStartIcon, DocumentIcon } from "@/components/icons";
 import { counted } from "@/lib/labels";
 
 import { arabicNumber } from "@/lib/numerals";
@@ -216,7 +216,7 @@ export default async function BlogIndexPage({
       />
 
       {filtered ? (
-        <p className="mb-6 text-sm text-ink-muted">
+        <p className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-1.5 text-sm font-semibold text-primary-ink">
           {counted(total, {
             one: "مقال",
             two: "مقالان",
@@ -237,20 +237,22 @@ export default async function BlogIndexPage({
         */
         filtered ? (
           <EmptyState
+            Icon={DocumentIcon}
             title="لا مقالات في هذا الباب"
             description="جرّبْ باباً آخرَ من الشريط فوق، أو اقرأِ المدوّنةَ كلَّها."
             action={
-              <Link href="/blog" className="font-semibold text-primary-ink underline">
+              <Link href="/blog" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                 اقرأِ المدوّنةَ كلَّها
               </Link>
             }
           />
         ) : (
           <EmptyState
+            Icon={DocumentIcon}
             title="لا توجد مقالات بعد"
             description="سيظهر هنا ما ينشره المدرّسون. تصفَّحِ المدرّسين في هذه الأثناء."
             action={
-              <Link href="/teachers" className="font-semibold text-primary-ink underline">
+              <Link href="/teachers" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/20 transition duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                 تصفَّحِ المدرّسين
               </Link>
             }
@@ -265,7 +267,7 @@ export default async function BlogIndexPage({
               خالص، ولا `z-index`: البطاقةُ بعدَهما في ترتيبِ المصدرِ و`relative`،
               فتُرسَمُ فوقَهما بلا سياقِ تكديسٍ جديدٍ يُربِكُ ما تحتَه.
             */
-            <div className="relative mb-6 overflow-x-clip">
+            <div className="relative mb-8 overflow-x-clip">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -top-16 -start-10 h-56 w-56 rounded-full bg-primary-soft blur-3xl"
@@ -284,7 +286,7 @@ export default async function BlogIndexPage({
             </div>
           ) : null}
 
-          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {(isPlainFirstPage ? rest : articles).map((article, index) => (
               <li
                 key={article.uuid}
@@ -307,14 +309,14 @@ export default async function BlogIndexPage({
 
       {lastPage > 1 ? (
         <nav
-          className="mt-10 flex items-center justify-between gap-4"
+          className="mt-12 flex items-center justify-between gap-4"
           aria-label="صفحات المدوّنة"
         >
           {current > 1 ? (
             <Link
               href={pageHref(current - 1, category, tag)}
               rel="prev"
-              className="flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink"
+              className="group flex items-center gap-1.5 rounded-full border border-line bg-surface-raised px-5 py-2.5 text-sm font-bold text-ink shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               <ChevronEndIcon className="h-4 w-4" aria-hidden="true" />
               الأحدث
@@ -323,7 +325,7 @@ export default async function BlogIndexPage({
             <span />
           )}
 
-          <span className="text-sm text-ink-muted">
+          <span className="rounded-full bg-primary-soft px-4 py-1.5 text-sm font-bold text-primary-ink">
             صفحة {arabicNumber(current)} من{" "}
             {arabicNumber(lastPage)}
           </span>
@@ -332,7 +334,7 @@ export default async function BlogIndexPage({
             <Link
               href={pageHref(current + 1, category, tag)}
               rel="next"
-              className="flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:border-primary hover:text-primary-ink"
+              className="group flex items-center gap-1.5 rounded-full border border-line bg-surface-raised px-5 py-2.5 text-sm font-bold text-ink shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-primary hover:bg-primary hover:text-white hover:shadow-md hover:shadow-primary/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               الأقدم
               <ChevronStartIcon className="h-4 w-4" aria-hidden="true" />

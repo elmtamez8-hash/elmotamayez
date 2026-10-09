@@ -117,9 +117,9 @@ export function CourseCurriculum({
       {sections.map((section, sectionIndex) => (
         <li
           key={`${section.title}-${sectionIndex}`}
-          className="overflow-hidden rounded-2xl border border-line bg-surface-raised"
+          className="overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm"
         >
-          <h3 className="flex items-center gap-3 border-b border-line bg-primary-soft px-5 py-3.5 text-sm font-extrabold text-primary-ink">
+          <h3 className="flex items-center gap-3 border-b border-line bg-primary-soft px-5 py-4 text-base font-extrabold text-primary-ink">
             {/*
               الترقيمُ معلومةٌ لا زينة: الوحداتُ تُدرَّسُ بالترتيبِ الذي وضعَها به
               المدرّس.
@@ -130,17 +130,19 @@ export function CourseCurriculum({
               القائمةُ التي تستعملُها `StarRating` و`TrustScoreBadge` — وكلمةُ
               «الوحدة» أمامَه تحسمُ أنّه ترتيبٌ لا كَمّ.
             */}
-            <span className="shrink-0 text-xs font-bold opacity-70">
-              الوحدة {arabicNumber(sectionIndex + 1)}
+            <span className="flex shrink-0 items-center gap-2 text-xs font-bold">
+              <span>الوحدة</span>
+              <span className="grid h-9 min-w-9 place-items-center rounded-xl bg-primary px-2 text-sm font-black text-white shadow-md shadow-primary/20">
+                {arabicNumber(sectionIndex + 1)}
+              </span>
             </span>
-            <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-primary-ink/25" />
             <span className="min-w-0 flex-1">{section.title}</span>
           </h3>
 
           <ol className="flex flex-col">
             {section.chapters.map((chapter, chapterIndex) => (
               <li key={`${chapter.title}-${chapterIndex}`}>
-                <h4 className="px-5 pt-4 pb-1 text-xs font-bold text-ink-muted">
+                <h4 className="px-5 pt-5 pb-1.5 text-sm font-extrabold text-ink-muted">
                   {chapter.title}
                 </h4>
 
@@ -188,7 +190,7 @@ export function CourseCurriculum({
                     const body = (
                       <>
                         <span
-                          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${kind.tone}`}
+                          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-transform duration-300 ease-out group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100 ${kind.tone}`}
                           aria-hidden="true"
                         >
                           <kind.Icon />
@@ -218,7 +220,7 @@ export function CourseCurriculum({
                           حالةٌ لا يصل إليها قارئُ الشاشة.
                         */}
                         {openable ? (
-                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary/15 px-2 py-1 text-xs font-bold text-secondary-ink">
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-secondary/15 px-2.5 py-1 text-xs font-extrabold text-secondary-ink">
                             مجّانيّة
                             <span aria-hidden="true">
                               <ChevronStartIcon />
@@ -236,14 +238,14 @@ export function CourseCurriculum({
                             والبابُ يفتحُه اليومَ لأيِّ حسابٍ بالشرطِ نفسِه الذي
                             يفتحُ به الفيديو.
                           */
-                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-soft px-2 py-1 text-xs font-bold text-primary-ink">
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-extrabold text-primary-ink">
                             <span aria-hidden="true">
                               <SparkIcon />
                             </span>
                             مفتوح مجّاناً
                           </span>
                         ) : (
-                          <span className="flex shrink-0 items-center gap-1.5 rounded-lg bg-line px-2 py-1 text-xs font-bold text-ink-muted">
+                          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-line px-2.5 py-1 text-xs font-bold text-ink-muted">
                             <span aria-hidden="true">
                               <LockIcon />
                             </span>
@@ -258,19 +260,19 @@ export function CourseCurriculum({
                         {openable ? (
                           <Link
                             href={`/courses/${courseSlug}/lessons/${item.uuid}`}
-                            className="flex items-center gap-3 px-5 py-3 transition hover:bg-primary-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                            className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-primary-soft/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
                           >
                             {body}
                           </Link>
                         ) : freeHref !== null ? (
                           <Link
                             href={freeHref}
-                            className="flex items-center gap-3 px-5 py-3 transition hover:bg-primary-soft/50 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                            className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-primary-soft/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
                           >
                             {body}
                           </Link>
                         ) : (
-                          <span className="flex items-center gap-3 px-5 py-3">{body}</span>
+                          <span className="flex items-center gap-3 px-5 py-3.5">{body}</span>
                         )}
                       </li>
                     );

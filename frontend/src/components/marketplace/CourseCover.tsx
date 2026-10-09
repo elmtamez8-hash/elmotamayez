@@ -73,18 +73,25 @@ export function CourseCover({
   return (
     <div
       aria-hidden="true"
+      /*
+        ⚠️ The wide band is the SOFT tint now, not the maroon. The course page
+        lays a maroon header over its lower edge, and maroon on maroon reads as
+        one slab with a seam; the tint makes the header the bold thing and the
+        band its ground. `bg-dots` is the existing lattice (tinted for both
+        themes in `globals.css`) and needs `relative isolate` for its layer.
+      */
       className={`flex h-full w-full flex-col items-center justify-center gap-2 ${
-        variant === "card" ? "bg-primary-soft" : "bg-primary"
+        variant === "card" ? "bg-primary-soft" : "bg-dots relative isolate bg-primary-soft"
       }`}
     >
       {variant === "card" ? (
-        // A disc, not a bare faded glyph: on its own the mark read as an image
+        // A tile, not a bare faded glyph: on its own the mark read as an image
         // that failed to load rather than a course with no cover yet.
-        <span className="grid h-20 w-20 place-items-center rounded-full bg-surface-raised text-primary-ink shadow-sm transition duration-300 ease-out group-hover:scale-110">
+        <span className="grid h-20 w-20 place-items-center rounded-3xl bg-surface-raised text-primary-ink shadow-lg shadow-primary/10 transition duration-300 ease-out group-hover:-rotate-3 group-hover:scale-110 group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
           <Mark className="h-10 w-10" />
         </span>
       ) : (
-        <Mark className="h-24 w-24 text-white/25" />
+        <Mark className="h-20 w-20 text-primary-ink/25 sm:h-24 sm:w-24" />
       )}
 
       {/*
@@ -99,7 +106,7 @@ export function CourseCover({
         بأذنِه: `aria-hidden` على الصندوقِ كلِّه أعلاه.
       */}
       {variant === "hero" && (
-        <span className="line-clamp-2 max-w-3xl text-balance px-6 text-center text-xl font-black text-white/90 sm:text-2xl">
+        <span className="line-clamp-2 max-w-3xl text-balance px-6 text-center text-xl font-black text-primary-ink sm:text-2xl">
           {title}
         </span>
       )}
