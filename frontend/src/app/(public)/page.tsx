@@ -8,7 +8,7 @@ import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { CourseCard } from "@/components/marketplace/CourseCard";
-import { TestimonialsCarousel } from "@/components/marketplace/TestimonialsCarousel";
+import { TestimonialsWall } from "@/components/marketplace/TestimonialsWall";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
 import { FaqAccordion } from "@/components/marketplace/FaqAccordion";
 import { PhotoDivider } from "@/components/marketplace/PhotoDivider";
@@ -387,89 +387,85 @@ export default async function HomePage() {
       <StatBar stats={home.stats} />
 
       {/*
-        | A path, not four cards.
+        | A path, not four cards — and the page's one full-bleed burgundy band.
         |
-        | These are four MOMENTS OF ONE JOURNEY, and four identically sized
-        | bordered boxes say the opposite — they say "four features", which is
-        | the shape every generated landing page reaches for and the reason this
-        | section read as machine-made. The numbers stay, because here the order
-        | is the information: you cannot attend before you book.
+        | These are four MOMENTS OF ONE JOURNEY. The numbers stay, because here
+        | the order is the information: you cannot attend before you book — so
+        | they are the loudest thing in the band, set huge and translucent behind
+        | each step, while the dashed rule ties the steps into one road.
         |
-        | The rule is drawn once behind the row and the markers sit ON it, so the
-        | connection is a line the eye follows rather than a gap it infers. It is
-        | hidden below `lg`, where the steps stack and a horizontal rule would
-        | run through nothing.
+        | The rule is drawn once behind the row and the tiles sit ON it. It is
+        | hidden below `lg`, where the steps stack and a vertical half takes
+        | over. `bg-squares` is the wordmark's square-dot motif, shared with the
+        | closing call to action.
       */}
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
-        <div className="mx-auto mb-14 max-w-2xl text-center">
-          <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
-            كيف تعمل المنصة
-          </h2>
-          <p className="leading-relaxed text-ink-muted">
-            أربع خطوات من اختيار المادة إلى أول حصة.
-          </p>
-        </div>
+      <section className="bg-squares relative isolate overflow-hidden bg-primary py-20 lg:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="mx-auto mb-16 max-w-2xl text-center">
+            <h2 className="mb-4 text-balance text-4xl font-extrabold leading-tight text-white sm:text-5xl">
+              كيف تعمل المنصة
+            </h2>
+            <p className="text-lg leading-relaxed text-white/80">
+              أربع خطوات من اختيار المادة إلى أول حصة.
+            </p>
+          </div>
 
-        <div className="relative">
-          {/* Spans marker centre to marker centre, not edge to edge. With four
-              equal columns those centres sit at 12.5% and 87.5%, so a rule that
-              runs the full width sticks out past the first and last steps and
-              reads as a track the journey is only part of. `top-8` is the
-              centre of the h-16 tile. */}
-          <div
-            className="absolute inset-x-[12.5%] top-8 hidden border-t-2 border-dashed border-primary/25 lg:block dark:border-primary-ink/30"
-            aria-hidden="true"
-          />
+          <div className="relative">
+            {/* Tile centre to tile centre (12.5% → 87.5% of four equal
+                columns); `top-10` is the centre of the h-20 tile. */}
+            <div
+              className="absolute inset-x-[12.5%] top-10 hidden border-t-2 border-dashed border-white/30 lg:block"
+              aria-hidden="true"
+            />
 
-          {/* One column until `lg`, not two at `sm`. Two columns cannot carry a
-              connector — the second column's line would join steps that do not
-              follow each other — and a journey that loses its thread on a tablet
-              is four boxes again. */}
-          <ol className="relative grid gap-10 lg:grid-cols-4 lg:gap-8">
-            {STEPS.map((step, index) => (
-              <li
-                key={step.title}
-                className="group relative flex gap-5 text-start lg:block lg:px-3 lg:text-center"
-              >
-                {/* The vertical half of the same rule, for the stacked layout.
-                    Qatar reads this on a phone first, and a connector that only
-                    exists on desktop leaves the journey as four unrelated blocks
-                    exactly where most people meet it.
+            {/* One column until `lg`: two columns cannot carry a connector. */}
+            <ol className="relative grid gap-12 lg:grid-cols-4 lg:gap-8">
+              {STEPS.map((step, index) => (
+                <li
+                  key={step.title}
+                  className="reveal group relative flex gap-6 text-start lg:block lg:px-2 lg:text-center"
+                >
+                  {/* The vertical half of the same rule for the stacked
+                      layout: `start-10` is the tile's centre, `-bottom-12` the
+                      gap, so the line lands ON the next tile. */}
+                  {index < STEPS.length - 1 && (
+                    <span
+                      className="absolute start-10 top-24 -bottom-12 border-s-2 border-dashed border-white/30 lg:hidden"
+                      aria-hidden="true"
+                    />
+                  )}
 
-                    `start-8` is the tile's centre (w-16 ÷ 2), and `-bottom-10`
-                    is the `gap-10` between items, so the line lands ON the next
-                    tile instead of stopping short of it. Not drawn after the
-                    last step, and gone at `lg` where the horizontal rule takes
-                    over. */}
-                {index < STEPS.length - 1 && (
+                  {/* The step's number, huge and translucent, in the column's
+                      corner beside its tile. Below `lg` the badge carries it. */}
                   <span
-                    className="absolute start-8 top-[4.5rem] -bottom-10 border-s-2 border-dashed border-primary/25 lg:hidden dark:border-primary-ink/30"
                     aria-hidden="true"
-                  />
-                )}
-
-                {/* bg-surface-raised, not transparent: the tile has to punch a
-                    hole in the rule it sits on, or the line runs through it.
-                    The number stays — here the order is the information — as a
-                    badge on the tile's corner. */}
-                <span className="relative grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-line bg-surface-raised text-primary-ink shadow-sm transition duration-300 ease-out group-hover:-translate-y-1 group-hover:border-primary group-hover:bg-primary group-hover:text-white group-hover:shadow-lg group-hover:shadow-primary/20 motion-reduce:transition-none lg:mx-auto lg:mb-6">
-                  <step.Icon className="h-7 w-7" />
-                  <span className="absolute -top-2 -end-2 grid h-7 w-7 place-items-center rounded-full border-2 border-surface bg-primary text-xs font-bold text-white">
+                    className="pointer-events-none absolute -top-8 end-0 hidden select-none text-[8rem] font-black leading-none text-white/10 lg:block"
+                  >
                     {arabicNumber(index + 1)}
                   </span>
-                </span>
 
-                <span className="pt-1 lg:block lg:pt-0">
-                  <span className="mb-2 block text-lg font-bold text-ink">
-                    {step.title}
+                  <span className="relative block shrink-0 lg:mb-8">
+                    {/* bg-accent, solid: the tile punches a hole in the rule. */}
+                    <span className="relative grid h-20 w-20 place-items-center rounded-3xl bg-accent text-accent-foreground shadow-xl shadow-primary-ink/30 ring-4 ring-primary transition duration-300 ease-out group-hover:-translate-y-1.5 group-hover:rotate-3 motion-reduce:transition-none lg:mx-auto">
+                      <step.Icon className="h-9 w-9" />
+                      <span className="absolute -top-2 -end-2 grid h-8 w-8 place-items-center rounded-full bg-surface-raised text-sm font-extrabold text-primary-ink ring-4 ring-primary lg:hidden">
+                        {arabicNumber(index + 1)}
+                      </span>
+                    </span>
                   </span>
-                  <span className="mx-auto block max-w-xs text-sm leading-relaxed text-ink-muted">
-                    {step.body}
+
+                  <span className="pt-2 lg:block lg:pt-0">
+                    <span className="mb-3 block text-xl font-extrabold text-white sm:text-2xl">
+                      {step.title}
+                    </span>
+                    <span className="mx-auto block max-w-xs leading-relaxed text-white/80">
+                      {step.body}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 
@@ -567,27 +563,21 @@ export default async function HomePage() {
         line="حصة مباشرة اليوم، وكورس مسجّل تراجعه متى شئت."
       />
 
-      {/* Absent until a student writes one — the carousel returns null on an
+      {/* Absent until a student writes one — the wall returns null on an
           empty list, so a launch-day page simply does not carry this section
           rather than carrying invented quotes. */}
       {home.testimonials.length > 0 && (
-        <section className="bg-surface-raised py-16 lg:py-20">
-          <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-16">
-            <div>
-              <span
-                aria-hidden="true"
-                className="mb-6 grid h-16 w-16 place-items-center rounded-2xl bg-primary-soft text-primary-ink"
-              >
-                <StarIcon className="h-8 w-8" />
-              </span>
-              <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-ink sm:text-4xl">
+        <section className="bg-surface-raised py-20 lg:py-24">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="mx-auto mb-14 max-w-2xl text-center">
+              <h2 className="mb-4 text-balance text-4xl font-extrabold leading-tight text-ink sm:text-5xl">
                 ماذا كتب الطلاب عن مدرّسيهم
               </h2>
-              <p className="max-w-md leading-relaxed text-ink-muted">
+              <p className="text-lg leading-relaxed text-ink-muted">
                 مراجعات كتبها الطلاب على صفحات مدرّسيهم، كما نشروها.
               </p>
             </div>
-            <TestimonialsCarousel items={home.testimonials} />
+            <TestimonialsWall items={home.testimonials} />
           </div>
         </section>
       )}
@@ -607,10 +597,24 @@ export default async function HomePage() {
         line="من النحو إلى الفيزياء — لكل مادة أهلها."
       />
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
-        <h2 className="mb-10 text-center text-2xl font-extrabold text-ink sm:text-3xl">
-          المواد الدراسية
-        </h2>
+      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-24">
+        <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
+          <div className="max-w-2xl">
+            <h2 className="mb-4 text-balance text-4xl font-extrabold leading-tight text-ink sm:text-5xl">
+              المواد الدراسية
+            </h2>
+            <p className="text-lg leading-relaxed text-ink-muted">
+              اختر مادتك لترى مدرّسيها.
+            </p>
+          </div>
+          <Link
+            href="/teachers"
+            className="group inline-flex items-center gap-2 rounded-xl border border-primary px-5 py-3 font-bold text-primary-ink transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            كل المدرّسين
+            <ChevronEndIcon className="h-4 w-4 transition duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none" />
+          </Link>
+        </div>
         <SubjectsGrid subjects={home.subjects} />
       </section>
 

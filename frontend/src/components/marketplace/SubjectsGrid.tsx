@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronEndIcon } from "@/components/icons";
 import type { Taxonomy } from "@/lib/public-api";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { subjectIcon } from "./subject-icon";
@@ -20,35 +21,45 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
   }
 
   return (
-    <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <ul className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
       {subjects.map((subject) => {
         const Icon = subjectIcon(subject);
 
         return (
-          <li key={subject.slug}>
+          <li key={subject.slug} className="reveal">
             <Link
               href={`/teachers?subject=${subject.slug}`}
-              className="group flex h-full flex-col items-center gap-3 rounded-3xl border border-line bg-surface-raised p-5 text-center transition duration-200 ease-out hover:-translate-y-1 hover:border-primary hover:shadow-md active:translate-y-0 active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="group relative isolate flex h-full min-h-44 flex-col justify-between gap-6 overflow-hidden rounded-3xl border border-line bg-surface-raised p-5 transition duration-300 ease-out hover:-translate-y-1.5 hover:border-primary hover:bg-primary hover:shadow-xl hover:shadow-primary/20 active:translate-y-0 active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none sm:p-6"
             >
-              {/* Outlined, not filled. Nine tiles each carrying a `bg-primary-soft`
-                disc turned the largest grid on the page into a field of pale
-                pink, and a maroon that appears everywhere stops reading as the
-                brand colour and starts reading as the background. The maroon
-                stays — on the glyph, where it is one stroke wide. */}
-              <span
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-primary-ink transition duration-200 ease-out group-hover:border-primary group-hover:bg-primary group-hover:text-white"
-                aria-hidden="true"
-              >
-                <Icon className="h-6 w-6" />
-              </span>
-              <span className="text-sm font-semibold text-ink">
-                {subject.name}
-              </span>
-              {subject.teachers_count !== undefined && (
-                <span className="text-xs text-ink-muted">
-                  {counted(subject.teachers_count, { one: "مدرّس واحد", two: "مدرّسان", few: "مدرّسين", many: "مدرّساً", other: "مدرّس" })}
+              {/* The subject's own glyph, oversized and faint in the corner —
+                  the tile's colour comes from this one stroke, not from a
+                  tinted fill on every tile (nine pale-pink discs once turned
+                  this grid into a field of pink). On hover the whole tile
+                  becomes the brand colour and the glyph follows. */}
+              <Icon
+                className="pointer-events-none absolute -bottom-6 -end-6 -z-10 h-32 w-32 rotate-12 text-primary-ink/10 transition duration-500 ease-out group-hover:-rotate-6 group-hover:scale-110 group-hover:text-white/15 motion-reduce:transition-none"
+              />
+
+              <span className="flex items-start justify-between">
+                <span
+                  className="grid h-14 w-14 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 transition duration-300 ease-out group-hover:bg-accent group-hover:text-accent-foreground"
+                  aria-hidden="true"
+                >
+                  <Icon className="h-7 w-7" />
                 </span>
-              )}
+                <ChevronEndIcon className="h-5 w-5 translate-x-2 text-white opacity-0 transition duration-300 ease-out group-hover:translate-x-0 group-hover:opacity-100 motion-reduce:transition-none" />
+              </span>
+
+              <span>
+                <span className="block text-lg font-extrabold text-ink transition-colors duration-300 group-hover:text-white sm:text-xl">
+                  {subject.name}
+                </span>
+                {subject.teachers_count !== undefined && (
+                  <span className="mt-1 block text-sm text-ink-muted transition-colors duration-300 group-hover:text-white/80">
+                    {counted(subject.teachers_count, { one: "مدرّس واحد", two: "مدرّسان", few: "مدرّسين", many: "مدرّساً", other: "مدرّس" })}
+                  </span>
+                )}
+              </span>
             </Link>
           </li>
         );

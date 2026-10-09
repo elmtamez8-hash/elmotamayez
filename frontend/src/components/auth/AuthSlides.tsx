@@ -23,7 +23,8 @@ const INTERVAL_MS = 6000;
 /**
  * The rotating panel over the photograph.
  *
- * ⚠️ IT FOLLOWS `TestimonialsCarousel`, NOT ITS OWN INVENTION. The dots are
+ * ⚠️ IT FOLLOWS THE OLD `TestimonialsCarousel` (now `TestimonialsWall`, which is
+ * no longer a carousel), NOT ITS OWN INVENTION. The dots are
  * `<button type="button">` with `aria-current` and an Arabic `aria-label`; the
  * wrapper is a `role="group"` with an `aria-roledescription`; ArrowLeft advances
  * because this is RTL. Two carousels with two spellings of «which one is showing»
@@ -90,8 +91,7 @@ export function AuthSlides({ slides }: { slides: AuthSlide[] }) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       onKeyDown={(event) => {
-        // RTL: ArrowLeft advances, ArrowRight goes back — the same mapping
-        // `TestimonialsCarousel` uses.
+        // RTL: ArrowLeft advances, ArrowRight goes back.
         if (event.key === "ArrowLeft") move(1);
         if (event.key === "ArrowRight") move(-1);
       }}
