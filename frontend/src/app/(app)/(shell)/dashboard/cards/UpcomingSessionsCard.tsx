@@ -7,8 +7,8 @@ import { classSessions, type ClassSession, type SessionBooking } from "@/lib/cla
 import { userMessage } from "@/lib/errors";
 import { arabicNumber } from "@/lib/numerals";
 import { formatSessionClock, formatSessionDay } from "@/lib/session-format";
-import { ScheduleIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { ScheduleIcon, SessionsIcon } from "@/components/icons";
+import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
 import { counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
@@ -114,9 +114,14 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
       : session.status_label;
 
   return (
-    <li className="rounded-2xl border border-line p-3">
+    <li className={`${ROW_CLASS} ${open ? "border-primary/40 bg-primary-soft/30" : ""}`}>
+      <RowIcon
+        icon={<SessionsIcon className="h-4 w-4" />}
+        tone={open ? "bg-primary text-white" : undefined}
+      />
+      <div className="min-w-0 flex-1">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-medium text-ink">{session.title}</p>
+        <p className="text-sm font-bold text-ink">{session.title}</p>
         <span className="shrink-0 text-xs text-ink-muted">{state}</span>
       </div>
 
@@ -146,6 +151,7 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
           دخول الغرفة
         </Link>
       )}
+      </div>
     </li>
   );
 }

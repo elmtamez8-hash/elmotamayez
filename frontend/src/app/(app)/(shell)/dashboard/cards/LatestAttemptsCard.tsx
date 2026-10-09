@@ -6,13 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { userMessage } from "@/lib/errors";
 import { grading, type StaffAttemptRow } from "@/lib/grading";
-import { formatDateTime, statusLabel, statusTone } from "@/lib/labels";
+import { formatDateTime, statusLabel, statusTone, TONE_CLASSES } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
 import { can, P } from "@/lib/permissions";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 import { Badge } from "@/components/ui/Badge";
 import { ExamIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
+import { DashboardCard, ROW_CLASS, ROW_LINK_CLASS, RowIcon } from "./DashboardCard";
 import { isRefusal } from "./shared-read";
 
 const SHOWN = 5;
@@ -76,14 +76,14 @@ export function LatestAttemptsCard() {
       <ul className="space-y-2">
         {rows.map((row) => {
           const body = <AttemptRowBody row={row} zone={zone} />;
-          const rowClass = "flex items-center justify-between gap-3 rounded-lg border border-line p-3";
+          const rowClass = `${ROW_CLASS} items-center`;
 
           return (
             <li key={row.uuid}>
               {grades && row.status === "pending_grading" ? (
                 <Link
                   href={`/manage/grading/${row.uuid}`}
-                  className={`${rowClass} transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+                  className={`${rowClass} ${ROW_LINK_CLASS}`}
                 >
                   {body}
                 </Link>
@@ -101,11 +101,16 @@ export function LatestAttemptsCard() {
 function AttemptRowBody({ row, zone }: { row: StaffAttemptRow; zone: string }) {
   const graded = row.status === "graded";
 
+  const tone = graded
+    ? TONE_CLASSES[row.passed === false ? "danger" : "success"]
+    : TONE_CLASSES.warning;
+
   return (
     <>
-      <span className="min-w-0">
+      <RowIcon icon={<ExamIcon className="h-4 w-4" />} tone={tone} />
+      <span className="min-w-0 flex-1">
         {/* بلا اسمٍ بديل حينَ يغيبُ الطالب: التصحيحُ المجهولُ لا يُكتَبُ مكانَه شيء. */}
-        <span className="block truncate text-sm font-medium text-ink">
+        <span className="block truncate text-sm font-bold text-ink">
           {[row.student?.name, row.exam?.title].filter(Boolean).join(" · ") || "—"}
         </span>
         <span className="block truncate text-xs text-ink-muted">

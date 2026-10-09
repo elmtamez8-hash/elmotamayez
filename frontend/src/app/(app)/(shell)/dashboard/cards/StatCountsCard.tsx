@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 
 import { api } from "@/lib/api";
 import { arabicNumber } from "@/lib/numerals";
-import { LearningIcon } from "@/components/icons";
+import { CertificateIcon, LearningIcon, VerifiedIcon, type IconProps } from "@/components/icons";
 import { DashboardCard } from "./DashboardCard";
 import { readActiveEnrolments } from "./ProgressChartCard";
 
@@ -93,22 +93,30 @@ export function StatCountsCard() {
       onRetry={load}
     >
       <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="كورسات جارية" value={counts.active} />
-        <Stat label="كورسات مكتملة" value={counts.completed} />
-        <Stat label="الشهادات" value={counts.certificates} />
+        <Stat label="كورسات جارية" value={counts.active} Icon={LearningIcon} />
+        <Stat label="كورسات مكتملة" value={counts.completed} Icon={VerifiedIcon} />
+        <Stat label="الشهادات" value={counts.certificates} Icon={CertificateIcon} />
       </dl>
     </DashboardCard>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | null }) {
+function Stat({ label, value, Icon }: { label: string; value: number | null; Icon: ComponentType<IconProps> }) {
   return (
-    <div className="rounded-2xl border border-line p-4">
-      <dt className="text-sm text-ink-muted">{label}</dt>
+    <div className="group/stat flex items-center gap-4 rounded-2xl border border-line bg-surface p-4 transition duration-200 hover:border-primary/40">
+      <span
+        aria-hidden="true"
+        className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary-ink transition duration-200 group-hover/stat:bg-primary group-hover/stat:text-white"
+      >
+        <Icon className="h-6 w-6" />
+      </span>
+      <div className="min-w-0">
+      <dt className="text-sm font-bold text-ink-muted">{label}</dt>
       {/* «—» لا «٠»: الصفرُ جملةٌ عن طالبٍ لا كورسَ له، وهذه حالةُ رقمٍ لم يصل. */}
-      <dd className="text-2xl font-bold text-ink">
+      <dd className="mt-1 text-3xl font-extrabold leading-none text-primary-ink">
         <bdi>{value === null ? "—" : arabicNumber(value)}</bdi>
       </dd>
+      </div>
     </div>
   );
 }

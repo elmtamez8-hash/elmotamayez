@@ -8,8 +8,8 @@ import { arabicNumber } from "@/lib/numerals";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
 import { CreditsIcon } from "@/components/icons";
-import { DashboardCard } from "./DashboardCard";
-import { counted } from "@/lib/labels";
+import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
+import { counted, TONE_CLASSES } from "@/lib/labels";
 
 /**
  * رصيدُ حصصِ الابنِ — سطرٌ لكلِّ كورس.
@@ -64,8 +64,13 @@ export function ChildBalanceCard({ studentUuid, studentName }: ChildCardProps) {
     >
       <ul className="space-y-3">
         {rows.map((balance) => (
-          <li key={balance.uuid} className="rounded-2xl border border-line p-3">
-            <p className="text-sm font-medium text-ink">{balance.course.title}</p>
+          <li key={balance.uuid} className={ROW_CLASS}>
+            <RowIcon
+              icon={<CreditsIcon className="h-4 w-4" />}
+              tone={balance.is_withheld ? TONE_CLASSES.danger : undefined}
+            />
+            <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink">{balance.course.title}</p>
             <p className="text-xs text-ink-muted">{balance.course.teacher_name}</p>
             <p className="mt-1 text-sm text-ink">
               {/* ٠٣٥ — المتاحُ لا المملوك: بطاقتانِ تعرضانِ رقمَينِ مختلفَينِ
@@ -83,6 +88,7 @@ export function ChildBalanceCard({ studentUuid, studentName }: ChildCardProps) {
                 لاستئناف الحجز.
               </p>
             )}
+            </div>
           </li>
         ))}
       </ul>

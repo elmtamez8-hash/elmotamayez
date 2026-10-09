@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { QuestionIcon } from "@/components/icons";
-import { arabicNumber } from "@/lib/numerals";
+import { counted } from "@/lib/labels";
 import { useAuth } from "@/lib/auth-context";
 import { profileApi } from "@/lib/profile";
 import { DashboardCard } from "./DashboardCard";
@@ -66,14 +66,24 @@ export function TeacherFaqCard() {
       linkLabel="أضف أو عدّل"
       loading={loading}
     >
-      <p className="text-3xl font-bold text-ink">
-        <bdi>{count === null ? "—" : arabicNumber(count)}</bdi>
-      </p>
-      <p className="text-sm text-ink-muted">
-        {count === 0
-          ? "لم تضف أسئلة بعد — أضِف ما يسأله عنك الطلاب وأولياء الأمور، ليظهر في تبويب «أسئلة شائعة» على صفحتك."
-          : "سؤالاً يقرأه الطالب وولي أمره على صفحتك قبل الاشتراك."}
-      </p>
+      {/*
+        ⚠️ العددُ بكلماتٍ لا رقماً وحدَه: «١» بخطٍّ كبيرٍ وحيداً يُقرَأُ شَرطةً
+        (بلاغُ المالك ٢٠٢٦-١٠-٠٩)، و«سؤال واحد» لا يُخطِئُه أحد.
+      */}
+      {count !== null && count > 0 ? (
+        <>
+          <p className="text-3xl font-extrabold leading-tight text-primary-ink">
+            {counted(count, { one: "سؤال واحد", two: "سؤالان", few: "أسئلة", many: "سؤالاً", other: "سؤال" })}
+          </p>
+          <p className="mt-2 text-sm text-ink-muted">على صفحتك، يقرؤها الطالب وولي أمره قبل الاشتراك.</p>
+        </>
+      ) : (
+        <p className="text-sm leading-relaxed text-ink-muted">
+          {count === 0
+            ? "لم تضف أسئلة بعد — أضِف ما يسأله عنك الطلاب وأولياء الأمور، ليظهر في تبويب «أسئلة شائعة» على صفحتك."
+            : "—"}
+        </p>
+      )}
     </DashboardCard>
   );
 }
