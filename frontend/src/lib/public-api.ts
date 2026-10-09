@@ -356,7 +356,18 @@ export type TeacherDetail = TeacherCard & {
    * {@link videoEmbedUrl} يستخرجُ المعرِّفَ ويبني العنوانَ من ثوابتِنا.
    */
   intro_video_url: string | null;
+  /**
+   * The free recorded lesson «حصة تجريبية» opens — `ShowPublicTeacher::trialLessonOf()`.
+   * `null` when none of the teacher's courses has a lesson a guest may watch.
+   * ⚠️ OPTIONAL: a payload cached before the key existed (the page's revalidate
+   * window, or a deploy where the frontend lands before the API) has no key at
+   * all — and reading it as present crashed the whole teacher page.
+   */
+  trial_lesson?: TrialLesson | null;
 };
+
+/** The teacher's free recorded lesson: anyone may watch it, no account or booking. */
+export type TrialLesson = { course_slug: string; lesson_uuid: string; title: string };
 
 /** A product on the public store — `PublicStoreItemResource`. */
 export type PublicStoreItem = {

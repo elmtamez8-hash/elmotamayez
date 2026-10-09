@@ -13,14 +13,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-type Search = { teacher?: string; trial?: string; next?: string; ref?: string };
+type Search = { teacher?: string; next?: string; ref?: string };
 
 export default async function StudentSignupPage({
   searchParams,
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { teacher, trial, next, ref } = await searchParams;
+  const { teacher, next, ref } = await searchParams;
 
   // Fetched on the server so the year list is in the HTML: the form is useless
   // without it, and a client fetch would leave a blank select on a slow
@@ -46,9 +46,7 @@ export default async function StudentSignupPage({
       notice={
         teacher && (
           <p className="mb-5 rounded-2xl bg-primary-soft p-4 text-sm text-primary-ink">
-            {trial
-              ? "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام حجز الحصة التجريبية."
-              : "بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام الحجز."}{" "}
+            بعد إنشاء الحساب ستعود لصفحة المدرّس لإتمام الحجز.{" "}
             <Link href={`/teachers/${teacher}`} className="font-bold underline">
               العودة لصفحة المدرّس
             </Link>
