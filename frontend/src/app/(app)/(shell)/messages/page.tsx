@@ -2,6 +2,8 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
+import { MessagesIcon } from "@/components/icons";
+import { EmptyState } from "@/components/ui/states/EmptyState";
 
 /**
  * The empty pane beside the list (spec 010 · `FR-054`).
@@ -33,21 +35,17 @@ export default function MessagesEmptyPane() {
   const teaches = can(user, P.chatReply);
 
   return (
-    <div className="grid flex-1 place-items-center p-8 text-center">
-      <div className="max-w-sm space-y-2">
-        <h1 className="text-lg font-semibold text-ink">اختر محادثة</h1>
-        {teaches ? (
-          <p className="text-sm text-ink-muted">
-            محادثاتك الخاصّة مع طلابك. تبقى المحادثة مقروءة بعد انتهاء دراسة الطالب،
-            ويتوقّف الإرسال فيها. ولبدء محادثةٍ جديدةٍ اضغط «راسِل» بجوار اسم الطالب
-            في قائمة طلاب المجموعة أو في أرصدة الطلاب.
-          </p>
-        ) : (
-          <p className="text-sm text-ink-muted">
-            محادثاتك الخاصّة مع مدرّسيك ومن يعاونهم. وتبدأ محادثةٌ جديدةٌ بزرّ «تواصل مع
-            المدرّس» في صفحة الكورس أو صفحة المدرّس، أو «راسِل» في صفحة كورساتي.
-          </p>
-        )}
+    <div className="grid flex-1 place-items-center bg-surface p-8">
+      <div className="w-full max-w-2xl">
+        <EmptyState
+          title="اختر محادثة"
+          Icon={MessagesIcon}
+          description={
+            teaches
+              ? "محادثاتك الخاصّة مع طلابك. تبقى المحادثة مقروءة بعد انتهاء دراسة الطالب، ويتوقّف الإرسال فيها. ولبدء محادثةٍ جديدةٍ اضغط «راسِل» بجوار اسم الطالب في قائمة طلاب المجموعة أو في أرصدة الطلاب."
+              : "محادثاتك الخاصّة مع مدرّسيك ومن يعاونهم. وتبدأ محادثةٌ جديدةٌ بزرّ «تواصل مع المدرّس» في صفحة الكورس أو صفحة المدرّس، أو «راسِل» في صفحة كورساتي."
+          }
+        />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ChatSoundToggle } from "@/components/community/ChatSoundToggle";
 import { ConversationList } from "@/components/community/ConversationList";
+import { MessagesIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
@@ -225,17 +226,30 @@ export default function MessagesLayout({ children }: { children: React.ReactNode
      * shell's `<main>` is `p-4 sm:p-6`; a flat `-m-6` overshot the phone's 16px by
      * 8px on each side, which is a horizontal scrollbar and a page that scrolls
      * behind the thread.
+     *
+     * From `md` up the bleed is dropped and the chat is a card like every other
+     * screen (`7rem` = the header plus the shell's `p-6` above and below): the
+     * phone argument above is about a 390px line, and a desk has the room.
      */
-    <div className="-m-4 flex h-[calc(100dvh-4rem)] overflow-hidden sm:-m-6">
+    <div className="-m-4 flex h-[calc(100dvh-4rem)] overflow-hidden bg-surface-raised sm:-m-6 md:m-0 md:h-[calc(100dvh-7rem)] md:rounded-3xl md:border md:border-line md:shadow-sm">
       <aside
         className={
           // On a phone the sidebar IS the screen until a thread is open; from
           // `md` up it is a fixed column beside it.
           (openUuid === null ? "flex" : "hidden") +
-          " min-h-0 w-full shrink-0 flex-col border-e border-line md:flex md:w-80"
+          " min-h-0 w-full shrink-0 flex-col border-e border-line bg-surface md:flex md:w-80 xl:w-96"
         }
       >
-        <div className="flex shrink-0 items-center justify-end border-b border-line px-3 py-1">
+        <div className="flex shrink-0 items-center justify-between gap-2 px-4 pb-1 pt-4">
+          <h2 className="flex items-center gap-3 text-lg font-extrabold text-ink">
+            <span
+              aria-hidden="true"
+              className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-white shadow-md shadow-primary/20"
+            >
+              <MessagesIcon />
+            </span>
+            المحادثات
+          </h2>
           <ChatSoundToggle />
         </div>
 
