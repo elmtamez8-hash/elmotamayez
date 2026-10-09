@@ -125,11 +125,11 @@ export function RecordRow({
 
   return (
     <article
-      className={`group relative grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-3xl border border-line bg-surface-raised p-4 focus-within:border-primary/40 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-4 sm:p-5 ${CARD_INTERACTIVE}`}
+      className={`group relative grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm focus-within:border-primary/40 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-4 sm:p-5 ${CARD_INTERACTIVE}`}
     >
       <span
         aria-hidden="true"
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl transition duration-200 motion-safe:group-hover:scale-105 ${
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl transition duration-300 motion-safe:group-hover:rotate-6 motion-safe:group-hover:scale-110 ${
           TONE_CLASSES[tone]
         }`}
       >

@@ -11,7 +11,7 @@ function Shimmer({ className = "" }: { className?: string }) {
 
 export function TeacherCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-line bg-surface-raised p-5">
+    <div className="rounded-3xl border border-line bg-surface-raised p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-4">
         <Shimmer className="h-16 w-16 rounded-full" />
         <div className="flex-1 space-y-2">
@@ -70,7 +70,7 @@ export function CertificateCardSkeleton() {
 export function RowsSkeleton({ count = 5 }: { count?: number }) {
   return (
     <div
-      className="space-y-3 rounded-2xl border border-line bg-surface-raised p-4"
+      className="space-y-3 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm"
       role="status"
       aria-label="جارٍ التحميل"
     >

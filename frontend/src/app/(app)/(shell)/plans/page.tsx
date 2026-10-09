@@ -223,7 +223,7 @@ export default function PlansPage() {
           {offers.map((plan) => (
             <div
               key={plan.uuid}
-              className="flex items-center justify-between gap-4 rounded-xl border border-line p-4"
+              className="flex items-center justify-between gap-4 rounded-2xl border border-line p-4"
             >
               <div>
                 <p className="text-sm font-medium text-ink">{plan.title}</p>

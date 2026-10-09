@@ -31,9 +31,14 @@ export function QuickLinksCard() {
           <li key={link.href}>
             <Link
               href={link.href}
-              className="flex items-center gap-2 rounded-lg border border-line p-3 text-sm text-ink hover:border-primary/40 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="group/link flex items-center gap-3 rounded-2xl border border-line p-3 text-sm font-bold text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/40 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <link.Icon className="h-4 w-4 shrink-0" />
+              <span
+                aria-hidden="true"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-200 group-hover/link:bg-primary group-hover/link:text-white"
+              >
+                <link.Icon className="h-4 w-4" />
+              </span>
               {link.label}
             </Link>
           </li>

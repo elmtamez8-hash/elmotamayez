@@ -98,7 +98,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-8">
       <PageHeader Icon={SettingsIcon} title="الإعدادات" />
 
       <Card as="section">

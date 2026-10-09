@@ -69,7 +69,7 @@ export default function SecuritySettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       {/*
         ⚠️ THE SECOND FACTOR COMES FIRST, AND THE DEVICE LIST IS WHY.
         Reported 2026-09-22: that list is one row per signed-in device and has no
@@ -288,7 +288,7 @@ function TwoFactorSection() {
             هذه هي المرة الوحيدة التي تظهر فيها. كل رمز يعمل مرة واحدة، وهو
             طريقك إلى حسابك إن فقدت هاتفك.
           </Alert>
-          <ul className="grid grid-cols-2 gap-2 rounded-xl border border-line p-4 font-mono text-sm text-ink">
+          <ul className="grid grid-cols-2 gap-2 rounded-2xl border border-line p-4 font-mono text-sm text-ink">
             {codes.map((item) => (
               <li key={item} dir="ltr" className="text-start">
                 {item}
@@ -371,7 +371,7 @@ function TwoFactorSection() {
           */}
           <code
             dir="ltr"
-            className="block overflow-x-auto rounded-xl border border-line p-3 text-center text-base font-bold tracking-widest text-ink"
+            className="block overflow-x-auto rounded-2xl border border-line p-3 text-center text-base font-bold tracking-widest text-ink"
           >
             {setupKey ?? uri}
           </code>

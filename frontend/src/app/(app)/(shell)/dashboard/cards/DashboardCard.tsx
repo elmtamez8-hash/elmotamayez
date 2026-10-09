@@ -78,12 +78,12 @@ export function DashboardCard({
      | و`banner-rise` هو الحركةُ القائمةُ في `globals.css` — لا حركةَ جديدةٌ —
      | وكتلةُ `prefers-reduced-motion` هناك تُصفِّرُها لمن طلبَ ذلك.
      */
-    <section className="banner-rise mb-6 break-inside-avoid rounded-xl border border-line bg-surface-raised p-6">
+    <section className="banner-rise group mb-6 break-inside-avoid rounded-3xl border border-line bg-surface-raised p-6 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h3 className="flex min-w-0 items-center gap-2 font-semibold text-ink">
+        <h3 className="flex min-w-0 items-center gap-3 text-lg font-extrabold text-ink">
           {Icon !== undefined && (
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink">
-              <Icon className="h-4 w-4" />
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-300 group-hover:rotate-6 group-hover:bg-primary group-hover:text-white motion-reduce:group-hover:rotate-0">
+              <Icon className="h-5 w-5" />
             </span>
           )}
           <span className="truncate">{title}</span>
@@ -91,7 +91,7 @@ export function DashboardCard({
         {href !== undefined && (
           <Link
             href={href}
-            className="shrink-0 rounded text-sm text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="shrink-0 rounded-full bg-primary-soft px-3 py-1.5 text-sm font-bold text-primary-ink transition-colors hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {linkLabel}
           </Link>

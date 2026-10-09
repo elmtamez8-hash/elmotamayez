@@ -43,7 +43,7 @@ export default function ExamResultPage({
   const percent = result.max_score > 0 ? Math.round((result.score / result.max_score) * 100) : 0;
 
   return (
-    <div className="mx-auto max-w-md space-y-6 text-center">
+    <div className="space-y-6 text-center">
       <div
         role="status"
         className={`rounded-2xl p-8 text-white ${

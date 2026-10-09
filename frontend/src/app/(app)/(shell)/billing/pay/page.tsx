@@ -86,7 +86,7 @@ export default function PayPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div>
         <RowsSkeleton />
       </div>
     );
@@ -94,7 +94,7 @@ export default function PayPage() {
 
   if (orderUuid === null || order === null) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div>
         <EmptyState
           title="لا يوجد طلب لسداده"
           description="ابدأ من صفحة الأرصدة واختر حزمة على الكورس الذي تدرسه، ثم عد إلى هنا للسداد."
@@ -109,7 +109,7 @@ export default function PayPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={CreditsIcon}
         title="سداد طلبك"

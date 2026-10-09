@@ -407,7 +407,7 @@ function SubscribeScreen() {
           <ul className="mt-3 space-y-2">
             {plans.map((plan) => (
               <li key={plan.uuid}>
-                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-line p-4 has-[:checked]:border-primary">
+                <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-line p-4 has-[:checked]:border-primary">
                   <span className="flex items-center gap-3">
                     <input
                       type="radio"

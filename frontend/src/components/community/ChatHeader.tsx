@@ -57,7 +57,7 @@ export function ChatHeader({
   }, [menu]);
 
   return (
-    <header className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
+    <header className="flex items-center gap-3 border-b border-line bg-surface-raised px-4 py-3">
       <Link
         href="/messages"
         aria-label="رجوع إلى المحادثات"
@@ -72,7 +72,7 @@ export function ChatHeader({
       <PresenceAvatar url={avatarUrl} name={title} online={online} />
 
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-sm font-semibold text-ink">{title}</h1>
+        <h1 className="truncate text-base font-extrabold text-ink">{title}</h1>
         {subtitle !== null && subtitle !== undefined && (
           <p className="truncate text-xs text-ink-muted">{subtitle}</p>
         )}

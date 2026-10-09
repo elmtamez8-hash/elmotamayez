@@ -154,7 +154,7 @@ export function Tabs({
         edge behind a scrollbar most readers never think to drag. On a phone that
         is most of the strip. Wrapping costs a second row and shows all of them.
       */
-      className="flex flex-wrap gap-1 border-b border-line"
+      className="flex flex-wrap gap-1 rounded-2xl border border-line bg-surface-raised p-1.5 shadow-sm"
     >
       {tabs.map((tab) => {
         const selected = tab.key === active;
@@ -171,10 +171,10 @@ export function Tabs({
             // strip for the panel instead of walking every tab in it.
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.key)}
-            className={`-mb-px shrink-0 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+            className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
               selected
-                ? "border-primary text-primary-ink"
-                : "border-transparent text-ink-muted hover:text-ink"
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "text-ink-muted hover:bg-primary-soft hover:text-primary-ink"
             }`}
           >
             {/* Emphasis on top of the word, never in place of it. */}
@@ -189,7 +189,7 @@ export function Tabs({
             {tab.badge !== undefined && tab.badge > 0 && (
               <>
                 {" "}
-                <span className="ms-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary-ink">
+                <span className={`ms-1 rounded-full px-1.5 py-0.5 text-xs ${selected ? "bg-white/20 text-white" : "bg-primary/10 text-primary-ink"}`}>
                   {arabicNumber(tab.badge)}
                 </span>
               </>

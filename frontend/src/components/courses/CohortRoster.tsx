@@ -212,13 +212,13 @@ export function CohortRoster({
               </div>
 
               {open[member.uuid] === "history" && (
-                <div className="mt-2 rounded-lg border border-line p-2">
+                <div className="mt-2 rounded-2xl border border-line p-2">
                   <StudentCohortHistory courseUuid={courseUuid} studentUuid={member.uuid} />
                 </div>
               )}
 
               {open[member.uuid] === "progress" && (
-                <div className="mt-2 rounded-lg border border-line p-2">
+                <div className="mt-2 rounded-2xl border border-line p-2">
                   <StudentProgressPanel studentUuid={member.uuid} />
                 </div>
               )}

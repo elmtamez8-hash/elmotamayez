@@ -97,7 +97,7 @@ export function Modal({
       onClick={(event) => {
         if (event.target === ref.current) ref.current?.close();
       }}
-      className="w-full max-w-md rounded-2xl border border-line bg-surface-raised p-6 text-start text-ink shadow-xl"
+      className="w-full max-w-md rounded-3xl border border-line bg-surface-raised p-6 shadow-sm text-start text-ink shadow-xl"
     >
       <h2 id="modal-title" className="text-lg font-bold">
         {title}

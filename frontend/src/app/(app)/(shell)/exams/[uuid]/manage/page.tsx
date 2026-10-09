@@ -144,7 +144,7 @@ export default function ManageExamPage({
   if (failed || !exam) return <ErrorState onRetry={load} />;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={ExamIcon}
         title={exam.title}

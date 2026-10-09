@@ -35,7 +35,7 @@ export function Alert({
   return (
     <div
       role={tone === "danger" ? "alert" : "status"}
-      className={`flex items-start gap-3 rounded-xl p-3 text-sm ${TONE_CLASSES[tone]}`}
+      className={`flex items-start gap-3 rounded-2xl p-4 text-sm ${TONE_CLASSES[tone]}`}
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0" />
       <div className="min-w-0">

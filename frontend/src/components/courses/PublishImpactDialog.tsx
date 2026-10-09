@@ -146,7 +146,7 @@ export function PublishImpactDialog({
 
 function Figure({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-line p-3">
+    <div className="rounded-2xl border border-line p-3">
       <dt className="text-sm text-ink-muted">{label}</dt>
       <dd className="mt-1 text-2xl font-bold text-ink">{value}</dd>
     </div>

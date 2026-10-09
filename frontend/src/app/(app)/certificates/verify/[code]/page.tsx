@@ -145,7 +145,7 @@ export default function VerifyCertificatePage({
       <main id="main" className="flex min-h-[60vh] items-center justify-center px-4 py-10">
         <div
           role="alert"
-          className="w-full max-w-md rounded-2xl border border-line bg-surface-raised p-8 text-center"
+          className="w-full max-w-md rounded-3xl border border-line bg-surface-raised p-8 shadow-sm text-center"
         >
           <AlertIcon className="mx-auto mb-4 h-12 w-12 text-danger-ink" />
           <h1 className="mb-2 text-xl font-bold text-ink">شهادة غير صالحة</h1>
@@ -175,7 +175,7 @@ export default function VerifyCertificatePage({
         what somebody forging one would send. The platform says "verified"; the
         certificate says who earned what.
       */}
-      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-line bg-surface-raised p-5 print:hidden">
+      <div className="mb-6 flex items-center gap-3 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm print:hidden">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-white">
           <VerifiedIcon className="h-6 w-6" />
         </span>
@@ -231,7 +231,7 @@ export default function VerifyCertificatePage({
         reader — and the verdict is worthless if the facts it confirms cannot be
         read. This list is the certificate; the sheet above is how it looks.
       */}
-      <dl className="mt-6 grid gap-3 rounded-2xl border border-line bg-surface-raised p-6 sm:grid-cols-2 print:hidden">
+      <dl className="mt-6 grid gap-3 rounded-3xl border border-line bg-surface-raised p-6 shadow-sm sm:grid-cols-2 print:hidden">
         <Fact icon={<StudentIcon />} label="الطالب" value={certificate.student_name ?? "—"} />
         <Fact icon={<SubjectIcon />} label="المادة" value={subject} />
         <Fact icon={<TeacherIcon />} label="المدرّس" value={certificate.teacher_name ?? "—"} />

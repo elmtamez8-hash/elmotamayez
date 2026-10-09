@@ -117,7 +117,7 @@ function LoginForm() {
     >
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm"
       >
         {/* Landed here from the confirmation link in the welcome mail. */}
         {verified === "1" && error === "" && (
@@ -264,7 +264,7 @@ function TwoFactorChallenge({
   >
       <form
         onSubmit={submit}
-        className="space-y-4 rounded-2xl border border-line bg-surface-raised p-8"
+        className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm"
       >
         {error && <Alert tone="danger" title={error} />}
 

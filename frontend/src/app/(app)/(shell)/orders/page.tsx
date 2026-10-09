@@ -797,7 +797,7 @@ export default function OrdersPage() {
                   /* بطاقةٌ لها حدٌّ وحشوةٌ على الهاتف، وصفُّ جدولٍ عاديٌّ من `md`:
                      الحدُّ والزوايا والحشوةُ كلُّها تُلغى هناك، فلا يُرسَمُ صندوقٌ
                      حولَ كلِّ صفٍّ في جدول. */
-                  className="animate-float-in block rounded-2xl border border-line bg-surface-raised p-4 transition hover:bg-primary-soft/40 md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0"
+                  className="animate-float-in block rounded-3xl border border-line bg-surface-raised p-4 shadow-sm transition hover:bg-primary-soft/40 md:table-row md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none"
                 >
                   {columns.map((col) => (
                     <td

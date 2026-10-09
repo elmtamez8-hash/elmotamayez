@@ -243,16 +243,16 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           panel of unlabelled icons. That is the report this whole change answers,
           re-manufactured one breakpoint lower.
         */
-        className={`mb-1 flex items-center gap-3 rounded-lg py-2.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary px-3 ${
+        className={`group mb-1 flex items-center gap-3 rounded-xl py-2.5 text-sm transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary px-3 ${
           collapsed ? "md:justify-center md:px-2" : ""
         } ${
           active
-            ? "bg-primary font-semibold text-white"
+            ? "bg-primary font-bold text-white shadow-md shadow-primary/20"
             : "text-ink hover:bg-primary-soft hover:text-primary-ink"
         }`}
       >
         <span className="relative shrink-0">
-          <Icon className="h-5 w-5" />
+          <Icon className={`h-5 w-5 transition duration-200 motion-reduce:transition-none ${active ? "" : "group-hover:scale-110"}`} />
 
           {/*
             ⚠️ ON THE RAIL THE COUNT BECOMES A DOT ON THE ICON, and it must not
@@ -357,7 +357,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               {/* ⚠️ Hidden on the rail rather than truncated. «الإدارة» clipped to
                   two letters over a column of icons is noise where the border
                   above it already says «a new group starts here». */}
-              <p className={`mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
+              <p className={`mb-2 px-3 text-xs font-extrabold text-primary-ink ${collapsed ? "md:sr-only" : ""}`}>
                 الإدارة
               </p>
               {adminItems.map(renderItem)}
@@ -369,7 +369,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               link, because they are not a super admin. */}
           {allowed(platformNav).length > 0 && (
             <div className="mb-1 mt-4 border-t border-line pt-4">
-              <p className={`mb-2 px-3 text-xs font-semibold tracking-wide text-ink-muted ${collapsed ? "md:sr-only" : ""}`}>
+              <p className={`mb-2 px-3 text-xs font-extrabold text-primary-ink ${collapsed ? "md:sr-only" : ""}`}>
                 المنصّة
               </p>
               {allowed(platformNav).map(renderItem)}
@@ -442,7 +442,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       {/* The offset tracks the panel's width, and animates with it — a content
           column that jumps to its new margin while the nav is still sliding is
           two elements disagreeing about where the edge is. */}
-      <div className={`flex-1 transition-[margin] duration-200 ${collapsed ? "md:ms-16" : "md:ms-64"}`}>
+      <div className={`min-w-0 flex-1 transition-[margin] duration-200 ${collapsed ? "md:ms-16" : "md:ms-64"}`}>
         {/*
           ⚠️ THE BAR IS FULL-BLEED AND ITS CONTENTS ARE NOT. The rule under it has
           to reach both edges — a border that stops short reads as a card — while
@@ -507,7 +507,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               {collapsed ? <ChevronEndIcon /> : <ChevronStartIcon />}
             </button>
 
-            <h1 className="truncate text-lg font-semibold text-ink">
+            <h1 className="truncate text-lg font-extrabold text-ink">
               {pageTitleFor(pathname, user)}
             </h1>
           </div>

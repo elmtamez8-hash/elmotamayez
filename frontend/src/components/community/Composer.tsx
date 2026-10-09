@@ -65,7 +65,10 @@ export function Composer({
     if (element === null) return;
 
     element.style.height = "auto";
-    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+    // ⚠️ Plus the border: `scrollHeight` stops at the padding, and the box is
+    // `border-box`, so without it one line was 2px short and showed a scrollbar.
+    const border = element.offsetHeight - element.clientHeight;
+    element.style.height = `${Math.min(element.scrollHeight + border, 160)}px`;
   }, [value]);
 
   const openPicker = () => {
@@ -121,7 +124,7 @@ export function Composer({
   };
 
   return (
-    <div className="border-t border-line bg-surface p-3">
+    <div className="border-t border-line bg-surface-raised p-3 sm:px-4">
       {picker === "open" && Picker !== null && (
         <div className="mb-2 flex justify-start">
           <Picker onEmojiClick={(emoji) => insert(emoji.emoji)} width={320} height={360} />
@@ -197,7 +200,7 @@ export function Composer({
               }
             }}
             aria-invalid={error !== undefined}
-            className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none disabled:opacity-60"
+            className="w-full resize-none rounded-3xl border border-line bg-surface px-4 py-2 text-sm leading-6 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none disabled:opacity-60"
           />
         </div>
 
@@ -239,7 +242,7 @@ export function Composer({
           onClick={send}
           disabled={disabled || (value.trim() === "" && pending === null)}
           aria-label="إرسال"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white disabled:opacity-40"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white shadow-md shadow-primary/20 transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none motion-reduce:hover:translate-y-0"
         >
           {/* An arrow, mirrored with the page: `rotate-180` in RTL would be a
               second rule to remember, so the glyph itself is direction-neutral. */}

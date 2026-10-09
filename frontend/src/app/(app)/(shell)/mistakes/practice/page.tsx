@@ -63,7 +63,7 @@ export default function MistakePracticePage() {
 
   if (paper === null) {
     return (
-      <div className="mx-auto max-w-2xl">
+      <div>
         <Alert tone="danger" title={error === "" ? "تعذّر بناء الورقة." : error}>
           <Button href="/mistakes" variant="secondary" size="sm">
             عُد إلى دفتر الأخطاء
@@ -74,7 +74,7 @@ export default function MistakePracticePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={MistakesIcon}
         title="اختبرني في أخطائي"

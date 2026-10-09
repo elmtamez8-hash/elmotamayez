@@ -173,7 +173,7 @@ export function MessageList({
                 <li key={message.uuid}>
                   {newDay && (
                     <div className="my-4 flex justify-center">
-                      <span className="rounded-full bg-surface px-3 py-1 text-[11px] text-ink-muted">
+                      <span className="rounded-full border border-line bg-surface px-3 py-1 text-[11px] font-bold text-ink-muted">
                         {formatDate(message.created_at)}
                       </span>
                     </div>
@@ -229,7 +229,7 @@ export function MessageList({
                       <div
                         className={
                           mine
-                            ? "rounded-2xl rounded-ee-sm bg-primary px-3 py-2 text-white"
+                            ? "rounded-2xl rounded-ee-sm bg-primary px-3.5 py-2 text-white shadow-sm shadow-primary/20"
                             /*
                               ⚠️ `surface`, NOT `surface-raised` — WHICH IS THE CARD THIS
                               SITS ON. Both resolved to the same colour in both themes, so
@@ -237,7 +237,7 @@ export function MessageList({
                               card while mine were clearly bubbled. In a live lesson the
                               teacher's answers are the ones that disappear.
                             */
-                            : "rounded-2xl rounded-es-sm bg-surface px-3 py-2 text-ink"
+                            : "rounded-2xl rounded-es-sm border border-line bg-surface px-3.5 py-2 text-ink"
                         }
                       >
                         {/* Keyed by the MESSAGE, never by the link: the link is re-signed

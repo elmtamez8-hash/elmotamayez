@@ -77,7 +77,7 @@ export function StudyRoomBoard({
   }, [board.ends_at, state]);
 
   return (
-    <section className="rounded-2xl border border-line bg-surface-raised p-5">
+    <section className="rounded-3xl border border-line bg-surface-raised p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h3 className="font-semibold text-ink">لوحة النتائج</h3>
         {state === "closed" ? (
@@ -96,7 +96,7 @@ export function StudyRoomBoard({
           {board.rows.map((row, index) => (
             <li
               key={row.uuid}
-              className="flex items-center justify-between gap-3 rounded-lg border border-line p-3"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-line p-3"
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="text-xs font-medium text-ink-muted">

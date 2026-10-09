@@ -131,7 +131,7 @@ export default function NotificationSettingsPage() {
   if (loading) return <p className="text-ink-muted">جارٍ التحميل…</p>;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="space-y-8">
       <PageHeader Icon={SettingsIcon} title="إعدادات الإشعارات" />
 
       {error && <Alert tone="danger" title={error} />}

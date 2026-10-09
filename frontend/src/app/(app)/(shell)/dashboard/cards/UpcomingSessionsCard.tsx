@@ -114,7 +114,7 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
       : session.status_label;
 
   return (
-    <li className="rounded-lg border border-line p-3">
+    <li className="rounded-2xl border border-line p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="text-sm font-medium text-ink">{session.title}</p>
         <span className="shrink-0 text-xs text-ink-muted">{state}</span>

@@ -55,7 +55,7 @@ export function CourseBalancesCard() {
     >
       <ul className="space-y-3">
         {rows.map((balance) => (
-          <li key={balance.uuid} className="rounded-lg border border-line p-3">
+          <li key={balance.uuid} className="rounded-2xl border border-line p-3">
             <p className="text-sm font-medium text-ink">{balance.course.title}</p>
             <p className="text-xs text-ink-muted">{balance.course.teacher_name}</p>
             <p className="mt-1 text-sm text-ink">

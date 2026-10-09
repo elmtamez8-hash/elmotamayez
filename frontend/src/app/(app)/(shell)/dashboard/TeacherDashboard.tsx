@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
+import { AcademicCapIcon } from "@/components/icons";
+import { DashboardHero } from "./DashboardHero";
 import { LatestAttemptsCard } from "./cards/LatestAttemptsCard";
 import { LatestCoursesCard } from "./cards/LatestCoursesCard";
 import { LatestNotificationsCard } from "./cards/LatestNotificationsCard";
@@ -38,10 +40,11 @@ export function TeacherDashboard() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-ink">أهلاً، {user?.first_name}</h2>
-        <p className="text-ink-muted">هذه نظرة عامة على صفّك اليوم.</p>
-      </div>
+      <DashboardHero
+        greeting={`أهلاً، ${user?.first_name ?? ""}`}
+        line="هذه نظرة عامة على صفّك اليوم."
+        Icon={AcademicCapIcon}
+      />
 
       {/* الأرقامُ الثلاثةُ أوّلاً: ما ينتظرُ قراراً منه، لا ما أنجزَه. وكلٌّ منها
           تُخفي نفسَها حينَ لا يملكُ القارئُ صلاحيّتَها. */}

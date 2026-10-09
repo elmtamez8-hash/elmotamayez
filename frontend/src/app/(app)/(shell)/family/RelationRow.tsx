@@ -60,7 +60,7 @@ export function RelationRow({
   };
 
   return (
-    <li className="rounded-xl border border-line p-4">
+    <li className="rounded-2xl border border-line p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-ink">{heading}</p>

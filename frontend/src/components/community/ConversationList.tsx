@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { PresenceAvatar } from "@/components/community/PresenceAvatar";
+import { SearchIcon } from "@/components/icons";
 import { formatDateTime } from "@/lib/labels";
 import type { Conversation } from "@/lib/conversations";
 
@@ -47,7 +48,7 @@ export function ConversationList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-line p-3">
+      <div className="relative p-3">
         <label htmlFor="conversation-search" className="sr-only">
           ابحث في محادثاتك
         </label>
@@ -57,7 +58,11 @@ export function ConversationList({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="ابحث بالاسم…"
-          className="w-full rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+          className="w-full rounded-full border border-line bg-surface-raised py-2.5 pe-4 ps-10 text-sm text-ink shadow-sm placeholder:text-ink-muted focus:border-primary focus:outline-none"
+        />
+        <SearchIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute start-6 top-1/2 -translate-y-1/2 text-ink-muted"
         />
       </div>
 
@@ -68,7 +73,7 @@ export function ConversationList({
       ) : (
         // `min-h-0`, or a flex child is at least as tall as its content and the
         // overflow never engages — the list grows past the pane and is clipped.
-        <ul className="min-h-0 flex-1 overflow-y-auto">
+        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
           {shown.map((row) => {
             const active = row.uuid === activeUuid;
 
@@ -78,9 +83,10 @@ export function ConversationList({
                   href={`/messages/${row.uuid}`}
                   aria-current={active ? "page" : undefined}
                   className={
-                    active
-                      ? "flex items-start gap-3 border-b border-line bg-primary-soft p-3"
-                      : "flex items-start gap-3 border-b border-line p-3 hover:bg-surface-raised"
+                    "group flex items-start gap-3 rounded-2xl p-3 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary " +
+                    (active
+                      ? "bg-primary text-white shadow-md shadow-primary/20"
+                      : "hover:bg-surface-raised hover:shadow-sm")
                   }
                 >
                   <PresenceAvatar
@@ -90,20 +96,20 @@ export function ConversationList({
                   />
 
                   <div className="min-w-0 flex-1">
+                    <span className={`block truncate font-bold ${active ? "text-white" : "text-ink"}`}>
+                      {row.counterparty_name ?? "محادثة"}
+                    </span>
+
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-medium text-ink">
-                        {row.counterparty_name ?? "محادثة"}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-ink-muted">
+                      <p className={`min-w-0 truncate text-sm ${active ? "text-white/80" : "text-ink-muted"}`}>
+                        {row.last_message === null
+                          ? "لا رسائل بعد"
+                          : row.last_message.body}
+                      </p>
+                      <span className={`shrink-0 text-[11px] ${active ? "text-white/75" : "text-ink-muted"}`}>
                         {formatDateTime(row.last_message?.created_at ?? row.updated_at)}
                       </span>
                     </div>
-
-                    <p className="truncate text-sm text-ink-muted">
-                      {row.last_message === null
-                        ? "لا رسائل بعد"
-                        : row.last_message.body}
-                    </p>
                   </div>
                 </Link>
               </li>

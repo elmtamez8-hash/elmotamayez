@@ -108,16 +108,16 @@ export function Table<T>({
       wrapper's overflow does NOT clip it — measured on `/manage/certificates` at
       375px: `scrollWidth` 766 against 360, from «أعِد الإصدار»'s hidden label.
     */
-    <div className="relative [contain:inline-size] overflow-x-auto rounded-2xl border border-line bg-surface-raised">
+    <div className="relative [contain:inline-size] overflow-x-auto rounded-3xl border border-line bg-surface-raised shadow-sm">
       <table className="w-full min-w-max text-sm">
         <caption className="sr-only">{caption}</caption>
-        <thead className="border-b border-line">
+        <thead className="border-b border-line bg-primary-soft/50">
           <tr>
             {columns.map((col) => (
               <th
                 key={col.key}
                 scope="col"
-                className={`px-4 py-3 font-medium text-ink-muted ${
+                className={`px-4 py-3 font-bold text-primary-ink ${
                   col.numeric || col.align === "end" ? "text-end" : "text-start"
                 }`}
               >

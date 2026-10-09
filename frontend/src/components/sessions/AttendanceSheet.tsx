@@ -154,7 +154,7 @@ export function AttendanceSheet({
         {rows.map((row) => (
           <li
             key={row.uuid}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line p-3"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink">

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
 /**
- * Border, not shadow. The public site builds its visual hierarchy with `border-line`
- * on `bg-surface-raised`, and a shadowed panel next to a bordered one reads as a
- * second design system (SC-004).
+ * A `border-line` card on `bg-surface-raised` with the faint `shadow-sm` the public
+ * site's cards carry since the 2026-10 redesign — one card look across the site and
+ * the panel (SC-004).
  */
 
 const PADDING = {
@@ -19,7 +19,7 @@ const PADDING = {
  * the colour change alone.
  */
 export const CARD_INTERACTIVE =
-  "transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5";
+  "transition duration-300 ease-out hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-safe:hover:-translate-y-1";
 
 export function Card({
   children,
@@ -41,7 +41,7 @@ export function Card({
       aria-labelledby={labelledBy}
       // rounded-3xl to sit with the pill controls: a card corner tighter than
       // its own buttons reads as two systems in one frame.
-      className={`rounded-3xl border border-line bg-surface-raised ${PADDING[padding]} ${
+      className={`rounded-3xl border border-line bg-surface-raised shadow-sm ${PADDING[padding]} ${
         interactive ? CARD_INTERACTIVE : ""
       }`}
     >

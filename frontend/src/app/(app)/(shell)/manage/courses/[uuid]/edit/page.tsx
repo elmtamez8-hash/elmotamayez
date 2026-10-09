@@ -257,7 +257,7 @@ export default function EditCoursePage({
   if (failed || !course) return <ErrorState onRetry={load} />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         Icon={CoursesIcon}
         title="تعديل الكورس"

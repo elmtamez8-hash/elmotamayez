@@ -63,7 +63,7 @@ export function ChildScheduleCard({ studentUuid, studentName }: ChildCardProps) 
           if (session === null) return null;
 
           return (
-            <li key={booking.uuid} className="rounded-lg border border-line p-3">
+            <li key={booking.uuid} className="rounded-2xl border border-line p-3">
               <p className="text-sm font-medium text-ink">{session.title}</p>
               <p className="text-xs text-ink-muted">
                 {/* بساعةِ وليِّ الأمرِ نفسِه (٢٠٢٦-٠٩-٢٥): المنطقةُ المخزَّنةُ
