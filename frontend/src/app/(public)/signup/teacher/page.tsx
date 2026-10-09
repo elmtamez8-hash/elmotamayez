@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { publicApi } from "@/lib/public-api";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { TeacherSignupWizard } from "@/components/marketplace/TeacherSignupWizard";
+import { SignupFrame } from "@/components/marketplace/SignupFrame";
 
 export const metadata: Metadata = {
   title: "التقديم كمدرّس",
@@ -44,17 +45,12 @@ export default async function TeacherSignupPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold text-ink sm:text-3xl">
-          انضم كمدرّس
-        </h1>
-        <p className="text-ink-muted">
-          أربع خطوات، ويمكنك التوقّف والعودة في أي وقت — بياناتك محفوظة.
-        </p>
-      </div>
-
+    <SignupFrame
+      role="teacher"
+      title="انضم كمدرّس"
+      subtitle="أربع خطوات، ويمكنك التوقّف والعودة في أي وقت — بياناتك محفوظة."
+    >
       <TeacherSignupWizard subjects={subjects} gradeLevels={gradeLevels} />
-    </div>
+    </SignupFrame>
   );
 }
