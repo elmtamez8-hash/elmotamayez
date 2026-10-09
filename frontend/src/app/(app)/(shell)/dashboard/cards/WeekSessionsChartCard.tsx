@@ -132,7 +132,15 @@ export function WeekSessionsChartCard() {
   // فيصيرُ الارتفاعُ `NaN%` — وهو عمودٌ لا يُرسَمُ بصمت.
   const max = Math.max(1, ...days.map((day) => day.sessions.length));
   const shownKey = pinned ?? hovered;
-  const shownDay = days.find((day) => day.key === shownKey) ?? null;
+  /*
+   | ⚠️ THE PANEL NEVER APPEARS OR CHANGES HEIGHT ON HOVER. The dashboard is CSS
+   | columns, so a card that grows re-balances them: the card moved out from under
+   | the pointer, `mouseleave` hid the panel, the card moved back, and the day
+   | flickered (reported 2026-10-09). So the panel is always there once the week
+   | has a session, shows the first day until one is hovered or pinned, and has a
+   | fixed height that scrolls inside.
+   */
+  const shownDay = days.find((day) => day.key === shownKey) ?? (rows.length > 0 ? (days[0] ?? null) : null);
 
   return (
     <DashboardCard
@@ -187,7 +195,7 @@ export function WeekSessionsChartCard() {
       </ol>
 
       {shownDay !== null && (
-        <div className="mt-3 rounded-xl border border-line bg-primary-soft p-3">
+        <div className="mt-3 h-32 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-primary-soft p-3">
           <p className="mb-2 text-xs font-bold text-ink">
             {weekdayLabel(shownDay.key, zone)} <bdi>{dateLabel(shownDay.key, zone)}</bdi>
           </p>
