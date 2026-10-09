@@ -456,7 +456,10 @@ class EloquentCohortDirectory implements CohortDirectory
             | group on the platform disappears behind a 200 with nothing in the
             | log**.
             */
-            ->get(['id', 'uuid', 'name', 'description', 'status', 'capacity', 'members_count', 'workspace_id']);
+            // ⚠️ `course_id` TOO: the price stamp matches a COURSE plan on it, and
+            // unselected it read 0 — so a group priced by its course's plan (not a
+            // whole-teacher plan) vanished from the public page (found 2026-10-09).
+            ->get(['id', 'uuid', 'name', 'description', 'status', 'capacity', 'members_count', 'workspace_id', 'course_id']);
 
         $out = [];
 

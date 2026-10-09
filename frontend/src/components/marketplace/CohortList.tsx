@@ -1,3 +1,4 @@
+import { PriceTag } from "@/components/marketplace/PriceTag";
 import { WaitlistButton } from "@/components/courses/WaitlistButton";
 import {
   CohortSubscribeButton,
@@ -154,6 +155,9 @@ export function CohortList({
               // beside «اشترك في هذه المجموعة» is an invitation to buy a place
               // they hold, which the server refuses after a payment screen.
               <UnlessMyCohort cohortUuid={cohort.uuid}>
+                {/* This group's own price, as the buyer on it is offered (review
+                    2026-10-09) — the server sends it only on a joinable group. */}
+                {cohort.price != null && <PriceTag price={cohort.price} />}
                 {/* A visitor signs up first and comes back to this group (#175). */}
                 <CohortSubscribeButton courseUuid={courseUuid} cohortUuid={cohort.uuid} />
               </UnlessMyCohort>

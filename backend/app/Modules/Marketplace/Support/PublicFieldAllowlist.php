@@ -211,6 +211,13 @@ final class PublicFieldAllowlist
         | button shown over a course nobody can buy.
         */
         'enrolment_open',
+        /*
+        | The lowest price on the page, and the private hours' own (review
+        | 2026-10-09) — see `PRICE`. Asked only of the doors already open, so
+        | they say nothing `enrolment_open` does not.
+        */
+        'starting_price',
+        'private_price',
         // «تواصل مع المدرّس» — see `CONTACT` below.
         'contact',
     ];
@@ -385,7 +392,15 @@ final class PublicFieldAllowlist
     | Deriving it in the browser from `status` and `seats_left` is the two-
     | spellings defect, and it publishes nothing `status` does not already.
     */
-    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'schedule_slots', 'seats_left', 'is_joinable'];
+    public const COHORT = ['uuid', 'name', 'description', 'status', 'schedule', 'schedule_slots', 'seats_left', 'is_joinable', 'price'];
+
+    /*
+    | One price on the course page — a group's, the private hours', or the
+    | header's lowest. The amount and what it buys (a month, or N sessions):
+    | never the plan's uuid or title, which are the subscribe screen's.
+    */
+    /** @var list<string> */
+    public const PRICE = ['price_minor', 'currency', 'duration_days', 'session_count'];
 
     /*
     | The nested shapes, which had no constants until spec 006 made this class

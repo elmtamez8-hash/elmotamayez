@@ -339,6 +339,57 @@ class SubscriptionEligibility implements SubscriptionDirectory
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * ⚠️ THE SAME CHOICE `ListPlans` MAKES FOR THE BUYER, read from one query: a
+     * group's OWN plans (any plan naming it, sellable or not) REPLACE the
+     * course's (036 · FR-016) — so a group whose own plans are all switched off
+     * shows no price, exactly as it is sold nothing. Course-level means a
+     * workspace plan or one naming the course, as `ListPlans` filters.
+     */
+    public function startingPricesFor(int $courseId, array $cohortUuids): array
+    {
+        $course = Course::query()->withoutWorkspaceScope()->find($courseId);
+
+        if ($course === null) {
+            return ['private' => null, 'cohorts' => array_fill_keys($cohortUuids, null)];
+        }
+
+        $courseUuid = (string) $course->uuid;
+        $plans = $this->reach->covering([(int) $course->workspace_id], [$courseUuid, ...$cohortUuids])->get();
+
+        $sellable = static fn (Plan $plan): bool => $plan->is_active && $plan->price_minor !== null;
+        $courseLevel = $plans->filter(fn (Plan $plan): bool => $sellable($plan)
+            && ($plan->coverage_type === PlanCoverage::Workspace || $plan->coverage_uuid === $courseUuid));
+
+        $cheapest = static function (Collection $candidates, string $sessionType): ?array {
+            /** @var Plan|null $plan */
+            $plan = $candidates
+                ->filter(fn (Plan $plan): bool => $plan->session_type->value === $sessionType)
+                // ponytail: compared in minor units across the workspace's plans,
+                // which share its one currency; mixed currencies would need a rate.
+                ->sortBy('price_minor')
+                ->first();
+
+            return $plan === null ? null : [
+                'price_minor' => (int) $plan->price_minor,
+                'currency' => $plan->currency,
+                'duration_days' => $plan->duration_days,
+                'session_count' => $plan->session_count,
+            ];
+        };
+
+        $cohorts = [];
+
+        foreach ($cohortUuids as $cohortUuid) {
+            $own = $plans->filter(fn (Plan $plan): bool => $plan->coverage_uuid === $cohortUuid);
+            $cohorts[$cohortUuid] = $cheapest($own->isNotEmpty() ? $own->filter($sellable) : $courseLevel, 'group');
+        }
+
+        return ['private' => $cheapest($courseLevel, 'individual'), 'cohorts' => $cohorts];
+    }
+
+    /**
      * The coverage predicate itself, in one place.
      *
      * ⚠️ AN UNPUBLISHED OR DELETED COURSE FALLS OUT OF COVERAGE AND THE

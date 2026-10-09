@@ -301,6 +301,17 @@ class ReadPublicCourse extends Action
         return $this->lead->minutes();
     }
 
+    /**
+     * The page's prices — {@see SubscriptionDirectory::startingPricesFor()}.
+     *
+     * @param  list<string>  $cohortUuids
+     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, cohorts: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
+     */
+    public function startingPrices(Course $course, array $cohortUuids): array
+    {
+        return $this->subscriptions->startingPricesFor((int) $course->getKey(), $cohortUuids);
+    }
+
     public function privateSubscriptionAvailable(Course $course): bool
     {
         // The course's teacher, never its creator — {@see Course::teacherProfileForListing()}.

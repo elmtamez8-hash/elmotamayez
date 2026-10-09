@@ -15,7 +15,8 @@ import { useCourseOwnership } from "@/components/marketplace/CourseOwnership";
 import { VerifiedBadgeIcon } from "@/components/icons";
 import { TrustScoreBadge } from "@/components/marketplace/TrustScoreBadge";
 import type { Curriculum } from "@/lib/curriculum";
-import type { CourseDetail } from "@/lib/public-api";
+import type { CourseDetail, CoursePrice } from "@/lib/public-api";
+import { PriceTag } from "@/components/marketplace/PriceTag";
 import { api } from "@/lib/api";
 import { homePathFor, teachesOnPlatform, useAuth } from "@/lib/auth-context";
 import { dashboardAudience } from "@/lib/dashboard-audience";
@@ -42,6 +43,7 @@ export function CourseRail({
   privateSubscriptionAvailable,
   joinableGroup,
   teacher,
+  startingPrice = null,
 }: {
   courseUuid: string;
   /** حكمُ الخادم، ولا يُشتَقُّ هنا — {@see VisitorRail}. */
@@ -55,6 +57,8 @@ export function CourseRail({
   /** أنّ مجموعةً واحدةً على الأقلّ حكمَ لها الخادمُ `is_joinable`. */
   joinableGroup: boolean;
   teacher: CourseDetail["teacher"];
+  /** The server's `starting_price` — {@see VisitorRail}. */
+  startingPrice?: CoursePrice | null;
 }) {
   const ownership = useCourseOwnership();
 
@@ -70,6 +74,7 @@ export function CourseRail({
           privateSubscriptionAvailable={privateSubscriptionAvailable}
           joinableGroup={joinableGroup}
           courseUuid={courseUuid}
+          startingPrice={startingPrice}
         />
       )}
 
@@ -167,6 +172,7 @@ function VisitorRail({
   privateSubscriptionAvailable,
   joinableGroup,
   courseUuid,
+  startingPrice,
 }: {
   isFull: boolean;
   freeEnrollment: boolean;
@@ -174,6 +180,7 @@ function VisitorRail({
   privateSubscriptionAvailable: boolean;
   joinableGroup: boolean;
   courseUuid: string;
+  startingPrice: CoursePrice | null;
 }) {
   /*
     ⚠️ The closed state wins over everything but «full» and «free»: «full» has
@@ -189,13 +196,26 @@ function VisitorRail({
         through a plan and nothing else — the one-off purchase route is gone — so
         `courses.price_minor` prices nothing a buyer can pay, and printing it read
         as an offer. The plan's own price is shown where the plan is chosen
-        (`/subscribe`).
+        (`/subscribe`) — and, since 2026-10-09, as «يبدأ من» just below.
 
         ⚠️ «مجاني» stays, and only on the server's `free_enrollment` — never on
         `price_minor === 0`, which is also true of every course that is sold by a
         plan and was never given a price.
       */}
       {freeEnrollment && !isFull && <p className="text-4xl font-black text-primary-ink">مجاني</p>}
+
+      {/*
+        The PLAN's price, which IS what the buyer pays (review 2026-10-09: it
+        first appeared at the last step of checkout) — never `price_minor` above.
+        The server sends it only over an open door, and it always carries what it
+        buys: a month and an eight-session pack are not the same «from».
+      */}
+      {!freeEnrollment && !isFull && enrolmentOpen && startingPrice != null && (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-bold text-ink-muted">يبدأ من</span>
+          <PriceTag price={startingPrice} size="lg" />
+        </div>
+      )}
 
       {isFull ? (
         <p className="flex flex-col gap-1.5 rounded-2xl bg-primary-soft px-4 py-4 text-sm text-ink">

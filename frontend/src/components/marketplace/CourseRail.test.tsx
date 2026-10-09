@@ -67,7 +67,12 @@ function curriculum(overrides: Partial<Curriculum["course"]> = {}): Curriculum {
   };
 }
 
-type Sale = { enrolmentOpen?: boolean; privateSubscriptionAvailable?: boolean; joinableGroup?: boolean };
+type Sale = {
+  enrolmentOpen?: boolean;
+  privateSubscriptionAvailable?: boolean;
+  joinableGroup?: boolean;
+  startingPrice?: import("@/lib/public-api").CoursePrice | null;
+};
 
 async function renderRail(isFull = false, sale: Sale = {}) {
   await act(async () => {
@@ -79,6 +84,7 @@ async function renderRail(isFull = false, sale: Sale = {}) {
           enrolmentOpen={sale.enrolmentOpen ?? true}
           privateSubscriptionAvailable={sale.privateSubscriptionAvailable ?? true}
           joinableGroup={sale.joinableGroup ?? false}
+          startingPrice={sale.startingPrice ?? null}
           teacher={{
             uuid: "t-1",
             slug: "sami-teacher",
@@ -331,5 +337,28 @@ describe("CourseRail", () => {
     expect(screen.getByRole("link", { name: "اشترك بحصص خاصة" })).toBeTruthy();
     expect(screen.queryByText("مجاني")).toBeNull();
     expect(screen.queryByText("لم يفتح المدرّس الاشتراك بعد")).toBeNull();
+  });
+});
+
+describe("CourseRail — «يبدأ من»", () => {
+  const month = { price_minor: 25_000, currency: "QAR", duration_days: 30, session_count: null };
+
+  it("heads the visitor's rail with the plan's price and what it buys", async () => {
+    await renderRail(false, { startingPrice: month });
+
+    expect(screen.getByText("يبدأ من")).toBeTruthy();
+    expect(screen.getByText("/ شهر واحد")).toBeTruthy();
+  });
+
+  it("shows no price over a course nobody can buy, even if one were sent", async () => {
+    await renderRail(false, { enrolmentOpen: false, startingPrice: month });
+
+    expect(screen.queryByText("يبدأ من")).toBeNull();
+  });
+
+  it("shows no price over a full course", async () => {
+    await renderRail(true, { startingPrice: month });
+
+    expect(screen.queryByText("يبدأ من")).toBeNull();
   });
 });

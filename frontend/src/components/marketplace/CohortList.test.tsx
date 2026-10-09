@@ -204,3 +204,28 @@ describe("CohortList", () => {
     expect(screen.queryByRole("link", { name: "اشترك في هذه المجموعة" })).toBeNull();
   });
 });
+/*
+| The group's own price (review 2026-10-09) — with what it buys, and only where
+| the server sent one.
+*/
+describe("CohortList — the price", () => {
+  it("shows a joinable group's price with what it buys", () => {
+    render(
+      <CohortList
+        courseUuid={COURSE}
+        isFull={false}
+        cohorts={[{ ...base, price: { price_minor: 30_000, currency: "QAR", duration_days: 30, session_count: null } }]}
+      />,
+    );
+
+    const card = screen.getByText("مجموعة السبت").closest("li") as HTMLElement;
+    expect(card.textContent).toContain("300");
+    expect(card.textContent).toContain("/ شهر واحد");
+  });
+
+  it("shows no price on a group the server priced nothing for", () => {
+    render(<CohortList courseUuid={COURSE} isFull={false} cohorts={[{ ...base, price: null }]} />);
+
+    expect(screen.queryByText(/\/ شهر/)).toBeNull();
+  });
+});
