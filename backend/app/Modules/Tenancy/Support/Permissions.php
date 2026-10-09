@@ -53,6 +53,9 @@ final class Permissions
 
     public const COURSES_PUBLISH = 'courses.publish';
 
+    /** Spec 040 — choosing a course's «حصة تجريبية», the one lesson any visitor may watch. */
+    public const COURSES_TRIAL_CHOOSE = 'courses.trial.choose';
+
     // Lessons
     public const LESSONS_MANAGE = 'lessons.manage';
 
@@ -590,6 +593,7 @@ final class Permissions
             self::COURSES_UPDATE,
             self::COURSES_DELETE,
             self::COURSES_PUBLISH,
+            self::COURSES_TRIAL_CHOOSE,
             self::LESSONS_MANAGE,
             self::LESSONS_DELETE,
             self::LESSONS_PROGRESS_COMPLETE_OWN,

@@ -109,7 +109,7 @@ class LessonResource extends JsonResource
             'is_trial' => $this->trialCourse()?->trial_lesson_id === $this->getKey(),
             'trial_refusal' => ($course = $this->trialCourse()) === null
                 ? null
-                : TrialLessonRule::refusalFor($course, $this->resource),
+                : TrialLessonRule::objectionTo($course, $this->resource),
             // The editor's switch is shown from this, not guessed from the role —
             // the editor has the course's uuid and nothing else.
             'can_choose_trial' => ($course = $this->trialCourse()) !== null

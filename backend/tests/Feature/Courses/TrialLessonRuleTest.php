@@ -11,7 +11,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Shared\Support\WorkspaceContext;
 
 /*
-| Spec 040 · research R3 — the trial rule has two faces: `refusalFor()` when the
+| Spec 040 · research R3 — the trial rule has two faces: `objectionTo()` when the
 | teacher marks, `scopeEligible()` when a public reader shows or streams. If they
 | disagreed, the teacher page would advertise a trial the door refuses, or the
 | door would serve a lesson the teacher was told they could not mark. So every
@@ -27,7 +27,7 @@ function trialEligible(Lesson $lesson): bool
 
 function trialRefusal(Course $course, Lesson $lesson): ?string
 {
-    return TrialLessonRule::refusalFor($course, Lesson::query()->withoutWorkspaceScope()->findOrFail($lesson->getKey()));
+    return TrialLessonRule::objectionTo($course, Lesson::query()->withoutWorkspaceScope()->findOrFail($lesson->getKey()));
 }
 
 it('accepts a published embed, on both faces', function (): void {

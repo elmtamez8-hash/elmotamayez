@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
  * «Which lesson may be a course's «حصة تجريبية», and is it showable now?» —
  * spec 040, owner decisions 2026-10-09.
  *
- * TWO FACES, ONE LIST OF CONDITIONS. `refusalFor()` answers the teacher marking
+ * TWO FACES, ONE LIST OF CONDITIONS. `objectionTo()` answers the teacher marking
  * a lesson (with the reason, in Arabic); `scopeEligible()` is the SQL every
  * public reader applies — the teacher page, the course card, and the guest door
  * that streams the bytes. If the two disagreed, the page would advertise a trial
@@ -46,7 +46,7 @@ final class TrialLessonRule
      * here: a teacher may pick a lesson before publishing it, and the readers
      * decide what is shown (`scopeEligible()`).
      */
-    public static function refusalFor(Course $course, Lesson $lesson): ?string
+    public static function objectionTo(Course $course, Lesson $lesson): ?string
     {
         if ((int) $lesson->course_id !== (int) $course->getKey()) {
             return 'اختر درساً من هذا الكورس.';
@@ -107,9 +107,9 @@ final class TrialLessonRule
                 ->whereColumn('lesson_id', 'lessons.id'))
             // ⚠️ GROUPED: a bare `orWhere` at this level would hand every lesson
             // above it to any visitor.
-            ->where(fn ($kind) => $kind
+            ->where(fn (Builder $kind) => $kind
                 ->where('lessons.type', LessonType::Embed->value)
-                ->orWhere(fn ($video) => $video
+                ->orWhere(fn (Builder $video) => $video
                     ->where('lessons.type', LessonType::Video->value)
                     ->whereHas('mediaAsset', fn ($asset) => $asset
                         ->where('kind', MediaKind::Video->value)
@@ -140,7 +140,7 @@ final class TrialLessonRule
                 : 'unpublished';
         }
 
-        if (self::refusalFor($course, $lesson) !== null) {
+        if (self::objectionTo($course, $lesson) !== null) {
             return 'unavailable';
         }
 

@@ -54,7 +54,7 @@ final class SetCourseTrialLesson extends Action
 
         $refusal = $lesson === null
             ? 'اختر درساً من هذا الكورس.'
-            : TrialLessonRule::refusalFor($course, $lesson);
+            : TrialLessonRule::objectionTo($course, $lesson);
 
         if ($refusal !== null) {
             throw ValidationException::withMessages(['lesson' => $refusal]);

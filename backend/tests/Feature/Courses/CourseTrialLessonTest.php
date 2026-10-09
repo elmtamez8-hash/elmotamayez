@@ -2,13 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Filament\Resources\CourseResource\Pages\EditCourse;
 use App\Models\User;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Tenancy\Models\Workspace;
+use App\Modules\Tenancy\Support\Permissions;
 use App\Modules\Tenancy\Support\Roles;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Livewire\Livewire;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
@@ -93,7 +97,7 @@ it('refuses a lesson from another workspace as if it did not exist', function ()
     expect(Course::query()->withoutWorkspaceScope()->find($course->id)->trial_lesson_id)->toBeNull();
 });
 
-it('refuses an assistant: the trial is the teacher\'s call', function (): void {
+it('refuses an assistant by default: the trial is the teacher\'s call', function (): void {
     [$course, $lesson, $workspace] = trialFixture();
     actAsTrialOwner($course);
 
@@ -102,7 +106,21 @@ it('refuses an assistant: the trial is the teacher\'s call', function (): void {
     Sanctum::actingAs($assistant);
 
     markTrial($course, (string) $lesson->uuid)->assertForbidden()
-        ->assertJsonPath('message', 'الحصة التجريبية يختارها مدرّس الكورس.');
+        ->assertJsonPath('message', 'اختيار الحصة التجريبية لمدرّس الكورس أو لمن فوّضه.');
+});
+
+it('lets an assistant the teacher authorised choose it', function (): void {
+    [$course, $lesson, $workspace] = trialFixture();
+    actAsTrialOwner($course);
+
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+    $this->setCurrentWorkspace($workspace, $assistant);
+    $assistant->givePermissionTo(Permissions::COURSES_TRIAL_CHOOSE);
+    Sanctum::actingAs($assistant);
+
+    markTrial($course, (string) $lesson->uuid)->assertOk();
+
+    expect(Course::query()->withoutWorkspaceScope()->find($course->id)->trial_lesson_id)->toBe($lesson->id);
 });
 
 it('clears only the trial the reader saw, so a stale tab cannot wipe a newer pick', function (): void {
@@ -161,3 +179,45 @@ it('carries the switch\'s answers on the author\'s course and lesson reads', fun
         ->assertJsonPath('can_choose_trial', true)
         ->assertJsonPath('trial_status', 'visible');
 });
+
+/*
+| The /admin course screen (owner request 2026-10-09): a super admin picks the
+| trial there, through the same Action and rule as the API.
+*/
+it('lets a super admin choose the trial from the panel, through the same rule', function (): void {
+    [$course, $lesson, $workspace] = trialFixture();
+    panelReadyTrialCourse($course, $workspace);
+
+    Livewire::test(EditCourse::class, ['record' => $course->getRouteKey()])
+        ->fillForm(['trial_lesson_uuid' => (string) $lesson->uuid])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(Course::query()->withoutWorkspaceScope()->find($course->id)->trial_lesson_id)->toBe($lesson->id);
+
+    Livewire::test(EditCourse::class, ['record' => $course->getRouteKey()])
+        ->fillForm(['trial_lesson_uuid' => null])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(Course::query()->withoutWorkspaceScope()->find($course->id)->trial_lesson_id)->toBeNull();
+});
+
+it('shows the rule\'s refusal on the panel field', function (): void {
+    [$course, $lesson, $workspace] = trialFixture(['is_high_value' => true]);
+    panelReadyTrialCourse($course, $workspace);
+
+    Livewire::test(EditCourse::class, ['record' => $course->getRouteKey()])
+        ->fillForm(['trial_lesson_uuid' => (string) $lesson->uuid])
+        ->call('save')
+        ->assertHasFormErrors(['trial_lesson_uuid']);
+
+    expect(Course::query()->withoutWorkspaceScope()->find($course->id)->trial_lesson_id)->toBeNull();
+});
+
+/** The fixture's teacher as a teaching member (the panel's «أنشأه» list), read by a super admin. */
+function panelReadyTrialCourse(Course $course, Workspace $workspace): void
+{
+    $workspace->members()->syncWithoutDetaching([$course->created_by => ['role' => Roles::TEACHER]]);
+    test()->actingAs(User::factory()->create(['is_super_admin' => true]));
+}

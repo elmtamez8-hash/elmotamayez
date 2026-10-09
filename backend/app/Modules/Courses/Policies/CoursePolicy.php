@@ -21,7 +21,7 @@ class CoursePolicy extends BasePolicy
     /** The refusal an assistant reads when they try to price a course or make it free. */
     public const PRICING_REFUSAL = 'سعر الكورس وجعله مجانياً يقرّرهما مدرّس الكورس وحده.';
 
-    public const TRIAL_REFUSAL = 'الحصة التجريبية يختارها مدرّس الكورس.';
+    public const TRIAL_REFUSAL = 'اختيار الحصة التجريبية لمدرّس الكورس أو لمن فوّضه.';
 
     public function viewAny(User $user): Response
     {
@@ -132,12 +132,12 @@ class CoursePolicy extends BasePolicy
     }
 
     /**
-     * Choosing the course's «حصة تجريبية» (spec 040) — the teacher's call,
-     * exactly as pricing is: the lesson becomes watchable by ANY visitor, which
-     * is a marketing decision about the course, not an edit of its content. An
-     * assistant edits lessons and is refused here; a teacher who left the
-     * workspace is no member and never reaches it. Deliberately NOT
-     * `Course::teacherUser()`, which falls back to a creator who may have left.
+     * Choosing the course's «حصة تجريبية» (spec 040) — the lesson becomes
+     * watchable by ANY visitor, so it is its own permission, not `lessons.manage`:
+     * the teacher holds `courses.trial.choose` by default, and the owner ticks it
+     * onto an assistant's role for a named person (owner decision 2026-10-09). A
+     * confined assistant who holds it chooses for their OWN courses only. A super
+     * admin passes through `Gate::before` — the /admin course screen uses this.
      */
     public function chooseTrialLesson(User $user, Course $course): Response
     {
@@ -145,7 +145,11 @@ class CoursePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
-        return $user->decidesCoursePricingIn((int) $course->workspace_id)
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
+        return $user->can(Permissions::COURSES_TRIAL_CHOOSE)
             ? Response::allow()
             : Response::deny(self::TRIAL_REFUSAL);
     }
