@@ -16,8 +16,10 @@ use App\Modules\Assessments\Models\Question;
 use App\Modules\Assessments\Models\QuestionImport;
 use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Community\Support\CommunitySettings;
+use App\Modules\Courses\Models\Chapter;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
+use App\Modules\Courses\Models\Section;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
@@ -39,6 +41,7 @@ use App\Modules\LiveSessions\Models\Attendance;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\AvailabilitySlot;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Notifications\Data\NotificationEnvelope;
 use App\Modules\Notifications\Models\ContactVerification;
 use App\Modules\Notifications\Models\MessageTemplate;
@@ -157,12 +160,12 @@ function trialFixture(array $lesson = [], ?array $asset = null, string $sectionS
             'slug' => 'trial-physics-'.$sequence,
         ]);
 
-        $section = \App\Modules\Courses\Models\Section::create([
+        $section = Section::create([
             'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
             'title' => 'قسم', 'status' => $sectionStatus, 'order' => 1,
         ]);
 
-        $chapter = \App\Modules\Courses\Models\Chapter::create([
+        $chapter = Chapter::create([
             'workspace_id' => $workspace->getKey(), 'section_id' => $section->getKey(),
             'course_id' => $course->getKey(), 'title' => 'فصل',
             'status' => 'published', 'order' => 1,
@@ -171,7 +174,7 @@ function trialFixture(array $lesson = [], ?array $asset = null, string $sectionS
         $model = Lesson::create(array_merge([
             'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
             'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
-            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'uuid' => (string) Str::uuid(),
             'title' => 'الحركة في بعد واحد',
             'type' => 'embed',
             'status' => 'published',
@@ -181,12 +184,12 @@ function trialFixture(array $lesson = [], ?array $asset = null, string $sectionS
         ], $lesson));
 
         if ($asset !== null) {
-            \App\Modules\Media\Models\MediaAsset::factory()->create(array_merge([
+            MediaAsset::factory()->create(array_merge([
                 'workspace_id' => $workspace->getKey(),
                 'owner_type' => Lesson::class,
                 'owner_id' => $model->getKey(),
                 'provider' => 'bunny',
-                'provider_asset_id' => (string) \Illuminate\Support\Str::uuid(),
+                'provider_asset_id' => (string) Str::uuid(),
             ], $asset));
         }
 

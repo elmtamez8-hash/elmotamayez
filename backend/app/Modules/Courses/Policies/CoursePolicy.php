@@ -21,6 +21,8 @@ class CoursePolicy extends BasePolicy
     /** The refusal an assistant reads when they try to price a course or make it free. */
     public const PRICING_REFUSAL = 'سعر الكورس وجعله مجانياً يقرّرهما مدرّس الكورس وحده.';
 
+    public const TRIAL_REFUSAL = 'الحصة التجريبية يختارها مدرّس الكورس.';
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::COURSES_VIEW)
@@ -127,6 +129,25 @@ class CoursePolicy extends BasePolicy
         return $user->decidesCourseVisibilityIn((int) $course->workspace_id)
             ? Response::allow()
             : Response::deny(self::VISIBILITY_REFUSAL);
+    }
+
+    /**
+     * Choosing the course's «حصة تجريبية» (spec 040) — the teacher's call,
+     * exactly as pricing is: the lesson becomes watchable by ANY visitor, which
+     * is a marketing decision about the course, not an edit of its content. An
+     * assistant edits lessons and is refused here; a teacher who left the
+     * workspace is no member and never reaches it. Deliberately NOT
+     * `Course::teacherUser()`, which falls back to a creator who may have left.
+     */
+    public function chooseTrialLesson(User $user, Course $course): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        return $user->decidesCoursePricingIn((int) $course->workspace_id)
+            ? Response::allow()
+            : Response::deny(self::TRIAL_REFUSAL);
     }
 
     /**

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Resources;
 
 use App\Modules\Courses\Enums\LessonType;
+use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Support\LessonRelease;
 use App\Modules\Courses\Support\LessonTypeRegistry;
 use App\Modules\Courses\Support\MarkdownRenderer;
 use App\Modules\Courses\Support\ReferenceSummary;
+use App\Modules\Courses\Support\TrialLessonRule;
 use App\Modules\Media\Models\MediaAsset;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -97,6 +99,17 @@ class LessonResource extends JsonResource
             // the screen explain a refusal as "مذكّرة محجوبة حتى السداد" rather
             // than as an error on a file that looks like any other.
             'is_high_value' => $this->is_high_value,
+            /*
+            | Spec 040 — the course's «حصة تجريبية». `is_trial` is a compare with
+            | the course's column; `trial_refusal` is `TrialLessonRule`'s reason
+            | this lesson cannot be marked (null when it can), so the editor
+            | shows the reason on the disabled switch instead of guessing. Only
+            | ever rendered singly (`LessonController`), never per tree row.
+            */
+            'is_trial' => $this->trialCourse()?->trial_lesson_id === $this->getKey(),
+            'trial_refusal' => ($course = $this->trialCourse()) === null
+                ? null
+                : TrialLessonRule::refusalFor($course, $this->resource),
             'asset' => $this->asset($this->mediaAsset),
             // Files beside the item, whatever its type (FR-019). Separate from
             // `asset` rather than one list with a role flag: they answer
@@ -137,5 +150,20 @@ class LessonResource extends JsonResource
             'duration_seconds' => $asset->duration_seconds,
             'failure_reason' => $asset->failure_reason,
         ];
+    }
+
+    private ?Course $trialCourseMemo = null;
+
+    private bool $trialCourseRead = false;
+
+    /** The lesson's course, read once for the two trial keys. */
+    private function trialCourse(): ?Course
+    {
+        if (! $this->trialCourseRead) {
+            $this->trialCourseRead = true;
+            $this->trialCourseMemo = Course::query()->withoutWorkspaceScope()->find($this->course_id);
+        }
+
+        return $this->trialCourseMemo;
     }
 }

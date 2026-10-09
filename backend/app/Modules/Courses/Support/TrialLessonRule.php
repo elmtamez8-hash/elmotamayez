@@ -117,13 +117,46 @@ final class TrialLessonRule
                         ->where('status', MediaAssetStatus::Ready->value))));
     }
 
+    /**
+     * What the teacher is told about their pick: `visible` when visitors see it
+     * now, otherwise why not yet — `unpublished` (the lesson, its chapter or
+     * section, or the course itself is not out), `processing` (the upload is
+     * still being prepared), `unavailable` (it stopped qualifying after marking).
+     * Null when the course has no trial.
+     */
+    public static function statusFor(Course $course): ?string
+    {
+        $lesson = $course->trial_lesson_id === null
+            ? null
+            : Lesson::query()->withoutWorkspaceScope()->with('mediaAsset')->find($course->trial_lesson_id);
+
+        if (! $lesson instanceof Lesson) {
+            return null;
+        }
+
+        if (self::scopeEligible(Lesson::query()->withoutWorkspaceScope()->whereKey($lesson->getKey()))->exists()) {
+            return Course::query()->withoutWorkspaceScope()->publiclyListed()->whereKey($course->getKey())->exists()
+                ? 'visible'
+                : 'unpublished';
+        }
+
+        if (self::refusalFor($course, $lesson) !== null) {
+            return 'unavailable';
+        }
+
+        return $lesson->type === LessonType::Video->value && $lesson->mediaAsset?->status !== MediaAssetStatus::Ready
+            ? 'processing'
+            : 'unpublished';
+    }
+
     /** @return list<string> */
     private static function providers(): array
     {
-        /** @var list<string> $providers */
-        $providers = (array) config('media.trial_providers', []);
+        $providers = config('media.trial_providers', []);
 
-        return array_values($providers);
+        return is_array($providers)
+            ? array_values(array_filter($providers, 'is_string'))
+            : [];
     }
 
     private static function isCohortScoped(Lesson $lesson): bool

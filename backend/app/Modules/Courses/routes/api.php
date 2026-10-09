@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Modules\Courses\Http\Controllers\ChapterController;
 use App\Modules\Courses\Http\Controllers\CourseController;
+use App\Modules\Courses\Http\Controllers\CourseTrialLessonController;
 use App\Modules\Courses\Http\Controllers\LessonController;
 use App\Modules\Courses\Http\Controllers\ReferenceTargetController;
 use App\Modules\Courses\Http\Controllers\SectionController;
@@ -29,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/courses', [CourseController::class, 'store']);
     Route::get('/courses/{course}', [CourseController::class, 'show']);
     Route::put('/courses/{course}', [CourseController::class, 'update']);
+    // Spec 040 — the course's «حصة تجريبية»; the teacher's call (CoursePolicy::chooseTrialLesson).
+    Route::put('/courses/{course}/trial-lesson', [CourseTrialLessonController::class, 'update']);
     Route::post('/courses/{course}/publish', [CourseController::class, 'publish']);
     Route::post('/courses/{course}/unpublish', [CourseController::class, 'unpublish']);
     Route::delete('/courses/{course}', [CourseController::class, 'destroy']);

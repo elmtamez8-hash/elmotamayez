@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Courses\Http\Resources;
 
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\TrialLessonRule;
 use App\Modules\Learning\Http\Resources\CohortResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -93,6 +95,20 @@ class CourseResource extends JsonResource
         return $this;
     }
 
+    /**
+     * Whether the reader may choose the course's «حصة تجريبية» (spec 040) —
+     * `CoursePolicy::chooseTrialLesson()`, stamped beside pricing for the same
+     * reasons; unstamped, the trial keys are absent.
+     */
+    private ?bool $canChooseTrial = null;
+
+    public function withTrialControl(bool $allowed): static
+    {
+        $this->canChooseTrial = $allowed;
+
+        return $this;
+    }
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -148,6 +164,12 @@ class CourseResource extends JsonResource
             'can_change_visibility' => $this->when($this->canChangeVisibility !== null, fn (): ?bool => $this->canChangeVisibility),
             // والسعرُ و«مجاني» كذلك (قرارُ المالك 2026-09-30) — see the setter.
             'can_change_pricing' => $this->when($this->canChangePricing !== null, fn (): ?bool => $this->canChangePricing),
+            // Spec 040 — the course's «حصة تجريبية», for the author's screens only.
+            'can_choose_trial' => $this->when($this->canChooseTrial !== null, fn (): ?bool => $this->canChooseTrial),
+            'trial_lesson_uuid' => $this->when($this->canChooseTrial !== null, fn (): ?string => $this->trial_lesson_id === null
+                ? null
+                : Lesson::query()->withoutWorkspaceScope()->whereKey($this->trial_lesson_id)->value('uuid')),
+            'trial_status' => $this->when($this->canChooseTrial !== null, fn (): ?string => TrialLessonRule::statusFor($this->resource)),
             /*
             | «هل يصلُ الناسُ إلى هذا الكورس؟» — للمدرّسِ وحدَه (2026-09-26).
             | `listed` هو `isPubliclyListed()` نفسُه، و`blockers` أسبابُ الرفضِ

@@ -402,7 +402,8 @@ class CourseController extends Controller
         return $resource
             ->withPublicListingBlockers($course->publicListingBlockers())
             ->withVisibilityControl($reader->can('changeVisibility', $course))
-            ->withPricingControl($reader->can('changePricing', $course));
+            ->withPricingControl($reader->can('changePricing', $course))
+            ->withTrialControl($reader->can('chooseTrialLesson', $course));
     }
 
     public function destroy(Course $course): JsonResponse
