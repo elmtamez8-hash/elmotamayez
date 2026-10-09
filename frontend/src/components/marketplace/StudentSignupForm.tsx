@@ -52,6 +52,9 @@ function Field({
   );
 }
 
+/** The fields drawn on step one — a server refusal of any of them returns there. */
+const STEP_ONE = ["first_name", "last_name", "email", "phone", "password", "country"];
+
 export function StudentSignupForm({
   schoolYears,
   regions,
@@ -85,8 +88,6 @@ export function StudentSignupForm({
     last_name: "",
     email: "",
     password: "",
-    password_confirmation: "",
-    country: DEFAULT_COUNTRY.code,
     // Spec 022 · FR-005 — the individual YEAR. The student's broad stage is
     // derived from it server-side; this form no longer sends one.
     // ⚠️ Empty, never the first option: a preselected «الروضة والتمهيدي» was a
@@ -109,7 +110,18 @@ export function StudentSignupForm({
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
   const [awaitingGuardian, setAwaitingGuardian] = useState(false);
+  /*
+   | Two steps (owner decision 2026-10-09): who you are, then what you study. One
+   | request at the end — nothing is created between them, so «back» loses nothing.
+   */
+  const [step, setStep] = useState<1 | 2>(1);
+  // Open from the start when an invitation link prefilled it.
+  const [showReferral, setShowReferral] = useState(referralCode !== "");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // The country is the phone's: the dial picker lists the same `COUNTRIES`, so
+  // asking for both was one question twice.
+  const country = COUNTRIES.find((entry) => entry.dial === dial)?.code ?? DEFAULT_COUNTRY.code;
 
   /*
    | ⚠️ AFTER A REFUSAL, TAKE THE READER TO IT. The submit button is at the
@@ -161,8 +173,40 @@ export function StudentSignupForm({
     return eighteen > new Date();
   }, [form.date_of_birth]);
 
+  /*
+   | Step one is checked HERE before step two opens — only what the page can
+   | know (filled, shaped like an email, eight characters). Whether the email is
+   | free is the server's answer at the end, and a refusal there brings the
+   | reader back to this step (`STEP_ONE` below).
+   */
+  const handleNext = () => {
+    const missing: Record<string, string> = {};
+
+    if (form.first_name.trim() === "") missing.first_name = "أدخل اسمك الأول.";
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) missing.email = "أدخل بريداً إلكترونياً صحيحاً.";
+    if (phone.trim() === "") missing.phone = "أدخل رقم الجوال.";
+    if (form.password.length < 8) missing.password = "كلمة المرور ثمانية أحرف على الأقل.";
+
+    setErrors(missing);
+    setBanner("");
+
+    if (Object.keys(missing).length > 0) return;
+
+    setStep(2);
+    // On a phone «التالي» sits below the fold: start step two at its top.
+    requestAnimationFrame(() => formRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" }));
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    // Enter on step one means «next», never «create the account».
+    if (step === 1) {
+      handleNext();
+
+      return;
+    }
+
     setErrors({});
     setBanner("");
 
@@ -181,6 +225,7 @@ export function StudentSignupForm({
       const { user, token, session_uuid } = await auth.registerStudent(
         {
           ...form,
+          country,
           phone: toE164(dial, phone),
           registered_by_parent: byParent,
           // Sent only when there is one: an adult has no guardian to name, and
@@ -215,7 +260,12 @@ export function StudentSignupForm({
       }
 
       const fields = fieldErrors(err);
-      setErrors(fields);
+      // `country` has no field of its own now: it comes from the phone's code,
+      // so its refusal is shown under the phone.
+      setErrors(fields.country === undefined ? fields : { ...fields, phone: fields.phone ?? fields.country });
+      // A taken email or a bad phone lives on step one: go back to it, where the
+      // effect above focuses the field.
+      if (STEP_ONE.some((key) => key in fields)) setStep(1);
 
       if (Object.keys(fields).length === 0) {
         setBanner(errorMessage(err, "تعذّر إنشاء الحساب، حاول مرة أخرى."));
@@ -235,260 +285,274 @@ export function StudentSignupForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="scroll-mt-28 space-y-5">
+      {/* Where the reader is: two dots and a sentence, read aloud as one line. */}
+      <div className="flex items-center gap-3" aria-live="polite">
+        <div aria-hidden="true" className="flex gap-1.5">
+          {[1, 2].map((dot) => (
+            <span key={dot} className={`h-1.5 w-8 rounded-full ${dot <= step ? "bg-primary" : "bg-line"}`} />
+          ))}
+        </div>
+        <p className="text-sm font-bold text-ink-muted">
+          {step === 1 ? "الخطوة ١ من ٢ · بياناتك" : "الخطوة ٢ من ٢ · دراستك"}
+        </p>
+      </div>
+
       {banner && (
         <p role="alert" className="rounded-xl bg-danger/10 p-3 text-sm text-danger-ink">
           {banner}
         </p>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="first_name" label="الاسم الأول" error={errors.first_name} required>
-          <input
-            id="first_name"
-            value={form.first_name}
-            onChange={(e) => set("first_name", e.target.value)}
-            autoComplete="given-name"
-            required
-            aria-invalid={errors.first_name ? true : undefined}
-            aria-describedby={errors.first_name ? "first_name-error" : undefined}
-            className={FIELD_CLASS}
+      {step === 1 && (
+        <>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="first_name" label="الاسم الأول" error={errors.first_name} required>
+              <input
+                id="first_name"
+                value={form.first_name}
+                onChange={(e) => set("first_name", e.target.value)}
+                autoComplete="given-name"
+                required
+                aria-invalid={errors.first_name ? true : undefined}
+                aria-describedby={errors.first_name ? "first_name-error" : undefined}
+                className={FIELD_CLASS}
+              />
+            </Field>
+
+            <Field id="last_name" label="اسم العائلة" error={errors.last_name}>
+              <input
+                id="last_name"
+                value={form.last_name}
+                onChange={(e) => set("last_name", e.target.value)}
+                autoComplete="family-name"
+                className={FIELD_CLASS}
+              />
+            </Field>
+          </div>
+
+          <Field id="email" label="البريد الإلكتروني" error={errors.email} required>
+            <input
+              id="email"
+              type="email"
+              dir="ltr"
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              autoComplete="email"
+              required
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              className={FIELD_CLASS}
+            />
+          </Field>
+
+          {/* The dial code also names the country (`country` above). */}
+          <PhoneInput
+            id="phone"
+            dial={dial}
+            number={phone}
+            onDialChange={setDial}
+            onNumberChange={setPhone}
+            error={errors.phone}
           />
-        </Field>
 
-        <Field id="last_name" label="اسم العائلة" error={errors.last_name}>
-          <input
-            id="last_name"
-            value={form.last_name}
-            onChange={(e) => set("last_name", e.target.value)}
-            autoComplete="family-name"
-            className={FIELD_CLASS}
+          {/* Once, with the eye toggle `PasswordField` carries — no second copy. */}
+          <PasswordField
+            id="password"
+            label="كلمة المرور"
+            error={errors.password}
+            value={form.password}
+            onChange={(value) => set("password", value)}
+            autoComplete="new-password"
+            required
+            minLength={8}
           />
-        </Field>
-      </div>
 
-      <Field id="email" label="البريد الإلكتروني" error={errors.email} required>
-        <input
-          id="email"
-          type="email"
-          dir="ltr"
-          value={form.email}
-          onChange={(e) => set("email", e.target.value)}
-          autoComplete="email"
-          required
-          aria-invalid={errors.email ? true : undefined}
-          aria-describedby={errors.email ? "email-error" : undefined}
-          className={FIELD_CLASS}
-        />
-      </Field>
-
-      <PhoneInput
-        id="phone"
-        dial={dial}
-        number={phone}
-        onDialChange={setDial}
-        onNumberChange={setPhone}
-        error={errors.phone}
-      />
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="country" label="الدولة" error={errors.country}>
-          <Select
-            id="country"
-            value={form.country}
-            onChange={(e) => set("country", e.target.value)}
-            className={FIELD_CLASS}
-          >
-            {COUNTRIES.map((country) => (
-              <option key={country.code} value={country.code}>
-                {country.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field id="school_year_slug" label="الصف الدراسي" error={errors.school_year_slug} required>
-          <Select
-            id="school_year_slug"
-            value={form.school_year_slug}
-            onChange={(e) => set("school_year_slug", e.target.value)}
-            required
-            aria-invalid={errors.school_year_slug ? true : undefined}
-            aria-describedby={errors.school_year_slug ? "school_year_slug-error" : undefined}
-            className={FIELD_CLASS}
-          >
-            <option value="" disabled>
-              اختر الصف
-            </option>
-            {schoolYears.map((year) => (
-              <option key={year.slug} value={year.slug}>
-                {year.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        {/* Spec 011 · FR-042 — mandatory at registration, and the only source of
-            the platform's regional picture. */}
-        <Field id="region_slug" label="المنطقة" error={errors.region_slug} required>
-          <Select
-            id="region_slug"
-            value={form.region_slug}
-            onChange={(e) => set("region_slug", e.target.value)}
-            required
-            className={FIELD_CLASS}
-          >
-            {regions.map((region) => (
-              <option key={region.slug} value={region.slug}>
-                {region.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {/* Spec 013 · FR-009 — the age question, asked once at the door. */}
-        <Field id="date_of_birth" label="تاريخ الميلاد" error={errors.date_of_birth} required>
-          <input
-            id="date_of_birth"
-            type="date"
-            dir="ltr"
-            value={form.date_of_birth}
-            onChange={(e) => set("date_of_birth", e.target.value)}
-            required
-            aria-invalid={errors.date_of_birth ? true : undefined}
-            aria-describedby={errors.date_of_birth ? "date_of_birth-error" : undefined}
-            className={FIELD_CLASS}
-          />
-        </Field>
-      </div>
-
-      {isMinor && (
-        <Field
-          id="guardian_contact"
-          label="رقم جوّال وليّ الأمر"
-          error={errors.guardian_contact}
-          required
-        >
-          <input
-            id="guardian_contact"
-            type="tel"
-            dir="ltr"
-            value={form.guardian_contact}
-            onChange={(e) => set("guardian_contact", e.target.value)}
-            placeholder="+97455512345"
-            required
-            aria-invalid={errors.guardian_contact ? true : undefined}
-            aria-describedby={errors.guardian_contact ? "guardian_contact-hint guardian_contact-error" : "guardian_contact-hint"}
-            className={FIELD_CLASS}
-          />
-          <p id="guardian_contact-hint" className="mt-1 text-sm text-ink-muted">
-            لأنّك دون الثامنة عشرة، يُفعَّل حسابك بعد موافقة وليّ أمرك.
-          </p>
-        </Field>
+          <Button type="submit" variant="accent" size="lg" fullWidth>
+            التالي
+          </Button>
+        </>
       )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <PasswordField
-          id="password"
-          label="كلمة المرور"
-          error={errors.password}
-          value={form.password}
-          onChange={(value) => set("password", value)}
-          autoComplete="new-password"
-          required
-          minLength={8}
-        />
+      {step === 2 && (
+        <>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="school_year_slug" label="الصف الدراسي" error={errors.school_year_slug} required>
+              <Select
+                id="school_year_slug"
+                value={form.school_year_slug}
+                onChange={(e) => set("school_year_slug", e.target.value)}
+                required
+                aria-invalid={errors.school_year_slug ? true : undefined}
+                aria-describedby={errors.school_year_slug ? "school_year_slug-error" : undefined}
+                className={FIELD_CLASS}
+              >
+                <option value="" disabled>
+                  اختر الصف
+                </option>
+                {schoolYears.map((year) => (
+                  <option key={year.slug} value={year.slug}>
+                    {year.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
 
-        <PasswordField
-          id="password_confirmation"
-          label="تأكيد كلمة المرور"
-          error={errors.password_confirmation}
-          value={form.password_confirmation}
-          onChange={(value) => set("password_confirmation", value)}
-          autoComplete="new-password"
-          required
-        />
-      </div>
+            {/* Spec 011 · FR-042 — mandatory at registration, and the only source of
+                the platform's regional picture. */}
+            <Field id="region_slug" label="المنطقة" error={errors.region_slug} required>
+              <Select
+                id="region_slug"
+                value={form.region_slug}
+                onChange={(e) => set("region_slug", e.target.value)}
+                required
+                className={FIELD_CLASS}
+              >
+                {regions.map((region) => (
+                  <option key={region.slug} value={region.slug}>
+                    {region.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
 
-      {/* Spec 011 · FR-018 — optional. Prefilled from an invitation link; an
-          unknown code comes back as a 422 under this field, where the visitor
-          can fix it or clear it and carry on. */}
-      <Field id="referral_code" label="كود الإحالة (اختياري)" error={errors.referral_code}>
-        <input
-          id="referral_code"
-          dir="ltr"
-          value={form.referral_code}
-          onChange={(e) => set("referral_code", sanitiseReferralCode(e.target.value))}
-          maxLength={REFERRAL_CODE_MAX}
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          aria-invalid={errors.referral_code ? true : undefined}
-          aria-describedby={errors.referral_code ? "referral_code-hint referral_code-error" : "referral_code-hint"}
-          className={FIELD_CLASS}
-        />
-        <p id="referral_code-hint" className="mt-1 text-sm text-ink-muted">
-          إن دعاك صديق، اكتب الكود الذي أرسله لك. اتركه فارغاً إن لم يكن لديك كود.
-        </p>
-      </Field>
+          {/* Spec 013 · FR-009 — the age question, asked once at the door. */}
+          <Field id="date_of_birth" label="تاريخ الميلاد" error={errors.date_of_birth} required>
+            <input
+              id="date_of_birth"
+              type="date"
+              dir="ltr"
+              value={form.date_of_birth}
+              onChange={(e) => set("date_of_birth", e.target.value)}
+              required
+              aria-invalid={errors.date_of_birth ? true : undefined}
+              aria-describedby={errors.date_of_birth ? "date_of_birth-error" : undefined}
+              className={FIELD_CLASS}
+            />
+          </Field>
 
-      {/* FR-064 */}
-      <div className="rounded-xl border border-line p-4">
-        <label className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-ink">التسجيل بواسطة وليّ الأمر</span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={byParent}
-            onChange={(e) => setByParent(e.target.checked)}
-            className="h-5 w-9 accent-primary"
-          />
-        </label>
+          {isMinor && (
+            <Field
+              id="guardian_contact"
+              label="رقم جوّال وليّ الأمر"
+              error={errors.guardian_contact}
+              required
+            >
+              <input
+                id="guardian_contact"
+                type="tel"
+                dir="ltr"
+                value={form.guardian_contact}
+                onChange={(e) => set("guardian_contact", e.target.value)}
+                placeholder="+97455512345"
+                required
+                aria-invalid={errors.guardian_contact ? true : undefined}
+                aria-describedby={errors.guardian_contact ? "guardian_contact-hint guardian_contact-error" : "guardian_contact-hint"}
+                className={FIELD_CLASS}
+              />
+              <p id="guardian_contact-hint" className="mt-1 text-sm text-ink-muted">
+                لأنّك دون الثامنة عشرة، يُفعَّل حسابك بعد موافقة وليّ أمرك.
+              </p>
+            </Field>
+          )}
 
-        {byParent && (
-          <p className="mt-3 text-sm text-ink-muted">
-            الحساب سيُنشأ باسم الطالب، ويمكن لوليّ الأمر ربط حسابه به لاحقاً
-            لمتابعة التقارير والحصص.
-          </p>
-        )}
-      </div>
+          {/* Spec 011 · FR-018 — optional, so behind a link unless an invitation
+              link prefilled it or the server refused it. An unknown code comes
+              back as a 422 under this field, where it can be fixed or cleared. */}
+          {showReferral || errors.referral_code ? (
+            <Field id="referral_code" label="كود الدعوة (اختياري)" error={errors.referral_code}>
+              <input
+                id="referral_code"
+                dir="ltr"
+                value={form.referral_code}
+                onChange={(e) => set("referral_code", sanitiseReferralCode(e.target.value))}
+                maxLength={REFERRAL_CODE_MAX}
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                aria-invalid={errors.referral_code ? true : undefined}
+                aria-describedby={errors.referral_code ? "referral_code-hint referral_code-error" : "referral_code-hint"}
+                className={FIELD_CLASS}
+              />
+              <p id="referral_code-hint" className="mt-1 text-sm text-ink-muted">
+                اكتب الكود الذي أرسله لك صديقك.
+              </p>
+            </Field>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowReferral(true)}
+              className="text-sm font-bold text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              عندك كود دعوة من صديق؟
+            </button>
+          )}
 
-      {/* FR-065: starts unchecked, and the API rejects the request if it stays that way. */}
-      <div>
-        <label className="flex items-start gap-3 text-sm text-ink">
-          <input
-            id="terms_accepted"
-            type="checkbox"
-            checked={form.terms_accepted}
-            onChange={(e) => set("terms_accepted", e.target.checked)}
-            aria-invalid={errors.terms_accepted ? true : undefined}
-            aria-describedby={errors.terms_accepted ? "terms_accepted-error" : undefined}
-            className="mt-0.5 h-4 w-4 accent-primary"
-          />
-          <span>
-            أوافق على{" "}
-            <Link href="/terms" className="text-primary-ink underline">
-              الشروط والأحكام
-            </Link>{" "}
-            و
-            <Link href="/privacy" className="text-primary-ink underline">
-              سياسة الخصوصية
-            </Link>
-            .
-          </span>
-        </label>
-        {errors.terms_accepted && (
-          <p id="terms_accepted-error" className="mt-1 text-sm text-danger-ink">
-            {errors.terms_accepted}
-          </p>
-        )}
-      </div>
+          {/* FR-064 */}
+          <div className="rounded-xl border border-line p-4">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-ink">التسجيل بواسطة وليّ الأمر</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={byParent}
+                onChange={(e) => setByParent(e.target.checked)}
+                className="h-5 w-9 accent-primary"
+              />
+            </label>
 
-      <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
-        إنشاء حساب طالب
-      </Button>
+            {byParent && (
+              <p className="mt-3 text-sm text-ink-muted">
+                الحساب سيُنشأ باسم الطالب، ويمكن لوليّ الأمر ربط حسابه به لاحقاً
+                لمتابعة التقارير والحصص.
+              </p>
+            )}
+          </div>
+
+          {/* FR-065: starts unchecked, and the API rejects the request if it stays that way. */}
+          <div>
+            <label className="flex items-start gap-3 text-sm text-ink">
+              <input
+                id="terms_accepted"
+                type="checkbox"
+                checked={form.terms_accepted}
+                onChange={(e) => set("terms_accepted", e.target.checked)}
+                aria-invalid={errors.terms_accepted ? true : undefined}
+                aria-describedby={errors.terms_accepted ? "terms_accepted-error" : undefined}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <span>
+                أوافق على{" "}
+                <Link href="/terms" className="text-primary-ink underline">
+                  الشروط والأحكام
+                </Link>{" "}
+                و
+                <Link href="/privacy" className="text-primary-ink underline">
+                  سياسة الخصوصية
+                </Link>
+                .
+              </span>
+            </label>
+            {errors.terms_accepted && (
+              <p id="terms_accepted-error" className="mt-1 text-sm text-danger-ink">
+                {errors.terms_accepted}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row">
+            <Button type="button" variant="secondary" size="lg" onClick={() => setStep(1)} disabled={loading}>
+              رجوع
+            </Button>
+            <div className="flex-1">
+              <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
+                إنشاء حساب طالب
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
       <p className="text-center text-sm text-ink-muted">
         لديك حساب؟{" "}

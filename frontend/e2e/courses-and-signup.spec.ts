@@ -45,15 +45,20 @@ test.describe("course discovery", () => {
   });
 });
 
+/** Step one of the student form (two steps since 2026-10-09), then «التالي». */
+async function fillStepOne(page: import("@playwright/test").Page) {
+  await page.getByLabel("الاسم الأول").fill("سارة");
+  await page.getByLabel("البريد الإلكتروني").fill(`sara-${test.info().project.name}-${Date.now()}@example.com`);
+  await page.getByLabel(/^رقم الجوال/).fill("55512345");
+  await page.getByLabel(/^كلمة المرور/).fill("password123");
+  await page.getByRole("button", { name: "التالي" }).click();
+}
+
 test.describe("student signup", () => {
   test("requires the terms checkbox before it will submit", async ({ page }) => {
     await page.goto("/signup/student");
 
-    await page.getByLabel("الاسم الأول").fill("سارة");
-    await page.getByLabel("البريد الإلكتروني").fill(`sara-${test.info().project.name}-${Date.now()}@example.com`);
-    await page.getByLabel("رقم الجوال", { exact: true }).fill("55512345");
-    await page.getByLabel("كلمة المرور", { exact: true }).fill("password123");
-    await page.getByLabel("تأكيد كلمة المرور").fill("password123");
+    await fillStepOne(page);
 
     // FR-065: ships unchecked.
     const terms = page.getByRole("checkbox", { name: /الشروط والأحكام/ });
@@ -65,6 +70,8 @@ test.describe("student signup", () => {
 
   test("reveals the parent note the moment the toggle flips (FR-064)", async ({ page }) => {
     await page.goto("/signup/student");
+
+    await fillStepOne(page);
 
     const note = page.getByText("الحساب سيُنشأ باسم الطالب");
     await expect(note).toBeHidden();
@@ -80,7 +87,8 @@ test.describe("student signup", () => {
     await page.getByRole("link", { name: /طالب/ }).first().click();
 
     await expect(page).toHaveURL(/\/signup\/student\?ref=ABC23/);
-    await expect(page.getByLabel("كود الإحالة (اختياري)")).toHaveValue("ABC23");
+    await fillStepOne(page);
+    await expect(page.getByLabel("كود الدعوة (اختياري)")).toHaveValue("ABC23");
   });
 
   test("carries the booking intent through from a teacher profile", async ({ page }) => {
