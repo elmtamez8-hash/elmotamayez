@@ -18,7 +18,6 @@ use App\Modules\Media\Exceptions\PermanentIngestFailure;
 use App\Modules\Media\Models\MediaAsset;
 use App\Modules\Media\Support\FetchableSourceUrl;
 use App\Modules\Media\Support\MediaLimits;
-use Carbon\CarbonImmutable;
 use DomainException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -346,7 +345,7 @@ final class BunnyMediaProvider implements MediaProviderInterface
      */
     public function manifest(PlaybackContext $context): PlaybackManifest
     {
-        $expiresAt = CarbonImmutable::instance($context->grant->expires_at->toDateTimeImmutable());
+        $expiresAt = $context->expiresAt();
         $videoId = (string) $context->asset->provider_asset_id;
 
         // Trailing slash: the prefix the token allows is the video's directory, so

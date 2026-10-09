@@ -46,6 +46,7 @@ use stdClass;
  * @property string $promo_video_status
  * @property Carbon|null $promo_video_reviewed_at
  * @property int|null $promo_video_reviewed_by
+ * @property int|null $trial_lesson_id «الحصة التجريبية» (spec 040); written only by `SetCourseTrialLesson`, never mass-assigned
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
@@ -345,6 +346,23 @@ class Course extends BaseModel
     public function teacherProfile(): BelongsTo
     {
         return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id')
+            ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * The course's «حصة تجريبية» — one lesson of THIS course that any visitor
+     * may watch (spec 040). Whether it may be SHOWN right now is not this
+     * relation's question: ask `TrialLessonRule::scopeEligible()`.
+     *
+     * The bypass is in the relation for the reason `teacherProfile()` gives:
+     * its readers are guest pages and other-workspace visitors. Same workspace
+     * as the course by construction (`SetCourseTrialLesson`).
+     *
+     * @return BelongsTo<Lesson, $this>
+     */
+    public function trialLesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class, 'trial_lesson_id')
             ->withoutGlobalScope(WorkspaceScope::class);
     }
 

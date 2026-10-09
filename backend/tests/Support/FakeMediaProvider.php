@@ -102,9 +102,9 @@ class FakeMediaProvider implements MediaProviderInterface
     {
         return new PlaybackManifest(
             format: PlaybackFormat::Hls,
-            url: url("/api/v1/playback/{$context->grant->uuid}/stream"),
+            url: url("/api/v1/playback/{$context->requireGrant()->uuid}/stream"),
             isRedirect: true,
-            expiresAt: CarbonImmutable::instance($context->grant->expires_at->toDateTimeImmutable()),
+            expiresAt: $context->expiresAt(),
             renditions: $this->renditions(),
         );
     }

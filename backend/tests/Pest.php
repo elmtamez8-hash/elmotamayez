@@ -131,6 +131,70 @@ function marketplaceTeacher(Workspace $workspace, array $attrs = []): TeacherPro
 }
 
 /**
+ * Spec 040 — a listed course with one lesson that may become its «حصة تجريبية».
+ *
+ * Built like `previewFixture()`: the teacher creates the course in their own
+ * workspace, so `coursesOf()` and `publiclyListed()` see it. `$asset`: null for
+ * none, or the attributes of the lesson's primary media asset (a `video`
+ * lesson needs one to be eligible).
+ *
+ * @param  array<string, mixed>  $lesson
+ * @param  array<string, mixed>|null  $asset
+ * @return array{0: Course, 1: Lesson, 2: Workspace, 3: TeacherProfile}
+ */
+function trialFixture(array $lesson = [], ?array $asset = null, string $sectionStatus = 'published'): array
+{
+    static $sequence = 0;
+
+    $workspace = marketplaceWorkspace('Trial Academy '.(++$sequence));
+    $teacher = marketplaceTeacher($workspace);
+
+    return app(WorkspaceContext::class)->forWorkspace($workspace, function () use ($workspace, $teacher, $lesson, $asset, $sectionStatus, $sequence): array {
+        $course = Course::factory()->published()->create([
+            'workspace_id' => $workspace->getKey(),
+            'created_by' => $teacher->user_id,
+            'title' => 'الفيزياء ٢ ثانوي',
+            'slug' => 'trial-physics-'.$sequence,
+        ]);
+
+        $section = \App\Modules\Courses\Models\Section::create([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'title' => 'قسم', 'status' => $sectionStatus, 'order' => 1,
+        ]);
+
+        $chapter = \App\Modules\Courses\Models\Chapter::create([
+            'workspace_id' => $workspace->getKey(), 'section_id' => $section->getKey(),
+            'course_id' => $course->getKey(), 'title' => 'فصل',
+            'status' => 'published', 'order' => 1,
+        ]);
+
+        $model = Lesson::create(array_merge([
+            'workspace_id' => $workspace->getKey(), 'course_id' => $course->getKey(),
+            'section_id' => $section->getKey(), 'chapter_id' => $chapter->getKey(),
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'title' => 'الحركة في بعد واحد',
+            'type' => 'embed',
+            'status' => 'published',
+            'order' => 1,
+            'duration_seconds' => 1200,
+            'external_url' => 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+        ], $lesson));
+
+        if ($asset !== null) {
+            \App\Modules\Media\Models\MediaAsset::factory()->create(array_merge([
+                'workspace_id' => $workspace->getKey(),
+                'owner_type' => Lesson::class,
+                'owner_id' => $model->getKey(),
+                'provider' => 'bunny',
+                'provider_asset_id' => (string) \Illuminate\Support\Str::uuid(),
+            ], $asset));
+        }
+
+        return [$course, $model->fresh(), $workspace, $teacher];
+    });
+}
+
+/**
  * Post a review as a marketplace student.
  *
  * The asGuest() call is not cosmetic: WorkspaceContext freezes on its first
