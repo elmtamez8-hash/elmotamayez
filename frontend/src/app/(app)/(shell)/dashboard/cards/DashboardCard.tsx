@@ -86,7 +86,7 @@ export function DashboardCard({
               <Icon className="h-5 w-5" />
             </span>
           )}
-          <span className="truncate">{title}</span>
+          <span className="min-w-0 text-balance leading-snug">{title}</span>
         </h3>
         {href !== undefined && (
           <Link

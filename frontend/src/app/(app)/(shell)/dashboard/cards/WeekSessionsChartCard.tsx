@@ -102,13 +102,11 @@ export function WeekSessionsChartCard() {
   const [error, setError] = useState<string | null>(null);
   const [refused, setRefused] = useState(false);
   /*
-   * ⚠️ حالتانِ لا واحدة، ولمسُ الهاتفِ هو السبب. المرورُ (`hovered`) عابرٌ يزولُ
-   * بمغادرةِ المؤشِّر؛ والضغطُ (`pinned`) يثبت. وهاتفٌ لا مؤشِّرَ له يُطلِقُ
-   * `mouseenter` **مرّةً** مع اللمسةِ ثمّ لا يُطلِقُ `mouseleave` أبداً — فحالةٌ
-   * واحدةٌ تعني لوحةً تُفتَحُ باللمسِ ولا تُغلَقُ إلّا بلمسِ يومٍ آخر، بلا أيِّ
-   * طريقٍ إلى الإغلاق.
+   * ⚠️ الضغطُ وحدَه يختارُ اليوم، والمرورُ لونٌ فقط. كانَ المرورُ يفتحُ لوحةً تحتَ
+   * الرسمِ فتطولُ البطاقة، واللوحةُ أعمدةُ CSS فتتوزّعُ من جديدٍ وتخرجُ البطاقةُ من
+   * تحتِ المؤشِّرِ فتُغلَقُ اللوحةُ وتعود — رعشةٌ بلَّغَ عنها المالكُ (٢٠٢٦-١٠-٠٩).
+   * وهاتفٌ لا مؤشِّرَ له لم يكنْ يملكُ إلّا الضغطَ أصلاً. `null` = اليوم.
    */
-  const [hovered, setHovered] = useState<string | null>(null);
   const [pinned, setPinned] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -131,16 +129,9 @@ export function WeekSessionsChartCard() {
   // ⚠️ المقامُ واحدٌ على الأقلّ: أسبوعٌ خالٍ يجعلُ `count / max` قسمةً على صفرٍ
   // فيصيرُ الارتفاعُ `NaN%` — وهو عمودٌ لا يُرسَمُ بصمت.
   const max = Math.max(1, ...days.map((day) => day.sessions.length));
-  const shownKey = pinned ?? hovered;
-  /*
-   | ⚠️ THE PANEL NEVER APPEARS OR CHANGES HEIGHT ON HOVER. The dashboard is CSS
-   | columns, so a card that grows re-balances them: the card moved out from under
-   | the pointer, `mouseleave` hid the panel, the card moved back, and the day
-   | flickered (reported 2026-10-09). So the panel is always there once the week
-   | has a session, shows the first day until one is hovered or pinned, and has a
-   | fixed height that scrolls inside.
-   */
-  const shownDay = days.find((day) => day.key === shownKey) ?? (rows.length > 0 ? (days[0] ?? null) : null);
+  // ⚠️ اليومُ هو الافتراض، والضغطةُ الثانيةُ على اليومِ المختارِ تعودُ إليه.
+  const selectedKey = pinned ?? days[0]?.key ?? null;
+  const selectedDay = days.find((day) => day.key === selectedKey) ?? null;
 
   return (
     <DashboardCard
@@ -151,80 +142,105 @@ export function WeekSessionsChartCard() {
       error={error}
       onRetry={load}
     >
-      {/* الرسمُ زينةٌ والقائمةُ هي البيان: كلُّ عمودٍ يحملُ اسمَ يومِه وعددَه
+      {/* الرسمُ زينةٌ والقائمةُ هي البيان: كلُّ يومٍ يحملُ اسمَه وتاريخَه وعددَه
           نصّاً، فلا شيءَ هنا يُقرَأُ بالارتفاعِ وحدَه. */}
-      <ol className="flex items-end justify-between gap-2" style={{ height: "9.5rem" }}>
-        {days.map((day) => (
-          <li key={day.key} className="flex h-full flex-1 flex-col justify-end">
-            {/*
-              ⚠️ زرٌّ حقيقيّ، لا `div` عليه `onMouseEnter`. اللوحةُ تحتَه هي
-              الطريقُ الوحيدُ إلى معرفةِ **أيّ** حصصٍ في اليوم، ولوحةٌ لا تُفتَحُ
-              إلّا بمؤشِّرٍ لا وجودَ لها على هاتفٍ ولا على لوحةِ مفاتيح.
-            */}
-            <button
-              type="button"
-              onMouseEnter={() => setHovered(day.key)}
-              onMouseLeave={() => setHovered(null)}
-              onFocus={() => setHovered(day.key)}
-              onBlur={() => setHovered(null)}
-              onClick={() => setPinned((current) => (current === day.key ? null : day.key))}
-              aria-pressed={pinned === day.key}
-              aria-label={`${weekdayLabel(day.key, zone)} ${dateLabel(day.key, zone)} — ${counted(day.sessions.length, NOUNS.sessions)}`}
-              className={`flex h-full w-full flex-col items-center justify-end gap-1 rounded-lg p-1 transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                shownKey === day.key ? "bg-primary-soft" : ""
-              }`}
-            >
-              <span className="text-xs text-ink-muted">
-                <bdi>{arabicNumber(day.sessions.length)}</bdi>
-              </span>
-              <div
-                className="w-full rounded-t bg-primary"
-                style={{ height: `${(day.sessions.length / max) * 100}%`, minHeight: "2px" }}
-                aria-hidden="true"
-              />
-              <span className="text-xs text-ink-muted">{weekdayLabel(day.key, zone)}</span>
-              {/* ⚠️ التاريخُ تحتَ الاسمِ لأنّ «السبت» وحدَه يقعُ مرّتَينِ في أسبوعٍ
-                  يبدأُ اليوم: سبتُ الغدِ وسبتُ الأسبوعِ القادمِ عمودانِ بالاسمِ
-                  نفسِه، ولا شيءَ في الرسمِ يقولُ أيُّهما أيّ. */}
-              <span className="text-[0.625rem] text-ink-muted">
-                <bdi>{dateLabel(day.key, zone)}</bdi>
-              </span>
-            </button>
-          </li>
-        ))}
+      <ol className="grid grid-cols-7 gap-1 sm:gap-1.5">
+        {days.map((day, index) => {
+          const selected = day.key === selectedKey;
+          const busy = day.sessions.length > 0;
+
+          return (
+            <li key={day.key} className="min-w-0">
+              {/*
+                ⚠️ زرٌّ حقيقيّ: قائمةُ اليومِ تحتَه هي الطريقُ الوحيدُ إلى معرفةِ
+                **أيّ** حصصٍ فيه، ولوحةٌ لا تُفتَحُ إلّا بمؤشِّرٍ لا وجودَ لها على
+                هاتفٍ ولا على لوحةِ مفاتيح.
+              */}
+              <button
+                type="button"
+                onClick={() => setPinned((current) => (current === day.key ? null : day.key))}
+                aria-pressed={pinned === day.key}
+                aria-label={`${weekdayLabel(day.key, zone)} ${dateLabel(day.key, zone)} — ${counted(day.sessions.length, NOUNS.sessions)}`}
+                className={`group/day flex w-full flex-col items-center gap-1.5 rounded-2xl border px-0.5 py-2 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                  selected
+                    ? "border-primary bg-primary text-white shadow-md shadow-primary/20"
+                    : "border-line text-ink hover:border-primary/40 hover:bg-primary-soft/50"
+                }`}
+              >
+                <span className="w-full whitespace-nowrap text-center text-[10px] font-bold tracking-tight sm:text-[11px]">
+                  {index === 0 ? "اليوم" : weekdayLabel(day.key, zone)}
+                </span>
+                {/* ⚠️ التاريخُ تحتَ الاسمِ لأنّ «السبت» وحدَه يقعُ مرّتَينِ في
+                    أسبوعٍ يبدأُ اليوم. */}
+                <span className={`text-[10px] ${selected ? "text-white/75" : "text-ink-muted"}`}>
+                  <bdi>{dateLabel(day.key, zone)}</bdi>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`flex h-12 w-2.5 items-end overflow-hidden rounded-full ${selected ? "bg-white/20" : "bg-line/70"}`}
+                >
+                  <span
+                    className={`block w-full rounded-full transition-[height] duration-500 ease-out motion-reduce:transition-none ${selected ? "bg-white" : "bg-primary"}`}
+                    style={{ height: `${(day.sessions.length / max) * 100}%` }}
+                  />
+                </span>
+                <span
+                  className={`grid h-6 min-w-6 place-items-center rounded-full px-1 text-xs font-extrabold ${
+                    selected
+                      ? "bg-white text-primary-ink"
+                      : busy
+                        ? "bg-primary-soft text-primary-ink"
+                        : "text-ink-muted"
+                  }`}
+                >
+                  <bdi>{arabicNumber(day.sessions.length)}</bdi>
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ol>
 
-      {shownDay !== null && (
-        <div className="mt-3 h-32 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-primary-soft p-3">
-          <p className="mb-2 text-xs font-bold text-ink">
-            {weekdayLabel(shownDay.key, zone)} <bdi>{dateLabel(shownDay.key, zone)}</bdi>
+      {/*
+        ⚠️ ارتفاعٌ ثابتٌ يتمرّرُ من داخله: اختيارُ يومٍ يُغيِّرُ ما في القائمةِ لا
+        طولَ البطاقة، فلا تتحرّكُ الأعمدةُ تحتَ الإصبع. وأسبوعٌ بلا حصّةٍ لا قائمةَ
+        له؛ الجملةُ تحتَه تقولُ ذلك.
+      */}
+      {rows.length > 0 && selectedDay !== null && (
+        <div className="mt-4 h-52 overflow-y-auto overscroll-contain rounded-2xl bg-surface p-3">
+          <p className="mb-2 flex items-center justify-between gap-2 text-xs font-bold text-ink">
+            <span>
+              {weekdayLabel(selectedDay.key, zone)} <bdi>{dateLabel(selectedDay.key, zone)}</bdi>
+            </span>
+            <span className="text-ink-muted">{counted(selectedDay.sessions.length, NOUNS.sessions)}</span>
           </p>
 
-          {shownDay.sessions.length === 0 ? (
+          {selectedDay.sessions.length === 0 ? (
             <p className="text-xs text-ink-muted">لا حصص في هذا اليوم.</p>
           ) : (
-            <ul className="flex flex-col gap-1.5">
-              {shownDay.sessions.map((session) => (
-                <li key={session.uuid} className="flex items-baseline justify-between gap-3 text-xs">
+            <ul className="space-y-1.5">
+              {selectedDay.sessions.map((session) => (
+                <li key={session.uuid}>
                   {/* ⚠️ صفحةُ الإدارةِ لمن يُديرُ، وصفحةُ الحصّةِ لمن يقرأُ فقط —
-                      وهي نفسُ الصفحةِ التي يفتحُها `SessionRow` في الجدولِ فوقَه،
                       و`ClassSessionPolicy::view()` يُجيزُها بـ`sessions.view`. */}
                   <Link
                     href={canManage ? `/manage/sessions/${session.uuid}` : `/sessions/${session.uuid}`}
-                    className="min-w-0 rounded text-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className="group/row flex items-center gap-3 rounded-xl border border-line bg-surface-raised p-2 text-xs transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
-                    <span className="block truncate">{session.title}</span>
-                    {/* ⚠️ اسمُ المجموعةِ هو ما يجعلُ السطرَ صالحاً للقراءة أصلاً:
-                        مدرّسٌ له ثلاثُ مجموعاتٍ في كورسٍ واحدٍ يرى ثلاثةَ عناوينَ
-                        متطابقةٍ في يومٍ واحد، ولا شيءَ يقولُ أيُّها لِمَن. وغيابُه
-                        `null` جوابٌ صريحٌ لا مفتاحٌ ناقص — «حصّة بلا مجموعة». */}
-                    {session.cohort_name != null && (
-                      <span className="block truncate text-[0.625rem] text-ink-muted">
-                        {session.cohort_name}
-                      </span>
-                    )}
+                    <bdi className="shrink-0 rounded-lg bg-primary-soft px-2 py-1 font-extrabold text-primary-ink transition group-hover/row:bg-primary group-hover/row:text-white">
+                      {clock(session, zone)}
+                    </bdi>
+                    <span className="min-w-0">
+                      <span className="block truncate font-bold text-ink">{session.title}</span>
+                      {/* ⚠️ اسمُ المجموعةِ هو ما يُفرِّقُ ثلاثَ حصصٍ بالعنوانِ نفسِه
+                          في يومٍ واحد. وغيابُه جوابٌ صريح — «حصّة بلا مجموعة». */}
+                      {session.cohort_name != null && (
+                        <span className="block truncate text-[0.625rem] text-ink-muted">
+                          {session.cohort_name}
+                        </span>
+                      )}
+                    </span>
                   </Link>
-                  <bdi className="shrink-0 font-bold text-primary-ink">{clock(session, zone)}</bdi>
                 </li>
               ))}
             </ul>
