@@ -17,6 +17,7 @@ export function PhoneInput({
   onDialChange,
   onNumberChange,
   error,
+  required = true,
 }: {
   id: string;
   dial: string;
@@ -24,6 +25,13 @@ export function PhoneInput({
   onDialChange: (dial: string) => void;
   onNumberChange: (number: string) => void;
   error?: string;
+  /**
+   * Every form that uses this sends the number to a request that REQUIRES it
+   * (student, parent and teacher signup, WhatsApp verification), so the mark is
+   * on by default. It was missing, and a student who left it empty got a 422
+   * with nothing on the form saying the field was needed (owner audit 2026-10-09).
+   */
+  required?: boolean;
 }) {
   const describedBy = error ? `${id}-error` : undefined;
 
@@ -31,6 +39,11 @@ export function PhoneInput({
     <div>
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
         رقم الجوال
+        {required && (
+          <span className="text-danger-ink" aria-hidden="true">
+            {" *"}
+          </span>
+        )}
       </label>
 
       <div className="flex gap-2">
@@ -55,6 +68,7 @@ export function PhoneInput({
           value={number}
           onChange={(event) => onNumberChange(event.target.value.replace(/\D/g, ""))}
           placeholder="55512345"
+          required={required}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
