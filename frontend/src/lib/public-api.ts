@@ -226,6 +226,23 @@ export type CohortSummary = {
    * a subscribe button turns into a 422 the visitor cannot act on.
    */
   is_joinable: boolean;
+  /**
+   * The cheapest plan a buyer on this group is offered — its own, else the
+   * course's. Null on a group not joinable now. Optional: a payload cached
+   * before the key existed has none.
+   */
+  price?: CoursePrice | null;
+};
+
+/**
+ * A price on the course page (review 2026-10-09) — the amount and what it buys,
+ * one month or N sessions, which is why the amount is never shown alone.
+ */
+export type CoursePrice = {
+  price_minor: number;
+  currency: string;
+  duration_days: number | null;
+  session_count: number | null;
 };
 
 export type CourseDetail = {
@@ -308,6 +325,13 @@ export type CourseDetail = {
    * button: a price over a course nobody can buy is a promise the doors refuse.
    */
   enrolment_open: boolean;
+  /**
+   * The lowest price over the open doors (a joinable group, the private hours),
+   * and the private hours' own — {@link CoursePrice}. Null when nothing priced
+   * is open; optional for a payload cached before the keys existed.
+   */
+  starting_price?: CoursePrice | null;
+  private_price?: CoursePrice | null;
   /**
    * The promo video's ID on the teacher's own channel (018 · FR-006).
    *

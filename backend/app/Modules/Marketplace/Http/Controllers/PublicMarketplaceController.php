@@ -208,6 +208,31 @@ class PublicMarketplaceController extends Controller
             static fn (array $cohort): bool => $cohort['is_joinable'] === true,
         ) || $payload['private_subscription_available'];
 
+        /*
+        | The price where it can be bought (review 2026-10-09: it first appeared
+        | at the last step of checkout). Asked ONLY of the doors already open —
+        | a joinable group, the private invitation — so a price never stands
+        | over something the page will not sell, and «no plan», «inactive» and
+        | «unpriced» all read null alike.
+        */
+        $joinable = array_values(array_map(
+            static fn (array $cohort): string => (string) $cohort['uuid'],
+            array_filter($payload['cohorts'], static fn (array $cohort): bool => $cohort['is_joinable'] === true),
+        ));
+        $prices = $action->startingPrices($course, $joinable);
+
+        $payload['cohorts'] = array_map(
+            static fn (array $cohort): array => [...$cohort, 'price' => $prices['groups'][$cohort['uuid']] ?? null],
+            $payload['cohorts'],
+        );
+        $payload['private_price'] = $payload['private_subscription_available'] ? $prices['private'] : null;
+        // The header's «من …»: the lowest of the above, carrying its own shape —
+        // a month and an eight-session pack are different things to buy.
+        $payload['starting_price'] = collect([$payload['private_price'], ...array_column($payload['cohorts'], 'price')])
+            ->filter()
+            ->sortBy('price_minor')
+            ->first();
+
         return response()->json(['data' => $payload]);
     }
 

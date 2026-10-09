@@ -547,6 +547,7 @@ export default async function CoursePage({
               // asks whether any row carries it, and restates no rule.
               joinableGroup={course.cohorts.some((cohort) => cohort.is_joinable)}
               teacher={course.teacher}
+              startingPrice={course.starting_price ?? null}
             />
             {/* «تواصل مع المدرّس» (2026-09-28) — a question before paying, or
                 after. The message goes to the teacher's whole team. */}

@@ -76,4 +76,19 @@ interface SubscriptionDirectory
      * refusal branch to avoid.
      */
     public function hasSellablePlanFor(int $courseId, ?string $sessionType = null): bool;
+
+    /**
+     * The lowest sellable price a course's public page may show (review
+     * 2026-10-09: the price was hidden until the last step of checkout).
+     *
+     * `private` — the cheapest one-to-one plan reaching the course. `cohorts` —
+     * per group uuid asked about, the cheapest group plan the BUYER on that group
+     * would be offered: its own plans when it has any, else the course's.
+     * Null where nothing is sellable — «no plan», «inactive» and «unpriced» all
+     * answer null alike. One query for the whole page.
+     *
+     * @param  list<string>  $cohortUuids
+     * @return array{private: ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}, groups: array<string, ?array{price_minor: int, currency: string, duration_days: ?int, session_count: ?int}>}
+     */
+    public function startingPricesFor(int $courseId, array $cohortUuids): array;
 }

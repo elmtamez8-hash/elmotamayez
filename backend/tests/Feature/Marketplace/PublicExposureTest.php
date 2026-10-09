@@ -193,6 +193,7 @@ it('publishes only allowlisted fields, in every public payload', function () {
         ...PublicFieldAllowlist::CURRICULUM_CHAPTER,
         ...PublicFieldAllowlist::CURRICULUM_ITEM,
         ...PublicFieldAllowlist::COHORT,
+        ...PublicFieldAllowlist::PRICE,
         // «تواصل مع المدرّس» on both pages (2026-09-28).
         ...PublicFieldAllowlist::CONTACT,
         // Spec 032 — the open embedded lesson's own door.

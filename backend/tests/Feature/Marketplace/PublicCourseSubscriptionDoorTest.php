@@ -359,3 +359,26 @@ it('carries the private-hour minimum notice the request door enforces', function
 
     expect(doorPayload($this->course)['private_session_min_lead_minutes'])->toBe(180);
 });
+
+it('publishes a group priced by its COURSE plan, not only by a whole-teacher plan', function (): void {
+    /*
+    | ⛔ FOUND 2026-10-09. The public group read did not select `course_id`, so
+    | the price stamp matched course plans against course 0 and a group priced
+    | the ordinary way — a plan for this course — vanished from the page.
+    | `cohortAt()` above prices through a WORKSPACE plan, which is why no case in
+    | this file ever saw it.
+    */
+    Plan::factory()->group()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'price_minor' => 45_000,
+        'coverage_type' => PlanCoverage::Course,
+        'coverage_uuid' => $this->course->uuid,
+    ]);
+    $group = Cohort::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'created_by' => $this->course->created_by,
+    ]);
+
+    expect(array_column(doorPayload($this->course)['cohorts'], 'uuid'))->toBe([(string) $group->uuid]);
+});
