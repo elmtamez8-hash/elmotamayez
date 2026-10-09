@@ -40,6 +40,7 @@ export default async function RefundsPage() {
 
   return (
     <LegalDraft
+      current="refunds"
       icon={RefundIcon}
       image="/marketplace/banner-refunds.webp"
       title="سياسة الاسترجاع"
