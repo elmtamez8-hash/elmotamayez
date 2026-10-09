@@ -642,7 +642,7 @@ export default async function HomePage() {
           browse teachers, a first trial lesson) — no claim the product does not
           already make above. */}
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="bg-squares relative isolate overflow-hidden rounded-3xl bg-primary px-6 py-12 shadow-xl shadow-primary/20 sm:px-10 lg:px-14 lg:py-16">
+        <div className="bg-squares relative isolate overflow-hidden rounded-3xl bg-primary px-6 py-12 shadow-xl shadow-primary/20 transition-shadow duration-500 ease-out hover:shadow-2xl hover:shadow-primary/30 sm:px-10 lg:px-14 lg:py-16">
           <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <div>
               <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
@@ -653,10 +653,10 @@ export default async function HomePage() {
               </p>
               <ul className="grid gap-4 sm:grid-cols-3">
                 {CTA_POINTS.map(({ Icon, label }) => (
-                  <li key={label} className="flex items-center gap-3 font-semibold text-white">
+                  <li key={label} className="group/point flex items-center gap-3 font-semibold text-white transition duration-300 ease-out hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
                     <span
                       aria-hidden="true"
-                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground"
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent text-accent-foreground shadow-md shadow-primary-ink/20 transition duration-300 ease-out group-hover/point:rotate-6 group-hover/point:scale-110 motion-reduce:transition-none motion-reduce:group-hover/point:rotate-0 motion-reduce:group-hover/point:scale-100"
                     >
                       <Icon className="h-5 w-5" />
                     </span>
@@ -669,7 +669,7 @@ export default async function HomePage() {
             <div className="flex flex-col items-stretch gap-4 sm:items-start lg:items-stretch">
               <Link
                 href="/signup/student"
-                className="rounded-2xl bg-accent px-8 py-4 text-center text-lg font-bold text-accent-foreground shadow-lg shadow-primary/30 transition duration-300 ease-out hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+                className="rounded-2xl bg-accent px-8 py-4 text-center text-lg font-bold text-accent-foreground shadow-lg shadow-primary/30 transition duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:hover:scale-100"
               >
                 سجّل كطالب مجاناً
               </Link>
