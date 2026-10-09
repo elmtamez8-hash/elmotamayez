@@ -7,6 +7,7 @@ import {
   adminNav,
   allowedNav,
   DEFAULT_PAGE_TITLE,
+  groupNav,
   mainNav,
   navLabel,
   pageTitleFor,
@@ -364,5 +365,27 @@ describe("pageTitleFor", () => {
 
     expect(routes.length).toBeGreaterThan(50);
     expect(untitled).toEqual([]);
+  });
+});
+
+describe("groupNav · القائمة في مجموعات", () => {
+  it("files a student's links under their headings, and drops empty groups", () => {
+    const sections = groupNav(allowedNav(mainNav, person()));
+    const titles = sections.map((section) => section.title);
+
+    expect(titles).toEqual([null, "دراستي", "حصصي", "إنجازاتي", "حسابي"]);
+    expect(sections[1]?.items.map((item) => item.href)).toContain("/enrollments");
+  });
+
+  it("loses no link: every allowed entry lands in some group", () => {
+    const allowed = allowedNav(mainNav, person({ platform_role: "teacher", permissions: Object.values(P) }));
+
+    expect(groupNav(allowed).flatMap((section) => section.items)).toHaveLength(allowed.length);
+  });
+
+  it("files every mainNav entry under a titled group, so none drifts to the untitled tail", () => {
+    const tail = groupNav(mainNav).at(-1);
+
+    expect(tail?.title === null && tail.items.some((item) => item.href !== "/dashboard")).toBe(false);
   });
 });

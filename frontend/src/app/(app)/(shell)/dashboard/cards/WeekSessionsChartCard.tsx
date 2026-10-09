@@ -193,7 +193,8 @@ export function WeekSessionsChartCard() {
                         : "text-ink-muted"
                   }`}
                 >
-                  <bdi>{arabicNumber(day.sessions.length)}</bdi>
+                  {/* يومٌ بلا حصّةٍ شَرطةٌ لا «٠»: الصفرُ العربيُّ نقطةٌ تُقرأُ كأنّ العددَ لم يُحمَّل. */}
+                  <bdi>{day.sessions.length === 0 ? "–" : arabicNumber(day.sessions.length)}</bdi>
                 </span>
               </button>
             </li>

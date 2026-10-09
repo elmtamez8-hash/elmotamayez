@@ -160,6 +160,10 @@ function studentAnswer(overrides: Record<string, unknown> = {}) {
     if (path === "/enrollments?status=completed") {
       return Promise.resolve({ data: [], meta: { total: 4 } });
     }
+    // «Is this a new student?» — every status. A student with courses is not.
+    if (path === "/enrollments") {
+      return Promise.resolve({ data: [], meta: { total: 41 } });
+    }
     if (path.startsWith("/certificates")) {
       return Promise.resolve({ data: [], meta: { total: 2 } });
     }
@@ -217,9 +221,55 @@ function studentAnswer(overrides: Record<string, unknown> = {}) {
 }
 
 function asStudent(overrides: Record<string, unknown> = {}) {
+  // The cards mount only after «is this a new student?» resolves, so a rejection
+  // made here waits a tick for its reader — mark it handled; the card still sees it.
+  for (const answer of Object.values(overrides)) void (answer as Promise<unknown>).catch?.(() => undefined);
   mockUser = { first_name: "سلمى", platform_role: "student", permissions: [] };
   get.mockImplementation(studentAnswer(overrides));
 }
+
+describe("DashboardPage · الطالب الجديد", () => {
+  const nothingYet = {
+    "/enrollments": Promise.resolve({ data: [], meta: { total: 0 } }),
+    "/orders": Promise.resolve({ data: [], meta: { total: 0 } }),
+  };
+
+  it("greets a new student and shows three steps instead of empty cards", async () => {
+    asStudent(nothingYet);
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("ابدأ من هنا")).toBeDefined();
+    expect(screen.getByText(/أهلاً بك، سلمى/)).toBeDefined();
+    expect(screen.queryByText(/أهلاً بعودتك/)).toBeNull();
+    expect(screen.queryByText("حصصك القادمة")).toBeNull();
+    expect(screen.getByRole("link", { name: "تصفّح المدرّسين" }).getAttribute("href")).toBe("/teachers");
+    expect(screen.getByRole("link", { name: "الكورسات" }).getAttribute("href")).toBe("/courses");
+  });
+
+  it("treats a student with an order waiting as started, not new", async () => {
+    asStudent({ "/enrollments": Promise.resolve({ data: [], meta: { total: 0 } }) });
+    get.mockImplementation((path: string) =>
+      path === "/orders"
+        ? Promise.resolve({ data: [], meta: { total: 1 } })
+        : studentAnswer({ "/enrollments": Promise.resolve({ data: [], meta: { total: 0 } }) })(path),
+    );
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصصك القادمة")).toBeDefined();
+    expect(screen.queryByText("ابدأ من هنا")).toBeNull();
+  });
+
+  it("shows the full dashboard when the question cannot be answered", async () => {
+    asStudent({ "/enrollments": Promise.reject(new Error("boom")) });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("حصصك القادمة")).toBeDefined();
+    expect(screen.queryByText("ابدأ من هنا")).toBeNull();
+  });
+});
 
 describe("DashboardPage · الطالب", () => {
   it("knocks on no door a student is refused", async () => {
@@ -1139,7 +1189,7 @@ describe("DashboardPage · الرسوم", () => {
       screen.getByText("حصص الأسبوع القادم").closest("section") as HTMLElement,
     );
     expect(chart.getAllByRole("listitem")).toHaveLength(7);
-    expect(chart.getAllByText("٠").length).toBe(6);
+    expect(chart.getAllByText("–").length).toBe(6);
     expect(chart.getAllByText("١").length).toBe(1);
   });
 
@@ -1223,7 +1273,7 @@ describe("DashboardPage · الرسوم", () => {
     | المحتوى.
     */
     expect(chart.getAllByRole("listitem")).toHaveLength(7);
-    expect(chart.getAllByText("٠")).toHaveLength(7);
+    expect(chart.getAllByText("–")).toHaveLength(7);
     expect(chart.getByText(/لا حصص في السبعة أيام القادمة/)).toBeDefined();
     expect(chart.getByText("أنشئ حصّة").getAttribute("href")).toBe("/manage/sessions");
   });
