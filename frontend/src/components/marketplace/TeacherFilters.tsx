@@ -220,6 +220,17 @@ export function TeacherFilters({
           متاح الآن
         </label>
 
+        {/* Any declared weekly hours — a private session can be booked (review 2026-10-09). */}
+        <label className="flex items-center gap-2.5 text-sm font-medium text-ink">
+          <input
+            type="checkbox"
+            checked={params.get("bookable") === "1"}
+            onChange={(event) => update("bookable", event.target.checked ? "1" : "")}
+            className="h-4 w-4 rounded border-line text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          />
+          لديه مواعيد للحجز
+        </label>
+
         <label htmlFor={id("sort")} className="sr-only">
           ترتيب حسب
         </label>
@@ -277,6 +288,8 @@ export function ActiveFilters({
         return LANGUAGES.find((lang) => lang.value === value)?.label ?? value;
       case "available_now":
         return value === "1" ? "متاح الآن" : null;
+      case "bookable":
+        return value === "1" ? "لديه مواعيد للحجز" : null;
       case "q":
         return `بحث: ${value}`;
       default:

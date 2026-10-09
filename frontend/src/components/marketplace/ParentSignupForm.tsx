@@ -234,7 +234,7 @@ export function ParentSignupForm() {
         )}
       </div>
 
-      <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
+      <Button type="submit" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
         إنشاء حساب وليّ أمر
       </Button>
 

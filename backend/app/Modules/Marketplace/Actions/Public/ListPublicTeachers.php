@@ -95,6 +95,14 @@ class ListPublicTeachers extends Action
                 AvailabilitySlot::query()->withoutWorkspaceScope()->covering($now)->select('teacher_profile_id'),
             );
         });
+
+        // «لديه مواعيد للحجز» (review 2026-10-09): any declared weekly hours —
+        // the hours a private session is booked from. A presence, not a price,
+        // so it is no oracle (cf. the refused `price_min` in the request).
+        $query->when($filters->bookable, fn (Builder $q) => $q->whereIn(
+            'teacher_profiles.id',
+            AvailabilitySlot::query()->withoutWorkspaceScope()->select('teacher_profile_id'),
+        ));
     }
 
     /** @param Builder<TeacherProfile> $query */

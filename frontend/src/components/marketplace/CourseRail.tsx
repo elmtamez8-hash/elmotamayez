@@ -235,11 +235,28 @@ function VisitorRail({
           </span>
         </p>
       ) : (
-        <SubscribeWays
-          courseUuid={courseUuid}
-          privateSubscriptionAvailable={privateSubscriptionAvailable}
-          joinableGroup={joinableGroup}
-        />
+        <>
+          <SubscribeWays
+            courseUuid={courseUuid}
+            privateSubscriptionAvailable={privateSubscriptionAvailable}
+            joinableGroup={joinableGroup}
+          />
+          {/*
+            The reassurance beside the button (review 2026-10-09) — and ONLY what
+            `/refunds` already promises, word for word in substance: no
+            auto-renewal, the unused part refunded on cancellation. A guarantee
+            the policy does not hold would be a promise the platform breaks.
+          */}
+          <p className="flex items-start gap-2 text-xs leading-relaxed text-ink-muted">
+            <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-secondary-ink" />
+            <span>
+              لا يتجدّد الاشتراك تلقائياً، ويُردّ لك الجزء غير المستعمل منه إن أُلغي.{" "}
+              <Link href="/refunds" className="font-bold text-primary-ink underline-offset-4 hover:underline">
+                سياسة الاسترداد
+              </Link>
+            </span>
+          </p>
+        </>
       )}
 
       <ul className="flex flex-col gap-3 border-t border-line pt-5">

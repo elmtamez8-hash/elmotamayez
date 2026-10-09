@@ -196,6 +196,25 @@ it('matches only teachers inside an active availability window for available_now
     expect($response->json('data.0.available_now'))->toBeTrue();
 });
 
+it('matches only teachers with declared weekly hours for bookable, at any hour', function () {
+    // «لديه مواعيد للحجز» (review 2026-10-09) — any slot, not one covering now.
+    $bookable = marketplaceTeacher($this->workspace);
+    marketplaceTeacher($this->workspace);
+
+    app(WorkspaceContext::class)->forWorkspace($this->workspace, fn () => AvailabilitySlot::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'teacher_profile_id' => $bookable->getKey(),
+    ]));
+
+    $this->asGuest();
+
+    $response = $this->getJson('/api/v1/marketplace/teachers?bookable=1');
+
+    expect($response->json('meta.total'))->toBe(1)
+        ->and($response->json('data.0.uuid'))->toBe((string) $bookable->uuid)
+        ->and($this->getJson('/api/v1/marketplace/teachers')->json('meta.total'))->toBe(2);
+});
+
 it('filters by grade level slug', function () {
     $teacher = marketplaceTeacher($this->workspace);
     marketplaceTeacher($this->workspace);

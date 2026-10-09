@@ -362,3 +362,18 @@ describe("CourseRail — «يبدأ من»", () => {
     expect(screen.queryByText("يبدأ من")).toBeNull();
   });
 });
+
+describe("CourseRail — the reassurance line", () => {
+  it("says what the refund policy holds, with a link to it, beside an open door", async () => {
+    await renderRail(false, {});
+
+    expect(screen.getByText(/لا يتجدّد الاشتراك تلقائياً/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "سياسة الاسترداد" }).getAttribute("href")).toBe("/refunds");
+  });
+
+  it("says nothing of the kind over a course nobody can buy", async () => {
+    await renderRail(false, { enrolmentOpen: false });
+
+    expect(screen.queryByText(/لا يتجدّد الاشتراك تلقائياً/)).toBeNull();
+  });
+});

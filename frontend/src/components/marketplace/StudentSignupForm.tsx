@@ -368,7 +368,7 @@ export function StudentSignupForm({
             minLength={8}
           />
 
-          <Button type="submit" variant="accent" size="lg" fullWidth>
+          <Button type="submit" size="lg" fullWidth>
             التالي
           </Button>
         </>
@@ -546,7 +546,7 @@ export function StudentSignupForm({
               رجوع
             </Button>
             <div className="flex-1">
-              <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
+              <Button type="submit" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إنشاء الحساب…">
                 إنشاء حساب طالب
               </Button>
             </div>
