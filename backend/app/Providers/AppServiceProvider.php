@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Models\User;
 use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Identity\Support\TwoFactorChallenges;
+use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -335,6 +336,19 @@ class AppServiceProvider extends ServiceProvider
         */
         RateLimiter::for('chat-media', fn (Request $request) => Limit::perMinute(600)
             ->by('chat-media:'.$request->ip()));
+
+        /*
+        | A course's «حصة تجريبية» for guests (spec 040): the descriptor and the
+        | stream redirect, per IP, in a bucket of their own — sharing `public`
+        | would let video reloads eat the marketplace pages' budget. The routes
+        | also drop the `api` group's floor, as `/chat-media` does. The number is
+        | a platform setting; the SSR branch is a safety net, since the page
+        | fetches the descriptor from the browser.
+        */
+        RateLimiter::for('trial-playback', fn (Request $request) => self::isOwnServerRender($request)
+            ? Limit::perMinute(self::SSR_PER_MINUTE)->by('trial-ssr:'.$request->ip())
+            : Limit::perMinute(max(1, (int) PlatformSettings::get('media.trial_requests_per_minute')))
+                ->by('trial:'.$request->ip()));
 
         /*
         | Provider webhooks.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { TranscriptPanel } from "@/components/player/TranscriptPanel";
 import { Watermark } from "@/components/player/Watermark";
@@ -43,7 +43,45 @@ import { Select } from "@/components/ui/Field";
  * amount of renewing helps. The reload below is what keeps the server the decision
  * point; the cost is a re-buffer on each one, and the server sets the cadence.
  */
+/**
+ * What the player itself reads. A student's `PlaybackGrant` has all of it; a
+ * guest watching a course's «حصة تجريبية» (spec 040) gets the same shape from
+ * the trial door, with no grant, no watermark and nothing to resume.
+ */
+export type PlayerSource = Pick<
+  PlaybackGrant,
+  "manifest_url" | "format" | "captions" | "resume_at_seconds" | "reload_after_seconds"
+>;
+
+/**
+ * The student's player: the core below WITH the watermark, exactly as before
+ * the split. The watermark is not decoration — it runs the grant's renewal loop
+ * and stops playback if it is hidden (`Watermark.tsx`) — so the student path
+ * keeps it unconditionally, and only the guest trial uses the core alone.
+ */
 export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
+  return (
+    <VideoPlayerCore
+      source={grant}
+      overlay={(videoRef, onStopped) => (
+        <Watermark grant={grant} videoRef={videoRef} onStopped={onStopped} />
+      )}
+    />
+  );
+}
+
+/**
+ * The player without the watermark: a guest's «حصة تجريبية» (spec 040), where
+ * there is no grant to renew and nobody to name. Never used on a student path.
+ */
+export function VideoPlayerCore({
+  source: grant,
+  overlay,
+}: {
+  source: PlayerSource;
+  /** Drawn over the video with its element and the stop callback. */
+  overlay?: (videoRef: RefObject<HTMLVideoElement | null>, onStopped: (message: string) => void) => ReactNode;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState(grant.manifest_url);
@@ -269,11 +307,7 @@ export function VideoPlayer({ grant }: { grant: PlaybackGrant }) {
           ))}
         </video>
 
-        <Watermark
-          grant={grant}
-          videoRef={videoRef}
-          onStopped={onStopped}
-        />
+        {overlay?.(videoRef, onStopped)}
       </div>
 
       {/*

@@ -91,8 +91,23 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           والتدرّجُ إلى الشفافِ لا مستطيلٌ مصمت: شريطٌ صلبٌ يقطعُ الصورةَ بخطٍّ
           ويُقرَأُ عنصراً آخَرَ فوقَها، والتدرّجُ يُقرَأُ ظلَّها.
         */}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-3 pt-8">
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-3 pt-8">
           <StarRating value={course.average_rating} tone="overlay" />
+          {/*
+            Spec 040 — the course's «حصة تجريبية». Its own link above the card's
+            stretched title link (`relative z-10`), straight to the lesson: the
+            badge is a door, not a label. Present only when the server's
+            `has_trial` says the guest door will serve it.
+          */}
+          {course.has_trial === true && (
+            <Link
+              href={`/courses/${course.slug ?? course.uuid}/trial`}
+              className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-extrabold text-accent-foreground shadow-md transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              <PlayIcon className="h-3.5 w-3.5" />
+              حصة تجريبية مجانية
+            </Link>
+          )}
         </div>
       </div>
 

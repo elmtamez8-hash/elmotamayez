@@ -429,8 +429,9 @@ export default async function TeacherProfilePage({
               */}
               <div className="px-6 pt-5 pb-3">
                 <TrialCta
-                  trial={teacher.trial_lesson}
-                  coursesHref={`/teachers/${teacher.slug}?tab=courses`}
+                  trials={teacher.trial_lessons}
+                  hasIntroVideo={videoEmbedUrl(teacher.intro_video_url) !== null}
+                  teacherHref={`/teachers/${teacher.slug}`}
                   variant="profile"
                 />
               </div>
@@ -455,7 +456,7 @@ export default async function TeacherProfilePage({
                     تقولُه فقرة، وهو أوّلُ ما يبحثُ عنه وليُّ أمرٍ يختارُ لابنِه.
                   */}
                   {videoEmbedUrl(teacher.intro_video_url) !== null && (
-                    <section aria-labelledby="intro-video-heading">
+                    <section id="intro-video" aria-labelledby="intro-video-heading" className="scroll-mt-28">
                       <h2
                         id="intro-video-heading"
                         className="mb-4 flex items-center gap-3 text-xl font-extrabold text-ink"
@@ -707,8 +708,9 @@ export default async function TeacherProfilePage({
               defect survived on exactly the screen the redesign is aimed at.
               Grep for the route, never for the button's label. */}
           <TrialCta
-            trial={teacher.trial_lesson}
-            coursesHref={`/teachers/${teacher.slug}?tab=courses`}
+            trials={teacher.trial_lessons}
+            hasIntroVideo={videoEmbedUrl(teacher.intro_video_url) !== null}
+            teacherHref={`/teachers/${teacher.slug}`}
             variant="bar"
           />
         </div>

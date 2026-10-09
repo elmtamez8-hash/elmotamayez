@@ -8,6 +8,7 @@ use App\Models\BaseModel;
 use App\Models\User;
 use App\Modules\Courses\Exceptions\CourseDeletionRefused;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\TrialLessonRule;
 use App\Modules\Learning\Models\Enrollment;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Marketplace\Models\Subject;
@@ -46,6 +47,7 @@ use stdClass;
  * @property string $promo_video_status
  * @property Carbon|null $promo_video_reviewed_at
  * @property int|null $promo_video_reviewed_by
+ * @property int|null $trial_lesson_id «الحصة التجريبية» (spec 040); written only by `SetCourseTrialLesson`, never mass-assigned
  * @property Carbon|null $last_delivered_at
  * @property Carbon|null $created_at
  * @property-read User|null $creator created_by is nullable — a course can outlive its author
@@ -346,6 +348,40 @@ class Course extends BaseModel
     {
         return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id')
             ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * The course's «حصة تجريبية» — one lesson of THIS course that any visitor
+     * may watch (spec 040). Whether it may be SHOWN right now is not this
+     * relation's question: ask `TrialLessonRule::scopeEligible()`.
+     *
+     * The bypass is in the relation for the reason `teacherProfile()` gives:
+     * its readers are guest pages and other-workspace visitors. Same workspace
+     * as the course by construction (`SetCourseTrialLesson`).
+     *
+     * @return BelongsTo<Lesson, $this>
+     */
+    public function trialLesson(): BelongsTo
+    {
+        return $this->belongsTo(Lesson::class, 'trial_lesson_id')
+            ->withoutGlobalScope(WorkspaceScope::class);
+    }
+
+    /**
+     * `has_trial` on each row: whether the course's «حصة تجريبية» may be shown
+     * NOW — `TrialLessonRule::scopeEligible()` as a correlated EXISTS, so a list
+     * of cards pays no extra query (spec 040 · FR-016). Read by
+     * `PublicCourseCardResource`; a list that does not ask gets `false`.
+     *
+     * @param  Builder<Course>  $query
+     * @return Builder<Course>
+     */
+    public function scopeWithTrialFlag(Builder $query): Builder
+    {
+        return $query->withExists([
+            'trialLesson as has_trial' => fn ($lesson) => TrialLessonRule::scopeEligible($lesson)
+                ->whereColumn('lessons.course_id', 'courses.id'),
+        ]);
     }
 
     /**

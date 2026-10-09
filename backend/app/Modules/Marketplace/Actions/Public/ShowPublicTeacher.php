@@ -9,7 +9,6 @@ use App\Modules\Courses\Models\Lesson;
 use App\Modules\Marketplace\Models\Review;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Shared\Actions\Action;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -156,6 +155,8 @@ class ShowPublicTeacher extends Action
     {
         $courses = Course::query()
             ->publiclyListed()
+            // Spec 040 — each card's «حصة تجريبية» badge, and `trialsOf()`'s input.
+            ->withTrialFlag()
             /*
             | ⛔ THE COURSES THIS PROFILE TEACHES (2026-09-30) —
             | `Course::teacherProfileForListing()` in SQL: the ones its person
@@ -200,48 +201,52 @@ class ShowPublicTeacher extends Action
     }
 
     /**
-     * The teacher's free «حصة تجريبية»: the first lesson a guest may watch in
-     * their newest listed course that has one (owner decision 2026-10-09 — the
-     * trial is a RECORDED lesson, free, with no booking and no approval).
+     * The teacher's «حصص تجريبية»: one per course that has one visitors may
+     * watch now (spec 040, owner decisions 2026-10-09 — a teacher may teach
+     * several subjects and grades, so the trial is per COURSE and the teacher
+     * page lists them).
      *
-     * ⚠️ `ReadPublicPreviewLesson::readable()`, never a second spelling: the
-     * link built from this answer is opened by that door, and advertising a
-     * lesson it refuses is a dead link on the page's main button.
-     *
-     * `$courses` is `coursesOf()`'s answer, already newest first and already
-     * public, so the course rules are not asked twice. One query, whatever the
-     * number of courses.
+     * `$courses` is `coursesOf()`'s answer, already public and already carrying
+     * `has_trial` from the rule's correlated EXISTS — so this is ONE query for
+     * the lessons' titles, never a check per course, and it cannot disagree with
+     * the cards' badges or with the guest door.
      *
      * @param  Collection<int, Course>  $courses
-     * @return array{course_slug: string, lesson_uuid: string, title: string}|null
+     * @return list<array{course_slug: string, course_title: string, subject: string|null, grade_level: string|null, lesson_title: string, kind: string}>
      */
-    public function trialLessonOf(Collection $courses): ?array
+    public function trialsOf(Collection $courses): array
     {
-        if ($courses->isEmpty()) {
-            return null;
+        $withTrial = $courses->filter(fn (Course $course): bool => (bool) $course->getAttribute('has_trial'));
+
+        if ($withTrial->isEmpty()) {
+            return [];
         }
 
         $lessons = Lesson::query()
             ->withoutWorkspaceScope()
-            ->whereIn('course_id', $courses->modelKeys())
-            ->tap(fn (Builder $query) => ReadPublicPreviewLesson::readable($query))
-            ->orderBy('order')
-            ->orderBy('id')
-            ->get(['id', 'uuid', 'course_id', 'title'])
-            ->groupBy('course_id');
+            ->whereIn('id', $withTrial->pluck('trial_lesson_id')->filter()->all())
+            ->get(['id', 'title', 'type'])
+            ->keyBy('id');
 
-        foreach ($courses as $course) {
-            $lesson = $lessons->get($course->getKey())?->first();
+        $trials = [];
 
-            if ($lesson instanceof Lesson) {
-                return [
-                    'course_slug' => (string) ($course->slug ?? $course->uuid),
-                    'lesson_uuid' => (string) $lesson->uuid,
-                    'title' => (string) $lesson->title,
-                ];
+        foreach ($withTrial as $course) {
+            $lesson = $lessons->get($course->trial_lesson_id);
+
+            if (! $lesson instanceof Lesson) {
+                continue;
             }
+
+            $trials[] = [
+                'course_slug' => (string) ($course->slug ?? $course->uuid),
+                'course_title' => (string) $course->title,
+                'subject' => $course->subject?->name,
+                'grade_level' => $course->grade_level,
+                'lesson_title' => (string) $lesson->title,
+                'kind' => $lesson->type === 'video' ? 'video' : 'embed',
+            ];
         }
 
-        return null;
+        return $trials;
     }
 }

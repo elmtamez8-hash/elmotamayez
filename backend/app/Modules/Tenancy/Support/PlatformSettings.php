@@ -120,6 +120,8 @@ final class PlatformSettings
         'media.max_audio_duration_seconds' => 'media.max_audio_duration_seconds',
         'media.grant_ttl_seconds' => 'media.grant_ttl_seconds',
         'media.max_renewals' => 'media.max_renewals',
+        'media.trial_link_ttl_seconds' => 'media.trial_link_ttl_seconds',
+        'media.trial_requests_per_minute' => 'media.trial_requests_per_minute',
         'media.watched_share' => 'media.watched_share',
         'media.watched_fallback_seconds' => 'media.watched_fallback_seconds',
         'media.reconcile_ceiling_hours' => 'media.reconcile_ceiling_hours',

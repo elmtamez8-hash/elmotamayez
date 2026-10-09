@@ -89,6 +89,10 @@ final class RolePermissionMatrix
             Permissions::COURSES_DELETE,
             Permissions::COURSES_PUBLISH,
             Permissions::LESSONS_DELETE,
+            // Spec 040 — what any visitor watches for free in the teacher's name.
+            // The teacher's by default; the owner ticks it onto a custom assistant
+            // role for a named person (owner decision 2026-10-09).
+            Permissions::COURSES_TRIAL_CHOOSE,
             Permissions::EXAMS_DELETE,
             Permissions::EXAMS_PUBLISH,
             Permissions::CERTIFICATES_REGENERATE,

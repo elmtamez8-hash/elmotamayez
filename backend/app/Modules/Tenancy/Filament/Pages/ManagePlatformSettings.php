@@ -106,6 +106,8 @@ class ManagePlatformSettings extends Page
             'max_size_bytes' => PlatformSettings::get('media.max_size_bytes'),
             'max_duration_seconds' => PlatformSettings::get('media.max_duration_seconds'),
             'grant_ttl_seconds' => PlatformSettings::get('media.grant_ttl_seconds'),
+            'trial_link_ttl_seconds' => PlatformSettings::get('media.trial_link_ttl_seconds'),
+            'trial_requests_per_minute' => PlatformSettings::get('media.trial_requests_per_minute'),
             'max_renewals' => PlatformSettings::get('media.max_renewals'),
             'watched_share' => PlatformSettings::get('media.watched_share'),
             'watched_fallback_seconds' => PlatformSettings::get('media.watched_fallback_seconds'),
@@ -299,6 +301,14 @@ class ManagePlatformSettings extends Page
                                 ->label('عمر منحة التشغيل (ثانية)')
                                 ->helperText('تُجدَّد تلقائياً أثناء المشاهدة؛ القيمة القصيرة تعني توقّفاً أسرع عند انتهاء الجلسة.')
                                 ->integer()->minValue(30)->required(),
+                            TextInput::make('trial_link_ttl_seconds')
+                                ->label('عمر رابط الحصة التجريبية للزوار (ثانية)')
+                                ->helperText('يتجدّد أثناء المشاهدة؛ والرابط الصادر يبقى صالحاً حتى نهايته.')
+                                ->integer()->minValue(60)->required(),
+                            TextInput::make('trial_requests_per_minute')
+                                ->label('طلبات الحصة التجريبية في الدقيقة لكل عنوان')
+                                ->helperText('مشاهد واحد يحتاج طلبين عند البدء وطلباً كل ثلثي عمر الرابط.')
+                                ->integer()->minValue(5)->required(),
                             TextInput::make('max_renewals')
                                 ->label('أقصى عدد تجديدات لجلسة مشاهدة واحدة')
                                 ->integer()->minValue(1)->required(),
@@ -433,6 +443,8 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('media.max_size_bytes', (int) $data['max_size_bytes'], $userId);
         PlatformSettings::set('media.max_duration_seconds', (int) $data['max_duration_seconds'], $userId);
         PlatformSettings::set('media.grant_ttl_seconds', (int) $data['grant_ttl_seconds'], $userId);
+        PlatformSettings::set('media.trial_link_ttl_seconds', (int) $data['trial_link_ttl_seconds'], $userId);
+        PlatformSettings::set('media.trial_requests_per_minute', (int) $data['trial_requests_per_minute'], $userId);
         PlatformSettings::set('media.max_renewals', (int) $data['max_renewals'], $userId);
         PlatformSettings::set('media.watched_share', (float) $data['watched_share'], $userId);
         PlatformSettings::set('media.watched_fallback_seconds', (int) $data['watched_fallback_seconds'], $userId);

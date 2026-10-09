@@ -197,6 +197,21 @@ return [
     'max_renewals' => (int) env('MEDIA_MAX_RENEWALS', 480),  // ~8 h of viewing
 
     /*
+    | A course's «حصة تجريبية» for guests (spec 040). No grant, no watermark, no
+    | renewal: the guest door hands out a signed CDN link this many seconds
+    | long and the player comes back through our route at two thirds of it.
+    | `trial_requests_per_minute` is the `trial-playback` limiter, per IP. Both
+    | are editable in the platform settings screen (PlatformSettings::KEYS).
+    |
+    | `trial_providers`: the providers whose uploaded video may be a trial — the
+    | ones that answer with a redirect to a signed URL. The local provider is
+    | absent on purpose: it would stream bytes from PHP to anonymous visitors.
+    */
+    'trial_link_ttl_seconds' => (int) env('MEDIA_TRIAL_LINK_TTL_SECONDS', 600),
+    'trial_requests_per_minute' => (int) env('MEDIA_TRIAL_REQUESTS_PER_MINUTE', 30),
+    'trial_providers' => array_values(array_filter(explode(',', (string) env('MEDIA_TRIAL_PROVIDERS', 'bunny')))),
+
+    /*
     | When one viewing counts as «watched» (spec 005 · FR-021د).
     |
     | Measured on the SERVER CLOCK — seconds since this server minted the grant,

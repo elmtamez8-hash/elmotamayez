@@ -136,3 +136,24 @@ describe("CourseCard · the groups anchor", () => {
     expect(hrefOf("خالد")).toBe("/teachers/khaled");
   });
 });
+
+/*
+| Spec 040 — the «حصة تجريبية» badge is a door to the course's trial, and it is
+| there only when the server's `has_trial` says the guest door will serve it.
+*/
+describe("CourseCard trial badge", () => {
+  it("links straight to the course's trial when there is one", () => {
+    render(<CourseCard course={{ ...course, has_trial: true }} />);
+
+    expect(hrefOf("حصة تجريبية مجانية")).toBe(`/courses/${course.slug}/trial`);
+  });
+
+  it("is absent without one, and on a card cached before the key existed", () => {
+    for (const has_trial of [false, undefined]) {
+      const { unmount } = render(<CourseCard course={{ ...course, has_trial }} />);
+
+      expect(screen.queryByText("حصة تجريبية مجانية")).toBeNull();
+      unmount();
+    }
+  });
+});

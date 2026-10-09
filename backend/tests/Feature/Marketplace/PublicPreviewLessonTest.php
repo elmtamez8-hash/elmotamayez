@@ -256,44 +256,45 @@ it('refuses a lesson from a DIFFERENT course under the same teacher', function (
 });
 
 /*
-| Owner decision 2026-10-09 — «حصة تجريبية» IS a recorded lesson anyone may
-| watch. The teacher page names it from the same rule the lesson door applies
-| (`ReadPublicPreviewLesson::readable()`), so the button can never point at a
-| lesson the door refuses.
+| Spec 040 (owner decisions 2026-10-09) — «حصة تجريبية» is a recorded lesson per
+| COURSE that the teacher marks explicitly. The #375 automatic pick («the first
+| open embed») is GONE: an open lesson that nobody marked is no trial, and the
+| teacher page lists one trial per course that has one, from the same rule the
+| guest door applies.
 */
-function trialOf(Course $course): mixed
+function teacherTrials(Course $course): mixed
 {
     $teacher = TeacherProfile::query()->withoutGlobalScopes()->where('user_id', $course->created_by)->firstOrFail();
 
-    return test()->getJson('/api/v1/marketplace/teachers/'.$teacher->uuid)->assertOk()->json('data.trial_lesson');
+    return test()->getJson('/api/v1/marketplace/teachers/'.$teacher->uuid)->assertOk()->json('data.trial_lessons');
 }
 
-it('names the teacher\'s free lesson as the trial, and the door opens it', function (): void {
-    [$course, $lesson] = previewFixture();
+it('no longer picks an open embed nobody marked', function (): void {
+    [$course] = previewFixture();
 
-    $trial = trialOf($course);
-
-    expect($trial)->toBe([
-        'course_slug' => $course->slug,
-        'lesson_uuid' => (string) $lesson->uuid,
-        'title' => $lesson->title,
-    ]);
-
-    $this->getJson("/api/v1/marketplace/courses/{$trial['course_slug']}/lessons/{$trial['lesson_uuid']}")->assertOk();
+    expect(teacherTrials($course))->toBe([]);
 });
 
-it('names no trial when the open lesson is one a guest cannot watch', function (array $attributes): void {
-    [$course] = previewFixture(lessonAttributes: $attributes);
+it('lists the marked trial, and the card carries the badge', function (): void {
+    [$course, $lesson] = previewFixture();
+    Course::query()->withoutWorkspaceScope()->whereKey($course->id)->update(['trial_lesson_id' => $lesson->id]);
 
-    expect(trialOf($course))->toBeNull();
-})->with([
-    'not an embed' => [['type' => 'video']],
-    'not marked open' => [['is_preview' => false, 'is_free' => false]],
-    'unpublished' => [['status' => ContentStatus::Draft]],
-]);
+    expect(teacherTrials($course))->toBe([[
+        'course_slug' => $course->slug,
+        'course_title' => $course->title,
+        'subject' => Course::query()->withoutWorkspaceScope()->with('subject')->find($course->id)?->subject?->name,
+        'grade_level' => $course->grade_level,
+        'lesson_title' => $lesson->title,
+        'kind' => 'embed',
+    ]]);
 
-it('names no trial when the lesson sits in an unpublished section', function (): void {
-    [$course] = previewFixture(sectionStatus: ContentStatus::Draft);
+    $teacher = TeacherProfile::query()->withoutGlobalScopes()->where('user_id', $course->created_by)->firstOrFail();
+    expect($this->getJson('/api/v1/marketplace/teachers/'.$teacher->uuid)->json('data.courses.0.has_trial'))->toBeTrue();
+});
 
-    expect(trialOf($course))->toBeNull();
+it('lists nothing for a marked trial a guest cannot watch now', function (): void {
+    [$course, $lesson] = previewFixture(sectionStatus: ContentStatus::Draft);
+    Course::query()->withoutWorkspaceScope()->whereKey($course->id)->update(['trial_lesson_id' => $lesson->id]);
+
+    expect(teacherTrials($course))->toBe([]);
 });

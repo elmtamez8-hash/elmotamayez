@@ -25,6 +25,8 @@ class ListPublicCourses extends Action
     {
         $query = Course::query()
             ->publiclyListed()
+            // Spec 040 — the card's «حصة تجريبية» badge, in the same SELECT.
+            ->withTrialFlag()
             ->with([
                 'creator:id,first_name,last_name',
                 // Unscoped: a SIGNED-IN reader's context would hide a profile kept in

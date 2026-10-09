@@ -295,6 +295,14 @@ export interface Course {
    */
   can_change_pricing?: boolean;
   /**
+   * Spec 040 — the course's «حصة تجريبية», for its teacher (`CoursePolicy::
+   * chooseTrialLesson`). Sent beside the pricing answer on the author's reads
+   * and absent elsewhere. `trial_status` null means the course has none.
+   */
+  can_choose_trial?: boolean;
+  trial_lesson_uuid?: string | null;
+  trial_status?: "visible" | "unpublished" | "processing" | "unavailable" | null;
+  /**
    * Whether a visitor can reach the course at `/courses/{slug}`, and why not —
    * `Course::publicListingBlockers()`. Sent to the course's EDITOR on
    * `GET /courses/{uuid}` (and the publish/unpublish answers) and absent

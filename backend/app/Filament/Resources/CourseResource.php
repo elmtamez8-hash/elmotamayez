@@ -11,8 +11,10 @@ use App\Filament\Support\RecordLink;
 use App\Modules\Courses\Actions\CreateCourse;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Enums\CourseVisibility;
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Filament\Pages\ReviewPromoVideos;
 use App\Modules\Courses\Models\Course;
+use App\Modules\Courses\Models\Lesson;
 use App\Modules\Payments\Enums\Currency;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Tenancy\Support\Roles;
@@ -212,7 +214,50 @@ class CourseResource extends Resource
                             ->default(false)
                             ->columnSpanFull(),
                     ]),
+
+                /*
+                | Spec 040 — the course's «حصة تجريبية». `trial_lesson_id` is not
+                | fillable, so this field is VIRTUAL (`trial_lesson_uuid`) and
+                | `EditCourse::handleRecordUpdate()` hands it to
+                | `SetCourseTrialLesson` — the same Action and the same
+                | `TrialLessonRule` the API uses. Disabled for a reader the policy
+                | refuses; a disabled field is not sent.
+                */
+                Section::make('الحصة التجريبية')
+                    ->schema([
+                        Select::make('trial_lesson_uuid')
+                            ->label('الدرس المجاني للزوّار')
+                            ->options(fn (?Course $record): array => self::trialCandidates($record))
+                            ->formatStateUsing(fn (?Course $record): ?string => $record?->trialLesson?->uuid)
+                            ->disabled(fn (?Course $record): bool => ! ($record instanceof Course
+                                && (Auth::user()?->can('chooseTrialLesson', $record) ?? false)))
+                            ->placeholder('بدون حصة تجريبية')
+                            ->helperText('درس فيديو أو فيديو مُضمَّن، منشور ومتاح لكل طلاب الكورس. يشاهده أي زائر بلا حساب.')
+                            ->searchable(),
+                    ]),
             ]);
+    }
+
+    /**
+     * The course's video and embed lessons, in tree order — what may be offered.
+     * Whether one actually qualifies is `TrialLessonRule`'s answer on save.
+     *
+     * @return array<string, string>
+     */
+    private static function trialCandidates(?Course $record): array
+    {
+        if (! $record instanceof Course) {
+            return [];
+        }
+
+        return Lesson::query()
+            ->withoutWorkspaceScope()
+            ->where('course_id', $record->getKey())
+            ->whereIn('type', [LessonType::Video->value, LessonType::Embed->value])
+            ->orderBy('order')
+            ->pluck('title', 'uuid')
+            ->map(fn (mixed $title): string => (string) $title)
+            ->all();
     }
 
     /** `CoursePolicy::changePricing()` for the reader of this screen. */

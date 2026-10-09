@@ -283,8 +283,8 @@ class PublicMarketplaceController extends Controller
         $payload = PublicTeacherDetailResource::make($teacher)->resolve();
         $courses = $action->coursesOf($teacher);
         $payload['courses'] = PublicCourseCardResource::collection($courses)->resolve();
-        // The free recorded lesson «حصة تجريبية» points at, or null (owner decision 2026-10-09).
-        $payload['trial_lesson'] = $action->trialLessonOf($courses);
+        // Spec 040 — the teacher's «حصص تجريبية», one per course that has one.
+        $payload['trial_lessons'] = $action->trialsOf($courses);
         $payload['reviews'] = $action->reviewsOf($teacher);
 
         return response()->json(['data' => $payload]);

@@ -112,6 +112,8 @@ export type CourseCard = {
   subject: Taxonomy | null;
   type: "individual" | "group" | "recorded";
   lessons_count: number;
+  /** Spec 040 — the «حصة تجريبية» badge. Optional: older cached cards have no key. */
+  has_trial?: boolean;
   duration_seconds: number;
   /*
    * ⚠️ NO PRICE ON A BROWSE CARD (FR-021هـ). The price belongs on the buyable
@@ -316,6 +318,12 @@ export type CourseDetail = {
    * visitor's business.
    */
   promo_video_id: string | null;
+  /**
+   * Spec 040 — the course's «حصة تجريبية» when visitors may watch it now
+   * (`TrialLessonRule::scopeEligible`), else null. Optional: a payload cached
+   * before the key existed has none, and that reads as «no trial».
+   */
+  trial?: CourseTrialSummary | null;
   /** «تواصل مع المدرّس» — see {@link TeacherContact}. */
   contact: TeacherContact | null;
 };
@@ -357,17 +365,42 @@ export type TeacherDetail = TeacherCard & {
    */
   intro_video_url: string | null;
   /**
-   * The free recorded lesson «حصة تجريبية» opens — `ShowPublicTeacher::trialLessonOf()`.
-   * `null` when none of the teacher's courses has a lesson a guest may watch.
+   * Spec 040 — the teacher's «حصص تجريبية», one per course that has one
+   * visitors may watch now (`ShowPublicTeacher::trialsOf()`).
    * ⚠️ OPTIONAL: a payload cached before the key existed (the page's revalidate
    * window, or a deploy where the frontend lands before the API) has no key at
-   * all — and reading it as present crashed the whole teacher page.
+   * all — and reading it as present crashed the teacher page once (#375).
    */
-  trial_lesson?: TrialLesson | null;
+  trial_lessons?: TeacherTrial[];
 };
 
-/** The teacher's free recorded lesson: anyone may watch it, no account or booking. */
-export type TrialLesson = { course_slug: string; lesson_uuid: string; title: string };
+/** The course page's view of its trial — enough to draw the button. */
+export type CourseTrialSummary = { title: string; kind: "embed" | "video"; duration_seconds?: number };
+
+/**
+ * `GET /marketplace/courses/{key}/trial` — fetched by the BROWSER (`TrialPlayer`),
+ * never by the Next server: the door is limited per address, and a server fetch
+ * would put every visitor in the server's one bucket.
+ */
+export type CourseTrial = {
+  uuid: string;
+  title: string;
+  kind: "embed" | "video";
+  duration_seconds?: number;
+  course: { uuid: string; title: string; slug: string };
+  embed_url?: string;
+  playback?: { manifest_url: string; format: "hls" | "progressive"; reload_after_seconds: number | null };
+};
+
+/** One course's «حصة تجريبية» on the teacher page — enough to name it and link it. */
+export type TeacherTrial = {
+  course_slug: string;
+  course_title: string;
+  subject: string | null;
+  grade_level: string | null;
+  lesson_title: string;
+  kind: "embed" | "video";
+};
 
 /** A product on the public store — `PublicStoreItemResource`. */
 export type PublicStoreItem = {

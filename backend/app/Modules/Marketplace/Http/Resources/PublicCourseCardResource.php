@@ -43,6 +43,9 @@ class PublicCourseCardResource extends JsonResource
             'subject' => $this->subjectShape(),
             'type' => $this->course_type,
             'lessons_count' => (int) ($this->getAttribute('lessons_count') ?? 0),
+            // Spec 040 — the «حصة تجريبية» badge. Computed by the list's own
+            // `withTrialFlag()` subquery; a list that did not ask reads false.
+            'has_trial' => (bool) ($this->getAttribute('has_trial') ?? false),
             'duration_seconds' => $this->duration_seconds,
             /*
             | ⚠️ NO PRICE ON A BROWSE CARD (spec 006, FR-021هـ · T089أ).

@@ -21,6 +21,8 @@ class CoursePolicy extends BasePolicy
     /** The refusal an assistant reads when they try to price a course or make it free. */
     public const PRICING_REFUSAL = 'سعر الكورس وجعله مجانياً يقرّرهما مدرّس الكورس وحده.';
 
+    public const TRIAL_REFUSAL = 'اختيار الحصة التجريبية لمدرّس الكورس أو لمن فوّضه.';
+
     public function viewAny(User $user): Response
     {
         return $user->can(Permissions::COURSES_VIEW)
@@ -127,6 +129,29 @@ class CoursePolicy extends BasePolicy
         return $user->decidesCourseVisibilityIn((int) $course->workspace_id)
             ? Response::allow()
             : Response::deny(self::VISIBILITY_REFUSAL);
+    }
+
+    /**
+     * Choosing the course's «حصة تجريبية» (spec 040) — the lesson becomes
+     * watchable by ANY visitor, so it is its own permission, not `lessons.manage`:
+     * the teacher holds `courses.trial.choose` by default, and the owner ticks it
+     * onto an assistant's role for a named person (owner decision 2026-10-09). A
+     * confined assistant who holds it chooses for their OWN courses only. A super
+     * admin passes through `Gate::before` — the /admin course screen uses this.
+     */
+    public function chooseTrialLesson(User $user, Course $course): Response
+    {
+        if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
+            return $workspaceCheck;
+        }
+
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
+        return $user->can(Permissions::COURSES_TRIAL_CHOOSE)
+            ? Response::allow()
+            : Response::deny(self::TRIAL_REFUSAL);
     }
 
     /**

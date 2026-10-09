@@ -91,8 +91,8 @@ final class PublicFieldAllowlist
         'availability',
         'faqs',
         'intro_video_url',
-        // «حصة تجريبية» — see `TRIAL_LESSON` below.
-        'trial_lesson',
+        // «حصص تجريبية» — see `TEACHER_TRIAL` below (spec 040).
+        'trial_lessons',
         // «تواصل مع المدرّس» — see `CONTACT` below.
         'contact',
     ];
@@ -110,6 +110,8 @@ final class PublicFieldAllowlist
         'subject',
         'type',
         'lessons_count',
+        // Spec 040 — the «حصة تجريبية» badge (`Course::scopeWithTrialFlag`).
+        'has_trial',
         'duration_seconds',
         'price_minor',
         'price_before_discount_minor',
@@ -155,6 +157,8 @@ final class PublicFieldAllowlist
         | Resource for why the embed address stays out of the contract.
         */
         'promo_video_id',
+        // Spec 040 — the «حصة تجريبية» visitors may watch now; see COURSE_DETAIL_TRIAL.
+        'trial',
         'subject',
         'grade_level',
         'teacher',
@@ -336,7 +340,23 @@ final class PublicFieldAllowlist
      *
      * @var list<string>
      */
-    public const TRIAL_LESSON = ['course_slug', 'lesson_uuid', 'title'];
+    public const TEACHER_TRIAL = ['course_slug', 'course_title', 'subject', 'grade_level', 'lesson_title', 'kind'];
+
+    /**
+     * The guest door to a course's «حصة تجريبية» (spec 040,
+     * `PublicCourseTrialResource`): the lesson, its course, and EITHER the
+     * embed's url OR a playback descriptor — never a grant, a watermark or a
+     * CDN url (the descriptor's `manifest_url` is our own route).
+     *
+     * @var list<string>
+     */
+    public const COURSE_TRIAL = ['uuid', 'title', 'kind', 'duration_seconds', 'course', 'embed_url', 'playback'];
+
+    /** The course page's view of its trial: enough for the button. @var list<string> */
+    public const COURSE_DETAIL_TRIAL = ['title', 'kind', 'duration_seconds'];
+
+    /** @var list<string> */
+    public const COURSE_TRIAL_PLAYBACK = ['manifest_url', 'format', 'reload_after_seconds'];
 
     /*
     | A group as the public sees it (FR-010 · FR-014).

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\Http\Resources;
 
+use App\Modules\Courses\Enums\LessonType;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Models\LessonCohortScope;
 use App\Modules\Courses\Support\MarkdownRenderer;
+use App\Modules\Courses\Support\TrialLessonRule;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Enums\WorkspaceType;
 use App\Shared\Support\TeacherContactName;
@@ -72,6 +74,13 @@ class PublicCourseDetailResource extends JsonResource
             | hidden pending approval is telling them it exists.
             */
             'promo_video_id' => $this->hasApprovedPromoVideo() ? $this->promo_video_id : null,
+            /*
+            | Spec 040 — the course's «حصة تجريبية» when visitors may watch it NOW:
+            | the same `TrialLessonRule::scopeEligible()` the guest door applies,
+            | so the button never points at a 404. One query; the course itself is
+            | already public (this resource renders only a listed course).
+            */
+            'trial' => $this->trialShape(),
             'subject' => $this->subjectShape(),
             'grade_level' => $this->grade_level,
             'teacher' => $this->teacherShape(),
@@ -322,5 +331,37 @@ class PublicCourseDetailResource extends JsonResource
         }
 
         return $narrowed;
+    }
+
+    /** @return array{title: string, kind: string, duration_seconds?: int}|null */
+    private function trialShape(): ?array
+    {
+        if ($this->trial_lesson_id === null) {
+            return null;
+        }
+
+        $lesson = Lesson::query()
+            ->withoutWorkspaceScope()
+            ->whereKey($this->trial_lesson_id)
+            ->where('course_id', $this->getKey())
+            ->tap(fn ($query) => TrialLessonRule::scopeEligible($query))
+            ->with('mediaAsset')
+            ->first();
+
+        if ($lesson === null) {
+            return null;
+        }
+
+        $isVideo = $lesson->type === LessonType::Video->value;
+        $duration = (int) ($isVideo ? ($lesson->mediaAsset->duration_seconds ?? $lesson->duration_seconds) : $lesson->duration_seconds);
+
+        $shape = ['title' => (string) $lesson->title, 'kind' => $isVideo ? 'video' : 'embed'];
+
+        // Absent rather than 0: «not written» is not «zero minutes».
+        if ($duration > 0) {
+            $shape['duration_seconds'] = $duration;
+        }
+
+        return $shape;
     }
 }

@@ -184,11 +184,11 @@ class LocalMediaProvider implements MediaProviderInterface
     {
         return new PlaybackManifest(
             format: PlaybackFormat::Progressive,
-            url: url("/api/v1/playback/{$context->grant->uuid}/stream"),
+            url: url("/api/v1/playback/{$context->requireGrant()->uuid}/stream"),
             // We serve the bytes ourselves. A commercial provider flips this to
             // true and the same route becomes a 302 to its signed URL.
             isRedirect: false,
-            expiresAt: CarbonImmutable::instance($context->grant->expires_at->toDateTimeImmutable()),
+            expiresAt: $context->expiresAt(),
             renditions: [],
         );
     }

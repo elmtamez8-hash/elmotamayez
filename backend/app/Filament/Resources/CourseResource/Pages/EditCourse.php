@@ -6,6 +6,8 @@ namespace App\Filament\Resources\CourseResource\Pages;
 
 use App\Filament\Resources\CourseResource;
 use App\Modules\Courses\Actions\ChangeCourseStatus;
+use App\Modules\Courses\Actions\SetCourseTrialLesson;
+use App\Modules\Courses\DTOs\SetTrialLessonData;
 use App\Modules\Courses\Enums\CourseStatus;
 use App\Modules\Courses\Models\Course;
 use Filament\Actions;
@@ -14,6 +16,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EditCourse extends EditRecord
 {
@@ -69,11 +72,33 @@ class EditCourse extends EditRecord
             unset($data['price']);
         }
 
-        return DB::transaction(function () use ($record, $data, $status): Course {
+        /*
+        | Spec 040 — virtual, so `update()` never sees it (the column is not
+        | fillable and would be dropped in silence). Absent when the field was
+        | disabled for this reader; only a CHANGE goes to the Action.
+        */
+        $trialSent = array_key_exists('trial_lesson_uuid', $data)
+            && (auth()->user()?->can('chooseTrialLesson', $record) ?? false);
+        $trial = is_string($data['trial_lesson_uuid'] ?? null) ? $data['trial_lesson_uuid'] : null;
+        unset($data['trial_lesson_uuid']);
+        $currentTrial = $record->trialLesson?->uuid;
+
+        return DB::transaction(function () use ($record, $data, $status, $trialSent, $trial, $currentTrial): Course {
             $record->update($data);
 
             if ($status !== null) {
                 app(ChangeCourseStatus::class)->handle($record, $status);
+            }
+
+            if ($trialSent && $trial !== $currentTrial) {
+                try {
+                    app(SetCourseTrialLesson::class)->handle($record, new SetTrialLessonData($trial, $currentTrial));
+                } catch (ValidationException $refused) {
+                    // The Action names its field `lesson`; the form's is this one.
+                    throw ValidationException::withMessages([
+                        'data.trial_lesson_uuid' => $refused->errors()['lesson'] ?? $refused->getMessage(),
+                    ]);
+                }
             }
 
             return $record->refresh();
