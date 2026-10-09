@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ApiError, auth, errorMessage, fieldErrors } from "@/lib/api";
@@ -22,17 +22,25 @@ function Field({
   id,
   label,
   error,
+  required = false,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
+  /** The same red star `ui/Field` and `PasswordField` draw, so every required field says so. */
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
         {label}
+        {required && (
+          <span className="text-danger-ink" aria-hidden="true">
+            {" *"}
+          </span>
+        )}
       </label>
       {children}
       {error && (
@@ -81,7 +89,10 @@ export function StudentSignupForm({
     country: DEFAULT_COUNTRY.code,
     // Spec 022 · FR-005 — the individual YEAR. The student's broad stage is
     // derived from it server-side; this form no longer sends one.
-    school_year_slug: schoolYears[0]?.slug ?? "",
+    // ⚠️ Empty, never the first option: a preselected «الروضة والتمهيدي» was a
+    // grade nobody chose, sent as if they had (owner audit 2026-10-09). Unlike
+    // the region below, a wrong grade is a wrong catalogue, not a statistic.
+    school_year_slug: "",
     // Spec 011 · FR-042. Defaulted rather than left blank: the API requires it,
     // and a placeholder option is a 422 waiting for whoever does not notice a
     // select they were not asked to touch.
@@ -98,6 +109,28 @@ export function StudentSignupForm({
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
   const [awaitingGuardian, setAwaitingGuardian] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /*
+   | ⚠️ AFTER A REFUSAL, TAKE THE READER TO IT. The submit button is at the
+   | bottom and the first field the server refused is usually near the top, so
+   | the error appeared off screen and the press looked like it did nothing
+   | (owner audit 2026-10-09). The first invalid control in DOM order is the one
+   | they reach first; the banner when the refusal has no field.
+   */
+  useEffect(() => {
+    const root = formRef.current;
+    if (root === null) return;
+
+    const target =
+      root.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+      (banner !== "" ? root.querySelector<HTMLElement>('[role="alert"]') : null);
+
+    if (target === null) return;
+
+    target.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    if (target.matches("input, select, textarea")) target.focus({ preventScroll: true });
+  }, [errors, banner]);
 
   // One key per mounted form, not per click: a double submit must reach the API
   // with the same key or the header buys nothing.
@@ -202,7 +235,7 @@ export function StudentSignupForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-5">
       {banner && (
         <p role="alert" className="rounded-xl bg-danger/10 p-3 text-sm text-danger-ink">
           {banner}
@@ -210,7 +243,7 @@ export function StudentSignupForm({
       )}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="first_name" label="الاسم الأول" error={errors.first_name}>
+        <Field id="first_name" label="الاسم الأول" error={errors.first_name} required>
           <input
             id="first_name"
             value={form.first_name}
@@ -234,7 +267,7 @@ export function StudentSignupForm({
         </Field>
       </div>
 
-      <Field id="email" label="البريد الإلكتروني" error={errors.email}>
+      <Field id="email" label="البريد الإلكتروني" error={errors.email} required>
         <input
           id="email"
           type="email"
@@ -274,14 +307,19 @@ export function StudentSignupForm({
           </Select>
         </Field>
 
-        <Field id="school_year_slug" label="الصف الدراسي" error={errors.school_year_slug}>
+        <Field id="school_year_slug" label="الصف الدراسي" error={errors.school_year_slug} required>
           <Select
             id="school_year_slug"
             value={form.school_year_slug}
             onChange={(e) => set("school_year_slug", e.target.value)}
             required
+            aria-invalid={errors.school_year_slug ? true : undefined}
+            aria-describedby={errors.school_year_slug ? "school_year_slug-error" : undefined}
             className={FIELD_CLASS}
           >
+            <option value="" disabled>
+              اختر الصف
+            </option>
             {schoolYears.map((year) => (
               <option key={year.slug} value={year.slug}>
                 {year.name}
@@ -294,7 +332,7 @@ export function StudentSignupForm({
       <div className="grid gap-5 sm:grid-cols-2">
         {/* Spec 011 · FR-042 — mandatory at registration, and the only source of
             the platform's regional picture. */}
-        <Field id="region_slug" label="المنطقة" error={errors.region_slug}>
+        <Field id="region_slug" label="المنطقة" error={errors.region_slug} required>
           <Select
             id="region_slug"
             value={form.region_slug}
@@ -311,7 +349,7 @@ export function StudentSignupForm({
         </Field>
 
         {/* Spec 013 · FR-009 — the age question, asked once at the door. */}
-        <Field id="date_of_birth" label="تاريخ الميلاد" error={errors.date_of_birth}>
+        <Field id="date_of_birth" label="تاريخ الميلاد" error={errors.date_of_birth} required>
           <input
             id="date_of_birth"
             type="date"
@@ -331,6 +369,7 @@ export function StudentSignupForm({
           id="guardian_contact"
           label="رقم جوّال وليّ الأمر"
           error={errors.guardian_contact}
+          required
         >
           <input
             id="guardian_contact"
@@ -340,7 +379,8 @@ export function StudentSignupForm({
             onChange={(e) => set("guardian_contact", e.target.value)}
             placeholder="+97455512345"
             required
-            aria-describedby="guardian_contact-hint"
+            aria-invalid={errors.guardian_contact ? true : undefined}
+            aria-describedby={errors.guardian_contact ? "guardian_contact-hint guardian_contact-error" : "guardian_contact-hint"}
             className={FIELD_CLASS}
           />
           <p id="guardian_contact-hint" className="mt-1 text-sm text-ink-muted">

@@ -44,7 +44,7 @@ describe("WhatsAppVerification", () => {
 
     render(<WhatsAppVerification />);
 
-    await userEvent.type(screen.getByLabelText("رقم الجوال"), "33123456");
+    await userEvent.type(screen.getByLabelText(/^رقم الجوال/), "33123456");
     await userEvent.click(screen.getByRole("button", { name: "أرسِل رمز التأكيد" }));
 
     // One string, joined here — no endpoint should have to guess which country a
@@ -59,7 +59,7 @@ describe("WhatsAppVerification", () => {
 
     expect(screen.queryByLabelText("رمز التأكيد")).toBeNull();
 
-    await userEvent.type(screen.getByLabelText("رقم الجوال"), "33123456");
+    await userEvent.type(screen.getByLabelText(/^رقم الجوال/), "33123456");
     await userEvent.click(screen.getByRole("button", { name: "أرسِل رمز التأكيد" }));
 
     expect(await screen.findByLabelText("رمز التأكيد")).toBeTruthy();
@@ -71,7 +71,7 @@ describe("WhatsAppVerification", () => {
 
     render(<WhatsAppVerification />);
 
-    await userEvent.type(screen.getByLabelText("رقم الجوال"), "33123456");
+    await userEvent.type(screen.getByLabelText(/^رقم الجوال/), "33123456");
     await userEvent.click(screen.getByRole("button", { name: "أرسِل رمز التأكيد" }));
     await userEvent.type(await screen.findByLabelText("رمز التأكيد"), "123456");
     await userEvent.click(screen.getByRole("button", { name: "أكّد الرقم" }));
@@ -85,7 +85,7 @@ describe("WhatsAppVerification", () => {
 
     render(<WhatsAppVerification />);
 
-    await userEvent.type(screen.getByLabelText("رقم الجوال"), "12");
+    await userEvent.type(screen.getByLabelText(/^رقم الجوال/), "12");
     await userEvent.click(screen.getByRole("button", { name: "أرسِل رمز التأكيد" }));
 
     // 422 lands under its field. A raw upstream sentence in a banner is the one
@@ -98,7 +98,7 @@ describe("WhatsAppVerification", () => {
 
     render(<WhatsAppVerification />);
 
-    await userEvent.type(screen.getByLabelText("رقم الجوال"), "33123456");
+    await userEvent.type(screen.getByLabelText(/^رقم الجوال/), "33123456");
     await userEvent.click(screen.getByRole("button", { name: "أرسِل رمز التأكيد" }));
 
     expect(await screen.findByText("تعذّر إرسال رمز التأكيد.")).toBeTruthy();

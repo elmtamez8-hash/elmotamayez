@@ -47,22 +47,31 @@ describe("StudentSignupForm", () => {
   it("renders every school year it is handed", () => {
     render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
 
-    const select = screen.getByLabelText("الصف الدراسي") as HTMLSelectElement;
+    const select = screen.getByLabelText(/^الصف الدراسي/) as HTMLSelectElement;
 
-    expect(select.options.length).toBe(YEARS.length);
+    // The years, after the one disabled «اختر الصف» placeholder.
+    expect(select.options.length).toBe(YEARS.length + 1);
     expect(Array.from(select.options).map((option) => option.value)).toEqual([
+      "",
       "year-1",
       "year-7",
       "year-10",
     ]);
   });
 
-  it("defaults to a real year rather than to an empty placeholder", () => {
+  /*
+  | ⚠️ REVERSED 2026-10-09 (owner audit). This used to assert the FIRST year,
+  | so that nobody hit a 422 on a select they never touched. What it produced
+  | instead was a grade nobody chose — every careless signup was a kindergarten
+  | pupil with a kindergarten catalogue. The 422 is no longer a trap: the form
+  | now scrolls to and focuses the first refused field.
+  */
+  it("starts with no year chosen, so the grade is one the student picked", () => {
     render(<StudentSignupForm schoolYears={YEARS} regions={REGIONS} />);
 
-    const select = screen.getByLabelText("الصف الدراسي") as HTMLSelectElement;
+    const select = screen.getByLabelText(/^الصف الدراسي/) as HTMLSelectElement;
 
-    expect(select.value).toBe("year-1");
+    expect(select.value).toBe("");
   });
 
   it("asks for the year and not for the broad stage", () => {
