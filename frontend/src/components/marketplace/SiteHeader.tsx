@@ -8,6 +8,7 @@ import {
   InfoIcon,
   MenuIcon,
   TagIcon,
+  UserPlusIcon,
   UsersIcon,
   OrdersIcon,
 } from "@/components/icons";
@@ -89,8 +90,12 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur print:hidden">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+    // A floating bar, not a full-width strip: inset from the edges and the top,
+    // rounded like every card on the page, so the header reads as the site's
+    // own object rather than the browser's chrome. The blur is functional — the
+    // bar is sticky and the page scrolls beneath it.
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-4 print:hidden">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 rounded-2xl border border-line bg-surface/90 px-3 shadow-lg shadow-primary/5 backdrop-blur-md sm:px-5">
         {/* The mark carries the name, so the name is not repeated beside it —
             a wordmark plus its own text set twice is the tell of a logo nobody
             trusts to be legible. The accessible name still says it. */}
@@ -99,24 +104,19 @@ export function SiteHeader() {
         </Link>
 
         <nav aria-label="التنقّل الرئيسي" className="hidden flex-1 lg:block">
-          <ul className="flex items-center gap-1">
+          <ul className="flex items-center gap-0.5">
             {NAV.map(({ href, label, Icon }) => {
               const current = isCurrentPath(pathname, href);
 
               return (
                 <li key={href}>
                   {/*
-                   * The underline is `link-underline` — the footer's, from
-                   * `globals.css`, not a second `hover:border-b` written here. It
-                   * grows from the inline START, so it runs right-to-left in Arabic
-                   * without a branch, and it replaces the pill background that used
-                   * to fill on hover: a filled pill AND a rule under the words is
-                   * two answers to «you are pointing at this».
-                   *
-                   * The icon nudges toward the label exactly as the footer's does —
-                   * one cue that the icon and the words are one target rather than
-                   * two — and `motion-reduce:` cancels both the shift and the
-                   * transition for a reader who asked for that.
+                   * A pill, not an underline: the current page wears a filled
+                   * `primary-soft` pill and a hovered one a lighter tint of the
+                   * same, so «you are here» and «you are pointing at this» are one
+                   * shape at two strengths rather than two different marks. The
+                   * phone drawer below uses the same fill, so the two read as one
+                   * navigation.
                    */}
                   {/*
                    * ⚠️ THE CURRENT PAGE IS MARKED THREE WAYS, AND ONLY ONE OF THEM
@@ -134,18 +134,14 @@ export function SiteHeader() {
                   <Link
                     href={href}
                     aria-current={current ? "page" : undefined}
-                    className={`group inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition duration-200 hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                    className={`group inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
                       current
-                        ? "font-extrabold text-primary-ink"
-                        : "font-bold text-ink"
+                        ? "bg-primary-soft font-extrabold text-primary-ink"
+                        : "font-bold text-ink hover:bg-primary-soft/60 hover:text-primary-ink"
                     }`}
                   >
-                    <Icon
-                      className={`h-4 w-4 shrink-0 transition duration-200 group-hover:-translate-x-0.5 group-hover:text-primary-ink motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 rtl:group-hover:translate-x-0.5 ${
-                        current ? "text-primary-ink" : ""
-                      }`}
-                    />
-                    <span className="link-underline">{label}</span>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
                   </Link>
                 </li>
               );
@@ -169,14 +165,15 @@ export function SiteHeader() {
             <>
               <Link
                 href="/login"
-                className="hidden rounded-xl px-4 py-2 text-sm font-semibold text-ink transition hover:bg-primary-soft sm:block"
+                className="hidden rounded-full px-4 py-2 text-sm font-bold text-ink transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:block"
               >
                 تسجيل دخول
               </Link>
               <Link
                 href="/signup/student"
-                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-primary/30 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none"
               >
+                <UserPlusIcon className="hidden h-4 w-4 sm:block" />
                 إنشاء حساب
               </Link>
             </>
@@ -221,7 +218,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
-            className="rounded-lg p-2 text-ink lg:hidden"
+            className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink transition hover:border-primary hover:text-primary-ink lg:hidden"
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label="قائمة التنقّل"
@@ -235,9 +232,9 @@ export function SiteHeader() {
         <nav
           id="mobile-nav"
           aria-label="التنقّل الرئيسي"
-          className="border-t border-line lg:hidden"
+          className="mx-auto mt-2 max-w-7xl rounded-2xl border border-line bg-surface-raised p-3 shadow-xl shadow-primary/10 lg:hidden"
         >
-          <ul className="mx-auto max-w-7xl px-4 py-2 sm:px-6">
+          <ul className="grid grid-cols-2 gap-2">
             {NAV.map(({ href, label, Icon }) => {
               const current = isCurrentPath(pathname, href);
 
@@ -256,19 +253,26 @@ export function SiteHeader() {
                     href={href}
                     onClick={() => setOpen(false)}
                     aria-current={current ? "page" : undefined}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm hover:bg-primary-soft ${
+                    className={`flex items-center gap-3 rounded-xl p-3 text-sm transition hover:bg-primary-soft ${
                       current
                         ? "bg-primary-soft font-extrabold text-primary-ink"
                         : "font-bold text-ink"
                     }`}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <span
+                      aria-hidden="true"
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+                        current ? "bg-primary text-white" : "bg-surface text-primary-ink"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
                     {label}
                   </Link>
                 </li>
               );
             })}
-            <li>
+            <li className="col-span-2">
               {/* The phone menu answers the same question as the bar above it.
                   Left saying "sign in", it is the only route a signed-in student
                   on a phone can see — back to the screen they came from.
@@ -279,7 +283,7 @@ export function SiteHeader() {
                 <Link
                   href={user === null ? "/login" : panelPathFor(user)}
                   onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-3 text-sm font-medium text-ink hover:bg-primary-soft sm:hidden"
+                  className="mt-1 block rounded-xl border border-line px-3 py-3 text-center text-sm font-bold text-ink hover:border-primary hover:text-primary-ink sm:hidden"
                 >
                   {user === null ? "تسجيل دخول" : "حسابي"}
                 </Link>

@@ -27,19 +27,19 @@ export function FaqAccordion({
       {items.map((item) => (
         <details
           key={item.question}
-          className="group rounded-2xl border border-line bg-surface-raised transition duration-300 ease-out open:border-primary/30 open:shadow-lg open:shadow-primary/10 hover:border-primary/30"
+          className="group rounded-2xl border border-line bg-surface-raised transition duration-300 ease-out open:border-primary/30 open:shadow-lg open:shadow-primary/10 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           <summary className="flex cursor-pointer list-none items-center gap-4 rounded-2xl p-4 text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:p-5 [&::-webkit-details-marker]:hidden">
             <span
               aria-hidden="true"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-300 ease-out group-open:bg-primary group-open:text-white"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-300 ease-out group-hover:scale-110 group-hover:bg-primary group-hover:text-white group-open:bg-primary group-open:text-white motion-reduce:group-hover:scale-100"
             >
               <QuestionIcon className="h-5 w-5" />
             </span>
-            <span className="flex-1 text-base font-bold leading-snug text-ink">{item.question}</span>
+            <span className="flex-1 text-base font-bold leading-snug text-ink transition-colors duration-300 group-hover:text-primary-ink">{item.question}</span>
             <span
               aria-hidden="true"
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line text-ink-muted transition duration-300 ease-out group-open:rotate-180 group-open:border-primary group-open:text-primary-ink motion-reduce:transition-none"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-line text-ink-muted transition duration-300 ease-out group-hover:border-primary group-hover:text-primary-ink group-open:rotate-180 group-open:border-primary group-open:text-primary-ink motion-reduce:transition-none"
             >
               <ChevronDownIcon className="h-4 w-4" />
             </span>
