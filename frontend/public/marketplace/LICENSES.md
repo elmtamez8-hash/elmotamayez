@@ -65,6 +65,8 @@
 | الملف | الشاشة | المصوّر | الصفحة الأصلية |
 |---|---|---|---|
 | `auth-login-teacher.webp` | تسجيل الدخول والعامل الثاني | مولَّدة بالذكاء الاصطناعي (Higgsfield · Z Image، 2026-10-09)، بطلب المالك: مدرّسة خليجية محجّبة بدل الصورة السابقة | — |
+| `auth-forgot-student.webp` | نسيت كلمة المرور | مولَّدة بالذكاء الاصطناعي (Higgsfield · Z Image، 2026-10-09)، بطلب المالك: طالب خليجي | — |
+| `auth-reset-teacher.webp` | إعادة تعيين كلمة المرور | مولَّدة بالذكاء الاصطناعي (Higgsfield · Z Image، 2026-10-09)، بطلب المالك: مدرّس خليجي | — |
 | `auth-register.webp` | إنشاء الحساب | abolfazl babaei | https://unsplash.com/photos/man-in-tan-shirt-looking-at-a-notebook-Vly9nBcPPbo |
 | `auth-invitation.webp` | قبول الدعوة | Chermiti Mohamed | https://unsplash.com/photos/man-in-traditional-attire-reads-newspaper-by-ornate-wooden-door-l72bnBA1Pt8 |
 

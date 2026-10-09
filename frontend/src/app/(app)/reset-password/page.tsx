@@ -105,7 +105,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthShell subtitle="اختر كلمة مرور جديدة">
+    <AuthShell subtitle="اختر كلمة مرور جديدة" image="/marketplace/auth-reset-teacher.webp">
       <Suspense>
         <ResetPasswordForm />
       </Suspense>
