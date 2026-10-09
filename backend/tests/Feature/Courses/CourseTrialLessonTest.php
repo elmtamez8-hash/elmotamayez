@@ -157,5 +157,7 @@ it('carries the switch\'s answers on the author\'s course and lesson reads', fun
 
     $this->getJson("/api/v1/courses/{$course->uuid}/lessons/{$lesson->uuid}")->assertOk()
         ->assertJsonPath('is_trial', true)
-        ->assertJsonPath('trial_refusal', null);
+        ->assertJsonPath('trial_refusal', null)
+        ->assertJsonPath('can_choose_trial', true)
+        ->assertJsonPath('trial_status', 'visible');
 });

@@ -110,6 +110,13 @@ class LessonResource extends JsonResource
             'trial_refusal' => ($course = $this->trialCourse()) === null
                 ? null
                 : TrialLessonRule::refusalFor($course, $this->resource),
+            // The editor's switch is shown from this, not guessed from the role —
+            // the editor has the course's uuid and nothing else.
+            'can_choose_trial' => ($course = $this->trialCourse()) !== null
+                && $request->user()?->can('chooseTrialLesson', $course) === true,
+            'trial_status' => ($course = $this->trialCourse()) !== null && $course->trial_lesson_id === $this->getKey()
+                ? TrialLessonRule::statusFor($course)
+                : null,
             'asset' => $this->asset($this->mediaAsset),
             // Files beside the item, whatever its type (FR-019). Separate from
             // `asset` rather than one list with a role flag: they answer

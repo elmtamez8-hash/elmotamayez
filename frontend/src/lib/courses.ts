@@ -169,6 +169,18 @@ export interface LessonDetail {
   is_preview: boolean;
   is_free: boolean;
   /**
+   * Spec 040 — the course's «حصة تجريبية». `is_trial`: this lesson is it.
+   * `trial_refusal`: why it cannot be (null when it can) — shown on the
+   * disabled switch. `can_choose_trial`: the reader decides it (the course's
+   * teacher, never an assistant), so the switch is shown from the server's
+   * answer and not from the role. `trial_status`: on the trial only — why
+   * visitors do not see it yet.
+   */
+  is_trial: boolean;
+  trial_refusal: string | null;
+  can_choose_trial: boolean;
+  trial_status: TrialStatus | null;
+  /**
    * What this item points at — the exam, the session or the homework. Null on
    * the types that point at nothing, and null when the target has been deleted.
    */
@@ -225,6 +237,15 @@ export interface LessonEdit {
 
 /** What an exam item asks before the course goes on. Two values, no third. */
 export type ExamGate = "attempt" | "pass";
+
+/** Why a marked trial is or is not shown to visitors — `TrialLessonRule::statusFor()`. */
+export type TrialStatus = "visible" | "unpublished" | "processing" | "unavailable";
+
+/** The answer of `PUT /courses/{course}/trial-lesson`. */
+export type CourseTrialAnswer = {
+  trial_lesson: { uuid: string; title: string; kind: string } | null;
+  trial_status: TrialStatus | null;
+};
 
 /** What a reference item may be pointed at, for one course. */
 export interface ReferenceTargets {
@@ -384,6 +405,16 @@ export const courses = {
 
   updateLesson: (courseUuid: string, lessonUuid: string, patch: LessonEdit) =>
     api.put<LessonDetail>(`/courses/${courseUuid}/lessons/${lessonUuid}`, patch),
+
+  /**
+   * Mark a lesson as the course's «حصة تجريبية», or clear it. A clear names the
+   * lesson the reader saw as the trial, so a stale tab cannot wipe a newer pick.
+   */
+  setTrialLesson: (courseUuid: string, lesson: string | null, replacing?: string) =>
+    api.put<{ data: CourseTrialAnswer }>(`/courses/${courseUuid}/trial-lesson`, {
+      lesson,
+      ...(replacing === undefined ? {} : { replacing }),
+    }),
 
   typeChangePreview: (courseUuid: string, lessonUuid: string, type: LessonTypeValue) =>
     api.get<TypeChangePreview>(`/courses/${courseUuid}/lessons/${lessonUuid}/type/${type}`),

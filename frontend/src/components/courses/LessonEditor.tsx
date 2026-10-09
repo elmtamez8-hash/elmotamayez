@@ -21,7 +21,7 @@ import { Card } from "@/components/ui/Card";
 import { CheckboxField, SelectField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { errorMessage } from "@/lib/api";
-import { courses, type LessonDetail, type LessonTypeValue } from "@/lib/courses";
+import { courses, type LessonDetail, type LessonTypeValue, type TrialStatus } from "@/lib/courses";
 
 /**
  * One item, edited by the editor its own type needs.
@@ -115,6 +115,13 @@ function typeOptionsFor(lesson: LessonDetail) {
     ? [...TYPE_OPTIONS, { value: "embed" as LessonTypeValue, label: "فيديو مُضمَّن" }]
     : TYPE_OPTIONS;
 }
+
+/** Why a marked trial is not shown to visitors yet, in the teacher's words. */
+const TRIAL_STATUS_NOTE: Record<Exclude<TrialStatus, "visible">, string> = {
+  unpublished: "لن تظهر للزوار حتى يُنشر هذا الدرس وقسمه والكورس نفسه.",
+  processing: "لن تظهر للزوار حتى ينتهي تجهيز الفيديو.",
+  unavailable: "لم يعد هذا الدرس يصلح حصة تجريبية؛ اختر درساً آخر.",
+};
 
 export function LessonEditor({
   courseUuid,
@@ -223,6 +230,29 @@ export function LessonEditor({
     words while state — and the next «حفظ» — held the old ones: the teacher's
     typing lost in silence behind «حُفظ العنصر.» (review of #310).
   */
+  /**
+   * Mark or clear the trial, then read the lesson again: the answer is about
+   * the COURSE, and `is_trial` / `trial_status` live on the lesson read.
+   */
+  const chooseTrial = async (checked: boolean) => {
+    if (lesson === null) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      await courses.setTrialLesson(courseUuid, checked ? lesson.uuid : null, checked ? undefined : lesson.uuid);
+      setLesson(await courses.lesson(courseUuid, lesson.uuid));
+      setNotice(checked ? "صار هذا الدرس الحصة التجريبية للكورس." : "أُلغيت الحصة التجريبية.");
+      onSaved();
+    } catch (err: unknown) {
+      setError(errorMessage(err, "تعذّر حفظ الحصة التجريبية."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const run = async (work: () => Promise<LessonDetail>, message: string, syncDraft = false) => {
     setBusy(true);
     setError("");
@@ -501,6 +531,38 @@ export function LessonEditor({
             }
           />
         </div>
+
+        {/*
+          Spec 040 — the course's «حصة تجريبية»: the one lesson ANY visitor may
+          watch, chosen by the course's teacher (never an assistant — the server
+          says who via `can_choose_trial`). Separate from the two switches above:
+          those mean «signed-in students» on an uploaded lesson, this means
+          «everybody», and conflating them is how a lesson meant for students
+          would reach the public.
+        */}
+        {lesson.can_choose_trial && (
+          <div className="rounded-2xl border border-line bg-surface p-4">
+            <CheckboxField
+              id={`trial-${lesson.uuid}`}
+              checked={lesson.is_trial}
+              disabled={busy || (!lesson.is_trial && lesson.trial_refusal !== null)}
+              label={
+                <span>
+                  الحصة التجريبية لهذا الكورس
+                  <span className="block text-xs text-ink-muted">
+                    {!lesson.is_trial && lesson.trial_refusal !== null
+                      ? lesson.trial_refusal
+                      : "يشاهده أي زائر بلا حساب ليرى طريقة شرحك قبل أن يحجز. للكورس حصة واحدة: اختيار هذا الدرس ينقل العلامة إليه."}
+                  </span>
+                </span>
+              }
+              onChange={(checked) => void chooseTrial(checked)}
+            />
+            {lesson.is_trial && lesson.trial_status !== null && lesson.trial_status !== "visible" && (
+              <p className="mt-2 text-xs font-bold text-primary-ink">{TRIAL_STATUS_NOTE[lesson.trial_status]}</p>
+            )}
+          </div>
+        )}
 
         {/*
           026 . FR-001 . FR-006 - who this item is for and when it appears. Both

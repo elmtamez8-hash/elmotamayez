@@ -16,6 +16,7 @@ const typeChangePreview = vi.fn();
 const changeLessonType = vi.fn();
 const referenceTargets = vi.fn();
 const updateLesson = vi.fn();
+const setTrialLesson = vi.fn();
 
 vi.mock("@/lib/courses", () => ({
   courses: {
@@ -24,6 +25,7 @@ vi.mock("@/lib/courses", () => ({
     referenceTargets: (...args: unknown[]) => referenceTargets(...args),
     typeChangePreview: (...args: unknown[]) => typeChangePreview(...args),
     changeLessonType: (...args: unknown[]) => changeLessonType(...args),
+    setTrialLesson: (...args: unknown[]) => setTrialLesson(...args),
   },
 }));
 
@@ -77,6 +79,10 @@ const BASE = {
   exam_gate: null,
   attachments: [],
   asset: null,
+  is_trial: false,
+  trial_refusal: null,
+  can_choose_trial: false,
+  trial_status: null,
 };
 
 async function open(over: Record<string, unknown> = {}) {
@@ -360,5 +366,55 @@ describe("a toggle while the body is being edited", () => {
       "l-1",
       expect.objectContaining({ content: "نصّ جديد لم يُحفظ" }),
     );
+  });
+});
+
+/*
+| Spec 040 — the course's «حصة تجريبية». The switch is the TEACHER's: shown from
+| the server's `can_choose_trial`, never from the role, and a clear names the
+| lesson the reader saw so a stale tab cannot wipe a newer pick.
+*/
+describe("the trial switch", () => {
+  it("is absent when the reader does not decide it (an assistant)", async () => {
+    await open({ type: "embed", can_choose_trial: false });
+
+    expect(screen.queryByLabelText(/الحصة التجريبية لهذا الكورس/)).toBeNull();
+  });
+
+  it("marks the lesson and reads it back", async () => {
+    setTrialLesson.mockResolvedValue({ data: { trial_lesson: { uuid: "l-1" }, trial_status: "visible" } });
+    await open({ type: "embed", can_choose_trial: true });
+    lessonFetch.mockResolvedValue({ ...BASE, type: "embed", can_choose_trial: true, is_trial: true, trial_status: "visible" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/الحصة التجريبية لهذا الكورس/));
+    });
+
+    expect(setTrialLesson).toHaveBeenCalledWith("c", "l-1", undefined);
+    expect((screen.getByLabelText(/الحصة التجريبية لهذا الكورس/) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("clears by naming the lesson it saw as the trial", async () => {
+    setTrialLesson.mockResolvedValue({ data: { trial_lesson: null, trial_status: null } });
+    await open({ type: "embed", can_choose_trial: true, is_trial: true, trial_status: "visible" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(/الحصة التجريبية لهذا الكورس/));
+    });
+
+    expect(setTrialLesson).toHaveBeenCalledWith("c", null, "l-1");
+  });
+
+  it("shows why a lesson cannot be the trial, on a disabled switch", async () => {
+    await open({ type: "article", can_choose_trial: true, trial_refusal: "الحصة التجريبية فيديو." });
+
+    expect((screen.getByLabelText(/الحصة التجريبية لهذا الكورس/) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText("الحصة التجريبية فيديو.")).toBeDefined();
+  });
+
+  it("says why visitors do not see the trial yet", async () => {
+    await open({ type: "video", can_choose_trial: true, is_trial: true, trial_status: "processing" });
+
+    expect(screen.getByText("لن تظهر للزوار حتى ينتهي تجهيز الفيديو.")).toBeDefined();
   });
 });
