@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { lessonTypeLabel } from "@/lib/labels";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
+import { Alert } from "@/components/ui/Alert";
 import { Badge, StatusBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -108,6 +109,21 @@ export default function CourseDetailPage({
       {/* Published but unreachable is the state a teacher cannot see from here
           otherwise — the badge above says «منشور» either way. */}
       <CoursePublicReach course={course} />
+
+      {/*
+        Spec 040 — optional, ENCOURAGED (owner decision 2026-10-09): a published
+        course without a «حصة تجريبية» says so here, to its teacher only, with
+        the way to fix it. It never blocks publishing.
+      */}
+      {course.can_choose_trial === true && course.status === "published" && course.trial_status == null && (
+        <Alert tone="info" title="كورسك بدون حصة تجريبية">
+          الطلاب يحجزون أكثر حين يرون شرحك قبل الاشتراك. اختر درس فيديو من الكورس
+          واجعله «الحصة التجريبية لهذا الكورس» من محرّر الدرس، فيشاهده أي زائر مجاناً.{" "}
+          <Link href={`/manage/courses/${uuid}/content`} className="font-bold text-primary-ink underline underline-offset-4">
+            اختر الحصة التجريبية
+          </Link>
+        </Alert>
+      )}
 
       {/*
         No enrol and no purchase button. This page lives under /manage — it is
