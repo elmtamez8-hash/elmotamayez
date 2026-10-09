@@ -338,6 +338,19 @@ final class PublicFieldAllowlist
      */
     public const TRIAL_LESSON = ['course_slug', 'lesson_uuid', 'title'];
 
+    /**
+     * The guest door to a course's «حصة تجريبية» (spec 040,
+     * `PublicCourseTrialResource`): the lesson, its course, and EITHER the
+     * embed's url OR a playback descriptor — never a grant, a watermark or a
+     * CDN url (the descriptor's `manifest_url` is our own route).
+     *
+     * @var list<string>
+     */
+    public const COURSE_TRIAL = ['uuid', 'title', 'kind', 'duration_seconds', 'course', 'embed_url', 'playback'];
+
+    /** @var list<string> */
+    public const COURSE_TRIAL_PLAYBACK = ['manifest_url', 'format', 'reload_after_seconds'];
+
     /*
     | A group as the public sees it (FR-010 · FR-014).
     |

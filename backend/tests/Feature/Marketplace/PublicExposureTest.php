@@ -198,6 +198,9 @@ it('publishes only allowlisted fields, in every public payload', function () {
         // Spec 032 — the open embedded lesson's own door.
         ...PublicFieldAllowlist::PREVIEW_LESSON,
         ...PublicFieldAllowlist::PREVIEW_LESSON_COURSE,
+        // Spec 040 — a course's «حصة تجريبية» for guests.
+        ...PublicFieldAllowlist::COURSE_TRIAL,
+        ...PublicFieldAllowlist::COURSE_TRIAL_PLAYBACK,
         ...marketplaceEnvelopeKeys(),
     ];
 
@@ -233,6 +236,15 @@ it('publishes only allowlisted fields, in every public payload', function () {
     )->assertOk()->json('data');
 
     $payloads['preview lesson'] = ['data' => $previewBody];
+
+    /*
+    | Spec 040 — the trial door, walked over a REAL trial (the embed above,
+    | marked), for the same reason the preview door is: an empty answer walks
+    | nothing.
+    */
+    $previewCourse->forceFill(['trial_lesson_id' => $previewLesson->getKey()])->saveQuietly();
+    $payloads['course trial'] = $this->getJson("/api/v1/marketplace/courses/{$previewCourse->uuid}/trial")
+        ->assertOk()->json();
 
     expect(array_keys($previewBody))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON)
         ->and(array_keys($previewBody['course']))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON_COURSE);

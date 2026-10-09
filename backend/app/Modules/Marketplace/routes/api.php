@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Marketplace\Http\Controllers\PublicCourseTrialController;
 use App\Modules\Marketplace\Http\Controllers\PublicMarketplaceController;
 use App\Modules\Marketplace\Http\Controllers\ReviewController;
 use App\Modules\Marketplace\Http\Controllers\SignupTaxonomyController;
@@ -179,3 +180,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/complaints/{uuid}/confirm', [ReviewController::class, 'confirmComplaint']);
     Route::post('/admin/complaints/{uuid}/dismiss', [ReviewController::class, 'dismissComplaint']);
 });
+
+/*
+| Spec 040 — a course's «حصة تجريبية» for guests: the descriptor and the stream
+| redirect. OUTSIDE the `throttle:public` group and WITHOUT the `api` group's
+| floor (`/chat-media`'s pattern): the player comes back for a fresh signed
+| link every two thirds of its life, and those reloads must not eat the
+| marketplace pages' budget nor share the 120-per-IP floor with them. Its own
+| `trial-playback` limiter bounds the flood. Keyed by the COURSE only — no
+| lesson uuid ever reaches this door (`ReadCourseTrial`).
+*/
+Route::prefix('marketplace')
+    ->name('marketplace.')
+    ->middleware('throttle:trial-playback')
+    ->withoutMiddleware('throttle:api')
+    ->group(function (): void {
+        Route::get('/courses/{courseKey}/trial', [PublicCourseTrialController::class, 'show'])->name('courses.trial');
+        Route::get('/courses/{courseKey}/trial/stream', [PublicCourseTrialController::class, 'stream'])->name('courses.trial.stream');
+    });
