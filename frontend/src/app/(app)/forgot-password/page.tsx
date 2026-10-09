@@ -41,7 +41,7 @@ function ForgotPasswordForm() {
   };
 
   return (
-    <AuthShell subtitle="استعادة كلمة المرور" image="/marketplace/auth-forgot-student.webp">
+    <AuthShell subtitle="استعادة كلمة المرور" image="/marketplace/auth-forgot-boy.webp">
       <form
         onSubmit={submit}
         className="space-y-4 rounded-3xl border border-line bg-surface-raised p-8 shadow-sm"
