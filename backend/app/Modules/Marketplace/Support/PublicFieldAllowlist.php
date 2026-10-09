@@ -155,6 +155,8 @@ final class PublicFieldAllowlist
         | Resource for why the embed address stays out of the contract.
         */
         'promo_video_id',
+        // Spec 040 — the «حصة تجريبية» visitors may watch now; see COURSE_DETAIL_TRIAL.
+        'trial',
         'subject',
         'grade_level',
         'teacher',
@@ -347,6 +349,9 @@ final class PublicFieldAllowlist
      * @var list<string>
      */
     public const COURSE_TRIAL = ['uuid', 'title', 'kind', 'duration_seconds', 'course', 'embed_url', 'playback'];
+
+    /** The course page's view of its trial: enough for the button. @var list<string> */
+    public const COURSE_DETAIL_TRIAL = ['title', 'kind', 'duration_seconds'];
 
     /** @var list<string> */
     public const COURSE_TRIAL_PLAYBACK = ['manifest_url', 'format', 'reload_after_seconds'];

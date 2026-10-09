@@ -316,6 +316,12 @@ export type CourseDetail = {
    * visitor's business.
    */
   promo_video_id: string | null;
+  /**
+   * Spec 040 — the course's «حصة تجريبية» when visitors may watch it now
+   * (`TrialLessonRule::scopeEligible`), else null. Optional: a payload cached
+   * before the key existed has none, and that reads as «no trial».
+   */
+  trial?: CourseTrialSummary | null;
   /** «تواصل مع المدرّس» — see {@link TeacherContact}. */
   contact: TeacherContact | null;
 };
@@ -364,6 +370,24 @@ export type TeacherDetail = TeacherCard & {
    * all — and reading it as present crashed the whole teacher page.
    */
   trial_lesson?: TrialLesson | null;
+};
+
+/** The course page's view of its trial — enough to draw the button. */
+export type CourseTrialSummary = { title: string; kind: "embed" | "video"; duration_seconds?: number };
+
+/**
+ * `GET /marketplace/courses/{key}/trial` — fetched by the BROWSER (`TrialPlayer`),
+ * never by the Next server: the door is limited per address, and a server fetch
+ * would put every visitor in the server's one bucket.
+ */
+export type CourseTrial = {
+  uuid: string;
+  title: string;
+  kind: "embed" | "video";
+  duration_seconds?: number;
+  course: { uuid: string; title: string; slug: string };
+  embed_url?: string;
+  playback?: { manifest_url: string; format: "hls" | "progressive"; reload_after_seconds: number | null };
 };
 
 /** The teacher's free recorded lesson: anyone may watch it, no account or booking. */

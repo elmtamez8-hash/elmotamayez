@@ -8,6 +8,7 @@ import {
   ChevronEndIcon,
   ClockIcon,
   OrdersIcon,
+  PlayIcon,
   SparkIcon,
   UsersIcon,
 } from "@/components/icons";
@@ -406,6 +407,31 @@ export default async function CoursePage({
               been on this page since 023, and a second one is a duplicate of a
               live door.
             */}
+            {/*
+              Spec 040 — the course's «حصة تجريبية», the recorded lesson its
+              teacher chose for anybody to watch. Present only when the server's
+              `trial` says the guest door will serve it (same rule), so the
+              button never leads to a 404.
+            */}
+            {course.trial != null && (
+              <Link
+                href={`/courses/${course.slug ?? course.uuid}/trial`}
+                className="group flex items-center gap-4 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm transition duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-5"
+              >
+                <span
+                  aria-hidden="true"
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent text-accent-foreground transition duration-300 group-hover:scale-110 motion-reduce:group-hover:scale-100"
+                >
+                  <PlayIcon className="h-6 w-6" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-extrabold text-ink">شاهد حصة تجريبية مجاناً</span>
+                  <span className="block truncate text-sm text-ink-muted">«{course.trial.title}» — بلا حساب وبلا حجز</span>
+                </span>
+                <ChevronEndIcon className="h-5 w-5 shrink-0 text-primary-ink transition-transform duration-300 group-hover:-translate-x-1 motion-reduce:transition-none" />
+              </Link>
+            )}
+
             {course.promo_video_id !== null && (
               <section className="flex flex-col gap-3">
                 <PromoVideoButton videoId={course.promo_video_id} courseTitle={course.title} />

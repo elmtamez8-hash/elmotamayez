@@ -201,6 +201,7 @@ it('publishes only allowlisted fields, in every public payload', function () {
         // Spec 040 — a course's «حصة تجريبية» for guests.
         ...PublicFieldAllowlist::COURSE_TRIAL,
         ...PublicFieldAllowlist::COURSE_TRIAL_PLAYBACK,
+        ...PublicFieldAllowlist::COURSE_DETAIL_TRIAL,
         ...marketplaceEnvelopeKeys(),
     ];
 
@@ -245,6 +246,8 @@ it('publishes only allowlisted fields, in every public payload', function () {
     $previewCourse->forceFill(['trial_lesson_id' => $previewLesson->getKey()])->saveQuietly();
     $payloads['course trial'] = $this->getJson("/api/v1/marketplace/courses/{$previewCourse->uuid}/trial")
         ->assertOk()->json();
+    $payloads['course detail with trial'] = $this->getJson("/api/v1/marketplace/courses/{$previewCourse->uuid}")
+        ->assertOk()->assertJsonPath('data.trial.kind', 'embed')->json();
 
     expect(array_keys($previewBody))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON)
         ->and(array_keys($previewBody['course']))->toEqualCanonicalizing(PublicFieldAllowlist::PREVIEW_LESSON_COURSE);
