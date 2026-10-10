@@ -34,7 +34,7 @@ class GradingSchemeController extends Controller
 
     public function store(SaveGradingSchemeRequest $request, SaveGradingScheme $action): JsonResponse
     {
-        $scheme = $action->handle(GradingSchemeData::fromArray($request->validated()));
+        $scheme = $action->handle($this->currentUser($request), GradingSchemeData::fromArray($request->validated()));
 
         return response()->json([
             'uuid' => $scheme->uuid,

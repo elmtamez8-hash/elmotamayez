@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Community\Actions;
 
+use App\Models\User;
 use App\Modules\Community\Data\GradingSchemeData;
 use App\Modules\Community\Models\GradingScheme;
 use App\Modules\Courses\Models\Course;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -16,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  */
 class SaveGradingScheme extends Action
 {
-    public function handle(GradingSchemeData $data): GradingScheme
+    public function handle(User $author, GradingSchemeData $data): GradingScheme
     {
         /*
         | ⚠️ THE 100% RULE IS ENFORCED HERE, NOT ONLY IN THE FORM REQUEST. The
@@ -78,6 +81,20 @@ class SaveGradingScheme extends Action
             }
 
             $courseId = (int) $course->getKey();
+        }
+
+        /*
+        | ⛔ A CONFINED ASSISTANT WEIGHS THEIR OWN COURSES ONLY (security scan
+        | 2026-10-10, F23) — and never the workspace-wide scheme, which names no
+        | course (`mayActOnCourse(null)` refuses them, as every sibling door for
+        | this permission already did).
+        */
+        if (! app(AssistantScopeDirectory::class)->mayActOnCourse(
+            $author,
+            $workspaceId,
+            $courseId === GradingScheme::ALL_COURSES ? null : $courseId,
+        )) {
+            throw new AuthorizationException('هذا الكورس خارج نطاق عملك.');
         }
 
         $scheme = GradingScheme::firstOrNew([

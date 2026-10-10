@@ -62,7 +62,7 @@ class RecordBoardExport extends Action
         } catch (WhiteboardRefusal $refusal) {
             // Whatever refused, the caller's own fresh upload is linked to nothing
             // and must not stay on the lesson for students to see.
-            $this->discard($user, $new);
+            $this->discard($user, $lesson, $new);
             throw $refusal;
         }
     }
@@ -173,9 +173,22 @@ class RecordBoardExport extends Action
     }
 
     /** The caller's own fresh upload that ended up linked to nothing — and nothing else. */
-    private function discard(User $user, MediaAsset $new): void
+    /**
+     * ⛔ ONLY A FILE THAT COULD BE THIS EXPORT'S OWN UPLOAD (security scan
+     * 2026-10-10, F29): a PDF attachment of the target lesson. «Fresh from the
+     * caller» alone deleted ANY of their recent uploads named by uuid — a lesson's
+     * published video, another course's attachment, a chat file — without
+     * `lessons.delete`, the assistant scope or two-factor, the three things
+     * `DELETE /media/assets/{asset}` asks.
+     */
+    private function discard(User $user, Lesson $lesson, MediaAsset $new): void
     {
-        if ($this->freshFrom($user, $new) && ! BoardLessonExport::query()->where('media_asset_id', $new->id)->exists()) {
+        $couldBeOurs = $new->owner_type === $lesson->getMorphClass()
+            && (int) $new->owner_id === (int) $lesson->id
+            && $new->role === MediaRole::Attachment
+            && $new->mime_type === 'application/pdf';
+
+        if ($couldBeOurs && $this->freshFrom($user, $new) && ! BoardLessonExport::query()->where('media_asset_id', $new->id)->exists()) {
             $this->delete->handle($new);
         }
     }

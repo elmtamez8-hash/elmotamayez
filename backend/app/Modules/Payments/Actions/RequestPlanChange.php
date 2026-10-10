@@ -10,8 +10,11 @@ use App\Modules\Payments\Enums\PlanChangeStatus;
 use App\Modules\Payments\Enums\PlanCoverage;
 use App\Modules\Payments\Models\Plan;
 use App\Modules\Payments\Models\PlanChangeRequest;
+use App\Modules\Payments\Support\PlanCourses;
 use App\Shared\Actions\Action;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use DomainException;
+use Illuminate\Auth\Access\AuthorizationException;
 
 /**
  * The teacher asks. Nothing on the plan moves yet (٠٣٦, owner decision 2026-09-19).
@@ -34,7 +37,11 @@ use DomainException;
  */
 class RequestPlanChange extends Action
 {
-    public function __construct(private readonly SavePlan $plans) {}
+    public function __construct(
+        private readonly SavePlan $plans,
+        private readonly AssistantScopeDirectory $assistants,
+        private readonly PlanCourses $courses,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -67,6 +74,16 @@ class RequestPlanChange extends Action
         [$duration, $sessionCount] = $this->plans->resolveShape($data, $coverage, $sessionType);
 
         $coverageUuid = $this->plans->resolveCoverage($coverage, $data['coverage_uuid'] ?? null, (int) $plan->workspace_id, $plan->coverage_uuid);
+
+        // ⛔ The REQUESTED coverage asks the scope too (security scan 2026-10-10,
+        // F19): the policy asked the plan's current course only, so a confined
+        // assistant requested their plan be moved onto a far course, or onto the
+        // whole workspace — the move `SavePlan` refuses them on the direct edit.
+        $workspaceId = (int) $plan->workspace_id;
+
+        if (! $this->assistants->mayActOnCourse($author, $workspaceId, $this->courses->of($coverage, $coverageUuid, $workspaceId))) {
+            throw new AuthorizationException('هذه الباقة خارج نطاق عملك.');
+        }
 
         $price = $this->positiveOrNull($data['requested_price_minor'] ?? null);
 
