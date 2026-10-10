@@ -85,11 +85,25 @@ class EloquentSessionContentAccess implements SessionContentAccess
         | yet; a session never delivered is FR-008د's last row, «لا محتوى أصلاً»,
         | and it stays shut.
         */
+        /*
+        | ⛔ AND «THE SEAT ENTITLES» MEANS **THIS STUDENT'S** SEAT (security scan
+        | 2026-10-10, F7). The branch returned every unjudged session whoever
+        | asked — and every session delivered before ٠٣٥ is unjudged for ever —
+        | so any account holding a recording's uuid watched it, a stranger's
+        | one-to-one hour included. The pre-035 rule it stands in for is
+        | `hasBookingForLesson()`'s: a booking that is `booked` or
+        | `cancelled_late` (charged, so the recording is theirs).
+        */
         $unjudged = DB::table('class_sessions')
-            ->whereIn('id', $classSessionIds)
-            ->whereNotNull('delivered_at')
-            ->whereNull('attended_seats')
-            ->pluck('id')
+            ->whereIn('class_sessions.id', $classSessionIds)
+            ->whereNotNull('class_sessions.delivered_at')
+            ->whereNull('class_sessions.attended_seats')
+            ->whereExists(static fn ($seat) => $seat->selectRaw('1')
+                ->from('session_bookings')
+                ->whereColumn('session_bookings.class_session_id', 'class_sessions.id')
+                ->where('session_bookings.student_user_id', $student->getKey())
+                ->whereIn('session_bookings.status', ['booked', 'cancelled_late']))
+            ->pluck('class_sessions.id')
             ->map(static fn (mixed $id): int => (int) $id)
             ->all();
 
