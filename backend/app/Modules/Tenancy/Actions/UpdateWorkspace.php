@@ -17,6 +17,9 @@ class UpdateWorkspace extends Action
      */
     public function handle(Workspace $workspace, array $attributes): Workspace
     {
+        // Never through here, whatever the caller passes — see UpdateWorkspaceRequest.
+        unset($attributes['settings']);
+
         $workspace->update($attributes);
 
         $this->logActivity('updated', $workspace, $attributes);

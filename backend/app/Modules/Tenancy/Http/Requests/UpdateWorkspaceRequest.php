@@ -33,7 +33,13 @@ class UpdateWorkspaceRequest extends FormRequest
                 'max:255',
                 Rule::unique('workspaces', 'slug')->ignore($this->route('workspace')),
             ],
-            'settings' => ['nullable', 'array'],
+            /*
+            | ⛔ NO `settings` (security scan 2026-10-10, F2). It was `nullable|array`
+            | and written whole, so an owner set `settings.billing.mode` — the
+            | platform's call (`billing.settings.manage`) — and wiped what an
+            | officer had set. Every key under it has its own guarded writer:
+            | `BillingSettings`, `GradingSettings`, `TeacherInboxSettings`.
+            */
         ];
     }
 }
