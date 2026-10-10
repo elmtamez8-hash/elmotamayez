@@ -30,7 +30,6 @@ use Spatie\Permission\PermissionRegistrar;
 beforeEach(function (): void {
     Queue::fake([CloseClassSessionJob::class]);
 
-
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($this->workspace, $this->owner);
 
