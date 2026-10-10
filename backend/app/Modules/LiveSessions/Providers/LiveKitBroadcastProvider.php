@@ -10,6 +10,7 @@ use Agence104\LiveKit\EgressServiceClient;
 use Agence104\LiveKit\RoomCreateOptions;
 use Agence104\LiveKit\RoomServiceClient;
 use Agence104\LiveKit\VideoGrant;
+use Agence104\LiveKit\WebhookReceiver;
 use App\Models\User;
 use App\Modules\LiveSessions\Contracts\BroadcastProviderInterface;
 use App\Modules\LiveSessions\Data\BroadcastCapabilities;
@@ -20,6 +21,8 @@ use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
+use App\Modules\LiveSessions\Exceptions\InvalidBroadcastSignature;
+use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Support\SessionSettings;
 use Carbon\CarbonImmutable;
@@ -773,6 +776,46 @@ final class LiveKitBroadcastProvider implements BroadcastProviderInterface
         return str_starts_with($url, 'ws')
             ? 'http'.substr($url, 2)
             : $url;
+    }
+
+    /**
+     * LiveKit's webhook: a JWT signed with our own API key and secret whose
+     * `sha256` grant names the body. Only `participant_joined` of a STANDARD
+     * participant in a `session-{uuid}` room comes back — the recorder joins as
+     * `EGRESS` and is nobody's to evict.
+     */
+    public function participantJoined(string $body, ?string $signature): ?array
+    {
+        $key = (string) config('sessions.livekit.key');
+        $secret = (string) config('sessions.livekit.secret');
+
+        if ($key === '' || $secret === '') {
+            throw UnsupportedCapability::for($this->identifier(), 'joinNotifications');
+        }
+
+        try {
+            $event = (new WebhookReceiver($key, $secret))->receive($body, (string) $signature);
+        } catch (Throwable) {
+            // No message carried on: it is the caller's input, not ours.
+            throw new InvalidBroadcastSignature;
+        }
+
+        $participant = $event->getParticipant();
+        $room = $event->getRoom();
+        $prefix = 'session-';
+
+        if ($event->getEvent() !== 'participant_joined'
+            || ! $participant instanceof ParticipantInfo
+            || $participant->getKind() !== Kind::STANDARD
+            || $room === null
+            || ! str_starts_with($room->getName(), $prefix)) {
+            return null;
+        }
+
+        return [
+            'session_uuid' => substr($room->getName(), strlen($prefix)),
+            'identity' => (string) $participant->getIdentity(),
+        ];
     }
 
     private function rooms(): RoomServiceClient

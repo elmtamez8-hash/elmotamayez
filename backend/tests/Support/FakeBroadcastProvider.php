@@ -214,6 +214,14 @@ class FakeBroadcastProvider implements BroadcastProviderInterface
         $this->roomClosed = true;
     }
 
+    /** What the next webhook reads as a join; null for «nothing to act on». */
+    public ?array $joined = null;
+
+    public function participantJoined(string $body, ?string $signature): ?array
+    {
+        return $this->joined;
+    }
+
     public function recording(ClassSession $session): ?RecordingArtifact
     {
         if ($this->onRecording !== null) {

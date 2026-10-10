@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Data\RoomHandle;
 use App\Modules\LiveSessions\Enums\HostAction;
 use App\Modules\LiveSessions\Enums\ParticipantRole;
 use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
+use App\Modules\LiveSessions\Exceptions\InvalidBroadcastSignature;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\ClassSession;
 
@@ -136,4 +137,24 @@ interface BroadcastProviderInterface
      * answer on the first call after every session, not an error.
      */
     public function recording(ClassSession $session): ?RecordingArtifact;
+
+    /**
+     * A participant just walked into one of our rooms, read off the provider's
+     * own signed notification (security scan 2026-10-10, F14).
+     *
+     * ⚠️ THE ADAPTER VERIFIES AND PARSES, the caller decides. The signature, the
+     * event names and the room-naming scheme are the provider's vocabulary, so
+     * they stay in the one file that may know it; the caller gets back our two
+     * identifiers and asks `RoomRevocation` whether that person may be there.
+     *
+     * Null for anything that is not a STANDARD participant joining one of our
+     * rooms — the recorder joins as a participant of its own kind.
+     *
+     * @return array{session_uuid: string, identity: string}|null
+     *
+     * @throws UnsupportedCapability when the provider sends no such notification
+     *                               or is not configured to verify one
+     * @throws InvalidBroadcastSignature when the signature does not hold
+     */
+    public function participantJoined(string $body, ?string $signature): ?array;
 }
