@@ -10,6 +10,7 @@ use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What a STUDENT may be shown from a workspace-owned list.
@@ -104,7 +105,8 @@ class StudentScope
         $context = app(WorkspaceContext::class)->id();
 
         // The reader's own workspace — the arm `forReader()` adds back to a list.
-        if ($context !== null && (int) $record->getAttribute('workspace_id') === $context) {
+        if ($context !== null && (int) $record->getAttribute('workspace_id') === $context
+            && ($record->getAttribute('course_id') === null || self::isStaffOf($user, $context))) {
             return true;
         }
 
@@ -141,6 +143,34 @@ class StudentScope
             ->orWhere(fn (Builder $general): Builder => $general
                 ->whereNull('course_id')
                 ->whereIn('workspace_id', $workspaceIds))
-            ->when($context !== null, fn (Builder $own): Builder => $own->orWhere('workspace_id', $context)));
+            ->when($context !== null, fn (Builder $own): Builder => $own->orWhere(fn (Builder $mine): Builder => $mine
+                ->where('workspace_id', $context)
+                // Inside the same statement, never a read of its own: the
+                // homework list's query budget counts every round trip.
+                ->where(fn (Builder $either): Builder => $either
+                    ->whereNull('course_id')
+                    ->orWhereExists(fn ($staff) => $staff->selectRaw('1')
+                        ->from('workspace_members')
+                        ->where('workspace_members.workspace_id', $context)
+                        ->where('workspace_members.user_id', $user->getKey())
+                        ->where('workspace_members.role', '!=', 'student'))))));
+    }
+
+    /**
+     * ⛔ THE WORKSPACE ARM IS THE TEACHING SIDE'S, NEVER A STUDENT'S (security
+     * scan 2026-10-10, F15). A student a teacher invited into the workspace
+     * resolves to it through `last_workspace_id`, and the arm then skipped the
+     * enrolment question for every course-bearing paper there — they opened and
+     * sat the final of a course they never bought. A student member keeps the
+     * arm for COURSE-LESS papers (set for every student of the workspace) and
+     * reads every course paper through the enrolment arm like anyone else.
+     */
+    private static function isStaffOf(User $user, int $workspaceId): bool
+    {
+        return DB::table('workspace_members')
+            ->where('workspace_id', $workspaceId)
+            ->where('user_id', $user->getKey())
+            ->where('role', '!=', 'student')
+            ->exists();
     }
 }
