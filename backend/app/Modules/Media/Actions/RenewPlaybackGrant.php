@@ -51,11 +51,11 @@ class RenewPlaybackGrant extends Action
         | to 480 renewals (~40 hours). Only a LESSON's file has that door; a store
         | product's grant answers to its own purchase.
         */
-        if ($grant->asset?->owner_type === Lesson::class) {
+        if ($grant->asset->owner_type === Lesson::class) {
             $lesson = Lesson::query()->withoutGlobalScope(WorkspaceScope::class)->find($grant->asset->owner_id);
             $viewer = $grant->user;
 
-            if ($lesson === null || $viewer === null || ! app(IssuePlaybackGrant::class)->mayWatch($lesson, $viewer)) {
+            if ($lesson === null || ! app(IssuePlaybackGrant::class)->mayWatch($lesson, $viewer)) {
                 $grant->forceFill(['revoked_at' => now()])->save();
 
                 throw new DomainException('لم يعد لديك وصول إلى هذا الدرس.');
