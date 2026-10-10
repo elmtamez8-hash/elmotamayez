@@ -20,6 +20,8 @@ class TeacherFilterDTO extends DataTransferObject
         public readonly ?int $minTrustScore = null,
         public readonly ?string $language = null,
         public readonly bool $availableNow = false,
+        // Has declared weekly hours — private sessions can be booked (review 2026-10-09).
+        public readonly bool $bookable = false,
         public readonly ?string $search = null,
         public readonly string $sort = self::SORT_RATING,
         public readonly int $page = 1,
@@ -41,6 +43,7 @@ class TeacherFilterDTO extends DataTransferObject
             minTrustScore: isset($data['min_trust_score']) ? (int) $data['min_trust_score'] : null,
             language: $data['language'] ?? null,
             availableNow: filter_var($data['available_now'] ?? false, FILTER_VALIDATE_BOOL),
+            bookable: filter_var($data['bookable'] ?? false, FILTER_VALIDATE_BOOL),
             search: isset($data['q']) && $data['q'] !== '' ? (string) $data['q'] : null,
             sort: $data['sort'] ?? self::SORT_RATING,
             page: max(1, (int) ($data['page'] ?? 1)),
@@ -63,6 +66,7 @@ class TeacherFilterDTO extends DataTransferObject
             'min_trust_score' => $this->minTrustScore !== null ? (string) $this->minTrustScore : null,
             'language' => $this->language,
             'available_now' => $this->availableNow ? '1' : null,
+            'bookable' => $this->bookable ? '1' : null,
             'q' => $this->search,
             'sort' => $this->sort,
         ], fn (?string $value) => $value !== null);

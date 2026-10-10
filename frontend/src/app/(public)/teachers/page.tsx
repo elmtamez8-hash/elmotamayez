@@ -47,6 +47,7 @@ const FILTER_KEYS = [
   "min_trust_score",
   "language",
   "available_now",
+  "bookable",
   "q",
   "sort",
   "page",

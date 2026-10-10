@@ -42,7 +42,7 @@ export default async function StudentSignupPage({
     <SignupFrame
       role="student"
       title="إنشاء حساب طالب"
-      subtitle="خطوة واحدة وتبدأ التعلّم مع مدرّس تختاره بنفسك."
+      subtitle="خطوتان وتبدأ التعلّم مع مدرّس تختاره بنفسك."
       notice={
         teacher && (
           <p className="mb-5 rounded-2xl bg-primary-soft p-4 text-sm text-primary-ink">

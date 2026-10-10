@@ -48,6 +48,7 @@ class ListPublicTeachersRequest extends FormRequest
             'min_trust_score' => ['sometimes', 'integer', 'between:0,100'],
             'language' => ['sometimes', 'string', 'max:5'],
             'available_now' => ['sometimes', 'boolean'],
+            'bookable' => ['sometimes', 'boolean'],
             'q' => ['sometimes', 'string', 'max:100'],
             'sort' => ['sometimes', Rule::in([
                 TeacherFilterDTO::SORT_RATING,

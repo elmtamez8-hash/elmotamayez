@@ -506,7 +506,7 @@ export function TeacherSignupWizard({
             <FieldError id="terms_accepted" message={errors.terms_accepted} />
           </div>
 
-          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
+          <Button type="submit" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -618,7 +618,7 @@ export function TeacherSignupWizard({
             />
           </div>
 
-          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
+          <Button type="submit" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -655,7 +655,7 @@ export function TeacherSignupWizard({
             <FieldError id="documents" message={errors.documents} />
           </div>
 
-          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading}>التالي</Button>
+          <Button type="submit" size="lg" fullWidth loading={loading}>التالي</Button>
         </form>
       )}
 
@@ -690,7 +690,7 @@ export function TeacherSignupWizard({
             <FieldError id="availability" message={errors.availability} />
           </fieldset>
 
-          <Button type="submit" variant="accent" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إرسال الطلب…">
+          <Button type="submit" size="lg" fullWidth loading={loading} loadingLabel="جارٍ إرسال الطلب…">
             إرسال الطلب للمراجعة
           </Button>
         </form>
