@@ -48,7 +48,10 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
       </div>
 
       <div className="flex flex-1 flex-col px-5 pb-5">
-        <div className="-mt-10 mb-4 flex">
+        {/* The name sits BESIDE the photo, on the white below the cover (owner
+            request 2026-10-10): `items-end` puts it level with the photo's
+            lower half, which is the half that hangs below the cover's edge. */}
+        <div className="-mt-10 mb-3 flex items-end gap-3">
           {/* ⚠️ `relative` AND `shrink-0` ON THE WRAPPER, not on the image. The dot
               is absolutely positioned against this box, and the box is what must
               keep its size in a flex row — moving `shrink-0` down to the photo
@@ -69,19 +72,19 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
 
             {teacher.available_now && <AvailableNowDot />}
           </div>
-        </div>
 
-        {/* `flex-wrap`: the name is a link that truncates, and the chip beside
-            it must not be what forces the truncation on a narrow card. */}
-        <h3 className="mb-1 flex flex-wrap items-center gap-1.5 text-lg font-extrabold text-ink">
-          <Link href={profileHref} className="truncate transition-colors hover:text-primary-ink">
-            {teacher.name}
-          </Link>
-          {teacher.is_verified && (
-            <VerifiedBadgeIcon className="h-[1.1rem] w-[1.1rem] shrink-0 text-secondary-ink" title="مدرّس موثّق" />
-          )}
-          {teacher.available_now && <AvailableNowChip />}
-        </h3>
+          {/* `min-w-0` lets the name truncate inside the row instead of pushing
+              the photo; `flex-wrap` keeps the chip from forcing that truncation. */}
+          <h3 className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1 text-lg font-extrabold leading-snug text-ink">
+            <Link href={profileHref} className="truncate transition-colors hover:text-primary-ink">
+              {teacher.name}
+            </Link>
+            {teacher.is_verified && (
+              <VerifiedBadgeIcon className="h-[1.1rem] w-[1.1rem] shrink-0 text-secondary-ink" title="مدرّس موثّق" />
+            )}
+            {teacher.available_now && <AvailableNowChip />}
+          </h3>
+        </div>
         {/* Two lines, not `truncate`. The headline is the teacher's own pitch
             and the only line that tells two maths teachers apart — cutting it
             mid-word at «مدرّس رياضيات وفيزياء للمر…» removed the differentiator
