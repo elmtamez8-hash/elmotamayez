@@ -20,6 +20,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 /**
  * A viewer says an embedded lesson's video does not work (032 · US3).
@@ -192,8 +193,8 @@ class ReportBrokenEmbed extends Action
             ->where('status', ContentStatus::Published->value)
             // Grouped, or the OR escapes the status condition above it and
             // reports become possible against every draft on the platform.
-            ->where(fn ($query) => $query->where('slug', $key)->orWhere('uuid', $key))
-            ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', [$key])
+            // A uuid-shaped key is a uuid, never a slug (security scan F11).
+            ->where(Str::isUuid($key) ? 'uuid' : 'slug', $key)
             ->first();
     }
 

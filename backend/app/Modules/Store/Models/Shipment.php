@@ -10,6 +10,7 @@ use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
 use Carbon\CarbonInterface;
 use Database\Factories\Modules\Store\ShipmentFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -66,6 +67,22 @@ class Shipment extends BaseModel
             'status' => ShipmentStatus::class,
             'status_changed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * A parcel worth packing: its purchase was paid (`fulfilled_at`, the
+     * purchase's own claim) and has not been refunded. One spelling for the
+     * queue and for every step forward (security scan 2026-10-10, F12).
+     *
+     * @param  Builder<Shipment>  $query
+     */
+    public function scopePayable(Builder $query): void
+    {
+        $query->whereExists(fn ($order) => $order->selectRaw('1')
+            ->from('store_orders')
+            ->whereColumn('store_orders.id', 'shipments.store_order_id')
+            ->whereNotNull('store_orders.fulfilled_at')
+            ->whereNull('store_orders.refunded_at'));
     }
 
     /** @return BelongsTo<StoreOrder, $this> */
