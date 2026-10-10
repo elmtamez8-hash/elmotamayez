@@ -70,6 +70,27 @@ export function CourseCover({
   */
   const Mark = subject ? subjectIcon(subject) : AcademicCapIcon;
 
+  /*
+    The card's generated cover is the TEACHER CARD's (owner request 2026-10-10):
+    the brand colour, the wordmark's square dots, and the subject drawn large and
+    faint at the end edge — so a grid of courses and a grid of teachers read as
+    one product. A frosted tile carries the mark in the middle so the panel says
+    «this course, no picture yet» rather than «an image failed to load».
+  */
+  if (variant === "card") {
+    return (
+      <div
+        aria-hidden="true"
+        className="bg-squares bg-squares-start relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-primary"
+      >
+        <Mark className="absolute -bottom-10 end-3 -z-10 h-44 w-44 text-white/15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
+        <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-white ring-1 ring-white/25 backdrop-blur-sm transition duration-300 ease-out group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
+          <Mark className="h-8 w-8" />
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       aria-hidden="true"
@@ -80,19 +101,9 @@ export function CourseCover({
         band its ground. `bg-dots` is the existing lattice (tinted for both
         themes in `globals.css`) and needs `relative isolate` for its layer.
       */
-      className={`flex h-full w-full flex-col items-center justify-center gap-2 ${
-        variant === "card" ? "bg-primary-soft" : "bg-dots relative isolate bg-primary-soft"
-      }`}
+      className="bg-dots relative isolate flex h-full w-full flex-col items-center justify-center gap-2 bg-primary-soft"
     >
-      {variant === "card" ? (
-        // A tile, not a bare faded glyph: on its own the mark read as an image
-        // that failed to load rather than a course with no cover yet.
-        <span className="grid h-20 w-20 place-items-center rounded-3xl bg-surface-raised text-primary-ink shadow-lg shadow-primary/10 transition duration-300 ease-out group-hover:-rotate-3 group-hover:scale-110 group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
-          <Mark className="h-10 w-10" />
-        </span>
-      ) : (
-        <Mark className="h-20 w-20 text-primary-ink/25 sm:h-24 sm:w-24" />
-      )}
+      <Mark className="h-20 w-20 text-primary-ink/25 sm:h-24 sm:w-24" />
 
       {/*
         ⛔ **ولا اسمَ للمادّةِ هنا، وقد كانَ.** الكارتُ يحملُ شريحةَ المادّةِ

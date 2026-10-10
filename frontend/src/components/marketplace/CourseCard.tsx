@@ -57,9 +57,17 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
   // العلامةُ نفسُها التي يرسمُها الغلاف، من المُحلّلِ المشترَكِ لا من خريطةٍ ثانية.
   const Mark = course.subject ? subjectIcon(course.subject) : null;
 
+  const href = `/courses/${course.slug ?? course.uuid}`;
+
+  /*
+    The bold card (owner request 2026-10-10), in the TEACHER CARD's language: a
+    brand-colour cover, the teacher's photo hanging off its lower edge with the
+    name beside it on the white, the facts as one row of chips, and ONE accent
+    button. A grid of courses and a grid of teachers now read as one product.
+  */
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 active:translate-y-0 active:duration-100 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
-      <div className="relative aspect-video bg-primary-soft">
+    <article className="group relative flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 active:translate-y-0 active:duration-100 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
+      <div className="relative aspect-video overflow-hidden bg-primary">
         <CourseCover
           title={course.title}
           coverUrl={course.cover_url}
@@ -67,194 +75,160 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
           variant="card"
         />
 
+        {/*
+          النوعُ في طرف و«الأكثر طلباً» في الطرفِ الآخَر: أوّلُ ما يفرزُ به
+          المتصفّحُ («مباشر» أم «مسجَّل»)، ولا يزاحمُ أحدُهما الآخَر.
+        */}
+        <span className="absolute top-3 end-3 rounded-full bg-surface-raised/95 px-3 py-1 text-xs font-extrabold text-primary-ink shadow-md">
+          {courseTypeLabel(course.type)}
+        </span>
+
         {course.is_bestseller && (
-          <span className="absolute top-3 start-3 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-foreground shadow-md shadow-primary/20">
+          <span className="absolute top-3 start-3 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-foreground shadow-md">
             الأكثر طلباً
           </span>
         )}
 
         {/*
-          النوعُ على الغلافِ لا في سطرِ البيانات: هو أوّلُ ما يفرزُ به المتصفّحُ
-          («مباشر» أم «مسجَّل»)، وفي طرفٍ لا يزاحمُ «الأكثر طلباً» في الطرفِ الآخَر.
+          Spec 040 — the course's «حصة تجريبية». Its own link above the card's
+          stretched title link (`relative z-10`), straight to the lesson: the
+          badge is a door, not a label. Opposite the teacher's photo, which
+          hangs off the start edge.
         */}
-        <span className="absolute top-3 end-3 rounded-full bg-primary px-3 py-1 text-xs font-extrabold text-white shadow-md shadow-primary/30">
-          {courseTypeLabel(course.type)}
-        </span>
-
-        {/*
-          ⚠️ **التقييمُ فوقَ الصورةِ خلفَ حاجب، لا بجوارِها على الأبيض.**
-          نصٌّ فوقَ صورةٍ بلا حاجبٍ لا ضمانَ لتباينِه إطلاقاً: النجمةُ نفسُها
-          ١٢:١ فوقَ ركنٍ داكنٍ و١٫٤:١ فوقَ ركنٍ فاتح، وأيُّ ركنٍ تقعُ عليه قرارُ
-          القَصِّ لا قرارُنا. والحاجبُ الأسودُ يُخرِجُ الصورةَ من حسابِ التباينِ
-          حيثُ تقعُ الكلمات — وهي التهجئةُ المقيسةُ في `PageBanner` بحرفِها.
-
-          والتدرّجُ إلى الشفافِ لا مستطيلٌ مصمت: شريطٌ صلبٌ يقطعُ الصورةَ بخطٍّ
-          ويُقرَأُ عنصراً آخَرَ فوقَها، والتدرّجُ يُقرَأُ ظلَّها.
-        */}
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-3 pt-8">
-          <StarRating value={course.average_rating} tone="overlay" />
-          {/*
-            Spec 040 — the course's «حصة تجريبية». Its own link above the card's
-            stretched title link (`relative z-10`), straight to the lesson: the
-            badge is a door, not a label. Present only when the server's
-            `has_trial` says the guest door will serve it.
-          */}
-          {course.has_trial === true && (
-            <Link
-              href={`/courses/${course.slug ?? course.uuid}/trial`}
-              className="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-extrabold text-accent-foreground shadow-md transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              <PlayIcon className="h-3.5 w-3.5" />
-              حصة تجريبية مجانية
-            </Link>
-          )}
-        </div>
+        {course.has_trial === true && (
+          <Link
+            href={`${href}/trial`}
+            className="absolute bottom-3 end-3 z-10 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-extrabold text-accent-foreground shadow-md transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <PlayIcon className="h-3.5 w-3.5" />
+            حصة تجريبية مجانية
+          </Link>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3.5 p-5">
-
-        {/* ⚠️ THE WHOLE CARD, IN ONE CLICK (spec 023 · SC-001).
-            The title used to lead to the teacher's courses tab, which cost three
-            clicks to reach the course it was already naming — and the card body
-            led nowhere at all, so most of the surface a thumb lands on did
-            nothing. The `after:` overlay stretches this one link across the
-            article; the byline below sits above it on the z-axis so «who teaches
-            this» stays a separate destination rather than being swallowed. */}
-        <h3 className="text-lg font-extrabold leading-snug text-ink transition-colors group-hover:text-primary-ink motion-reduce:transition-none">
+      <div className="flex flex-1 flex-col px-5 pb-5">
+        {course.teacher ? (
+          /*
+            The teacher card's row: the photo hangs half off the cover, the name
+            sits BESIDE it on the white. Above the stretched title link on the
+            z-axis, so «who teaches this» stays its own destination.
+          */
           <Link
-            href={`/courses/${course.slug ?? course.uuid}${anchor}`}
+            href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
+            className="relative z-10 -mt-7 mb-3 flex w-fit max-w-full items-end gap-2.5 text-sm font-bold text-ink-muted transition-colors hover:text-primary-ink"
+          >
+            {course.teacher.photo_url ? (
+              <img
+                src={course.teacher.photo_url}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-2xl object-cover shadow-md shadow-primary/20 ring-4 ring-surface-raised"
+                loading="lazy"
+              />
+            ) : (
+              <span
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-lg font-extrabold text-primary-ink ring-4 ring-surface-raised"
+                aria-hidden="true"
+              >
+                {course.teacher.name.charAt(0)}
+              </span>
+            )}
+            <span className="flex min-w-0 items-center gap-1 pb-1">
+              <span className="truncate">{course.teacher.name}</span>
+              {/*
+                شارةُ التوثيقِ بجوارِ الاسمِ أينما كُتِب. الحقيقةُ واحدةٌ، فإن
+                ظهرَت على بطاقةِ المدرّسِ وحدَها بدا الموثَّقُ غيرَ موثَّقٍ على كلِّ
+                كورسٍ له.
+              */}
+              {course.teacher.is_verified && (
+                <VerifiedBadgeIcon className="h-4 w-4 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
+              )}
+            </span>
+          </Link>
+        ) : (
+          <div className="pt-4" />
+        )}
+
+        {/* ⚠️ THE WHOLE CARD, IN ONE CLICK (spec 023 · SC-001). The `after:`
+            overlay stretches this one link across the article; the teacher row
+            and the trial badge sit above it on the z-axis. */}
+        <h3 className="line-clamp-2 text-lg font-extrabold leading-snug text-ink transition-colors group-hover:text-primary-ink motion-reduce:transition-none">
+          <Link
+            href={`${href}${anchor}`}
             className="after:absolute after:inset-0 after:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {course.title}
           </Link>
         </h3>
 
-        {course.teacher && (
-          <Link
-            href={`/teachers/${course.teacher.slug ?? course.teacher.uuid}`}
-            className="relative z-10 flex w-fit items-center gap-2 text-sm font-semibold text-ink-muted hover:text-primary-ink"
-          >
-            {course.teacher.photo_url ? (
-              <img
-                src={course.teacher.photo_url}
-                alt=""
-                className="h-7 w-7 rounded-full object-cover ring-2 ring-primary-soft"
-                loading="lazy"
-              />
-            ) : (
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-soft text-xs font-extrabold text-primary-ink"
-                aria-hidden="true"
-              >
-                {course.teacher.name.charAt(0)}
-              </span>
-            )}
-            {course.teacher.name}
-            {/*
-              شارةُ التوثيقِ بجوارِ الاسمِ أينما كُتِب. الحقيقةُ واحدةٌ، فإن
-              ظهرَت على بطاقةِ المدرّسِ وحدَها بدا الموثَّقُ غيرَ موثَّقٍ على كلِّ
-              كورسٍ له.
-            */}
-            {course.teacher.is_verified && (
-              <VerifiedBadgeIcon
-                className="h-4 w-4 shrink-0 text-secondary-ink"
-                title="مدرّس موثّق"
-              />
-            )}
-          </Link>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <StarRating value={course.average_rating} />
+          {course.subject && Mark && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary-ink">
+              <Mark className="h-3.5 w-3.5" />
+              {course.subject.name}
+            </span>
+          )}
+        </div>
 
         {/*
-          ⚠️ سطرٌ لكلِّ حقيقة، لا حقائقُ مرصوصةٌ بفواصلَ في سطرٍ واحد.
-          «٦ حصص · ساعتان» كانت تُقرَأُ جملةً واحدةً غامضة؛ والعينُ تمسحُ عموداً
-          من الأيقوناتِ أسرعَ ممّا تفكُّ سطراً مضغوطاً — وهو ما يفعلُه كارتُ
-          المنافسِ بأربعةِ أسطر.
-
-          ⚠️ والصفرُ يسقطُ: `hours()` تُعيدُ «—» لكورسٍ لم تُقَسْ مدّتُه، وسطرٌ
-          كاملٌ بأيقونةِ ساعةٍ أمامَ شَرطةٍ أسوأُ من غيابِه.
+          الحقائقُ صفٌّ واحدٌ من الرقائق، كلٌّ بأيقونتِه. ⛔ ولا مدّةَ لكورسٍ بلا
+          حصص: العددُ محسوبٌ من الدروسِ المرئيّة والمدّةُ عمودٌ يكتبُه المؤلّف،
+          و«لم تُضَف حصص بعد» بجوارِ «٢٤ ساعة» شُوهِدَت على الشاشة.
         */}
-        <dl className="flex flex-col gap-2 text-sm text-ink-muted">
-          <dt className="sr-only">عدد الحصص</dt>
-          <dd className="flex items-center gap-2.5">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
-                <PlayIcon className="h-4 w-4" />
-              </span>
-            {counted(course.lessons_count, {
-              zero: "لم تُضَف حصص بعد",
-              one: "حصة واحدة",
-              two: "حصتان",
-              few: "حصص",
-              many: "حصة",
-              other: "حصة",
-            })}
-          </dd>
+        <dl className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-ink-muted">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1">
+            <dt className="sr-only">عدد الحصص</dt>
+            <PlayIcon className="h-3.5 w-3.5 text-primary-ink" />
+            <dd>
+              {counted(course.lessons_count, {
+                zero: "لم تُضَف حصص بعد",
+                one: "حصة واحدة",
+                two: "حصتان",
+                few: "حصص",
+                many: "حصة",
+                other: "حصة",
+              })}
+            </dd>
+          </div>
 
-          {/*
-            ⛔ **ولا مدّةَ لكورسٍ بلا حصص، وقد شُوهِدَ العكسُ على الشاشة.**
-            «الرياضيات للثانوية العامة» كانت تقولُ «لم تُضَف حصص بعد» و«٢٤ ساعة»
-            في سطرَين متتاليَين — وكلاهما صادقٌ عن مصدرِه: العددُ مشتقٌّ
-            بـ`withCount` من صفوفِ الدروسِ المرئيّة، والمدّةُ **عمودٌ يكتبُه
-            المؤلّفُ بيدِه** على صفِّ الكورس. فالتناقضُ ليس في الكارتِ بل في
-            جمعِ رقمٍ محسوبٍ ورقمٍ مُعلَنٍ بلا شرطٍ بينَهما.
-
-            ومحتوىً مُعلَنٌ بأربعٍ وعشرينَ ساعةً خلفَ كورسٍ فارغٍ وعدٌ لا يُوفَّى،
-            فالسطرُ يسقطُ حتّى يوجدَ ما يُقاس. والعمودُ لا يُمَسُّ: هو تصريحُ
-            المدرّسِ عن كورسِه، وتصحيحُه من هنا كتابةٌ في بياناتِ غيرِنا.
-          */}
           {length !== null && course.lessons_count > 0 && (
-            <>
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1">
               <dt className="sr-only">مدة المحتوى</dt>
-              <dd className="flex items-center gap-2.5">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
-                <ClockIcon className="h-4 w-4" />
-              </span>
-                {length}
-              </dd>
-            </>
+              <ClockIcon className="h-3.5 w-3.5 text-primary-ink" />
+              <dd>{length}</dd>
+            </div>
           )}
 
-          <dt className="sr-only">عدد الطلاب</dt>
-          <dd className="flex items-center gap-2.5">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-ink transition-colors group-hover:bg-primary group-hover:text-white motion-reduce:transition-none">
-                <UsersIcon className="h-4 w-4" />
-              </span>
-            {counted(course.enrolled_count, {
-              zero: "لا طلاب بعد",
-              one: "طالب واحد",
-              two: "طالبان",
-              few: "طلاب",
-              many: "طالباً",
-              other: "طالب",
-            })}
-          </dd>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1">
+            <dt className="sr-only">عدد الطلاب</dt>
+            <UsersIcon className="h-3.5 w-3.5 text-primary-ink" />
+            <dd>
+              {counted(course.enrolled_count, {
+                zero: "لا طلاب بعد",
+                one: "طالب واحد",
+                two: "طالبان",
+                few: "طلاب",
+                many: "طالباً",
+                other: "طالب",
+              })}
+            </dd>
+          </div>
         </dl>
 
         {/*
-          شريحةُ المادّةِ قرصٌ بعرضِ كلمتِها، بالعلامةِ نفسِها التي يرسمُها
-          الغلافُ — `subjectIcon()` مرّةً أخرى، لا خريطةً ثانية. وتغيبُ كلّيّاً
-          لكورسٍ بلا مادّة: صندوقٌ رماديٌّ فارغٌ يُقرَأُ حقلاً لم يُحمَّل.
+          ⚠️ زرٌّ في شكلِه، `span` في بنيتِه: الكارتُ كلُّه رابطٌ واحدٌ (رابطُ
+          العنوانِ أعلاه)، ورابطٌ ثانٍ هنا يضعُ وجهتَين على سطحٍ واحد. وهو زرُّ
+          كارتِ المدرّسِ نفسُه — البرتقاليُّ، الدائريّ.
         */}
-        {course.subject && Mark && (
-          <p className="flex w-fit items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-bold text-ink">
-            <Mark className="h-4 w-4 shrink-0 text-primary-ink" />
-            {course.subject.name}
-          </p>
-        )}
-
-        {/*
-          ⚠️ زرٌّ في شكلِه، `span` في بنيتِه — والفرقُ مقصود. الكارتُ كلُّه رابطٌ
-          واحدٌ منذُ ٠٢٣ · SC-001 (`after:inset-0` فوق العنوان)، ورابطٌ ثانٍ هنا
-          يضعُ وجهتَين على سطحٍ واحدٍ ويكسرُ تنقّلَ لوحةِ المفاتيح: مقصدانِ
-          لإصبعٍ واحد. فالتركيزُ يبقى على رابطِ العنوانِ الذي يغطّي الكارتَ كلَّه،
-          وهذا نداءٌ مرئيٌّ لا هدفٌ ثانٍ.
-        */}
-        <span
-          aria-hidden="true"
-          className="mt-auto flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-extrabold text-white shadow-md shadow-primary/20 transition duration-300 ease-out group-hover:shadow-lg group-hover:shadow-primary/30 group-hover:brightness-110 motion-reduce:transition-none"
-        >
-          عرض التفاصيل
-          <ChevronEndIcon className="h-4 w-4 transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
-        </span>
+        <div className="mt-auto pt-5">
+          <span
+            aria-hidden="true"
+            className="flex items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition duration-200 ease-out group-hover:brightness-105 motion-reduce:transition-none"
+          >
+            عرض الكورس
+            <ChevronEndIcon className="h-4 w-4 transition-transform duration-300 ease-out group-hover:-translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0" />
+          </span>
+        </div>
       </div>
     </article>
   );
