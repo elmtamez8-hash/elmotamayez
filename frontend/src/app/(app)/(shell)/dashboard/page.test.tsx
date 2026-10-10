@@ -279,6 +279,11 @@ describe("DashboardPage · الطالب", () => {
 
     expect(await screen.findByText("حصصك القادمة")).toBeDefined();
 
+    // The new-student check (`/enrollments`, `/orders`) answers first; the
+    // cards' own reads follow it, so wait for them on a slow runner.
+    await waitFor(() =>
+      expect(get.mock.calls.map((c) => c[0] as string)).toContain("/enrollments?status=active"),
+    );
     const paths: string[] = get.mock.calls.map((c) => c[0] as string);
 
     /*

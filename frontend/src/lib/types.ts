@@ -45,7 +45,6 @@ export interface ParentRegistration {
   last_name: string;
   email: string;
   password: string;
-  password_confirmation: string;
   phone: string;
   country: string;
   terms_accepted: boolean;
@@ -89,7 +88,6 @@ export interface TeacherRegistration {
   last_name: string;
   email: string;
   password: string;
-  password_confirmation: string;
   phone: string;
   country: string;
   terms_accepted: boolean;
