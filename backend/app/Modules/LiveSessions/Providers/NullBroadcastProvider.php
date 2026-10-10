@@ -95,6 +95,11 @@ class NullBroadcastProvider implements BroadcastProviderInterface
         throw UnsupportedCapability::for($this->identifier(), 'hostControls');
     }
 
+    public function participantJoined(string $body, ?string $signature): ?array
+    {
+        throw UnsupportedCapability::for($this->identifier(), 'joinNotifications');
+    }
+
     public function applyPublishRights(ClassSession $session, array $rights): array
     {
         throw UnsupportedCapability::for($this->identifier(), 'hostControls');

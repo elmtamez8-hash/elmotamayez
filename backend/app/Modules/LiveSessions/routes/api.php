@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Modules\LiveSessions\Http\Controllers\AttendanceController;
 use App\Modules\LiveSessions\Http\Controllers\BookingController;
 use App\Modules\LiveSessions\Http\Controllers\BroadcastController;
+use App\Modules\LiveSessions\Http\Controllers\BroadcastWebhookController;
 use App\Modules\LiveSessions\Http\Controllers\ClassSessionController;
 use App\Modules\LiveSessions\Http\Controllers\EligibilityController;
 use App\Modules\LiveSessions\Http\Controllers\FreezePeriodController;
@@ -23,6 +24,16 @@ use Illuminate\Support\Facades\Route;
  * ThrottleRequests keys guests on domain|ip with no route in the hash, so every
  * inline limit shares one counter and the strictest wins.
  */
+
+/*
+| The broadcast provider's webhook (security scan 2026-10-10, F14) — signed by
+| the provider, so no session and no token. `throttle:webhook` has no `{provider}` here, so its
+| first key is the constant `provider:` — one bucket for the one provider —
+| beside the per-address one. Outside `/webhooks/payments/{provider}` on purpose.
+*/
+Route::post('/webhooks/broadcast', BroadcastWebhookController::class)
+    ->middleware('throttle:webhook')
+    ->name('webhooks.broadcast');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     // The student's own timetable, across every teacher they study with.
