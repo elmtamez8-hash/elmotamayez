@@ -19,6 +19,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\IpUtils;
 
@@ -209,7 +210,10 @@ class AppServiceProvider extends ServiceProvider
         // cannot lock a shared-NAT office out of its own accounts.
         RateLimiter::for('auth', fn (Request $request) => [
             Limit::perMinute(5)->by('ip:'.$request->ip()),
-            Limit::perMinute(5)->by('email:'.(string) $request->input('email')),
+            // ⛔ LOWER-CASED (security scan 2026-10-10, F6). The lookup runs on a
+            // case-insensitive collation, so `Victim@` and `vICTIM@` reach one
+            // account — and each spelling used to get a fresh bucket of its own.
+            Limit::perMinute(5)->by('email:'.Str::lower(trim((string) $request->input('email')))),
         ]);
 
         /*
@@ -378,7 +382,12 @@ class AppServiceProvider extends ServiceProvider
         // from a botnet.
         RateLimiter::for('two-factor', fn (Request $request) => [
             Limit::perMinute(5)->by('ip:'.$request->ip()),
-            Limit::perMinute(5)->by('challenge:'.(string) $request->input('challenge', $request->user()?->getKey())),
+            // ⛔ THE ACCOUNT, NEVER A FIELD THE CALLER WRITES (security scan
+            // 2026-10-10, F16). Every route on this limiter is behind `auth:sanctum`
+            // and none of them validates `challenge` — a fresh random one per try
+            // was a fresh bucket per try. The unauthenticated challenge has its own
+            // limiter (`two-factor-challenge`) that reads the account server-side.
+            Limit::perMinute(5)->by('user:'.(string) $request->user()?->getKey()),
         ]);
 
         /*

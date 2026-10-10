@@ -6,6 +6,8 @@ namespace App\Modules\Identity\Support;
 
 use App\Models\User;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
+use Illuminate\Contracts\Cache\LockProvider;
+use Illuminate\Support\Facades\Cache;
 use PragmaRX\Google2FA\Google2FA;
 use SensitiveParameter;
 
@@ -24,6 +26,13 @@ use SensitiveParameter;
  */
 final class TwoFactorCodes
 {
+    /**
+     * ±2 steps of 30 seconds, and `AdminPanelProvider` says the same. Filament's
+     * default is 8 — seventeen codes valid at once, each for ~8.5 minutes
+     * (security scan 2026-10-10, F5). Two still forgives a phone a minute off.
+     */
+    public const WINDOW = 2;
+
     public function __construct(
         private readonly AppAuthentication $provider,
         private readonly Google2FA $google2FA,
@@ -65,9 +74,38 @@ final class TwoFactorCodes
         );
     }
 
+    /**
+     * ⛔ ONCE PER CODE, AND NEVER AN EARLIER ONE (security scan 2026-10-10, F5).
+     * `verifyKey()` alone accepted the same code again for its whole window, so a
+     * code seen over a shoulder signed in AND switched two-factor off. RFC 6238:
+     * a success rejects that timestep and every one before it. The cache key is
+     * Filament's own (`AppAuthentication::verifyCode`), so a code spent at /admin
+     * is spent here too, and the reverse.
+     */
     public function verify(#[SensitiveParameter] string $secret, #[SensitiveParameter] string $code): bool
     {
-        return (bool) $this->google2FA->verifyKey($secret, $code, $this->provider->getCodeWindow());
+        $cacheKey = 'filament.app_authentication_codes.'.md5($secret);
+
+        $verify = function () use ($cacheKey, $secret, $code): bool {
+            $timestamp = $this->google2FA->verifyKeyNewer($secret, $code, Cache::get($cacheKey), self::WINDOW);
+
+            if ($timestamp === false) {
+                return false;
+            }
+
+            if ($timestamp === true) {
+                $timestamp = $this->google2FA->getTimestamp();
+            }
+
+            Cache::put($cacheKey, $timestamp, (self::WINDOW + 1) * 60);
+
+            return true;
+        };
+
+        // Two requests carrying one code must not both read the timestep first.
+        return Cache::getStore() instanceof LockProvider
+            ? (bool) Cache::lock("{$cacheKey}.lock", 10)->block(10, $verify)
+            : $verify();
     }
 
     /**
