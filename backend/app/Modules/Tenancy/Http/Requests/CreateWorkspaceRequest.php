@@ -56,7 +56,13 @@ class CreateWorkspaceRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'in:teacher,academy,school'],
             'slug' => ['nullable', 'string', 'max:255', 'unique:workspaces,slug'],
-            'settings' => ['nullable', 'array'],
+            /*
+            | ⛔ NO `settings` (security scan 2026-10-10, F2). It was `nullable|array`
+            | and written whole, so an owner set `settings.billing.mode` — the
+            | platform's call (`billing.settings.manage`) — and wiped what an
+            | officer had set. Every key under it has its own guarded writer:
+            | `BillingSettings`, `GradingSettings`, `TeacherInboxSettings`.
+            */
         ];
     }
 }

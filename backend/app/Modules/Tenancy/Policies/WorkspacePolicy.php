@@ -81,16 +81,22 @@ class WorkspacePolicy extends BasePolicy
             : Response::deny('You are not authorized to view workspace members.');
     }
 
+    /**
+     * ⛔ OWNERSHIP **AND** A LIVE MEMBERSHIP (security scan 2026-10-10, F20).
+     * An exit (`RevokeWorkspaceAccess`) deletes the departing teacher's
+     * membership and roles but keeps `owner_user_id` — so ownership alone let
+     * them sign in again and rename a wound-down workspace its students still use.
+     */
     public function update(User $user, Workspace $workspace): Response
     {
-        return $workspace->isOwnedBy($user)
+        return $workspace->isOwnedBy($user) && $this->isMember($user, $workspace)
             ? Response::allow()
             : Response::deny('Only the workspace owner can update settings.');
     }
 
     public function delete(User $user, Workspace $workspace): Response
     {
-        return $workspace->isOwnedBy($user)
+        return $workspace->isOwnedBy($user) && $this->isMember($user, $workspace)
             ? Response::allow()
             : Response::deny('Only the workspace owner can delete the workspace.');
     }
@@ -198,9 +204,14 @@ class WorkspacePolicy extends BasePolicy
      * workspace, and switching (`SwitchWorkspace`) moves both. Super-admin is
      * waved past by {@see BasePolicy::before()} and never reaches this.
      */
+    private function isMember(User $user, Workspace $workspace): bool
+    {
+        return $workspace->members()->where('user_id', $user->getKey())->exists();
+    }
+
     private function outsideAnsweredWorkspace(User $user, Workspace $workspace): ?Response
     {
-        if (! $workspace->members()->where('user_id', $user->getKey())->exists()) {
+        if (! $this->isMember($user, $workspace)) {
             return Response::deny('You do not belong to this workspace.');
         }
 
