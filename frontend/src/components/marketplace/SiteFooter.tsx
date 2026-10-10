@@ -77,7 +77,7 @@ export async function SiteFooter() {
           borrowed from somewhere else. */}
       <span
         aria-hidden="true"
-        className="wordmark pointer-events-none absolute -bottom-16 -end-16 -z-10 h-[26rem] opacity-[0.05]"
+        className="wordmark pointer-events-none absolute top-0 -end-16 -z-10 h-[26rem] opacity-[0.05]"
       />
       <div className="mx-auto max-w-7xl px-4 pb-14 pt-16 sm:px-6">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
