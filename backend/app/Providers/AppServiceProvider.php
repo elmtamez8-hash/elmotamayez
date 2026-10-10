@@ -286,10 +286,25 @@ class AppServiceProvider extends ServiceProvider
         // Contact verification. Keyed by user as well as IP: sending codes costs
         // money at the provider, and one account looping the endpoint should not
         // be able to spend the whole office's allowance.
-        RateLimiter::for('contact-verification', fn (Request $request) => [
-            Limit::perMinute(5)->by('ip:'.$request->ip()),
-            Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
-        ]);
+        RateLimiter::for('contact-verification', function (Request $request): array {
+            $limits = [
+                Limit::perMinute(5)->by('ip:'.$request->ip()),
+                Limit::perHour(10)->by('user:'.(string) $request->user()?->getKey()),
+            ];
+
+            /*
+            | ⛔ AND PER TARGET (security scan 2026-10-10, F28): codes issued for
+            | one number across many accounts and addresses land in one bucket.
+            | Only when the request NAMES a number — the confirm route shares this
+            | limiter and carries none, and a constant `contact:` key would be one
+            | bucket for every account on the platform.
+            */
+            if ($request->filled('contact_value')) {
+                $limits[] = Limit::perHour(10)->by('contact:'.Str::lower((string) preg_replace('/\s+/', '', (string) $request->input('contact_value'))));
+            }
+
+            return $limits;
+        });
 
         // Changing the public profile URL. Keyed by account, not IP: the
         // endpoint answers "is this slug taken?" as a side effect of validating,

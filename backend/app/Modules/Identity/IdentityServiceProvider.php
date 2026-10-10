@@ -30,8 +30,11 @@ use App\Shared\Modules\Module;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\Events\TokenAuthenticated;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
@@ -94,6 +97,32 @@ class IdentityServiceProvider extends Module
         ResetPassword::createUrlUsing(fn (User $user, string $token): string => config('cms.site_url')
             .'/reset-password?token='.urlencode($token)
             .'&email='.urlencode($user->getEmailForPasswordReset()));
+
+        /*
+        | ⛔ THE VERIFICATION LINK IS ROOTED AT `app.url`, NEVER AT THE REQUEST'S
+        | HOST (security scan 2026-10-10, F18). Laravel's default signs the route
+        | against `request()->root()`, so a signup sent straight to the origin with
+        | `Host: attacker.example` mailed the victim the platform's own DKIM-signed
+        | «verify your email» with a link to the attacker's site. Rooted here for
+        | this one link and released after, so nothing else moves.
+        */
+        VerifyEmail::createUrlUsing(function (User $user): string {
+            $urls = app(UrlGenerator::class);
+            $root = (string) config('app.url');
+            $urls->forceRootUrl($root);
+            $urls->forceScheme(parse_url($root, PHP_URL_SCHEME) ?: null);
+
+            try {
+                return URL::temporarySignedRoute(
+                    'verification.verify',
+                    now()->addMinutes((int) config('auth.verification.expire', 60)),
+                    ['id' => $user->getKey(), 'hash' => sha1($user->getEmailForVerification())],
+                );
+            } finally {
+                $urls->forceRootUrl(null);
+                $urls->forceScheme(null);
+            }
+        });
 
         /*
         | Spec 013 — a guardian consents in `Payments`, an account opens here.

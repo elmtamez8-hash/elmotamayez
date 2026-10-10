@@ -6,6 +6,7 @@ namespace App\Modules\Identity\Support;
 
 use App\Models\User;
 use App\Modules\Notifications\Models\ContactVerification;
+use App\Modules\Notifications\Support\CodeDeliveringChannels;
 
 /**
  * Turning "my guardian's number" into an account, or admitting it cannot be done.
@@ -43,6 +44,9 @@ final class GuardianContactResolver
         $userId = ContactVerification::query()
             ->where('contact_value', trim($contact))
             ->whereNotNull('verified_at')
+            // Proved over a channel that delivered the code — never a guess
+            // (security scan 2026-10-10, F28; `CodeDeliveringChannels`).
+            ->whereIn('channel', CodeDeliveringChannels::values())
             // Newest wins: a number that moved between accounts belongs to
             // whoever proved it last.
             ->orderByDesc('verified_at')

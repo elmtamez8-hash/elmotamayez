@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Models\StudentProfile;
+use App\Modules\Identity\Support\GuardianContactResolver;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
@@ -136,4 +137,19 @@ it('writes one invitation however many times the number is proved', function ():
             ->where('recipient_user_id', $parent->getKey())
             ->where('type', NotificationType::GuardianConsentRequired->value)
             ->count())->toBe(1);
+});
+
+/*
+| ⛔ Security scan 2026-10-10, F28 — a code issued on a channel that sends
+| nothing can only be GUESSED; such a «verified» number is never a guardian.
+*/
+it('does not invite a parent who verified the number over a channel that sends no code', function (): void {
+    $child = lateSignupChild();
+    $parent = User::factory()->create(['platform_role' => PlatformRole::Parent]);
+
+    $issued = app(RequestContactVerification::class)->handle($parent, NotificationChannel::Sms, LATE_GUARDIAN_NUMBER);
+    app(ConfirmContactVerification::class)->handle($issued->verification, $issued->code);
+
+    expect(ParentStudentRelation::query()->count())->toBe(0)
+        ->and(app(GuardianContactResolver::class)->resolve(LATE_GUARDIAN_NUMBER))->toBeNull();
 });

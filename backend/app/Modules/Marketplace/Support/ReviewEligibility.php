@@ -12,6 +12,7 @@ use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Support\CountedNoun;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * May this student rate this teacher, and what period would the rating land in?
@@ -54,12 +55,25 @@ final class ReviewEligibility
         // The refusal names what is missing, never «you may not» — FR-030's own
         // wording, and the difference between a student who waits two more
         // lessons and one who gives up on the form.
-        $reason = $attended >= $required
+        /*
+        | ⛔ AND NOBODY ON THE TEACHER'S OWN STAFF RATES THEM (security scan
+        | 2026-10-10, F27) — a second account the teacher controls, made an
+        | assistant, was a five-star button on their own public score.
+        */
+        $isStaff = DB::table('workspace_members')
+            ->where('workspace_id', (int) $teacher->workspace_id)
+            ->where('user_id', $student->getKey())
+            ->where('role', '!=', 'student')
+            ->exists();
+
+        $reason = $isStaff
+            ? 'لا يمكن لفريق المدرّس تقييمه.'
+            : ($attended >= $required
             ? null
             : 'لا يمكن التقييم قبل حضور '.CountedNoun::of($required, CountedNoun::SESSIONS_OBJECT)
                 .($attended === 0
                     ? '. لم تحضر أي حصة بعد.'
-                    : '. حضرت '.CountedNoun::of($attended, CountedNoun::SESSIONS_OBJECT).' حتى الآن.');
+                    : '. حضرت '.CountedNoun::of($attended, CountedNoun::SESSIONS_OBJECT).' حتى الآن.'));
 
         return [
             'eligible' => $reason === null,

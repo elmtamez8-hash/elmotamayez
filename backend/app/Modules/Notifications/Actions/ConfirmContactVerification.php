@@ -6,6 +6,7 @@ namespace App\Modules\Notifications\Actions;
 
 use App\Modules\Notifications\Events\ContactVerified;
 use App\Modules\Notifications\Models\ContactVerification;
+use App\Modules\Notifications\Support\CodeDeliveringChannels;
 use App\Shared\Actions\Action;
 use DomainException;
 use Illuminate\Support\Facades\Hash;
@@ -38,7 +39,11 @@ class ConfirmContactVerification extends Action
 
         // Announced once, on the transition — the early return above answers a
         // repeated confirm without firing it again.
-        ContactVerified::dispatch((int) $verification->user_id, $verification->contact_value);
+        // ⛔ Only a code that could have REACHED the number proves it (security
+        // scan F28, `CodeDeliveringChannels`); a guessed one is never announced.
+        if (in_array((string) $verification->getRawOriginal('channel'), CodeDeliveringChannels::values(), true)) {
+            ContactVerified::dispatch((int) $verification->user_id, $verification->contact_value);
+        }
 
         return $verification;
     }
