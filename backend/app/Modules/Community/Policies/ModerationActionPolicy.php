@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Community\Support\BanReader;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Support\WorkspacePermission;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -47,7 +48,8 @@ class ModerationActionPolicy
             return Response::deny('لا تملك صلاحيّة الإشراف هنا.');
         }
 
-        return $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+        // Asked of THIS workspace, not the reader's current one (scan F8).
+        return WorkspacePermission::holds($user, $workspaceId, Permissions::CHAT_MODERATE)
             ? Response::allow()
             : Response::deny('لا تملك صلاحيّة الإشراف على الشات.');
     }

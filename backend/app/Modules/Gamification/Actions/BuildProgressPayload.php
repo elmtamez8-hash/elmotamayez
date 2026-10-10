@@ -26,8 +26,14 @@ class BuildProgressPayload extends Action
 {
     public function __construct(private readonly ProgressWriter $progress) {}
 
-    /** @return array{0: StudentProgress, 1: array<string, mixed>} */
-    public function handle(User $student): array
+    /**
+     * @param  int|null  $purseWorkspaceId  a STAFF reader's workspace: their purse alone is
+     *                                      theirs to read (security scan 2026-10-10, F13 — a teacher
+     *                                      read the student's purses at every other teacher). Null on
+     *                                      the student's own read, which lists them all.
+     * @return array{0: StudentProgress, 1: array<string, mixed>}
+     */
+    public function handle(User $student, ?int $purseWorkspaceId = null): array
     {
         $progress = $this->progress->progressFor((int) $student->getKey());
 
@@ -70,6 +76,7 @@ class BuildProgressPayload extends Action
         $purses = CoinBalance::query()
             ->withoutWorkspaceScope()
             ->where('user_id', $student->getKey())
+            ->when($purseWorkspaceId !== null, fn ($query) => $query->where('workspace_id', $purseWorkspaceId))
             // One query for every teacher's name, instead of one per purse.
             ->with('workspace.owner:id,first_name,last_name')
             ->get()

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Gamification\Actions\BuildProgressPayload;
 use App\Modules\Gamification\Http\Resources\ProgressResource;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
@@ -58,11 +59,14 @@ class ProgressController extends Controller
          */
         abort_if(
             $student === null
-            || ! app(EnrollmentDirectory::class)->hasActiveEnrollmentInWorkspace($student, $workspaceId),
+            || ! app(EnrollmentDirectory::class)->hasActiveEnrollmentInWorkspace($student, $workspaceId)
+            // A confined assistant reads the students of their own courses only
+            // (scan F30) — the same 403, so the answer is no oracle either.
+            || ! app(AssistantScopeDirectory::class)->mayActOnStudent($reader, $workspaceId, (int) $student->getKey()),
             403,
         );
 
-        [$progress, $context] = $this->payload->handle($student);
+        [$progress, $context] = $this->payload->handle($student, $workspaceId);
 
         return new ProgressResource($progress, $context);
     }

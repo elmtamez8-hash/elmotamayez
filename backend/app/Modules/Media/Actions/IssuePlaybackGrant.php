@@ -20,6 +20,7 @@ use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Support\CountedNoun;
+use App\Shared\Support\WorkspacePermission;
 use DomainException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use RuntimeException;
@@ -184,7 +185,7 @@ class IssuePlaybackGrant extends Action
             // (which asks the scope) refuses what this video still serves.
             return $this->sessionContent
                 ->mayOpenSessionContent($viewer, (int) $lesson->class_session_id)
-                || ($viewer->can(Permissions::SESSIONS_MANAGE) && $this->inAssistantScope($viewer, $lesson));
+                || ($this->managesSessionsOf($viewer, (int) $lesson->workspace_id) && $this->inAssistantScope($viewer, $lesson));
         }
 
         /*
@@ -320,7 +321,8 @@ class IssuePlaybackGrant extends Action
          * would trade SC-011 for nothing.
          */
         $openSessionIds = null;
-        $mayManageSessions = null;
+        /** @var array<int, bool> $mayManageSessions */
+        $mayManageSessions = [];
 
         // Asked once for every recording on the page, never per row — the N+1
         // this method exists to remove, and the contract's bulk form is what
@@ -357,10 +359,10 @@ class IssuePlaybackGrant extends Action
                 $openSessionIds ??= array_flip(
                     $this->sessionContent->openableSessionIds($viewer, $recordedSessionIds),
                 );
-                $mayManageSessions ??= $viewer->can(Permissions::SESSIONS_MANAGE);
+                $mayManageSessions[(int) $lesson->workspace_id] ??= $this->managesSessionsOf($viewer, (int) $lesson->workspace_id);
 
                 $allowed[$lessonId] = isset($openSessionIds[(int) $lesson->class_session_id])
-                    || ($mayManageSessions && $this->inAssistantScope($viewer, $lesson));
+                    || ($mayManageSessions[(int) $lesson->workspace_id] && $this->inAssistantScope($viewer, $lesson));
             } elseif (isset($workspaceIds[$lesson->workspace_id]) && $this->inAssistantScope($viewer, $lesson)) {
                 // The author, who may watch their own unfinished work.
                 $allowed[$lessonId] = true;
@@ -409,5 +411,18 @@ class IssuePlaybackGrant extends Action
             (int) $lesson->workspace_id,
             (int) $lesson->course_id,
         );
+    }
+
+    /**
+     * The administrative arm of a recording: `sessions.manage` asked of the
+     * LESSON's workspace (security scan 2026-10-10, F3). Asked of the ambient
+     * team, every self-registered teacher — owner of a workspace of their own —
+     * watched every other tenant's class recordings by uuid. The super admin
+     * keeps the pass `can()` gave them through `Gate::before`.
+     */
+    private function managesSessionsOf(User $viewer, int $workspaceId): bool
+    {
+        return $viewer->isSuperAdmin()
+            || WorkspacePermission::holds($viewer, $workspaceId, Permissions::SESSIONS_MANAGE);
     }
 }
