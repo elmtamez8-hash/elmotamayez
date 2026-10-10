@@ -11,6 +11,8 @@ use App\Modules\Courses\Models\Section;
 use App\Modules\Courses\Support\LessonAudience;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembership;
+use App\Modules\Learning\Models\Enrollment;
+use App\Modules\Learning\Support\LessonGate;
 use App\Modules\LiveSessions\Enums\BookingStatus;
 use App\Modules\LiveSessions\Enums\ClassSessionStatus;
 use App\Modules\LiveSessions\Models\ClassSession;
@@ -326,4 +328,25 @@ it('answers for a whole tree in one pass, each item on its own facts', function 
         ->and($verdict[$mine->getKey()])->toBeNull()
         ->and($verdict[$theirs->getKey()])->toBe(LessonAudience::OUT_OF_SCOPE)
         ->and($verdict[$waiting->getKey()])->toBe(LessonAudience::UNRELEASED);
+});
+
+/*
+| ⛔ Security scan 2026-10-10, F24 — a FREE item the teacher held back for a
+| session not given yet opened in full to every enrolled student, because the
+| page door asked `isOpen()` before the audience.
+*/
+it('keeps a free item held for a later session shut on the page door', function (): void {
+    $lesson = audienceLesson(['is_free' => true, 'release_session_id' => audienceSession()->getKey()]);
+
+    $enrollment = Enrollment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'course_id' => $this->course->getKey(),
+        'student_user_id' => $this->student->getKey(),
+        'status' => 'active',
+    ]);
+
+    test()->actingAs($this->student);
+    app()->forgetInstance(WorkspaceContext::class);
+
+    expect(LessonGate::for($enrollment->fresh(), $lesson->fresh())->allowed)->toBeFalse();
 });

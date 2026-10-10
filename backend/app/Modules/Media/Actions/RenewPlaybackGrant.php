@@ -44,6 +44,24 @@ class RenewPlaybackGrant extends Action
             throw new DomainException('انتهت مدة جلسة المشاهدة. أعد فتح الدرس.');
         }
 
+        /*
+        | ⛔ A RENEWAL RE-ASKS THE LESSON'S DOOR (security scan 2026-10-10, F22).
+        | It asked ownership and expiry only, and nothing but deleting the asset
+        | revokes a grant — so a refunded or cancelled student kept streaming for up
+        | to 480 renewals (~40 hours). Only a LESSON's file has that door; a store
+        | product's grant answers to its own purchase.
+        */
+        if ($grant->asset?->owner_type === Lesson::class) {
+            $lesson = Lesson::query()->withoutGlobalScope(WorkspaceScope::class)->find($grant->asset->owner_id);
+            $viewer = $grant->user;
+
+            if ($lesson === null || $viewer === null || ! app(IssuePlaybackGrant::class)->mayWatch($lesson, $viewer)) {
+                $grant->forceFill(['revoked_at' => now()])->save();
+
+                throw new DomainException('لم يعد لديك وصول إلى هذا الدرس.');
+            }
+        }
+
         $ttl = (int) PlatformSettings::get('media.grant_ttl_seconds', 300);
 
         // Read BEFORE the write below moves it: the previous renewal is one edge

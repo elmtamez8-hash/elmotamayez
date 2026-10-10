@@ -232,6 +232,7 @@ class ClassSessionController extends Controller
         $session = ClassSession::forStudentDoor($sessionUuid);
 
         $this->authorize('view', $session);
+        $this->authorize('readDetails', $session);
 
         $session->load(ClassSession::studentEagerLoads($this->currentUser($request)));
 

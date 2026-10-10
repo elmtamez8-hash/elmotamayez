@@ -100,7 +100,20 @@ final class LessonGate
         | shape this fix is repairing — so the two must move together, and the
         | test that guards it walks BOTH.
         */
-        if ($lesson->isOpen()) {
+        /*
+        | ⛔ THE AUDIENCE FIRST, AND A RECORDING NEVER BY THE OPEN FLAG (security
+        | scan 2026-10-10, F24). A free lesson the teacher limited to one group, or
+        | set to release later, opened in full to every enrolled student here — the
+        | video door (`mayWatch`) and the stranger branch both ask the audience
+        | first. Asked again below for the non-open path; same sentence both times.
+        */
+        $audience = LessonAudience::hiddenFor($enrollment->student, $lesson);
+
+        if ($audience !== null) {
+            return LessonAccess::deny($audience, 'هذا الدرس غير متاح حالياً.');
+        }
+
+        if ($lesson->isOpen() && $lesson->class_session_id === null) {
             return LessonAccess::allow();
         }
 

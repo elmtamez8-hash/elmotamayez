@@ -10,8 +10,10 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Policies\BasePolicy;
 use App\Shared\Contracts\AssistantScopeDirectory;
+use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
+use App\Shared\Support\WorkspacePermission;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -35,6 +37,35 @@ use Illuminate\Auth\Access\Response;
 class ClassSessionPolicy extends BasePolicy
 {
     public function __construct(private readonly EnrollmentDirectory $enrollments) {}
+
+    /**
+     * The single session's DETAIL (`GET /class-sessions/{uuid}`), on top of `view`.
+     *
+     * ⛔ A STUDENT READS THE SESSIONS OF THEIR OWN COURSE AND GROUP (security scan
+     * 2026-10-10, F17). `view` admits any active enrolment in the workspace —
+     * the booking door relies on that to answer its own, more precise refusals
+     * — so the detail let a student of a free course read any session by uuid,
+     * a classmate's booked one-to-one hour among them, whose group name carries
+     * that classmate's full name. A seat holder and the workspace's staff read
+     * it as before; a course-less session keeps the workspace-wide reading.
+     */
+    public function readDetails(User $user, ClassSession $session): Response
+    {
+        if ($session->holdsSeat($user)
+            || WorkspacePermission::holds($user, (int) $session->workspace_id, Permissions::SESSIONS_VIEW)) {
+            return Response::allow();
+        }
+
+        if ($session->course_id === null) {
+            return Response::allow();
+        }
+
+        $mayRead = $this->enrollments->hasActiveEnrollment($user, (int) $session->course_id)
+            && ($session->cohort_id === null
+                || app(CohortDirectory::class)->wasEverMember($user, (int) $session->cohort_id));
+
+        return $mayRead ? Response::allow() : Response::deny();
+    }
 
     public function viewAny(User $user): Response
     {
