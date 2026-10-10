@@ -228,6 +228,18 @@ class ExamController extends Controller
         // courses only, never for none (see `ExamPolicy::placeInCourse()`).
         $this->authorize('placeInCourse', [Exam::class, $workspaceId, self::courseIdOf($validated['course_id'] ?? null)]);
 
+        /*
+        | ⛔ `status` IS A PUBLISH WHEN IT IS NOT A DRAFT (security scan 2026-10-10,
+        | F10). The requests accept it and the model mass-assigns it, so a role
+        | holding `exams.create` and not `exams.publish` — the default
+        | assistant-teacher — released an exam by sending it. The screens send
+        | `draft` and publish through `POST /exams/{exam}/publish`.
+        */
+        abort_if(
+            ($validated['status'] ?? 'draft') !== 'draft' && ! $this->currentUser($request)->can(Permissions::EXAMS_PUBLISH),
+            403,
+        );
+
         $exam = Exam::create(array_merge($validated, ['workspace_id' => $workspaceId]));
 
         return response()->json(ExamResource::make($exam), 201);
@@ -252,6 +264,12 @@ class ExamController extends Controller
         */
         $target = array_key_exists('course_id', $validated) ? $validated['course_id'] : $exam->course_id;
         $this->authorize('placeInCourse', [Exam::class, (int) $exam->workspace_id, self::courseIdOf($target)]);
+
+        // A CHANGE of status is a publish, an unpublish or an archive — the
+        // publish door's question, not the edit's (security scan F10).
+        if (($validated['status'] ?? null) !== null && $validated['status'] !== (string) $exam->getRawOriginal('status')) {
+            $this->authorize('publish', $exam);
+        }
 
         $exam->update($validated);
 

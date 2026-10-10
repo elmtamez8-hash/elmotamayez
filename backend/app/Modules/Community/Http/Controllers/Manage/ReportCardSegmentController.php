@@ -7,6 +7,8 @@ namespace App\Modules\Community\Http\Controllers\Manage;
 use App\Http\Controllers\Controller;
 use App\Modules\Community\Http\Resources\ReportCardSegmentResource;
 use App\Modules\Community\Models\ReportCardSegment;
+use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -25,10 +27,24 @@ class ReportCardSegmentController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        $workspaceId = (int) app(WorkspaceContext::class)->id();
+        /*
+        | ⛔ A TEACHER'S SCREEN, AND IT CHECKED NOTHING (security scan 2026-10-10,
+        | F9). Every member of the workspace — a student invited into it included —
+        | read every student's grades and attendance here. The permission is the
+        | one the screen that calls it (`/manage/students/{uuid}/reviews`) is
+        | gated on; a confined assistant lists their own students only.
+        */
+        abort_unless($this->currentUser($request)->can(Permissions::REVIEWS_PERIODIC_MANAGE), 403);
+
+        $workspaceId = app(WorkspaceContext::class)->id();
+
+        abort_if($workspaceId === null, 403);
+
+        $students = app(AssistantScopeDirectory::class)->scopedStudentIdsFor($this->currentUser($request), $workspaceId);
 
         $segments = ReportCardSegment::query()
             ->where('workspace_id', $workspaceId)
+            ->when($students !== null, fn ($query) => $query->whereIn('student_user_id', $students ?? []))
             ->when(
                 $request->query('student') !== null,
                 fn ($query) => $query->whereHas(
