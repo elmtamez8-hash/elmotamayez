@@ -40,7 +40,7 @@ function schemeData(array $weights, ?string $courseUuid = null): GradingSchemeDa
 }
 
 it('saves a weighting that adds up to exactly 100', function (): void {
-    $scheme = app(SaveGradingScheme::class)->handle(schemeData([
+    $scheme = app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60,
         'homework' => 30,
         'attendance' => 10,
@@ -58,7 +58,7 @@ it('saves a weighting that adds up to exactly 100', function (): void {
 });
 
 it('refuses a weighting below 100 in the action itself', function (): void {
-    expect(fn () => app(SaveGradingScheme::class)->handle(schemeData([
+    expect(fn () => app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60,
         'homework' => 30,
         'attendance' => 5,
@@ -69,7 +69,7 @@ it('refuses a weighting below 100 in the action itself', function (): void {
 });
 
 it('refuses a weighting above 100 in the action itself', function (): void {
-    expect(fn () => app(SaveGradingScheme::class)->handle(schemeData([
+    expect(fn () => app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60,
         'homework' => 30,
         'attendance' => 30,
@@ -80,7 +80,7 @@ it('refuses a weighting above 100 in the action itself', function (): void {
 });
 
 it('refuses a component nobody has heard of', function (): void {
-    expect(fn () => app(SaveGradingScheme::class)->handle(schemeData([
+    expect(fn () => app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 50,
         'vibes' => 50,
     ])))->toThrow(ValidationException::class);
@@ -102,11 +102,11 @@ it('refuses the endpoint too, so the screen and the action agree', function (): 
 });
 
 it('rewrites its own row rather than adding a second for one period', function (): void {
-    app(SaveGradingScheme::class)->handle(schemeData([
+    app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60, 'homework' => 30, 'attendance' => 10, 'participation' => 0,
     ]));
 
-    app(SaveGradingScheme::class)->handle(schemeData([
+    app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 40, 'homework' => 40, 'attendance' => 20, 'participation' => 0,
     ]));
 
@@ -128,11 +128,11 @@ it('rewrites its own row rather than adding a second for one period', function (
 it('keeps a course scheme and the workspace-wide one apart', function (): void {
     $course = Course::factory()->create(['workspace_id' => $this->workspace->getKey()]);
 
-    app(SaveGradingScheme::class)->handle(schemeData([
+    app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60, 'homework' => 30, 'attendance' => 10, 'participation' => 0,
     ]));
 
-    app(SaveGradingScheme::class)->handle(schemeData([
+    app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 100, 'homework' => 0, 'attendance' => 0, 'participation' => 0,
     ], $course->uuid));
 
@@ -142,11 +142,11 @@ it('keeps a course scheme and the workspace-wide one apart', function (): void {
 });
 
 it('refuses an unknown course rather than writing over the workspace-wide row', function (): void {
-    app(SaveGradingScheme::class)->handle(schemeData([
+    app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 60, 'homework' => 30, 'attendance' => 10, 'participation' => 0,
     ]));
 
-    expect(fn () => app(SaveGradingScheme::class)->handle(schemeData([
+    expect(fn () => app(SaveGradingScheme::class)->handle($this->teacher, schemeData([
         'exams' => 100, 'homework' => 0, 'attendance' => 0, 'participation' => 0,
     ], (string) Str::uuid())))->toThrow(ValidationException::class);
 

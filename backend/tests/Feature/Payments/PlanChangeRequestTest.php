@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Community\Models\AssistantAssignment;
+use App\Modules\Community\Models\AssistantScope;
 use App\Modules\Courses\Models\Course;
 use App\Modules\Learning\Models\Cohort;
 use App\Modules\Learning\Models\CohortMembershipEvent;
@@ -22,6 +24,7 @@ use App\Modules\Payments\Models\PlanChangeRequest;
 use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -585,4 +588,33 @@ it('still sends the approval when it hid nothing at all', function (): void {
         // ⛔ AND NO VARIABLE NAME SURVIVED INTO THE TEXT — a missing entry in the
         // template's `variables` list prints the placeholder at a teacher.
         ->and($body)->not->toContain('{{');
+});
+
+/*
+| ⛔ Security scan 2026-10-10, F19 — the REQUESTED coverage asks the assistant
+| scope, not only the plan's current course.
+*/
+it('refuses a confined assistant a change request onto a coverage outside their scope', function (): void {
+    $assistant = $this->addWorkspaceMember($this->workspace, Roles::ASSISTANT_TEACHER);
+    $assignment = AssistantAssignment::factory()->create([
+        'workspace_id' => $this->workspace->getKey(),
+        'assistant_user_id' => $assistant->getKey(),
+        'invited_by_user_id' => $this->teacher->getKey(),
+    ]);
+    AssistantScope::factory()->create([
+        'assistant_assignment_id' => $assignment->getKey(),
+        'course_id' => $this->course->getKey(),
+    ]);
+    app()->forgetScopedInstances();
+
+    expect(fn () => app(WorkspaceContext::class)->forWorkspace(
+        $this->workspace,
+        fn () => app(RequestPlanChange::class)->handle($assistant, $this->plan->fresh(), [
+            // A month, not a count: a count plan never covers the workspace.
+            'duration_days' => 30,
+            'session_type' => ClassSessionType::Group,
+            'coverage_type' => PlanCoverage::Workspace,
+            'reason' => 'كل الكورسات',
+        ]),
+    ))->toThrow(AuthorizationException::class);
 });

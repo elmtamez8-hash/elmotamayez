@@ -190,9 +190,11 @@ it('refuses a file that is not this lesson\'s ready PDF attachment, linked to no
             $this->postJson(wbExportUrl($this->board), ['lesson' => $this->lesson->uuid, 'asset' => $asset->uuid])
                 ->assertStatus(422)
                 ->assertJsonPath('code', $code);
-            // The caller's own fresh upload, refused, does not stay on the lesson;
-            // a file linked to another board's export does.
-            expect(MediaAsset::query()->find($asset->id) !== null)->toBe($asset->is($linked));
+            // Only what could be this export's own upload — this lesson's PDF
+            // attachment, here the one not ready yet — is cleared away; another
+            // lesson's file, a primary video, an image and a file linked to another
+            // board all stay (security scan 2026-10-10, F29).
+            expect(MediaAsset::query()->find($asset->id) !== null)->toBe($code !== 'asset_not_ready');
         }
     }
 

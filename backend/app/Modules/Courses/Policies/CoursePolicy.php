@@ -209,6 +209,12 @@ class CoursePolicy extends BasePolicy
             return $workspaceCheck;
         }
 
+        // A confined assistant acts on their own courses only (security scan
+        // 2026-10-10, F26) — the question `update` and `deleteLessons` already ask.
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
+        }
+
         return $user->can(Permissions::COURSES_DELETE)
             ? Response::allow()
             : Response::deny();
@@ -218,6 +224,12 @@ class CoursePolicy extends BasePolicy
     {
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($course))->denied()) {
             return $workspaceCheck;
+        }
+
+        // A confined assistant acts on their own courses only (security scan
+        // 2026-10-10, F25) — the question `update` and `deleteLessons` already ask.
+        if (($scopeCheck = $this->withinAssistantScope($user, $course))->denied()) {
+            return $scopeCheck;
         }
 
         return $user->can(Permissions::COURSES_PUBLISH)
