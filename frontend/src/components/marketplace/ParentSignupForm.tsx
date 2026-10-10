@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
-import { PasswordField, Select } from "@/components/ui/Field";
+import { PasswordField } from "@/components/ui/Field";
 
 const FIELD_CLASS =
   "w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-ink-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
@@ -53,12 +53,12 @@ export function ParentSignupForm() {
     last_name: "",
     email: "",
     password: "",
-    password_confirmation: "",
-    country: DEFAULT_COUNTRY.code,
     terms_accepted: false,
   });
   const [dial, setDial] = useState(DEFAULT_COUNTRY.dial);
   const [phone, setPhone] = useState("");
+  // The country is the phone's: the dial picker lists the same `COUNTRIES`.
+  const country = COUNTRIES.find((entry) => entry.dial === dial)?.code ?? DEFAULT_COUNTRY.code;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState("");
   const [loading, setLoading] = useState(false);
@@ -88,7 +88,7 @@ export function ParentSignupForm() {
 
     try {
       const { user, token, session_uuid } = await auth.registerParent(
-        { ...form, phone: toE164(dial, phone) },
+        { ...form, country, phone: toE164(dial, phone) },
         idempotencyKey,
       );
 
@@ -100,7 +100,8 @@ export function ParentSignupForm() {
       router.push("/signup/parent/children");
     } catch (err: unknown) {
       const fields = fieldErrors(err);
-      setErrors(fields);
+      // `country` has no field of its own: its refusal shows under the phone.
+      setErrors(fields.country === undefined ? fields : { ...fields, phone: fields.phone ?? fields.country });
 
       if (Object.keys(fields).length === 0) {
         setBanner(errorMessage(err, "تعذّر إنشاء الحساب، حاول مرة أخرى."));
@@ -166,43 +167,17 @@ export function ParentSignupForm() {
         error={errors.phone}
       />
 
-      <Field id="country" label="الدولة" error={errors.country}>
-        <Select
-          id="country"
-          value={form.country}
-          onChange={(e) => set("country", e.target.value)}
-          className={FIELD_CLASS}
-        >
-          {COUNTRIES.map((country) => (
-            <option key={country.code} value={country.code}>
-              {country.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <PasswordField
-          id="password"
-          label="كلمة المرور"
-          error={errors.password}
-          value={form.password}
-          onChange={(value) => set("password", value)}
-          autoComplete="new-password"
-          required
-          minLength={8}
-        />
-
-        <PasswordField
-          id="password_confirmation"
-          label="تأكيد كلمة المرور"
-          error={errors.password_confirmation}
-          value={form.password_confirmation}
-          onChange={(value) => set("password_confirmation", value)}
-          autoComplete="new-password"
-          required
-        />
-      </div>
+      {/* Once, with the eye toggle — no second copy (owner decision 2026-10-10). */}
+      <PasswordField
+        id="password"
+        label="كلمة المرور"
+        error={errors.password}
+        value={form.password}
+        onChange={(value) => set("password", value)}
+        autoComplete="new-password"
+        required
+        minLength={8}
+      />
 
       <div>
         <label className="flex items-start gap-3 text-sm text-ink">

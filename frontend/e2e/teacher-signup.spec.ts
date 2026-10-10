@@ -46,7 +46,6 @@ test.describe("teacher application wizard", () => {
     await page.getByLabel("البريد الإلكتروني").fill(freshEmail());
     await page.getByLabel("رقم الجوال", { exact: true }).fill("55598765");
     await page.getByLabel("كلمة المرور", { exact: true }).fill("password123");
-    await page.getByLabel("تأكيد كلمة المرور").fill("password123");
     await page.getByRole("checkbox", { name: /الشروط والأحكام/ }).check();
     await page.getByRole("button", { name: "التالي" }).click();
 
@@ -70,7 +69,6 @@ test.describe("teacher application wizard", () => {
     await page.getByLabel("البريد الإلكتروني").fill(freshEmail());
     await page.getByLabel("رقم الجوال", { exact: true }).fill("55598765");
     await page.getByLabel("كلمة المرور", { exact: true }).fill("password123");
-    await page.getByLabel("تأكيد كلمة المرور").fill("password123");
 
     await page.getByRole("button", { name: "التالي" }).click();
     await expect(page.getByText("يجب الموافقة على الشروط والأحكام")).toBeVisible();

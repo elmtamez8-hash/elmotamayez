@@ -17,7 +17,7 @@ import { COUNTRIES, DEFAULT_COUNTRY } from "@/lib/countries";
 import type { Taxonomy } from "@/lib/public-api";
 import { PhoneInput, toE164 } from "@/components/ui/PhoneInput";
 import { Button } from "@/components/ui/Button";
-import { MultiSelectField, PasswordField, Select } from "@/components/ui/Field";
+import { MultiSelectField, PasswordField } from "@/components/ui/Field";
 import {
   DAYS,
   WeeklyAvailabilityEditor,
@@ -107,11 +107,10 @@ export function TeacherSignupWizard({
     last_name: "",
     email: "",
     password: "",
-    password_confirmation: "",
-    country: DEFAULT_COUNTRY.code,
     terms_accepted: false,
   });
   const [dial, setDial] = useState(DEFAULT_COUNTRY.dial);
+  const country = COUNTRIES.find((entry) => entry.dial === dial)?.code ?? DEFAULT_COUNTRY.code;
   const [phone, setPhone] = useState("");
 
   // Step 2
@@ -265,7 +264,7 @@ export function TeacherSignupWizard({
 
     try {
       const result = await auth.registerTeacher(
-        { ...account, phone: toE164(dial, phone) },
+        { ...account, country, phone: toE164(dial, phone) },
         idempotencyKey,
       );
 
@@ -286,7 +285,7 @@ export function TeacherSignupWizard({
     } catch (err: unknown) {
       const fields = fieldErrors(err);
 
-      setErrors(fields);
+      setErrors(fields.country === undefined ? fields : { ...fields, phone: fields.phone ?? fields.country });
       if (Object.keys(fields).length === 0) {
         setBanner(errorMessage(err, "تعذّر إنشاء الحساب، حاول مرة أخرى."));
       }
@@ -444,47 +443,17 @@ export function TeacherSignupWizard({
             error={errors.phone}
           />
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label htmlFor="t-country" className="mb-1 block text-sm font-medium text-ink">
-                الدولة
-              </label>
-              <Select
-                id="t-country"
-                value={account.country}
-                onChange={(e) => setAccount({ ...account, country: e.target.value })}
-                className={FIELD}
-              >
-                {COUNTRIES.map((country) => (
-                  <option key={country.code} value={country.code}>
-                    {country.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <PasswordField
-              id="t-password"
-              label="كلمة المرور"
-              error={errors.password}
-              value={account.password}
-              onChange={(value) => setAccount({ ...account, password: value })}
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
-          </div>
-
+          {/* The dial code names the country, and the password is typed once
+              behind the eye toggle (owner decision 2026-10-10). */}
           <PasswordField
-            id="t-password2"
-            label="تأكيد كلمة المرور"
-            error={errors.password_confirmation}
-            value={account.password_confirmation}
-            onChange={(value) =>
-              setAccount({ ...account, password_confirmation: value })
-            }
+            id="t-password"
+            label="كلمة المرور"
+            error={errors.password}
+            value={account.password}
+            onChange={(value) => setAccount({ ...account, password: value })}
             autoComplete="new-password"
             required
+            minLength={8}
           />
 
           <div>
