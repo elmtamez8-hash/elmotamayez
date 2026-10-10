@@ -86,9 +86,10 @@ beforeEach(function (): void {
         | is about stopped existing.
         |
         | `attended_seats` is the second half. `openableSessionIds()`'s first arm
-        | is «delivered but not yet judged ⇒ open to EVERYONE» — the ٠٣٥ deploy
-        | window — and it is not per-student, so leaving it null hands the
-        | recording to the unseated learner this file exists to refuse.
+        | is «delivered but not yet judged ⇒ the SEAT entitles» — the ٠٣٥ deploy
+        | window. Until the 2026-10-10 scan (F7) it was not per-student at all; the
+        | last case in this file holds that, and this fixture stays judged so the
+        | cases above ask the verdict column and nothing else.
         |
         | ⚠️ AND `status` IS LEFT ALONE, DELIBERATELY. `BookSeat` refuses
         | anything but a scheduled session, and five cases here book a seat — so
@@ -260,4 +261,19 @@ it('opens the lesson page for a seat holder even in a sequential course', functi
     // Refused for the RIGHT reason: there is nothing to go and finish.
     expect($refusal->allowed)->toBeFalse()
         ->and($refusal->code)->toBe(LessonAccess::NO_SEAT);
+});
+
+/*
+| ⛔ Security scan 2026-10-10, F7 — «DELIVERED BUT NOT JUDGED» (every session
+| delivered before ٠٣٥, for ever) opened the recording to WHOEVER asked. The
+| seat it stands in for is the asker's own.
+*/
+it('opens an unjudged recording to its own seat holders only', function (): void {
+    $this->session->forceFill(['attended_seats' => null])->save();
+
+    $seated = learner(withSeat: true, received: false);
+    $stranger = learner(withSeat: false);
+
+    expect(app(IssuePlaybackGrant::class)->mayWatch($this->recording, $seated))->toBeTrue()
+        ->and(app(IssuePlaybackGrant::class)->mayWatch($this->recording, $stranger))->toBeFalse();
 });
