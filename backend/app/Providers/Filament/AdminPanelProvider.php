@@ -17,6 +17,7 @@ use App\Modules\Analytics\Filament\Widgets\TopTeachersWidget;
 use App\Modules\Analytics\Filament\Widgets\TrustPulseWidget;
 use App\Modules\Analytics\Filament\Widgets\ViolationsWidget;
 use App\Modules\Identity\Http\Middleware\TouchPanelSession;
+use App\Modules\Identity\Support\TwoFactorCodes;
 use App\Modules\Tenancy\Support\PlatformSettings;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\EnsureFilamentAccess;
@@ -73,7 +74,9 @@ class AdminPanelProvider extends PanelProvider
             // user_security_settings row the API writes, so a teacher who set up
             // their authenticator app in the product signs in with it here too.
             ->multiFactorAuthentication([
-                AppAuthentication::make()->recoverable(),
+                // The API's window (`TwoFactorCodes::WINDOW`), so one code means
+                // the same thing at both doors — security scan 2026-10-10, F5.
+                AppAuthentication::make()->recoverable()->codeWindow(TwoFactorCodes::WINDOW),
             ])
             /*
             | The product is «المتميز», and the panel said «EduPlatform» — the

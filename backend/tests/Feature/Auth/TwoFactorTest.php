@@ -16,10 +16,24 @@ use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Laravel\Sanctum\Sanctum;
 use PragmaRX\Google2FA\Google2FA;
 
-/** The code the authenticator app would be showing right now. */
+/**
+ * A code the authenticator app would show — a NEWER one on every call.
+ *
+ * ⚠️ A code is spent once, with every earlier one (security scan 2026-10-10,
+ * F5), and Google2FA reads the real clock, not Carbon's — `travel()` moves
+ * nothing here. So each call takes the next 30-second step ahead, inside
+ * `TwoFactorCodes::WINDOW`, the way the phone's next code would be.
+ */
 function currentCode(User $user): string
 {
-    return app(Google2FA::class)->getCurrentOtp((string) $user->fresh()->getAppAuthenticationSecret());
+    static $issued = [];
+
+    $secret = (string) $user->fresh()->getAppAuthenticationSecret();
+    $google2FA = app(Google2FA::class);
+    $step = $issued[$secret] ?? 0;
+    $issued[$secret] = $step + 1;
+
+    return $google2FA->oathTotp($secret, $google2FA->getTimestamp() + $step);
 }
 
 /**
@@ -323,7 +337,11 @@ it('mints a secret long enough for an authenticator app to accept by hand', func
 /** Six digits that are not the code the app is showing. */
 function twoFactorWrongCode(User $user): string
 {
-    return str_pad((string) (((int) currentCode($user) + 500_000) % 1_000_000), 6, '0', STR_PAD_LEFT);
+    // Off this step's code, NOT through `currentCode()`, which would spend a step.
+    $google2FA = app(Google2FA::class);
+    $now = $google2FA->oathTotp((string) $user->fresh()->getAppAuthenticationSecret(), $google2FA->getTimestamp());
+
+    return str_pad((string) (((int) $now + 500_000) % 1_000_000), 6, '0', STR_PAD_LEFT);
 }
 
 /*
@@ -445,4 +463,21 @@ it('bounds guessing per account across fresh challenges and addresses', function
         'challenge' => $theirs,
         'code' => twoFactorWrongCode($other),
     ])->assertStatus(422);
+});
+
+/*
+| ⛔ Security scan 2026-10-10, F5 — a code seen once (over a shoulder, on a
+| shared screen) signed in AND then switched two-factor off. Spent once, with
+| every code before it.
+*/
+it('refuses a code that was already accepted', function (): void {
+    $user = teacherAccount();
+    enrolTwoFactor($user);
+    $code = currentCode($user);
+
+    $codes = app(TwoFactorCodes::class);
+    $secret = (string) $user->fresh()->getAppAuthenticationSecret();
+
+    expect($codes->verify($secret, $code))->toBeTrue()
+        ->and($codes->verify($secret, $code))->toBeFalse();
 });

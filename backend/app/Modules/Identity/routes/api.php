@@ -88,7 +88,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout'])
         ->withoutMiddleware(RefuseStaleWorkspace::class);
     Route::get('/auth/me', [AuthController::class, 'me']);
-    Route::patch('/auth/me', [AuthController::class, 'updateProfile']);
+    // ⛔ It checks the CURRENT password when the email changes, so it shares
+    // the `change-password` bucket: one per-account budget for every door that
+    // guesses it (security scan 2026-10-10, F4).
+    Route::patch('/auth/me', [AuthController::class, 'updateProfile'])
+        ->middleware('throttle:change-password');
     /*
     | ⛔ It had NO limiter until 2026-09-27: a stolen bearer token could guess
     | the current password here without end, a bcrypt comparison per try. Its
