@@ -137,7 +137,7 @@ class WorkspaceController extends Controller
 
         $invitation = $action->handle($workspace, $request->validated('email'), $request->validated('role'), $this->currentUser($request));
 
-        return response()->json(['token' => $invitation->token], 201);
+        return response()->json(['token' => $invitation->plainToken], 201);
     }
 
     public function update(UpdateWorkspaceRequest $request, Workspace $workspace, UpdateWorkspace $action): JsonResponse
@@ -221,7 +221,7 @@ class WorkspaceController extends Controller
         return Invitation::query()
             ->withoutWorkspaceScope()
             ->with('workspace')
-            ->where('token', $token)
+            ->where('token', Invitation::hashToken($token))
             ->firstOrFail();
     }
 }

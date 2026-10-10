@@ -99,7 +99,7 @@ class RegisterAccount extends Action
         */
         $invitation = Invitation::query()
             ->withoutWorkspaceScope()
-            ->where('token', $token)
+            ->where('token', Invitation::hashToken($token))
             ->first();
 
         if ($token === '' || $invitation === null) {

@@ -38,12 +38,19 @@ class InviteMember extends Action
         */
         $this->grants->guard($workspace, $inviter, $account, $role);
 
-        return Invitation::create([
+        $plain = Str::random(64);
+
+        $invitation = Invitation::create([
             'workspace_id' => $workspace->getKey(),
             'email' => $email,
             'role' => $role,
-            'token' => Str::random(64),
+            'token' => Invitation::hashToken($plain),
             'expires_at' => now()->addDays(7),
         ]);
+
+        // The one moment the plain value exists — see `Invitation::$plainToken`.
+        $invitation->plainToken = $plain;
+
+        return $invitation;
     }
 }

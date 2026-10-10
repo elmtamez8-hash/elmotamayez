@@ -25,13 +25,18 @@ function inviteFor(string $email, string $role = Roles::TEACHER, ?CarbonImmutabl
 {
     $workspace = Workspace::factory()->create();
 
-    return Invitation::withoutWorkspaceScope()->create([
+    $invitation = Invitation::withoutWorkspaceScope()->create([
         'workspace_id' => $workspace->getKey(),
         'email' => $email,
         'role' => $role,
-        'token' => Str::random(40),
+        'token' => Invitation::hashToken($plain = Str::random(40)),
         'expires_at' => $expiresAt ?? CarbonImmutable::now()->addWeek(),
     ]);
+
+    // Stored hashed (security scan F21); the test uses the value the invitee holds.
+    $invitation->plainToken = $plain;
+
+    return $invitation;
 }
 
 describe('registration', function (): void {
@@ -64,7 +69,7 @@ describe('registration', function (): void {
             'email' => 'jane@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertCreated()->assertJsonPath('email', 'jane@example.com');
 
         $user = User::where('email', 'jane@example.com')->firstOrFail();
@@ -137,7 +142,7 @@ describe('registration', function (): void {
             'email' => 'someone-else@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertStatus(422);
 
         expect(User::where('email', 'someone-else@example.com')->exists())->toBeFalse();
@@ -163,7 +168,7 @@ describe('registration', function (): void {
             'email' => 'jane@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertStatus(422);
 
         expect(User::where('email', 'jane@example.com')->exists())->toBeFalse();
@@ -178,7 +183,7 @@ describe('registration', function (): void {
             'email' => 'jane@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertStatus(422);
 
         expect(User::where('email', 'jane@example.com')->exists())->toBeFalse();
@@ -199,7 +204,7 @@ describe('registration', function (): void {
             'email' => 'child@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertStatus(422);
 
         expect(User::where('email', 'child@example.com')->exists())->toBeFalse();
@@ -220,7 +225,7 @@ describe('registration', function (): void {
             'email' => 'taken@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'invitation' => $invitation->token,
+            'invitation' => $invitation->plainToken,
         ])->assertStatus(422)->assertJsonValidationErrors(['email']);
     });
 });

@@ -21,13 +21,18 @@ use Laravel\Sanctum\Sanctum;
 /** A pending invitation written directly — the rule may postdate it. */
 function pendingInvitation(mixed $workspace, string $email, string $role): Invitation
 {
-    return Invitation::query()->withoutWorkspaceScope()->create([
+    $invitation = Invitation::query()->withoutWorkspaceScope()->create([
         'workspace_id' => $workspace->getKey(),
         'email' => $email,
         'role' => $role,
-        'token' => Str::random(64),
+        'token' => Invitation::hashToken($plain = Str::random(64)),
         'expires_at' => now()->addDays(7),
     ]);
+
+    // Stored hashed (security scan F21); the test uses the value the invitee holds.
+    $invitation->plainToken = $plain;
+
+    return $invitation;
 }
 
 describe('InviteMember', function (): void {
@@ -86,7 +91,7 @@ describe('AcceptInvitation', function (): void {
 
         Sanctum::actingAs($learner);
 
-        $this->postJson("/api/v1/workspaces/invitations/{$invitation->token}/accept")
+        $this->postJson("/api/v1/workspaces/invitations/{$invitation->plainToken}/accept")
             ->assertStatus(422)
             ->assertJsonPath('message', StaffAccounts::REFUSAL);
 
@@ -102,7 +107,7 @@ describe('AcceptInvitation', function (): void {
 
         Sanctum::actingAs($learner);
 
-        $this->postJson("/api/v1/workspaces/invitations/{$invitation->token}/accept")->assertOk();
+        $this->postJson("/api/v1/workspaces/invitations/{$invitation->plainToken}/accept")->assertOk();
 
         expect(DB::table('workspace_members')
             ->where('user_id', $learner->getKey())

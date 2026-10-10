@@ -19,6 +19,21 @@ class Invitation extends BaseModel
 {
     use BelongsToWorkspace;
 
+    /**
+     * ⛔ THE TOKEN IS STORED AS ITS SHA-256, NEVER AS ITSELF (security scan
+     * 2026-10-10, F21). It is a live credential that grants a staff membership,
+     * so a database read — a leaked backup, a replica — redeemed every pending
+     * invitation. The plain value exists once, on the object `InviteMember`
+     * returns, for the response that hands it to the inviter; every lookup
+     * hashes what it is given.
+     */
+    public ?string $plainToken = null;
+
+    public static function hashToken(string $plain): string
+    {
+        return hash('sha256', $plain);
+    }
+
     protected $fillable = [
         'workspace_id',
         'email',
