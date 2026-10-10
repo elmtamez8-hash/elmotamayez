@@ -86,7 +86,7 @@ class CreateCourseRequest extends FormRequest
             | it) would start serving whichever course in ANY workspace claimed it
             | next. The unique index agrees, and so does `CourseSlug::taken()`.
             */
-            'slug' => ['nullable', 'string', 'max:255', Rule::unique('courses', 'slug')],
+            'slug' => ['nullable', 'string', 'max:255', 'not_regex:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', Rule::unique('courses', 'slug')],
             // Integer minor units, never `numeric`: a decimal accepted here is
             // a hundredth of the price the teacher meant.
             'price_minor' => ['nullable', 'integer', 'min:0'],

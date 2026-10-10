@@ -14,6 +14,7 @@ use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Contracts\CohortScheduleDirectory;
 use App\Shared\Contracts\SubscriptionDirectory;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 
 /**
  * One anonymous course, with its published tree.
@@ -75,9 +76,11 @@ class ReadPublicCourse extends Action
                 // Grouped, or the OR escapes the `publiclyListed()` guard above
                 // it and answers with somebody's draft — the top-level-`orWhere`
                 // defect this tree has paid for in a retention sweep already.
-                $query->where('slug', $key)->orWhere('uuid', $key);
+                // ⛔ A uuid-shaped key looks up the UUID only (security scan
+                // 2026-10-10, F11): a teacher could save a rival course's uuid as
+                // their own slug, and the slug-first order handed them its link.
+                $query->where(Str::isUuid($key) ? 'uuid' : 'slug', $key);
             })
-            ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', [$key])
             ->with([
                 'subject:id,slug,name,icon',
                 // ⚠️ The accessor's columns, not the attribute's name. `users`

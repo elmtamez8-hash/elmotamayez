@@ -30,6 +30,9 @@ class ShipmentController extends Controller
             // The queue is ordered by what still needs doing, and the eager load
             // is asserted as a FIELD as well as a cost: dropped, the page is one
             // query cheaper and every parcel lists with no title.
+            // Paid and not refunded only — an unpaid order's row is no parcel to
+            // pack (security scan F12; `Shipment::scopePayable()`).
+            ->payable()
             ->with('storeOrder.item:id,uuid,title')
             ->orderBy('status')
             ->orderByDesc('id')

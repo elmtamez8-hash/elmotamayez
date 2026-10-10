@@ -61,7 +61,7 @@ class UpdateCourseRequest extends FormRequest
             | it) would start serving whichever course in ANY workspace claimed it
             | next. The unique index agrees, and so does `CourseSlug::taken()`.
             */
-            'slug' => ['nullable', 'string', 'max:255', Rule::unique('courses', 'slug')->ignore($this->courseBeingEdited())],
+            'slug' => ['nullable', 'string', 'max:255', 'not_regex:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', Rule::unique('courses', 'slug')->ignore($this->courseBeingEdited())],
             'price_minor' => ['nullable', 'integer', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
             'is_sequential' => ['nullable', 'boolean'],

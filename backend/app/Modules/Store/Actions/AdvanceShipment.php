@@ -38,6 +38,18 @@ class AdvanceShipment extends Action
             throw new DomainException("لا يمكن نقل الشحنة من «{$from->label()}» إلى «{$to->label()}».");
         }
 
+        /*
+        | ⛔ A PARCEL MOVES ONLY FOR A PURCHASE THAT WAS PAID AND STILL STANDS
+        | (security scan 2026-10-10, F12). The row is written the moment an UNPAID
+        | order is placed, and nothing on this path asked — so a buyer who never
+        | paid, was rejected or was refunded had their book packed and posted.
+        | Paid is `fulfilled_at` (the purchase's own claim), refunded is
+        | `refunded_at`.
+        */
+        if (! Shipment::query()->withoutWorkspaceScope()->whereKey($shipment->getKey())->payable()->exists()) {
+            throw new DomainException('لم يُدفع ثمن هذا الطلب بعد، أو استُرِدّ، فلا تُجهَّز شحنته.');
+        }
+
         $changes = [
             'status' => $to->value,
             // Stamped inside the same statement that moves the status. Derived
@@ -54,6 +66,7 @@ class AdvanceShipment extends Action
             ->withoutWorkspaceScope()
             ->whereKey($shipment->getKey())
             ->where('status', $from->value)
+            ->payable()
             ->update($changes);
 
         if ($moved === 0) {

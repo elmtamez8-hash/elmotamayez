@@ -8,6 +8,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Courses\Models\Lesson;
 use App\Modules\Courses\Support\TrialLessonRule;
 use App\Shared\Actions\Action;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -37,8 +38,8 @@ final class ReadCourseTrial extends Action
             ->publiclyListed()
             ->whereNotNull('trial_lesson_id')
             // Grouped: a bare `orWhere` would escape `publiclyListed()`.
-            ->where(fn ($query) => $query->where('slug', $courseKey)->orWhere('uuid', $courseKey))
-            ->orderByRaw('CASE WHEN slug = ? THEN 0 ELSE 1 END', [$courseKey])
+            // A uuid-shaped key is a uuid, never a slug (security scan F11).
+            ->where(Str::isUuid($courseKey) ? 'uuid' : 'slug', $courseKey)
             ->first();
 
         $lesson = $course === null ? null : Lesson::query()
