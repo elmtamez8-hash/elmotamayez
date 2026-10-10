@@ -23,6 +23,7 @@ use App\Shared\Contracts\SessionAttendanceDirectory;
 use App\Shared\Contracts\SessionContentAccess;
 use App\Shared\Contracts\TeacherOffboardingDirectory;
 use App\Shared\Support\UserClock;
+use App\Shared\Support\WorkspacePermission;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -146,7 +147,7 @@ class ConversationPolicy
             | and by the per-thread ban, bound by the group membership. The
             | permission is asked first so a student never pays for the scope read.
             */
-            $moderatesHere = ($user->hasPermissionTo(Permissions::CHAT_MODERATE)
+            $moderatesHere = ($this->holds($user, $conversation, Permissions::CHAT_MODERATE)
                 && $this->withinStaffScope($user, $conversation)->allowed())
                 // ⚠️ AND THE HOST OF THIS SESSION'S ROOM (2026-09-30) — the
                 // person who may lock it is exempt from it, the rule written two
@@ -375,7 +376,7 @@ class ConversationPolicy
             ->whereKey($conversation->workspace_id)
             ->exists();
 
-        if (! $isMember || ! $user->hasPermissionTo(Permissions::CHAT_MODERATE)) {
+        if (! $isMember || ! $this->holds($user, $conversation, Permissions::CHAT_MODERATE)) {
             return Response::deny('إدارة النقاش من صلاحيّة المدرّس ومن فوّضه.');
         }
 
@@ -464,10 +465,10 @@ class ConversationPolicy
             return true;
         }
 
-        $staff = $user->hasPermissionTo(Permissions::CHAT_MODERATE)
+        $staff = $this->holds($user, $conversation, Permissions::CHAT_MODERATE)
             || ($user->workspaces()->withoutGlobalScopes()
                 ->whereKey((int) $conversation->workspace_id)->exists()
-                && $user->hasPermissionTo(Permissions::CHAT_REPLY));
+                && $this->holds($user, $conversation, Permissions::CHAT_REPLY));
 
         return $staff && $this->withinStaffScope($user, $conversation)->allowed();
     }
@@ -523,7 +524,7 @@ class ConversationPolicy
         | private branch.
         */
         if (! $user->workspaces()->withoutGlobalScopes()->whereKey((int) $conversation->workspace_id)->exists()
-            || ! $user->hasPermissionTo(Permissions::CHAT_REPLY)
+            || ! $this->holds($user, $conversation, Permissions::CHAT_REPLY)
         ) {
             return null;
         }
@@ -654,12 +655,22 @@ class ConversationPolicy
             return Response::deny('لست طرفاً في هذه المحادثة.');
         }
 
-        if (! $user->hasPermissionTo(Permissions::CHAT_REPLY)) {
+        if (! $this->holds($user, $conversation, Permissions::CHAT_REPLY)) {
             return Response::deny('لا تملك صلاحيّة الاطّلاع على رسائل الطلاب.');
         }
 
         return $this->assistants->mayActOnStudent($user, $workspaceId, (int) $conversation->student_user_id)
             ? Response::allow()
             : Response::deny('هذا الطالب خارج نطاق عملك.');
+    }
+
+    /**
+     * A permission asked of the CONVERSATION's workspace, never the reader's
+     * current one — see `WorkspacePermission`. Every permission read in this
+     * policy goes through here.
+     */
+    private function holds(User $user, Conversation $conversation, string $permission): bool
+    {
+        return WorkspacePermission::holds($user, (int) $conversation->workspace_id, $permission);
     }
 }

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Shared\Support\WorkspacePermission;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Support\Facades\Gate;
 
@@ -55,7 +56,7 @@ class MessagePolicy
             ->whereKey($message->workspace_id)
             ->exists();
 
-        if (! $isMember || ! $user->hasPermissionTo(Permissions::CHAT_REPLY)) {
+        if (! $isMember || ! WorkspacePermission::holds($user, (int) $message->workspace_id, Permissions::CHAT_REPLY)) {
             return Response::deny('اعتماد الإجابات من صلاحيّة المدرّس ومن فوّضه.');
         }
 
