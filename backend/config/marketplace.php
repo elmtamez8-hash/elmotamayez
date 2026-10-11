@@ -16,11 +16,15 @@ return [
     */
 
     'trust_score' => [
+        // `responsiveness` is the response rate (owner decision 2026-10-11). A
+        // teacher with no rate yet is scored on the other four, re-weighted — a
+        // missing figure is never read as zero.
         'weights' => [
-            'student_rating' => 35,
+            'student_rating' => 30,
             'punctuality' => 25,
-            'completion' => 25,
+            'completion' => 20,
             'tenure' => 15,
+            'responsiveness' => 10,
         ],
 
         'complaint_penalty_per_item' => 5,

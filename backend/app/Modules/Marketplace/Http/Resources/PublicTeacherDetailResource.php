@@ -42,7 +42,7 @@ class PublicTeacherDetailResource extends PublicTeacherCardResource
                 'attendance_rate' => $this->attendance_rate,
             ],
 
-            // The five factors behind the number. Showing the score alone asks the
+            // The factors behind the number. Showing the score alone asks the
             // visitor to trust an opaque figure, which is the opposite of the point.
             'trust_score_factors' => $this->trust_score_factors,
 

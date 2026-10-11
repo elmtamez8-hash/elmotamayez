@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Modules\Community\Models\Conversation;
 use App\Modules\Community\Models\Message;
+use App\Modules\Marketplace\Jobs\RecalculateTrustScoreJob;
 use App\Modules\Marketplace\Jobs\SyncResponseRatesJob;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Queue;
 
 /*
 | «معدّل الاستجابة» had readers and no writer, so every real teacher showed «—»
@@ -70,8 +72,18 @@ it('writes each workspace its own rate and leaves a quiet one at no figure', fun
             ->forceFill(['created_at' => $i === 5 ? $asked->addDays(2) : $asked->addHour()])->save();
     }
 
+    Queue::fake([RecalculateTrustScoreJob::class]);
+
     (new SyncResponseRatesJob)->handle();
 
     expect($profile->fresh()->response_rate)->toBe(80)
         ->and($quietProfile->fresh()->response_rate)->toBeNull();
+
+    // Both rates moved (95 → 80, 95 → none), so both trust scores are redone…
+    Queue::assertPushed(RecalculateTrustScoreJob::class, 2);
+
+    // …and a night where nothing moved queues nothing.
+    (new SyncResponseRatesJob)->handle();
+
+    Queue::assertPushed(RecalculateTrustScoreJob::class, 2);
 });

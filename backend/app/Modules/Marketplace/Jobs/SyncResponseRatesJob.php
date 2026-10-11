@@ -77,9 +77,22 @@ class SyncResponseRatesJob implements ShouldQueue
                 ->orderBy('messages.id')
                 ->get(['messages.conversation_id', 'messages.from_staff', 'messages.created_at']);
 
-            DB::table('teacher_profiles')
+            $rate = self::rate($messages, $now);
+
+            // Only the profiles whose rate moved: the trust score reads it, so
+            // each of those is re-scored, and an unchanged night queues nothing.
+            $changed = DB::table('teacher_profiles')
                 ->where('workspace_id', $workspaceId)
-                ->update(['response_rate' => self::rate($messages, $now)]);
+                ->where(fn ($query) => $rate === null
+                    ? $query->whereNotNull('response_rate')
+                    : $query->whereNull('response_rate')->orWhere('response_rate', '!=', $rate))
+                ->pluck('id');
+
+            DB::table('teacher_profiles')->whereIn('id', $changed)->update(['response_rate' => $rate]);
+
+            foreach ($changed as $profileId) {
+                RecalculateTrustScoreJob::dispatch((int) $profileId);
+            }
         }
 
         MarketplaceCache::flush();
