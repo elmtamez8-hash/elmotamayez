@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { SeatBadge } from "@/components/sessions/SeatBadge";
 import { SessionOwners } from "@/components/sessions/SessionOwners";
 import type { ClassSession } from "@/lib/class-sessions";
-import { formatSessionClock, formatSessionTime } from "@/lib/session-format";
+import { formatSessionClock } from "@/lib/session-format";
 import { counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
@@ -64,47 +64,89 @@ export function SessionCard({
   variant?: "listing" | "timetable";
 }) {
   const zone = useViewerTimeZone();
+  const cancelled = session.status === "cancelled";
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    new Date(session.starts_at).toLocaleDateString("ar", {
+      ...options,
+      timeZone: zone,
+      numberingSystem: "latn",
+    });
+
   return (
-    <article
-      className="group relative isolate rounded-3xl border border-line bg-surface-raised p-5 transition-colors duration-200 hover:border-primary/40 focus-within:border-primary/40"
-    >
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-ink">
-          <Link
-            href={href}
-            // Stretched: the pseudo-element covers the article, so the accessible
-            // name stays the title while the target is the whole card.
-            className="rounded before:absolute before:inset-0 before:content-[''] group-hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            {session.title}
-          </Link>
-        </h3>
-        <Badge tone={session.status === "cancelled" ? "danger" : "info"}>
-          {session.status_label}
-        </Badge>
+    <article className="group relative isolate flex gap-4 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm transition duration-200 hover:border-primary/40 hover:shadow-md hover:shadow-primary/10 focus-within:border-primary/40 sm:p-5">
+      {/* The day as a calendar leaf (owner request 2026-10-11), in the brand
+          band's colour — the date is what a reader scans a list of sessions by.
+          Under a day heading (`clock`) the leaf carries the hour instead. A
+          cancelled session's leaf goes pale so it reads as off the calendar. */}
+      <div
+        className={`flex w-[4.5rem] shrink-0 flex-col items-center justify-center self-start rounded-2xl px-2 py-3 text-center ${
+          cancelled
+            ? "bg-primary-soft text-primary-ink"
+            : "bg-squares bg-primary text-white"
+        }`}
+      >
+        {time === "clock" ? (
+          <span className="text-lg font-extrabold leading-none tabular-nums">
+            {formatSessionClock(session.starts_at, zone)}
+          </span>
+        ) : (
+          <>
+            <span className="text-xs font-semibold opacity-85">
+              {part({ weekday: "long" })}
+            </span>
+            <span className="my-1 text-3xl font-extrabold leading-none tabular-nums">
+              {part({ day: "numeric" })}
+            </span>
+            <span className="text-xs font-semibold opacity-85">
+              {part({ month: "long" })}
+            </span>
+          </>
+        )}
       </div>
 
-      {/* الكورسُ ومَن يُدرّسه — انظر {@see SessionOwners}: الحقلانِ كانا يصلانِ
+      <div className="min-w-0 flex-1">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h3 className="font-semibold text-ink">
+            <Link
+              href={href}
+              // Stretched: the pseudo-element covers the article, so the accessible
+              // name stays the title while the target is the whole card.
+              className="rounded before:absolute before:inset-0 before:content-[''] group-hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              {session.title}
+            </Link>
+          </h3>
+          <Badge tone={cancelled ? "danger" : "info"}>
+            {session.status_label}
+          </Badge>
+        </div>
+
+        {/* الكورسُ ومَن يُدرّسه — انظر {@see SessionOwners}: الحقلانِ كانا يصلانِ
           من الخادمِ ولا يُرسمانِ في أيِّ مكان. */}
-      {variant === "timetable" && <SessionOwners session={session} className="mb-2" />}
+        {variant === "timetable" && (
+          <SessionOwners session={session} className="mb-2" />
+        )}
 
-      <p className="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
-        {/* `className` REPLACES the icon's default size rather than adding to
+        <p className="mb-3 flex items-center gap-1.5 text-sm text-ink-muted">
+          {/* `className` REPLACES the icon's default size rather than adding to
             it, so the h-4 w-4 has to be repeated here. Colour is inherited. */}
-        <ClockIcon className="h-4 w-4 shrink-0" />
-        <span>
-          {time === "clock"
-            ? formatSessionClock(session.starts_at, zone)
-            : formatSessionTime(session.starts_at, zone)}{" "}
-          · {counted(session.duration_minutes, NOUNS.minutes)}
-        </span>
-      </p>
+          <ClockIcon className="h-4 w-4 shrink-0" />
+          {/* The leaf shows the day, so the line shows the hour — unless the leaf
+            already shows the hour, and then the line is the length alone. */}
+          <span>
+            {time === "clock"
+              ? ""
+              : `${formatSessionClock(session.starts_at, zone)} · `}
+            {counted(session.duration_minutes, NOUNS.minutes)}
+          </span>
+        </p>
 
-      {/* Above the stretched link, so the action inside it is still pressable. */}
-      <div className="relative z-10 flex flex-wrap items-center gap-2">
-        <Badge tone="neutral">{session.type_label}</Badge>
-        {variant === "listing" && <SeatBadge seats={session.seats} />}
-        {action}
+        {/* Above the stretched link, so the action inside it is still pressable. */}
+        <div className="relative z-10 flex flex-wrap items-center gap-2">
+          <Badge tone="neutral">{session.type_label}</Badge>
+          {variant === "listing" && <SeatBadge seats={session.seats} />}
+          {action}
+        </div>
       </div>
     </article>
   );
