@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { AssignmentIcon, ClockIcon } from "@/components/icons";
 import { TextareaField } from "@/components/ui/Field";
 import { assignments, stateLabel, type Assignment } from "@/lib/assignments";
 import { userMessage } from "@/lib/errors";
@@ -55,31 +55,54 @@ export function AssignmentCard({
   };
 
   return (
-    <Card as="section">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h4 className="font-medium text-ink">{assignment.title}</h4>
+    <section className="overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm">
+      {/* The bold band (owner request 2026-10-11), in the group card's language:
+          the brand colour while the homework still waits on the student, the
+          pale tint once it is handed in — so a list reads «what is left». */}
+      <header
+        className={`relative isolate overflow-hidden px-5 py-4 ${
+          mine?.submitted_at == null ? "bg-squares bg-primary text-white" : "bg-primary-soft text-primary-ink"
+        }`}
+      >
+        <AssignmentIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-6 -end-4 -z-10 h-24 w-24 opacity-10"
+        />
 
-          {/* ⚠️ WHICH SUBJECT AND WITH WHOM — the list spans every teacher the
-              student studies with, and until this payload carried them two
-              identically-titled homeworks were indistinguishable. */}
-          {(assignment.course != null || assignment.teacher != null || cohortName !== null) && (
-            <p className="mt-1 text-xs text-ink-muted">
-              {[assignment.course?.title, assignment.teacher?.name, cohortName]
-                .filter((part) => part != null && part !== "")
-                .join(" · ")}
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <h4 className="min-w-0 text-lg font-extrabold leading-snug">{assignment.title}</h4>
+          {mine !== null && (
+            <span className="shrink-0 rounded-full bg-surface-raised p-0.5 shadow-sm">
+              <Badge tone={badgeTone(mine.state)}>{stateLabel(mine.state)}</Badge>
+            </span>
           )}
-
-          <p className="mt-1 text-sm text-ink-muted">
-            من {counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}
-            {assignment.due_at !== null && <> · يُسلَّم قبل {formatDateTime(assignment.due_at)}</>}
-          </p>
         </div>
 
-        {mine !== null && <Badge tone={badgeTone(mine.state)}>{stateLabel(mine.state)}</Badge>}
-      </div>
+        {/* ⚠️ WHICH SUBJECT AND WITH WHOM — the list spans every teacher the
+            student studies with, and until this payload carried them two
+            identically-titled homeworks were indistinguishable. */}
+        {(assignment.course != null || assignment.teacher != null || cohortName !== null) && (
+          <p className="mt-1 text-xs font-semibold opacity-85">
+            {[assignment.course?.title, assignment.teacher?.name, cohortName]
+              .filter((part) => part != null && part !== "")
+              .join(" · ")}
+          </p>
+        )}
 
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-primary-ink">
+          <span className="rounded-full bg-surface-raised px-3 py-1 shadow-sm">
+            من {counted(assignment.points, { ...NOUNS.points, two: "درجتين" })}
+          </span>
+          {assignment.due_at !== null && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-raised px-3 py-1 shadow-sm">
+              <ClockIcon className="h-3.5 w-3.5" aria-hidden />
+              يُسلَّم قبل {formatDateTime(assignment.due_at)}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <div className="p-5">
       <MarkdownText html={assignment.description_html} className="mb-3" />
 
       {/* Said before the deadline, not after the mark. */}
@@ -132,7 +155,8 @@ export function AssignmentCard({
           </Button>
         </div>
       )}
-    </Card>
+      </div>
+    </section>
   );
 }
 
