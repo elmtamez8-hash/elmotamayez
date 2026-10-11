@@ -261,6 +261,7 @@ export default function PracticePage() {
         </>
       )}
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/*
         ⚠️ THE OTHER WAY TO PRACTISE, WHICH THIS PAGE NEVER LINKED TO.
         `/practice/from-mistakes` shipped with spec 008 and the only route to it
@@ -280,12 +281,12 @@ export default function PracticePage() {
       */}
       <Link
         href="/practice/adaptive"
-        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="group flex flex-col gap-3 rounded-3xl border border-line bg-surface-raised p-5 text-sm text-ink shadow-sm transition duration-300 ease-out hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-safe:hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
+        <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-2xl bg-squares bg-primary text-white transition duration-300 group-hover:-rotate-6 motion-reduce:transition-none"><PracticeIcon className="h-5 w-5" /></span>
         <span>
-          <span className="font-semibold">أو جرّب التدريب التكيّفي.</span>{" "}
-          <span className="text-ink-muted">
+          <span className="block text-base font-extrabold group-hover:text-primary-ink">أو جرّب التدريب التكيّفي.</span>
+          <span className="mt-1 block leading-relaxed text-ink-muted">
             سؤالٌ واحدٌ في كل مرّة، وصعوبتُه تتغيّر بأدائك حتى تُتقن الفكرة.
           </span>
         </span>
@@ -302,12 +303,12 @@ export default function PracticePage() {
       */}
       <Link
         href="/study-rooms"
-        className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="group flex flex-col gap-3 rounded-3xl border border-line bg-surface-raised p-5 text-sm text-ink shadow-sm transition duration-300 ease-out hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-safe:hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <PracticeIcon className="h-5 w-5 shrink-0 text-primary-ink" />
+        <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-2xl bg-squares bg-primary text-white transition duration-300 group-hover:-rotate-6 motion-reduce:transition-none"><PracticeIcon className="h-5 w-5" /></span>
         <span>
-          <span className="font-semibold">أو ذاكِرْ مع أصدقائك.</span>{" "}
-          <span className="text-ink-muted">
+          <span className="block text-base font-extrabold group-hover:text-primary-ink">أو ذاكِرْ مع أصدقائك.</span>
+          <span className="mt-1 block leading-relaxed text-ink-muted">
             غرفةٌ بمجموعةِ أسئلةٍ واحدةٍ تحلّونها في وقتٍ واحد، ولوحةُ نتائجَ لحظيّة.
           </span>
         </span>
@@ -316,17 +317,18 @@ export default function PracticePage() {
       {hasStanding && (
         <Link
           href="/mistakes"
-          className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-sm text-ink transition duration-200 hover:border-primary/40 hover:bg-primary-soft/30 motion-safe:hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col gap-3 rounded-3xl border border-line bg-surface-raised p-5 text-sm text-ink shadow-sm transition duration-300 ease-out hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-safe:hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <MistakesIcon className="h-5 w-5 shrink-0 text-primary-ink" />
+          <span aria-hidden="true" className="grid h-11 w-11 place-items-center rounded-2xl bg-squares bg-primary text-white transition duration-300 group-hover:-rotate-6 motion-reduce:transition-none"><MistakesIcon className="h-5 w-5" /></span>
           <span>
-            <span className="font-semibold">أو اختبر نفسك في أخطائك.</span>{" "}
-            <span className="text-ink-muted">
+            <span className="block text-base font-extrabold group-hover:text-primary-ink">أو اختبر نفسك في أخطائك.</span>
+            <span className="mt-1 block leading-relaxed text-ink-muted">
               دفترك يحمل أسئلةً أخطأت فيها — التدرّب عليها هو ما يُخرِجها منه.
             </span>
           </span>
         </Link>
       )}
+      </div>
     </div>
   );
 }
