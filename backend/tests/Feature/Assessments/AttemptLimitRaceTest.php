@@ -92,9 +92,10 @@ it('numbers official attempts in order and leaves practice runs unnumbered', fun
     $student = $this->addWorkspaceMember($workspace, 'student');
     $exam = attemptRaceExam($workspace, maxAttempts: 2);
 
-    $first = app(StartAttempt::class)->handle($exam, $student);
+    // Each official attempt is closed before the next: an open one is resumed (F3).
+    $first = attemptRaceClosed(app(StartAttempt::class)->handle($exam, $student));
     $practice = app(StartAttempt::class)->handle($exam, $student, isPractice: true);
-    $second = app(StartAttempt::class)->handle($exam, $student);
+    $second = attemptRaceClosed(app(StartAttempt::class)->handle($exam, $student));
 
     expect($first->attempt_number)->toBe(1)
         ->and($practice->attempt_number)->toBeNull()
@@ -113,8 +114,8 @@ it('does not collide with a number already taken when an earlier attempt was del
     $student = $this->addWorkspaceMember($workspace, 'student');
     $exam = attemptRaceExam($workspace, maxAttempts: 3);
 
-    $first = app(StartAttempt::class)->handle($exam, $student);
-    app(StartAttempt::class)->handle($exam, $student);
+    $first = attemptRaceClosed(app(StartAttempt::class)->handle($exam, $student));
+    attemptRaceClosed(app(StartAttempt::class)->handle($exam, $student));
 
     // Erasure or a reset removes #1; `count + 1` would ask for #2 again and be
     // refused for ever with attempts left.
@@ -122,3 +123,11 @@ it('does not collide with a number already taken when an earlier attempt was del
 
     expect(app(StartAttempt::class)->handle($exam, $student)->attempt_number)->toBe(3);
 });
+
+/** An official attempt that is no longer open, so the next start claims a new one. */
+function attemptRaceClosed(Attempt $attempt): Attempt
+{
+    $attempt->forceFill(['status' => Attempt::STATUS_GRADED])->save();
+
+    return $attempt;
+}

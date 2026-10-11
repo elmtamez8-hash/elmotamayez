@@ -185,6 +185,25 @@ describe('attempt rules', function (): void {
         expect(Attempt::where('exam_id', $exam->id)->count())->toBe(1);
     });
 
+    it('resumes an open attempt instead of spending another one', function (): void {
+        // Security scan 2026-10-10, F3: a reload or a forced link burnt the allowance.
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$exam] = attemptRulesExam($workspace->id, maxAttempts: 2);
+
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        Sanctum::actingAs($student);
+
+        $first = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")->assertCreated()->json('attempt.uuid');
+
+        foreach (range(1, 3) as $ignored) {
+            $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")
+                ->assertCreated()
+                ->assertJsonPath('attempt.uuid', $first);
+        }
+
+        expect(Attempt::where('exam_id', $exam->id)->count())->toBe(1);
+    });
+
     /*
     | ⛔ Owner decision, 2026-09-25: this test used to end in a certificate with
     | reason `exam_passed`. The course here still has an unread article, so a

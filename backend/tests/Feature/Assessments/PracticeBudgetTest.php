@@ -51,8 +51,11 @@ it('leaves both official attempts after three practice runs', function (): void 
         $this->postJson('/api/v1/practice/exams', ['count' => 3])->assertCreated();
     }
 
-    $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")->assertCreated();
-    $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")->assertCreated();
+    // Each official attempt is closed before the next: an open one is resumed (F3).
+    foreach (range(1, 2) as $ignored) {
+        $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")->assertCreated();
+        Attempt::query()->where('exam_id', $exam->getKey())->update(['status' => Attempt::STATUS_GRADED]);
+    }
 
     // And the third is refused, which is the other half of the assertion: a
     // limit that never bites would pass this test just as well.

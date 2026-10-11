@@ -94,9 +94,10 @@ it('does not let a practice run eat an official attempt', function (): void {
         app(StartAttempt::class)->handle($exam, $student, null, isPractice: true);
     }
 
-    // Both official attempts still available (FR-026أ).
-    app(StartAttempt::class)->handle($exam, $student);
-    app(StartAttempt::class)->handle($exam, $student);
+    // Both official attempts still available (FR-026أ) — each closed before the
+    // next, since an open one is resumed rather than replaced (F3).
+    app(StartAttempt::class)->handle($exam, $student)->forceFill(['status' => Attempt::STATUS_GRADED])->save();
+    app(StartAttempt::class)->handle($exam, $student)->forceFill(['status' => Attempt::STATUS_GRADED])->save();
 
     expect(fn () => app(StartAttempt::class)->handle($exam, $student))
         ->toThrow(DomainException::class);
