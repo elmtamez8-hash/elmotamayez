@@ -9,7 +9,7 @@ import {
 } from "@/components/marketplace/MyCohort";
 import { counted, TONE_CLASSES } from "@/lib/labels";
 import type { CohortSummary } from "@/lib/public-api";
-import { CohortScheduleSlots } from "@/components/courses/CohortScheduleSlots";
+import { CohortWeek } from "@/components/courses/CohortScheduleSlots";
 
 /**
  * The groups of one course, as a visitor deciding when to study reads them.
@@ -103,7 +103,7 @@ export function CohortList({
         </div>
       )}
 
-      <ul className="grid grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] gap-5">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-5">
       {cohorts.map((cohort) => {
         const status = STATUS[cohort.status];
         const remaining = seats(cohort.seats_left);
@@ -141,27 +141,32 @@ export function CohortList({
             )}
 
             {/* On the VISITOR's clock once the browser runs; the platform's,
-                zone named, in the server render (owner decision 2026-09-26). */}
-            <CohortScheduleSlots labels={cohort.schedule} slots={cohort.schedule_slots} />
+                zone named, in the server render (owner decision 2026-09-26).
+                Drawn as a week so the meeting days read at a glance. */}
+            <CohortWeek labels={cohort.schedule} slots={cohort.schedule_slots} />
 
-            {remaining && (
-              <p className="mt-auto w-fit rounded-full bg-surface px-3 py-1 text-xs font-bold text-ink">
-                {remaining}
-              </p>
-            )}
+            {/* The footer sits at the bottom, so cards of different lengths still
+                line their prices and buttons up across a row. */}
+            <div className="mt-auto flex flex-col gap-3 pt-1">
+              {remaining && (
+                <p className="w-fit rounded-full bg-surface px-3 py-1 text-xs font-bold text-ink">
+                  {remaining}
+                </p>
+              )}
 
-            {cohort.is_joinable && (
-              // ⚠️ And never on the group the reader is already in: «مجموعتك»
-              // beside «اشترك في هذه المجموعة» is an invitation to buy a place
-              // they hold, which the server refuses after a payment screen.
-              <UnlessMyCohort cohortUuid={cohort.uuid}>
-                {/* This group's own price, as the buyer on it is offered (review
-                    2026-10-09) — the server sends it only on a joinable group. */}
-                {cohort.price != null && <PriceTag price={cohort.price} />}
-                {/* A visitor signs up first and comes back to this group (#175). */}
-                <CohortSubscribeButton courseUuid={courseUuid} cohortUuid={cohort.uuid} />
-              </UnlessMyCohort>
-            )}
+              {cohort.is_joinable && (
+                // ⚠️ And never on the group the reader is already in: «مجموعتك»
+                // beside «اشترك في هذه المجموعة» is an invitation to buy a place
+                // they hold, which the server refuses after a payment screen.
+                <UnlessMyCohort cohortUuid={cohort.uuid}>
+                  {/* This group's own price, as the buyer on it is offered (review
+                      2026-10-09) — the server sends it only on a joinable group. */}
+                  {cohort.price != null && <PriceTag price={cohort.price} />}
+                  {/* A visitor signs up first and comes back to this group (#175). */}
+                  <CohortSubscribeButton courseUuid={courseUuid} cohortUuid={cohort.uuid} />
+                </UnlessMyCohort>
+              )}
+            </div>
 
             {/*
               ⚠️ OUTSIDE the `is_joinable` branch above: a member stays a member

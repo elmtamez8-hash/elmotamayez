@@ -25,6 +25,64 @@ export function useCohortSchedule(labels: string[], slots: string[] | undefined)
   return { items: slots.map((at) => formatCohortSlot(at, zone)), zone };
 }
 
+const WEEK = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+// The calendar's own one-letter names, Sunday first as the Qatari week runs.
+const WEEK_INITIALS = ["ح", "ن", "ث", "ر", "خ", "ج", "س"];
+
+/**
+ * A group's meetings as a week (owner request 2026-10-11): seven days with the
+ * meeting days lit, then each meeting's hour — so «which days, what time» is read
+ * in one look instead of from a row of chips.
+ *
+ * Built from the same `items` as the chips, so the server render (platform-zone
+ * labels) and the browser (the visitor's clock) light the same days. An item
+ * whose weekday cannot be read is still listed, just not lit.
+ */
+export function CohortWeek({ labels, slots }: { labels: string[]; slots?: string[] }) {
+  const { items, zone } = useCohortSchedule(labels, slots);
+
+  if (items.length === 0) {
+    return <p className="text-xs text-ink-muted">لم تُجدول حصص بعد</p>;
+  }
+
+  const meetings = items.map((item) => {
+    const day = WEEK.findIndex((name) => item.startsWith(name));
+
+    return { day, time: day === -1 ? item : item.slice(WEEK[day].length).trim() };
+  });
+  const lit = new Set(meetings.map((m) => m.day));
+
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-surface p-3.5">
+      <ol aria-hidden="true" className="grid grid-cols-7 gap-1">
+        {WEEK_INITIALS.map((initial, day) => (
+          <li
+            key={day}
+            className={`grid aspect-square place-items-center rounded-full text-xs font-extrabold ${
+              lit.has(day) ? "bg-primary text-white shadow-sm shadow-primary/30" : "text-ink-muted/70"
+            }`}
+          >
+            {initial}
+          </li>
+        ))}
+      </ol>
+      <ul className="flex flex-col gap-1.5">
+        {meetings.map((m, index) => (
+          <li key={index} className="flex items-baseline justify-between gap-3 text-sm">
+            <span className="font-bold text-ink">{m.day === -1 ? "موعد" : WEEK[m.day]}</span>
+            <bdi className="font-extrabold tabular-nums text-primary-ink">{m.time}</bdi>
+          </li>
+        ))}
+      </ul>
+      {zone !== null && (
+        <p className="text-[0.7rem] text-ink-muted">
+          بتوقيت <bdi>{timezoneLabel(zone)}</bdi>
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CohortScheduleSlots({
   labels,
   slots,
