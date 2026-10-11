@@ -7,6 +7,7 @@ namespace App\Modules\Store\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
+use App\Modules\Marketplace\Support\ListingPageSizes;
 use App\Modules\Store\Enums\StoreItemKind;
 use App\Modules\Store\Http\Resources\PublicStoreItemDetailResource;
 use App\Modules\Store\Http\Resources\PublicStoreItemResource;
@@ -66,7 +67,7 @@ class PublicStoreController extends Controller
             default => $items->orderByDesc('id'),
         };
 
-        return PublicStoreItemResource::collection($items->paginate(24)->withQueryString());
+        return PublicStoreItemResource::collection($items->paginate(ListingPageSizes::store())->withQueryString());
     }
 
     public function show(string $item): PublicStoreItemDetailResource

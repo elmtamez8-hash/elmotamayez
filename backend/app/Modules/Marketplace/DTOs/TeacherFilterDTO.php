@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Marketplace\DTOs;
 
+use App\Modules\Marketplace\Support\ListingPageSizes;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Shared\Data\DataTransferObject;
 
@@ -31,10 +32,11 @@ class TeacherFilterDTO extends DataTransferObject
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
-        /** @var array{default_per_page: int, max_per_page: int} $limits */
+        /** @var array{max_per_page: int} $limits */
         $limits = config('marketplace.pagination');
 
-        $perPage = (int) ($data['per_page'] ?? $limits['default_per_page']);
+        // The default is the panel's (`ListingPageSizes`); an explicit `per_page` still wins.
+        $perPage = (int) ($data['per_page'] ?? ListingPageSizes::teachers());
 
         return new self(
             subject: $data['subject'] ?? null,
