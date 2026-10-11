@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { publicApi } from "@/lib/public-api";
 import { AddChildForm } from "@/components/marketplace/AddChildForm";
+import { SignupFrame } from "@/components/marketplace/SignupFrame";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 
 export const metadata: Metadata = {
@@ -43,19 +44,16 @@ export default async function AddChildrenPage() {
     );
   }
 
+  // In the signup frame (owner request 2026-10-11): the step right after the
+  // parent's own form, so it keeps that form's page around it.
   return (
-    <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
-      <div className="mb-8 text-center">
-        <h1 className="mb-2 text-2xl font-extrabold text-ink sm:text-3xl">
-          أضف أبناءك
-        </h1>
-        <p className="text-ink-muted">
-          اربط حساب كل طفل لمتابعة حصصه وتقاريره. يمكنك تخطّي هذه الخطوة والعودة
-          إليها في أي وقت.
-        </p>
-      </div>
-
+    <SignupFrame
+      role="parent"
+      switcher={false}
+      title="أضف أبناءك"
+      subtitle="اربط حساب كل طفل لمتابعة حصصه وتقاريره. يمكنك تخطّي هذه الخطوة والعودة إليها في أي وقت."
+    >
       <AddChildForm schoolYears={schoolYears} />
-    </div>
+    </SignupFrame>
   );
 }
