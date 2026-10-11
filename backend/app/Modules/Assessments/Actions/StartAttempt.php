@@ -40,13 +40,23 @@ class StartAttempt extends Action
         // submission has no enrolment to move progress on.
         $enrollment ??= $this->enrollmentFor($exam, $student);
 
-        $attemptNumber = $isPractice ? null : $this->guardAttemptLimit($exam, $student);
-
         $this->guardSessionContent($exam, $student);
 
         if (! $isPractice && $enrollment !== null) {
             $this->guardSequence($exam, $student, $enrollment);
         }
+
+        /*
+        | ⛔ AN OPEN OFFICIAL ATTEMPT IS RESUMED, NEVER REPLACED (security scan
+        | 2026-10-10, F3). A reload, a second tab or a link someone else sent
+        | each started a fresh graded attempt while the first sat unsubmitted,
+        | so the allowance could be burnt without one answer being given.
+        */
+        if (! $isPractice && ($open = $this->openAttempt($exam, $student)) !== null) {
+            return $open;
+        }
+
+        $attemptNumber = $isPractice ? null : $this->guardAttemptLimit($exam, $student);
 
         // exam_attempts.random_seed is an unsignedInteger column — keep the seed
         // inside 32 bits or strict-mode MySQL rejects the insert.
@@ -327,6 +337,18 @@ class StartAttempt extends Action
         if ($refusal !== null) {
             throw new DomainException($refusal->message ?? 'هذا الاختبار مقفول حتى تُكمل ما قبله.');
         }
+    }
+
+    private function openAttempt(Exam $exam, User $student): ?Attempt
+    {
+        return Attempt::query()
+            ->withoutWorkspaceScope()
+            ->where('exam_id', $exam->getKey())
+            ->where('student_user_id', $student->getKey())
+            ->where('is_practice', false)
+            ->where('status', Attempt::STATUS_IN_PROGRESS)
+            ->latest('id')
+            ->first();
     }
 
     private function authorsIn(User $user, int $workspaceId): bool

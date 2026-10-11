@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useState } from "react";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { counted, NOUNS } from "@/lib/labels";
@@ -46,9 +46,19 @@ export default function TakeExamPage({
   const [texts, setTexts] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [started, setStarted] = useState(false);
 
-  useEffect(() => {
+  /*
+    ⛔ STARTED BY A PRESS, NEVER BY OPENING THE PAGE (security scan 2026-10-10,
+    F3). The POST used to run on mount, so any link to this url — sent by a
+    classmate, or opened in a hidden frame — spent one of the student's graded
+    attempts without them ever seeing the paper.
+  */
+  const start = () => {
+    setStarted(true);
+    setLoading(true);
+    setError("");
     api
       .post<AttemptResponse>(`/exams/${uuid}/attempts`)
       .then((res) => {
@@ -61,7 +71,7 @@ export default function TakeExamPage({
       })
       .catch((err: unknown) => setError(userMessage(err)))
       .finally(() => setLoading(false));
-  }, [uuid]);
+  };
 
   /*
     One answer per question — selecting replaces, it never accumulates.
@@ -111,6 +121,26 @@ export default function TakeExamPage({
       setSubmitting(false);
     }
   };
+
+  if (!started) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          Icon={ExamIcon}
+          title="بدء الاختبار"
+          description="عند الضغط على «ابدأ الاختبار» تبدأ محاولة جديدة وتُحتسب من عدد محاولاتك."
+        />
+        <div className="flex flex-wrap gap-3">
+          <Button size="lg" onClick={start}>
+            ابدأ الاختبار
+          </Button>
+          <Button href="/exams" variant="secondary" size="lg">
+            عُد إلى الاختبارات
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <RowsSkeleton count={4} />;
 

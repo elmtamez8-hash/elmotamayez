@@ -38,11 +38,30 @@ beforeEach(() => {
   );
 });
 
-describe("taking an exam with an essay", () => {
-  it("offers a text box for the essay and submits what was written", async () => {
+async function openAndStart() {
+  await act(async () => {
+    render(<TakeExamPage params={Promise.resolve({ uuid: "e-1" })} />);
+  });
+  await act(async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "ابدأ الاختبار" }));
+  });
+}
+
+describe("starting an exam", () => {
+  it("spends no attempt until the student presses start", async () => {
+    // Security scan 2026-10-10, F3: the attempt used to start on page load.
     await act(async () => {
       render(<TakeExamPage params={Promise.resolve({ uuid: "e-1" })} />);
     });
+
+    await screen.findByRole("button", { name: "ابدأ الاختبار" });
+    expect(post).not.toHaveBeenCalled();
+  });
+});
+
+describe("taking an exam with an essay", () => {
+  it("offers a text box for the essay and submits what was written", async () => {
+    await openAndStart();
 
     fireEvent.click(await screen.findByRole("button", { name: "٤" }));
     fireEvent.change(screen.getByLabelText("إجابتك"), {
@@ -62,9 +81,7 @@ describe("taking an exam with an essay", () => {
   });
 
   it("sends an untouched essay as blank rather than dropping the question", async () => {
-    await act(async () => {
-      render(<TakeExamPage params={Promise.resolve({ uuid: "e-1" })} />);
-    });
+    await openAndStart();
 
     await screen.findByLabelText("إجابتك");
 
