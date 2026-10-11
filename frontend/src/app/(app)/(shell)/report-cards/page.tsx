@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { Card } from "@/components/ui/Card";
+import { CARD_INTERACTIVE } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ProgressIcon } from "@/components/icons";
+import { ChevronEndIcon, ProgressIcon } from "@/components/icons";
 import { SelectField } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -125,14 +125,23 @@ export default function ReportCardsPage() {
                 href={`/report-cards/${card.uuid}`}
                 className="block rounded-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               >
-                <Card as="article" interactive>
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="font-semibold text-ink">{cardPeriodLabel(card)}</p>
-                    <p className="text-lg font-bold text-ink">
+                {/* The grade on a brand tile (owner request 2026-10-11): it is
+                    the number a family opens this page for. */}
+                <article
+                  className={`group flex items-center gap-4 rounded-3xl border border-line bg-surface-raised p-4 shadow-sm ${CARD_INTERACTIVE}`}
+                >
+                  <div className="bg-squares grid min-w-24 shrink-0 place-items-center rounded-2xl bg-primary px-3 py-3 text-center text-white">
+                    <span className="text-2xl font-extrabold leading-none tabular-nums">
                       {card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}٪`}
-                    </p>
+                    </span>
+                    <span className="mt-1 text-xs font-semibold opacity-85">التقدير العام</span>
                   </div>
-                </Card>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-lg font-extrabold text-ink group-hover:text-primary-ink">{cardPeriodLabel(card)}</p>
+                    <p className="mt-1 text-sm text-ink-muted">بمساهمة كلّ مدرّس على حدة</p>
+                  </div>
+                  <ChevronEndIcon className="h-5 w-5 shrink-0 text-ink-muted transition group-hover:text-primary-ink motion-safe:group-hover:-translate-x-1" />
+                </article>
               </Link>
             </li>
           ))}
