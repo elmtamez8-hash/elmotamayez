@@ -89,6 +89,7 @@ export function SignupFrame({
   title,
   subtitle,
   notice,
+  switcher = true,
   children,
 }: {
   role: SignupRole;
@@ -96,6 +97,8 @@ export function SignupFrame({
   subtitle: string;
   /** Anything that must sit above the form (the student's return-to-teacher note). */
   notice?: ReactNode;
+  /** Off on the pages after signup (the application sent, the children step) — the account kind is already chosen. */
+  switcher?: boolean;
   children: ReactNode;
 }) {
   const current = ROLES[role];
@@ -139,6 +142,7 @@ export function SignupFrame({
         </aside>
 
         <div className="min-w-0">
+          {switcher && (
           <nav aria-label="نوع الحساب" className="mb-5">
             <ul className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-surface-raised p-1.5">
               {ORDER.map((key) => {
@@ -164,6 +168,7 @@ export function SignupFrame({
               })}
             </ul>
           </nav>
+          )}
 
           {notice}
 
