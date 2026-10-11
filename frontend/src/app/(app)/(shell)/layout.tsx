@@ -184,8 +184,18 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   const refused = refusedBy(allNav, pathname, user);
 
+  /*
+   * ONE item lights up, the longest href the path sits under — the same rule
+   * `refusedBy()` reads. A bare prefix test lit «الإعدادات» beside «خصوصيّتي»
+   * on `/settings/privacy` (2026-10-11).
+   */
+  const activeHref = allNav
+    .map((item) => item.href)
+    .filter((href) => pathname === href || pathname.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+
   const renderItem = ({ href, label, Icon, badge, external }: NavItem) => {
-    const active = pathname === href || pathname.startsWith(href + "/");
+    const active = href === activeHref;
     const showBadge = badge === "grading" && pendingGrading > 0;
 
     /*
