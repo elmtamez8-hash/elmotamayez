@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { auth, setToken, setSessionUuid, clearToken, type SignedIn } from "@/lib/api";
 import { twoFactor } from "@/lib/two-factor";
+import { currentSubscription, unsubscribeFromPush } from "@/lib/push";
 import { isLearner } from "@/lib/dashboard-audience";
 import { browserTimeZone, isValidTimeZone } from "@/lib/timezone";
 import { setStoredViewerTimeZone } from "@/lib/viewer-time-zone";
@@ -256,6 +257,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    /*
+     * ⛔ The device stops receiving this account's notifications on the way out
+     * (security scan 2026-10-10, F5) — on a shared device, the next person kept
+     * reading them on the lock screen. Asked BEFORE the sign-out, while the token
+     * can still name the row; a failure never blocks leaving, and the browser
+     * side is dropped even when the server could not be told.
+     */
+    await unsubscribeFromPush().catch(() =>
+      currentSubscription()
+        .then((subscription) => subscription?.unsubscribe())
+        .catch(() => {}),
+    );
+
     try {
       await auth.logout();
     } finally {
