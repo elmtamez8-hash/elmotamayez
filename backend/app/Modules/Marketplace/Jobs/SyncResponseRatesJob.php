@@ -45,6 +45,11 @@ class SyncResponseRatesJob implements ShouldQueue
 
     public int $timeout = 600;
 
+    public function __construct()
+    {
+        $this->onQueue('maintenance');
+    }
+
     /**
      * The middleware rather than the schedule's `withoutOverlapping()`, which
      * guards only the dispatch (docs/gotchas/deploy-ops.md).

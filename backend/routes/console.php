@@ -599,9 +599,9 @@ Schedule::job(new SendScheduledReportsJob, 'maintenance')
 // «معدّل الاستجابة» on the public teacher page — the share of waiting students
 // the teacher's side answered within a day, over 90 days. A daily figure, so
 // once a day.
+// No platform zone: the window is «the last 90 days» from now, not a calendar day.
 Schedule::job(new SyncResponseRatesJob, 'maintenance')
-    ->dailyAt('05:10')
-    ->timezone($platformTimezone)
+    ->dailyAt('02:10')
     ->withoutOverlapping();
 
 // Spec 039 — finish a whiteboard copy or deletion whose job died.
