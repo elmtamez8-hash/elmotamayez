@@ -69,7 +69,8 @@ return [
     'bestseller_enrollments' => 25,
 
     'pagination' => [
-        'default_per_page' => 12,
+        // The DEFAULT page size lives in `platform_settings` now
+        // (`ListingPageSizes`, «إعدادات المنصّة»); this is only the ceiling.
         'max_per_page' => 48,
     ],
 

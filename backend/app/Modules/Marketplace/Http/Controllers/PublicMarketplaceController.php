@@ -22,6 +22,7 @@ use App\Modules\Marketplace\Http\Resources\PublicCourseDetailResource;
 use App\Modules\Marketplace\Http\Resources\PublicPreviewLessonResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherCardResource;
 use App\Modules\Marketplace\Http\Resources\PublicTeacherDetailResource;
+use App\Modules\Marketplace\Support\ListingPageSizes;
 use App\Modules\Marketplace\Support\MarketplaceCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -312,7 +313,7 @@ class PublicMarketplaceController extends Controller
         $payload['trial_lessons'] = $action->trialsOf($courses);
         // `reviews_page`, not `page`: the profile is one page; only its reviews
         // list is paged.
-        $payload['reviews'] = $action->reviewsOf($teacher, page: max(1, $request->integer('reviews_page', 1)));
+        $payload['reviews'] = $action->reviewsOf($teacher, ListingPageSizes::reviews(), max(1, $request->integer('reviews_page', 1)));
 
         return response()->json(['data' => $payload]);
     }

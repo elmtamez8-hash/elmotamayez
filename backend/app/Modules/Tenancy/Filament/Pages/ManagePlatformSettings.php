@@ -12,6 +12,8 @@ use App\Modules\Community\Support\CommunitySettings;
 use App\Modules\Compliance\Actions\SaveDataCategory;
 use App\Modules\Compliance\Models\DataCategory;
 use App\Modules\LiveSessions\Enums\ClassSessionType;
+use App\Modules\Marketplace\Support\ListingPageSizes;
+use App\Modules\Marketplace\Support\MarketplaceCache;
 use App\Modules\Payments\Support\BillingSettings;
 use App\Modules\Payments\Support\TransferInstructions;
 use App\Modules\Tenancy\Support\PlatformSettings;
@@ -99,6 +101,11 @@ class ManagePlatformSettings extends Page
             'session_idle_days' => PlatformSettings::get('auth.session_idle_days'),
             // `CommunitySettings` carries the fallback and the clamp.
             'prospect_message_cap' => CommunitySettings::prospectMessageCap(),
+            // Read through the class, so a list with no row yet shows the number it really uses.
+            'page_size_store' => ListingPageSizes::store(),
+            'page_size_courses' => ListingPageSizes::courses(),
+            'page_size_teachers' => ListingPageSizes::teachers(),
+            'page_size_reviews' => ListingPageSizes::reviews(),
             // `WhiteboardSettings` carries the config fallback and the floor of one.
             'whiteboard_max_scene_mb' => round(WhiteboardSettings::maxSceneBytes() / self::BYTES_PER_MEGABYTE, 2),
             'whiteboard_max_board_mb' => round(WhiteboardSettings::maxBoardBytes() / self::BYTES_PER_MEGABYTE, 2),
@@ -260,6 +267,15 @@ class ManagePlatformSettings extends Page
                                 ->helperText('من لا يدرس عند المدرّس يرسل هذا العدد ثمّ ينتظر الردّ؛ الطالب ووليّ أمره يتشاركان العدد، وأوّل ردّ من فريق المدرّس يرفع الحدّ نهائياً.')
                                 ->integer()->minValue(1)->maxValue(50)->required(),
                         ]),
+                    Section::make('عدد العناصر في كل صفحة')
+                        ->description('كم منتجاً أو كورساً أو مدرّساً أو تقييماً يظهر في الصفحة الواحدة قبل أرقام الصفحات.')
+                        ->columns(2)
+                        ->schema(array_map(
+                            static fn (string $list): TextInput => TextInput::make('page_size_'.$list)
+                                ->label(ListingPageSizes::FIELDS[$list][0])
+                                ->integer()->minValue(1)->maxValue(ListingPageSizes::MAX)->required(),
+                            array_keys(ListingPageSizes::FIELDS),
+                        )),
                     Section::make('السبّورة')
                         ->description('حدود سبّورة المدرّس: حجم الصفحة الواحدة، ومجموع صفحات السبّورة، وعدد صفحاتها.')
                         ->schema([
@@ -437,6 +453,11 @@ class ManagePlatformSettings extends Page
         PlatformSettings::set('auth.session_idle_days', (int) $data['session_idle_days'], $userId);
         $this->saveSessionRetention((int) $data['auth_session_retain_days']);
         PlatformSettings::set('community.chat.prospect_message_cap', max(1, (int) $data['prospect_message_cap']), $userId);
+        foreach (array_keys(ListingPageSizes::FIELDS) as $list) {
+            PlatformSettings::set(ListingPageSizes::key($list), ListingPageSizes::clamp((int) $data['page_size_'.$list]), $userId);
+        }
+        // The cached course and teacher lists were built at the old size.
+        MarketplaceCache::flush();
         PlatformSettings::set('whiteboard.max_scene_bytes', (int) round((float) $data['whiteboard_max_scene_mb'] * self::BYTES_PER_MEGABYTE), $userId);
         PlatformSettings::set('whiteboard.max_board_bytes', (int) round((float) $data['whiteboard_max_board_mb'] * self::BYTES_PER_MEGABYTE), $userId);
         PlatformSettings::set('whiteboard.max_pages_per_board', (int) $data['whiteboard_max_pages_per_board'], $userId);
