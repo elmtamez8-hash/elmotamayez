@@ -20,6 +20,7 @@ import { arabicNumber } from "@/lib/numerals";
 import { useAuth } from "@/lib/auth-context";
 import { P, can } from "@/lib/permissions";
 import { AssistantScopeNotice } from "@/components/courses/AssistantScopeNotice";
+import { CourseCover } from "@/components/marketplace/CourseCover";
 import { htmlToText } from "@/lib/html-text";
 
 /**
@@ -270,8 +271,10 @@ export default function ManageCoursesPage() {
                 href={`/manage/courses/${course.uuid}`}
                 className="block rounded-t-3xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                <div className="grid h-28 place-items-center bg-primary-soft text-primary-ink">
-                  <CoursesIcon className="h-9 w-9 opacity-60 transition duration-200 motion-safe:group-hover:scale-110" />
+                {/* The public card's cover (owner request 2026-10-11): the
+                    teacher sees their course the way the student will. */}
+                <div className="h-36 overflow-hidden">
+                  <CourseCover title={course.title} coverUrl={course.cover_url ?? null} variant="card" />
                 </div>
                 <div className="p-5 pb-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">

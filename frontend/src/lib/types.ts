@@ -234,6 +234,8 @@ export interface Course {
    * type because lists do not eager-load the relation.
    */
   subject?: { uuid: string; label: string } | null;
+  /** `CourseResource` sends it; the teacher's course list draws it. */
+  cover_url?: string | null;
   /**
    * ⚠️ THE STAGE, AND UNTIL 2026-09-09 NOTHING ON THE PLATFORM WROTE IT.
    * `courses.grade_level` was fillable from 006 and assigned by no request, form,
