@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { userMessage } from "@/lib/errors";
-import { arabicNumber } from "@/lib/numerals";
+import { arabicDecimal } from "@/lib/numerals";
 import { periodLabel, reportCards, type ReportCard } from "@/lib/reviews";
 import type { ChildCardProps } from "./ChildCardProps";
 import { sharedRead } from "./shared-read";
@@ -75,7 +75,7 @@ export function ChildReportCardCard({ studentUuid, studentName }: ChildCardProps
               {latest.overall_pct === null ? (
                 "لم يُحتسب بعد"
               ) : (
-                <bdi>{`${arabicNumber(latest.overall_pct)}٪`}</bdi>
+                <bdi>{`${arabicDecimal(latest.overall_pct)}٪`}</bdi>
               )}
             </span>
           </p>

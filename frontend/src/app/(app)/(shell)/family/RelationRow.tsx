@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConsentScreen } from "@/components/compliance/ConsentScreen";
+import { CheckIcon } from "@/components/icons";
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -60,74 +61,66 @@ export function RelationRow({
   };
 
   return (
-    <li className="rounded-2xl border border-line p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-ink">{heading}</p>
+    <li className="overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm">
+      {/* The bold band (owner request 2026-10-11): brand colour for a live link,
+          the pale tint while it waits or after it ended. */}
+      <div
+        className={`flex flex-wrap items-start justify-between gap-3 px-5 py-4 ${
+          relation.status === "active" ? "bg-squares bg-primary text-white" : "bg-primary-soft text-primary-ink"
+        }`}
+      >
+        <div className="min-w-0">
+          <p className="text-lg font-extrabold">{heading}</p>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
-            <span>{relation.relation_type_label}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
+            <span className="opacity-85">{relation.relation_type_label}</span>
             {/*
               ⚠️ `status_label` FROM THE PAYLOAD, NEVER `StatusBadge`. That helper
               maps `pending` to «بانتظار الدفع» — a payment word, on a family link.
             */}
-            <Badge tone={relation.status === "active" ? "success" : "warning"}>
-              {relation.status_label}
-            </Badge>
-            {!relation.student_has_account && !readingAsStudent && <span>لا يملك حساباً بعد</span>}
+            <span className="rounded-full bg-surface-raised p-0.5 shadow-sm">
+              <Badge tone={relation.status === "active" ? "success" : "warning"}>
+                {relation.status_label}
+              </Badge>
+            </span>
+            {!relation.student_has_account && !readingAsStudent && (
+              <span className="opacity-85">لا يملك حساباً بعد</span>
+            )}
           </div>
-
-          <p className="mt-2 text-xs text-ink-muted">
-            {readingAsStudent ? "ما سيطّلع عليه:" : "ما يطّلع عليه:"}
-          </p>
-
-          {relation.permissions.length === 0 ? (
-            <p className="mt-1 text-xs text-ink-muted">لا شيء.</p>
-          ) : (
-            <ul className="mt-1 flex flex-wrap gap-1.5">
-              {relation.permissions.map((permission) => (
-                <li
-                  key={permission.key}
-                  className="rounded bg-primary-soft px-2 py-0.5 text-xs text-primary-ink"
-                >
-                  {permission.label}
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/*
-            The accept button, and the flag is the only condition. The server
-            answers `can_decide` from the same predicate the endpoint enforces —
-            including for a link created before this feature existed, which nobody
-            may settle because nobody can prove who asked for it.
-          */}
-          {relation.can_decide && (
-            <Button size="sm" loading={busy} onClick={() => void run(() => onAccept(relation.uuid))}>
-              قبول
-            </Button>
-          )}
-
-          {relation.status !== "revoked" && (
-            /*
-              ⚠️ A CONFIRMATION, BECAUSE THERE IS NO WAY BACK OUT OF `revoked`.
-              Asking again is a brand-new request that the other party has to accept
-              a second time — so a stray tap on a phone costs a relationship, not a
-              toggle. It was a plain danger button until 030.
-            */
-            <ConfirmButton
-              size="sm"
-              confirmLabel={relation.can_decide ? "تأكيد الرفض" : "تأكيد القطع"}
-              loading={busy}
-              onConfirm={() => void run(() => onRevoke(relation.uuid))}
-            >
-              {relation.can_decide ? "رفض" : "قطع الارتباط"}
-            </ConfirmButton>
-          )}
-        </div>
+        {/*
+          The accept button, and the flag is the only condition. The server
+          answers `can_decide` from the same predicate the endpoint enforces —
+          including for a link created before this feature existed, which nobody
+          may settle because nobody can prove who asked for it.
+        */}
+        {relation.can_decide && (
+          <Button size="sm" loading={busy} onClick={() => void run(() => onAccept(relation.uuid))}>
+            قبول
+          </Button>
+        )}
       </div>
+
+      <div className="p-5">
+      <p className="text-sm font-bold text-ink">
+        {readingAsStudent ? "ما سيطّلع عليه:" : "ما يطّلع عليه:"}
+      </p>
+
+      {relation.permissions.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-muted">لا شيء.</p>
+      ) : (
+        <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {relation.permissions.map((permission) => (
+            <li key={permission.key} className="flex items-center gap-2 text-sm text-ink">
+              <span aria-hidden="true" className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-secondary/15 text-secondary-ink">
+                <CheckIcon className="h-3 w-3" />
+              </span>
+              {permission.label}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/*
         ⚠️ SPEC 013 — THE ONE THING THAT OPENS A MINOR'S ACCOUNT, AND NO SCREEN
@@ -166,7 +159,7 @@ export function RelationRow({
         The rule that a guardian may narrow but never widen is enforced on the
         server; this is the door it guards.
       */}
-      {relation.status === "active" && (
+      {relation.status === "active" && editing && (
         <div className="mt-3 border-t border-line pt-3">
           {editing ? (
             <div className="space-y-3">
@@ -227,13 +220,38 @@ export function RelationRow({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : null}
+        </div>
+      )}
+
+      {relation.status !== "revoked" && !editing && (
+        /*
+          ⚠️ A CONFIRMATION, BECAUSE THERE IS NO WAY BACK OUT OF `revoked`.
+          Asking again is a brand-new request that the other party has to accept
+          a second time — so a stray tap on a phone costs a relationship, not a
+          toggle. It was a plain danger button until 030. At the foot and quiet
+          since 2026-10-11: it is the action a family should reach for least.
+        */
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+          {relation.status === "active" ? (
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
               تعديل الصلاحيات
             </Button>
+          ) : (
+            <span />
           )}
+          <ConfirmButton
+            size="sm"
+            variant="ghost"
+            confirmLabel={relation.can_decide ? "تأكيد الرفض" : "تأكيد القطع"}
+            loading={busy}
+            onConfirm={() => void run(() => onRevoke(relation.uuid))}
+          >
+            {relation.can_decide ? "رفض" : "قطع الارتباط"}
+          </ConfirmButton>
         </div>
       )}
+      </div>
     </li>
   );
 }
