@@ -34,6 +34,13 @@ describe("safeNext", () => {
     expect(safeNext("/\\/evil.example", "/dashboard")).toBe("/dashboard");
   });
 
+  it("refuses a path whose dot segments resolve to a protocol-relative URL", () => {
+    // Security scan 2026-10-10, F1: every input check passes, the parse outputs `//evil.example`.
+    expect(safeNext("/..//evil.example", "/dashboard")).toBe("/dashboard");
+    expect(safeNext("/a/../..//evil.example/x", "/dashboard")).toBe("/dashboard");
+    expect(safeNext("/./%2e%2e//evil.example", "/dashboard")).toBe("/dashboard");
+  });
+
   it("refuses an absolute URL, however friendly it looks", () => {
     expect(safeNext("https://evil.example/subscribe", "/dashboard")).toBe("/dashboard");
     expect(safeNext("http://localhost:3000/subscribe", "/dashboard")).toBe("/dashboard");

@@ -20,24 +20,25 @@
  * ⚠️ AND THE GUARD LIVES AT THE REDIRECT, NOT ON EACH PAGE THAT CARRIES THE
  * PARAMETER. The value crosses login, register and the signup wizard; one
  * spelling per screen is how the fourth screen ships without it.
+ *
+ * ⚠️ AND THE *OUTPUT* IS CHECKED, NOT ONLY THE INPUT (security scan 2026-10-10,
+ * F1). Parsing resolves dot segments, so `/..//evil.example` came OUT as
+ * `//evil.example` — protocol-relative again, after every input check had
+ * passed. The parse runs against a fixed origin so the server render takes the
+ * same path as the browser instead of returning the raw string.
  */
+const BASE = "http://same-origin.invalid";
+
 export function safeNext(next: string | null | undefined, fallback: string): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
     return fallback;
   }
 
   try {
-    // `window` is absent while a page is prerendered on the server; a relative
-    // path is already same-origin by construction, so the string stands.
-    const origin = typeof window === "undefined" ? null : window.location.origin;
+    const url = new URL(next, BASE);
+    const path = `${url.pathname}${url.search}`;
 
-    if (origin === null) {
-      return next;
-    }
-
-    const url = new URL(next, origin);
-
-    return url.origin === origin ? `${url.pathname}${url.search}` : fallback;
+    return url.origin === BASE && !path.startsWith("//") ? path : fallback;
   } catch {
     return fallback;
   }
