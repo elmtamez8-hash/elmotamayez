@@ -36,7 +36,7 @@ const ROLES: Record<
     href: "/signup/student",
     tab: "طالب",
     TabIcon: UserPlusIcon,
-    image: "/marketplace/auth-register.webp",
+    image: "/marketplace/signup-student.webp",
     imageAlt: "",
     points: [
       { Icon: HumanReviewIcon, title: "مراجعة قبل الانضمام", body: "كل مدرّس يمرّ بمراجعة أكاديمية قبل أن يظهر في المنصة." },
@@ -62,7 +62,7 @@ const ROLES: Record<
     href: "/signup/parent",
     tab: "وليّ أمر",
     TabIcon: UsersIcon,
-    image: "/marketplace/section-parents.webp",
+    image: "/marketplace/signup-parent.webp",
     imageAlt: "",
     points: [
       { Icon: FamilyIcon, title: "اربط حساب ابنك", body: "برمز من حسابه، ولا ترى شيئاً قبل موافقته." },
