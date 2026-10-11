@@ -459,15 +459,22 @@ export function TeacherSignupWizard({
           <div>
             <label className="flex items-start gap-3 text-sm text-ink">
               <input
+                id="terms_accepted"
                 type="checkbox"
                 checked={account.terms_accepted}
                 onChange={(e) => setAccount({ ...account, terms_accepted: e.target.checked })}
+                aria-invalid={errors.terms_accepted ? true : undefined}
+                aria-describedby={errors.terms_accepted ? "terms_accepted-error" : undefined}
                 className="mt-0.5 h-4 w-4 accent-primary"
               />
               <span>
                 أوافق على{" "}
                 <Link href="/terms" className="text-primary-ink underline">
                   الشروط والأحكام
+                </Link>{" "}
+                و
+                <Link href="/privacy" className="text-primary-ink underline">
+                  سياسة الخصوصية
                 </Link>
                 .
               </span>
