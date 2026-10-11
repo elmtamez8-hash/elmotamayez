@@ -5,9 +5,7 @@ import {
   CloseIcon,
   DocumentIcon,
   HomeIcon,
-  InfoIcon,
   MenuIcon,
-  TagIcon,
   UserPlusIcon,
   UsersIcon,
   OrdersIcon,
@@ -24,9 +22,13 @@ import { quickAccessFor } from "@/lib/panel-nav";
 import { AccountMenu } from "@/components/app/AccountMenu";
 
 /**
- * ⚠️ THE ICONS ARE THE FOOTER'S, ROUTE FOR ROUTE. Five of these six links appear
- * in `SiteFooter` under «المنصة» carrying `UsersIcon`, `BookIcon`, `DocumentIcon`,
- * `TagIcon` and `InfoIcon`; picking a fresh one here would give the same
+ * «الأسعار» and «عن المنصة» live in the footer only (owner decision 2026-10-11):
+ * the bar overflowed into a horizontal scroll between the phone menu and a wide
+ * screen.
+ *
+ * ⚠️ THE ICONS ARE THE FOOTER'S, ROUTE FOR ROUTE. Four of these links appear
+ * in `SiteFooter` under «المنصة» carrying `UsersIcon`, `BookIcon`,
+ * `OrdersIcon` and `DocumentIcon`; picking a fresh one here would give the same
  * destination two pictures on one page, and a reader who learns a mark in the
  * footer has to learn it again at the top. `/` is the only route with no footer
  * row, and `HomeIcon` is what the panel's own sidebar already uses for it.
@@ -37,8 +39,6 @@ const NAV = [
   { href: "/courses", label: "الكورسات", Icon: BookIcon },
   { href: "/store", label: "المتجر", Icon: OrdersIcon },
   { href: "/blog", label: "المدوّنة", Icon: DocumentIcon },
-  { href: "/pricing", label: "الأسعار", Icon: TagIcon },
-  { href: "/about", label: "عن المنصة", Icon: InfoIcon },
 ];
 
 /**
@@ -134,7 +134,7 @@ export function SiteHeader() {
                   <Link
                     href={href}
                     aria-current={current ? "page" : undefined}
-                    className={`group inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                    className={`group inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
                       current
                         ? "bg-primary-soft font-extrabold text-primary-ink"
                         : "font-bold text-ink hover:bg-primary-soft/60 hover:text-primary-ink"
