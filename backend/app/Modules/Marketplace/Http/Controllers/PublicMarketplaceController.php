@@ -299,7 +299,7 @@ class PublicMarketplaceController extends Controller
         return response()->json(['message' => 'شكراً لك. سُجِّلت ملاحظتك.'], 202);
     }
 
-    public function teacher(string $key, ShowPublicTeacher $action): JsonResponse
+    public function teacher(Request $request, string $key, ShowPublicTeacher $action): JsonResponse
     {
         // Not cached: reads are cheaper here than on the lists, and a stale profile
         // is the case where showing withdrawn data hurts most.
@@ -310,7 +310,9 @@ class PublicMarketplaceController extends Controller
         $payload['courses'] = PublicCourseCardResource::collection($courses)->resolve();
         // Spec 040 — the teacher's «حصص تجريبية», one per course that has one.
         $payload['trial_lessons'] = $action->trialsOf($courses);
-        $payload['reviews'] = $action->reviewsOf($teacher);
+        // `reviews_page`, not `page`: the profile is one page; only its reviews
+        // list is paged.
+        $payload['reviews'] = $action->reviewsOf($teacher, page: max(1, $request->integer('reviews_page', 1)));
 
         return response()->json(['data' => $payload]);
     }

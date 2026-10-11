@@ -436,7 +436,7 @@ final class PublicFieldAllowlist
     ];
 
     /** The review block: a headline number, a histogram, and the reviews. */
-    public const REVIEW_SUMMARY = ['average', 'distribution', 'items'];
+    public const REVIEW_SUMMARY = ['average', 'distribution', 'items', 'current_page', 'last_page'];
 
     /*
     | ⚠️ THERE IS NO `TESTIMONIAL` CONSTANT, AND THAT IS THE DESIGN.
