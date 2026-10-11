@@ -1,3 +1,4 @@
+import { UsersIcon } from "@/components/icons";
 import { PriceTag } from "@/components/marketplace/PriceTag";
 import { WaitlistButton } from "@/components/courses/WaitlistButton";
 import {
@@ -107,17 +108,32 @@ export function CohortList({
       {cohorts.map((cohort) => {
         const status = STATUS[cohort.status];
         const remaining = seats(cohort.seats_left);
+        // A joinable group wears the brand; a full or closed one steps back, so
+        // the eye lands on the groups a visitor can actually join.
+        const lit = cohort.is_joinable;
+        const fewLeft = cohort.seats_left !== undefined && cohort.seats_left > 0 && cohort.seats_left <= 3;
 
         return (
           <li
             key={cohort.uuid}
-            className="flex flex-col gap-3.5 rounded-3xl border border-line bg-surface-raised p-5 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:p-6"
+            className="flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
+            {/* The bold band (owner request 2026-10-11), in the course and store
+                cards' language: the group's name on the brand colour. */}
+            <div
+              className={`bg-squares relative isolate flex flex-col gap-2 p-5 sm:p-6 ${
+                lit ? "bg-primary text-white" : "bg-primary-soft text-primary-ink"
+              }`}
+            >
+              <UsersIcon
+                aria-hidden="true"
+                className={`pointer-events-none absolute -bottom-6 -start-4 -z-10 h-24 w-24 ${lit ? "text-white/10" : "text-primary-ink/10"}`}
+              />
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-extrabold leading-snug text-ink">
+              <h3 className="text-xl font-extrabold leading-snug">
                 {cohort.name}
               </h3>
-              <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+              <div className="flex shrink-0 flex-wrap justify-end gap-1.5 rounded-full bg-surface-raised p-0.5 shadow-sm">
                 {/*
                   ⚠️ A CLIENT LEAF INSIDE A SERVER CARD. This list stays server
                   rendered — it is what a crawler reads — and only the answer to
@@ -135,10 +151,13 @@ export function CohortList({
             </div>
 
             {cohort.description && (
-              <p className="text-xs leading-relaxed text-ink-muted">
+              <p className={`text-sm leading-relaxed ${lit ? "text-white/80" : "text-ink-muted"}`}>
                 {cohort.description}
               </p>
             )}
+            </div>
+
+            <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
 
             {/* On the VISITOR's clock once the browser runs; the platform's,
                 zone named, in the server render (owner decision 2026-09-26).
@@ -149,9 +168,17 @@ export function CohortList({
                 line their prices and buttons up across a row. */}
             <div className="mt-auto flex flex-col gap-3 pt-1">
               {remaining && (
-                <p className="w-fit rounded-full bg-surface px-3 py-1 text-xs font-bold text-ink">
-                  {remaining}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span aria-hidden="true" className="grid h-8 w-8 place-items-center rounded-lg bg-primary-soft text-primary-ink">
+                    <UsersIcon className="h-4 w-4" />
+                  </span>
+                  <p className="text-sm font-bold text-ink">{remaining}</p>
+                  {fewLeft && (
+                    <strong className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${TONE_CLASSES.warning}`}>
+                      مقاعد قليلة
+                    </strong>
+                  )}
+                </div>
               )}
 
               {cohort.is_joinable && (
@@ -161,7 +188,7 @@ export function CohortList({
                 <UnlessMyCohort cohortUuid={cohort.uuid}>
                   {/* This group's own price, as the buyer on it is offered (review
                       2026-10-09) — the server sends it only on a joinable group. */}
-                  {cohort.price != null && <PriceTag price={cohort.price} />}
+                  {cohort.price != null && <PriceTag price={cohort.price} size="lg" />}
                   {/* A visitor signs up first and comes back to this group (#175). */}
                   <CohortSubscribeButton courseUuid={courseUuid} cohortUuid={cohort.uuid} />
                 </UnlessMyCohort>
@@ -174,6 +201,7 @@ export function CohortList({
               disappear because the group stopped taking newcomers.
             */}
             <MyCohortLink courseUuid={courseUuid} cohortUuid={cohort.uuid} />
+            </div>
           </li>
         );
         })}
