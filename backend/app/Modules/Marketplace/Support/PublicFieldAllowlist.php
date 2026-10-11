@@ -431,6 +431,8 @@ final class PublicFieldAllowlist
         'completion',
         'tenure',
         'complaints_penalty',
+        // Present only once the response rate has enough waits to judge.
+        'responsiveness',
     ];
 
     /** The review block: a headline number, a histogram, and the reviews. */

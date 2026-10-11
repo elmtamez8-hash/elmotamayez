@@ -10,7 +10,7 @@ use App\Modules\Marketplace\Models\TeacherProfile;
  * Pure computation of a teacher's trust score. No persistence, no queries — the
  * Action that owns the write calls this and stores the result.
  *
- * @phpstan-type Factors array{student_rating: int, punctuality: int, completion: int, tenure: int, complaints_penalty: int}
+ * @phpstan-type Factors array{student_rating: int, punctuality: int, completion: int, tenure: int, complaints_penalty: int, responsiveness?: int}
  */
 final class TrustScoreCalculator
 {
@@ -36,12 +36,20 @@ final class TrustScoreCalculator
             'complaints_penalty' => $this->complaintPenalty($confirmedComplaints, $config),
         ];
 
+        // Absent rather than zero until `SyncResponseRatesJob` has judged enough
+        // waits; the weights below then cover only the factors that exist, so a
+        // teacher nobody has written to yet is not marked down for it.
+        if ($profile->response_rate !== null) {
+            $factors['responsiveness'] = $profile->response_rate;
+        }
+
         /** @var array<string, int> $weights */
-        $weights = $config['weights'];
+        $weights = array_intersect_key($config['weights'], $factors);
+        $total = array_sum($weights);
 
         $weighted = 0.0;
         foreach ($weights as $key => $weight) {
-            $weighted += ($factors[$key] ?? 0) * ($weight / 100);
+            $weighted += $factors[$key] * ($weight / $total);
         }
 
         // Clamp before returning: the column is unsignedTinyInteger. SQLite would

@@ -6,6 +6,7 @@ const FACTOR_LABELS: Record<string, string> = {
   punctuality: "الالتزام بالمواعيد",
   completion: "إكمال الحصص دون إلغاء",
   tenure: "مدة العمل على المنصة",
+  responsiveness: "سرعة الرد على الطلاب",
   complaints_penalty: "خصم الشكاوى",
 };
 
@@ -24,7 +25,7 @@ const BAND_STROKE: Record<TrustBand, string> = {
 };
 
 /**
- * The score plus the five factors it is made of.
+ * The score plus the factors it is made of.
  *
  * A bare number asks the visitor to trust an opaque figure, which is the exact
  * thing the score exists to avoid. FR-026 requires the plain-language explanation
@@ -99,7 +100,8 @@ export function TrustScoreBreakdown({
             <>
               <p className="mb-5 text-sm leading-relaxed text-ink-muted">
                 رقم من ١٠٠ يجمع تقييمات الطلاب والتزام المدرّس بالمواعيد ونسبة إكمال
-                الحصص دون إلغاء ومدة عمله على المنصة، ناقص أي شكاوى مؤكدة.
+                الحصص دون إلغاء ومدة عمله على المنصة وسرعة رده على الطلاب، ناقص أي
+                شكاوى مؤكدة.
               </p>
 
               <dl className="space-y-3">

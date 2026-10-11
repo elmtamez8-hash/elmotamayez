@@ -62,17 +62,41 @@ it('scores a teacher with enough history from the configured weights', function 
 
     app(RecalculateTrustScore::class)->handle($teacher);
 
-    // rating 100×0.35 + punctuality 90×0.25 + completion 100×0.25 + tenure 100×0.15
-    expect($teacher->fresh()?->trust_score)->toBe(98)
+    // rating 100×0.30 + punctuality 90×0.25 + completion 100×0.20 + tenure 100×0.15
+    // + responsiveness 95×0.10 (the factory's response rate) = 97
+    expect($teacher->fresh()?->trust_score)->toBe(97)
         ->and($teacher->fresh()?->trust_score_factors)->toMatchArray([
             'student_rating' => 100,
             'punctuality' => 90,
             'completion' => 100,
             'tenure' => 100,
             'complaints_penalty' => 0,
+            'responsiveness' => 95,
         ])
         ->and($teacher->fresh()?->trust_score_calculated_at)->not->toBeNull();
 });
+
+it('weighs the response rate, and re-weights the rest while there is none', function (?int $responseRate, int $expected): void {
+    // Owner decision 2026-10-11: «سرعة الرد» is part of the score, and a teacher
+    // nobody has written to yet is not marked down for it.
+    $teacher = teacherWithHistory([
+        'completed_sessions_count' => 12,
+        'cancelled_sessions_count' => 0,
+        'attendance_rate' => 90,
+        'response_rate' => $responseRate,
+        'first_session_at' => now()->subYears(2),
+    ], reviews: 4, rating: 5);
+
+    app(RecalculateTrustScore::class)->handle($teacher);
+
+    expect($teacher->fresh()?->trust_score)->toBe($expected)
+        ->and(array_key_exists('responsiveness', $teacher->fresh()?->trust_score_factors ?? []))->toBe($responseRate !== null);
+})->with([
+    // 30 + 22.5 + 20 + 15 + 5
+    'slow replies pull it down' => [50, 93],
+    // (30×100 + 25×90 + 20×100 + 15×100) / 90
+    'no rate yet is not a zero' => [null, 97],
+]);
 
 it('deducts five points per confirmed complaint and stops at twenty', function (int $complaints, int $expectedPenalty): void {
     $teacher = teacherWithHistory([
