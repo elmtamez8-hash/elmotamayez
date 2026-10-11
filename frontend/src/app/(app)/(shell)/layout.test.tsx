@@ -47,6 +47,7 @@ function account(overrides: Partial<User>): User {
 }
 
 let currentUser: User = account({});
+let currentPath = "/dashboard";
 
 // `importActual` for everything but `useAuth` — `isLearner` is the thing under
 // test and must be the real one.
@@ -57,7 +58,7 @@ vi.mock("@/lib/auth-context", async () => {
 });
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard",
+  usePathname: () => currentPath,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
@@ -80,6 +81,7 @@ function navLabels(): string[] {
 
 beforeEach(() => {
   currentUser = account({});
+  currentPath = "/dashboard";
 });
 
 afterEach(() => cleanup());
@@ -172,5 +174,20 @@ describe("الشريط الجانبي يفصل شاشات المدرّس عن ش
       expect(learner).toContain(label);
       expect(teacher).toContain(label);
     }
+  });
+});
+
+describe("الشريط الجانبي يضيء بنداً واحداً", () => {
+  it("يضيء «خصوصيّتي» وحدها في صفحتها، لا «الإعدادات» معها", () => {
+    // A bare prefix test lit both: `/settings/privacy` starts with `/settings`.
+    currentUser = account({ platform_role: "parent" });
+    currentPath = "/settings/privacy";
+
+    render(<ShellLayout>محتوى</ShellLayout>);
+
+    const nav = screen.getByRole("navigation", { name: "التنقّل الرئيسي" });
+    const lit = Array.from(nav.querySelectorAll('a[aria-current="page"]'), (link) => link.textContent?.trim());
+
+    expect(lit).toEqual(["خصوصيّتي"]);
   });
 });
