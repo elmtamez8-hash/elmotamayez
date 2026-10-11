@@ -84,6 +84,21 @@ it('no longer routes /docs to PHP in the production nginx config', function (): 
         ->and(preg_match('#^\s*location\s+(?:\^~\s+)?/docs#m', $config))->toBe(0);
 });
 
+it('never hands PHP the client Host or forwarding headers on the public site', function (): void {
+    // Security scan 2026-10-10, F4: a forged Host poisoned the cached marketplace image urls.
+    $config = (string) file_get_contents(base_path('../docker/nginx.prod.conf'));
+
+    preg_match_all('#^\s*location\s[^\n]*fastcgi_pass[^\n]*$#m', $config, $matches);
+
+    expect($matches[0])->toHaveCount(7);
+
+    foreach ($matches[0] as $line) {
+        expect($line)->toContain('fastcgi_param HTTP_HOST $php_host;')
+            ->toContain('fastcgi_param HTTP_X_FORWARDED_FOR $remote_addr;')
+            ->toContain('fastcgi_param HTTP_X_FORWARDED_HOST $php_host;');
+    }
+});
+
 it('allows no localhost origin in production', function (): void {
     $cors = configFileUnder('cors.php', ['APP_ENV' => 'production', 'FRONTEND_URL' => null]);
 
