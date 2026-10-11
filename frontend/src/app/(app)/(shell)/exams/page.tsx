@@ -6,10 +6,9 @@ import { counted, NOUNS } from "@/lib/labels";
 import { arabicNumber } from "@/lib/numerals";
 import type { Exam } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { CARD_INTERACTIVE } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExamIcon } from "@/components/icons";
-import { Badge } from "@/components/ui/Badge";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
@@ -65,30 +64,49 @@ export default function ExamsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {exams.map((exam) => (
-            <Card key={exam.uuid} as="article" padding="sm" interactive>
-              <h3 className="mb-2 font-semibold text-ink">{exam.title}</h3>
-              <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{htmlToText(exam.description_html)}</p>
+            // The bold band (owner request 2026-10-11), the group card's language.
+            <article
+              key={exam.uuid}
+              className={`flex flex-col overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-sm ${CARD_INTERACTIVE}`}
+            >
+              <header className="bg-squares relative isolate overflow-hidden bg-primary px-5 py-5 text-white">
+                <ExamIcon
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-6 -end-4 -z-10 h-24 w-24 opacity-15"
+                />
+                <h3 className="line-clamp-2 text-lg font-extrabold leading-snug">{exam.title}</h3>
+              </header>
 
-              <div className="mb-4 flex flex-wrap gap-2">
+              <div className="flex flex-1 flex-col p-5">
+                {exam.description_html && (
+                  <p className="mb-4 line-clamp-2 text-sm text-ink-muted">{htmlToText(exam.description_html)}</p>
+                )}
+
                 {/*
                   Each count goes through `counted()`: «2 سؤالاً» and «3 محاولات»
                   beside «30 دقيقة» shipped on this card, each wrong in its own
                   band (2026-09-24).
                 */}
-                <Badge>{counted(exam.duration_minutes, NOUNS.minutes)}</Badge>
-                <Badge>
-                  النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}٪</bdi>
-                </Badge>
-                <Badge>{counted(exam.max_attempts, NOUNS.attempts)}</Badge>
-                {exam.questions_count !== undefined && (
-                  <Badge>{counted(exam.questions_count, NOUNS.questions)}</Badge>
-                )}
-              </div>
+                <ul className="mb-5 grid grid-cols-2 gap-2 text-sm font-bold text-primary-ink">
+                  <li className="rounded-2xl bg-primary-soft px-3 py-2">{counted(exam.duration_minutes, NOUNS.minutes)}</li>
+                  <li className="rounded-2xl bg-primary-soft px-3 py-2">
+                    النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}٪</bdi>
+                  </li>
+                  <li className="rounded-2xl bg-primary-soft px-3 py-2">{counted(exam.max_attempts, NOUNS.attempts)}</li>
+                  {exam.questions_count !== undefined && (
+                    <li className="rounded-2xl bg-primary-soft px-3 py-2">
+                      {counted(exam.questions_count, NOUNS.questions)}
+                    </li>
+                  )}
+                </ul>
 
-              <Button href={`/exams/${exam.uuid}/take`} fullWidth>
-                ابدأ الاختبار
-              </Button>
-            </Card>
+                <div className="mt-auto">
+                  <Button href={`/exams/${exam.uuid}/take`} fullWidth>
+                    ابدأ الاختبار
+                  </Button>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )}
