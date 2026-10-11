@@ -20,6 +20,7 @@ use App\Modules\LiveSessions\Jobs\ExpirePrivateSessionRequestsJob;
 use App\Modules\LiveSessions\Jobs\ExpireSessionRescheduleRequestsJob;
 use App\Modules\LiveSessions\Jobs\RetryPendingRecordingsJob;
 use App\Modules\LiveSessions\Jobs\SendSessionRemindersJob;
+use App\Modules\Marketplace\Jobs\SyncResponseRatesJob;
 use App\Modules\Media\Jobs\PruneExpiredGrantsJob;
 use App\Modules\Media\Jobs\ReconcileAssetStatus;
 use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
@@ -592,6 +593,14 @@ Schedule::job(new RollUpPlatformMetricsJob, 'maintenance')
 */
 Schedule::job(new SendScheduledReportsJob, 'maintenance')
     ->dailyAt('06:00')
+    ->timezone($platformTimezone)
+    ->withoutOverlapping();
+
+// «معدّل الاستجابة» on the public teacher page — the share of waiting students
+// the teacher's side answered within a day, over 90 days. A daily figure, so
+// once a day.
+Schedule::job(new SyncResponseRatesJob, 'maintenance')
+    ->dailyAt('05:10')
     ->timezone($platformTimezone)
     ->withoutOverlapping();
 
