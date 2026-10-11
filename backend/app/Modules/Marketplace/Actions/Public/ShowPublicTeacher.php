@@ -61,14 +61,16 @@ class ShowPublicTeacher extends Action
     }
 
     /**
-     * The public reviews block: average, star distribution and the newest comments.
+     * The public reviews block: average, star distribution and one PAGE of the
+     * newest comments (owner request 2026-10-11 — the list used to stop at the
+     * latest twenty, so a teacher with forty-eight had twenty-eight unreachable).
      *
      * Hidden reviews are excluded everywhere, including the distribution — a bar
      * chart that counts rows the list does not show reads as a bug.
      *
      * @return array<string, mixed>
      */
-    public function reviewsOf(TeacherProfile $teacher, int $limit = 20): array
+    public function reviewsOf(TeacherProfile $teacher, int $limit = 10, int $page = 1): array
     {
         $visible = fn () => Review::query()
             ->withoutWorkspaceScope()
@@ -99,6 +101,10 @@ class ShowPublicTeacher extends Action
             $sum += (int) $rating * (int) $count;
         }
 
+        // A page past the end shows the last one rather than an empty list.
+        $lastPage = max(1, (int) ceil($total / max(1, $limit)));
+        $page = min(max(1, $page), $lastPage);
+
         $reviews = $visible()
             // The nested select needs `user_id`: without the foreign key the
             // hasOne has nothing to match on and every profile comes back null,
@@ -110,7 +116,7 @@ class ShowPublicTeacher extends Action
             ->orderByDesc('created_at')
             // Same-second reviews would otherwise swap places between two loads.
             ->orderByDesc('id')
-            ->limit($limit)
+            ->forPage($page, $limit)
             ->get();
 
         return [
@@ -119,6 +125,8 @@ class ShowPublicTeacher extends Action
             // Cast to object: PHP turns numeric string keys into integers and
             // json_encode would then emit an array instead of the keyed object.
             'distribution' => (object) $distribution,
+            'current_page' => $page,
+            'last_page' => $lastPage,
             // The `teacher_*` keys the home carousel adds are deliberately absent
             // here: this page IS the teacher, and repeating their photo on every
             // row would be the same image sent twenty times to say nothing.

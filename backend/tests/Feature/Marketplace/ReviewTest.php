@@ -201,6 +201,30 @@ it('counts every visible review but loads only the page it shows', function (): 
         ->and($queries)->toBe(4);
 });
 
+it('pages the reviews through `reviews_page`, and a page past the end is the last one', function (): void {
+    // Owner request 2026-10-11: the list stopped at the newest twenty.
+    foreach ([5, 4, 3] as $rating) {
+        postReview(studentWhoAttendedWith($this->teacher), $this->teacher->uuid, $rating);
+    }
+
+    $action = app(ShowPublicTeacher::class);
+    $first = $action->reviewsOf($this->teacher, 2, 1);
+    $second = $action->reviewsOf($this->teacher, 2, 2);
+
+    expect($first['last_page'])->toBe(2)
+        ->and($first['items'])->toHaveCount(2)
+        ->and($second['current_page'])->toBe(2)
+        ->and($second['items'])->toHaveCount(1)
+        // Nothing repeats across the two pages.
+        ->and(array_intersect(array_column($first['items'], 'uuid'), array_column($second['items'], 'uuid')))->toBe([])
+        ->and($action->reviewsOf($this->teacher, 2, 9)['current_page'])->toBe(2);
+
+    $this->getJson("/api/v1/marketplace/teachers/{$this->teacher->uuid}?reviews_page=2")
+        ->assertOk()
+        ->assertJsonPath('data.reviews.current_page', 1)
+        ->assertJsonPath('data.reviews.last_page', 1);
+});
+
 it('refuses moderation without the permission', function (): void {
     $student = studentWhoAttendedWith($this->teacher);
     postReview($student, $this->teacher->uuid, 3);

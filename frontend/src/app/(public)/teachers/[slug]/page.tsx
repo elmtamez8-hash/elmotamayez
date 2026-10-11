@@ -50,14 +50,14 @@ import {
 } from "@/components/marketplace/ProfileTabs";
 
 type Params = { slug: string };
-type Search = { tab?: string };
+type Search = { tab?: string; reviews_page?: string };
 
 // `key` because the API resolves a slug OR a uuid: every profile link shared
 // before the slug existed is a uuid, and refusing those would 404 pages that
 // still exist.
-async function loadTeacher(key: string): Promise<TeacherDetail> {
+async function loadTeacher(key: string, reviewsPage?: number): Promise<TeacherDetail> {
   try {
-    const { data } = await publicApi.teacher(key);
+    const { data } = await publicApi.teacher(key, reviewsPage);
 
     return data;
   } catch (error) {
@@ -168,9 +168,9 @@ export default async function TeacherProfilePage({
   searchParams: Promise<Search>;
 }) {
   const { slug } = await params;
-  const { tab } = await searchParams;
+  const { tab, reviews_page } = await searchParams;
 
-  const teacher = await loadTeacher(slug);
+  const teacher = await loadTeacher(slug, Math.max(1, Number(reviews_page) || 1));
   // Best-effort: the profile renders without its shelf rather than failing.
   const storeItems = await publicApi
     .storeItems({ teacher: teacher.uuid })
@@ -553,6 +553,7 @@ export default async function TeacherProfilePage({
               <ReviewsTab
                 teacherUuid={teacher.uuid}
                 reviews={teacher.reviews}
+                basePath={`/teachers/${slug}`}
               />
             )}
 

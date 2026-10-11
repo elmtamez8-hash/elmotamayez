@@ -380,6 +380,9 @@ export type TeacherDetail = TeacherCard & {
     total: number;
     distribution: Record<string, number>;
     items: ReviewItem[];
+    /** One page of `items` (owner request 2026-10-11); absent on an older payload. */
+    current_page?: number;
+    last_page?: number;
   };
   availability: AvailabilityItem[];
   faqs: { question: string; answer: string }[];
@@ -630,9 +633,10 @@ export const publicApi = {
 
   // Accepts a slug or a uuid: the API resolves both, and an old shared link
   // is a uuid.
-  teacher: (key: string) =>
+  teacher: (key: string, reviewsPage?: number) =>
     get<{ data: TeacherDetail }>(
       `/marketplace/teachers/${encodeURIComponent(key)}`,
+      reviewsPage && reviewsPage > 1 ? { reviews_page: String(reviewsPage) } : undefined,
     ),
 
   courses: (params: Record<string, string | undefined>) =>

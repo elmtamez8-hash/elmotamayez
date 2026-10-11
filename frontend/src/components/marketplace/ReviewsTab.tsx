@@ -1,6 +1,7 @@
 import type { TeacherDetail } from "@/lib/public-api";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { EmptyState } from "@/components/ui/states/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import { ReviewForm } from "@/components/marketplace/ReviewForm";
 import { ReportReviewButton } from "@/components/marketplace/ReportReviewButton";
 
@@ -19,9 +20,12 @@ const STARS = [5, 4, 3, 2, 1] as const;
 export function ReviewsTab({
   teacherUuid,
   reviews,
+  basePath,
 }: {
   teacherUuid: string;
   reviews: TeacherDetail["reviews"];
+  /** The profile's own route — the reviews page under it (owner request 2026-10-11). */
+  basePath?: string;
 }) {
   if (reviews.total === 0) {
     return (
@@ -98,7 +102,7 @@ export function ReviewsTab({
       </section>
 
       <section aria-labelledby="reviews-list">
-        <h2 id="reviews-list" className="mb-5 flex items-center gap-3 text-xl font-extrabold text-ink">
+        <h2 id="reviews-list" className="mb-5 flex scroll-mt-28 items-center gap-3 text-xl font-extrabold text-ink">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-ink">
             <MessagesIcon className="h-5 w-5" />
           </span>
@@ -163,6 +167,20 @@ export function ReviewsTab({
             </li>
           ))}
         </ul>
+
+        {/* `reviews_page`, so paging the reviews moves nothing else on the
+            profile, and `#reviews-list` lands the reader back on the list. */}
+        {basePath && reviews.current_page !== undefined && reviews.last_page !== undefined && (
+          <Pagination
+            basePath={basePath}
+            currentPage={reviews.current_page}
+            lastPage={reviews.last_page}
+            searchParams={{ tab: "reviews" }}
+            pageParam="reviews_page"
+            hash="reviews-list"
+            label="صفحات التقييمات"
+          />
+        )}
       </section>
 
       <ReviewForm teacherUuid={teacherUuid} />
