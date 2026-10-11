@@ -31,7 +31,8 @@ const base: CohortSummary = {
 const COURSE = "cccc0000-0000-4000-8000-000000000001";
 
 function badgeOf(name: string): HTMLElement | null {
-  return screen.getByText(name).closest("li")?.querySelector("span") ?? null;
+  // By the heading: a one-letter group name can also be a weekday initial in the week strip.
+  return screen.getByRole("heading", { name }).closest("li")?.querySelector("span") ?? null;
 }
 
 describe("CohortList", () => {

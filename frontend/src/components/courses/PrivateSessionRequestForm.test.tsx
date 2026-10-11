@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { within, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PrivateSessionRequestForm } from "./PrivateSessionRequestForm";
@@ -206,6 +206,32 @@ describe("PrivateSessionRequestForm", () => {
     expect(screen.queryByRole("link", { name: "اشترك بحصص خاصة" })).toBeNull();
   });
 
+  it("names each date once, in the day strip, and the hours under it by clock alone", async () => {
+    // Owner request 2026-10-11: every hour used to repeat its own weekday and date.
+    enrolled();
+
+    render(
+      <PrivateSessionRequestForm
+        courseUuid="c-1"
+        availability={WINDOWS}
+        minutes={45}
+        leadMinutes={0}
+        subscriptionAvailable
+      />,
+    );
+
+    const days = within(await screen.findByRole("group", { name: "الأيام" })).getAllByRole("button");
+    const hours = within(screen.getByRole("group", { name: "المواعيد" })).getAllByRole("button");
+
+    expect(days.length).toBeGreaterThan(0);
+    expect(days.filter((d) => d.getAttribute("aria-pressed") === "true")).toHaveLength(1);
+    // The hour shows only a clock; its full date lives in the accessible name.
+    for (const hour of hours) {
+      expect(hour.textContent).not.toMatch(/يناير|فبراير|مارس|أبريل|مايو|يونيو|يوليو|أغسطس|سبتمبر|أكتوبر|نوفمبر|ديسمبر/);
+      expect(hour.getAttribute("aria-label")).toMatch(/·/);
+    }
+  });
+
   it("sends the chosen instant and nothing else", async () => {
     enrolled();
     request.mockResolvedValue({});
@@ -225,7 +251,8 @@ describe("PrivateSessionRequestForm", () => {
     // time out rather than fail — the shape `ConfirmButton`'s test wrote down
     // from the other direction. `startsWithin` takes its `from` as an argument
     // precisely so the pure half can be pinned without freezing anything.
-    const slot = (await screen.findAllByRole("button"))[0];
+    // The first HOUR of the open day — the strip above it holds the days.
+    const slot = within(await screen.findByRole("group", { name: "المواعيد" })).getAllByRole("button")[0];
     fireEvent.click(slot);
     fireEvent.click(screen.getByRole("button", { name: "أرسل الطلب" }));
 
@@ -299,7 +326,8 @@ describe("PrivateSessionRequestForm", () => {
       />,
     );
 
-    const slot = (await screen.findAllByRole("button"))[0];
+    // The first HOUR of the open day — the strip above it holds the days.
+    const slot = within(await screen.findByRole("group", { name: "المواعيد" })).getAllByRole("button")[0];
     fireEvent.click(slot);
     fireEvent.click(screen.getByRole("button", { name: "أرسل الطلب" }));
 
@@ -328,7 +356,8 @@ describe("PrivateSessionRequestForm", () => {
       />,
     );
 
-    const slot = (await screen.findAllByRole("button"))[0];
+    // The first HOUR of the open day — the strip above it holds the days.
+    const slot = within(await screen.findByRole("group", { name: "المواعيد" })).getAllByRole("button")[0];
     fireEvent.click(slot);
     fireEvent.click(screen.getByRole("button", { name: "أرسل الطلب" }));
 

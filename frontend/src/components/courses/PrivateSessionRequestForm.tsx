@@ -13,7 +13,7 @@ import { privateSessions } from "@/lib/private-sessions";
 import type { AvailabilityItem } from "@/lib/public-api";
 import { startsWithin } from "@/lib/availability";
 import { formatSessionClock } from "@/lib/session-format";
-import { weekdayIn } from "@/lib/timezone";
+import { clockIn, weekdayIn } from "@/lib/timezone";
 import { counted, NOUNS, timezoneLabel } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
@@ -64,6 +64,152 @@ type Enrolment = "checking" | "enrolled" | "not-enrolled" | "signed-out" | "teac
  | there. Both now read `useViewerTimeZone()`, and the teacher may be in another
  | country, so the zone is printed beside the hours.
  */
+
+/** How many days the strip offers — two weeks reads as «the teacher's calendar», not a dump. */
+const MAX_DAYS = 14;
+
+/* Where an hour sits in the day, on the viewer's clock. */
+const PERIODS = [
+  { label: "الصباح", until: 12 },
+  { label: "بعد الظهر", until: 17 },
+  { label: "المساء", until: 24 },
+];
+
+function dayKey(at: Date, zone: string): string {
+  // `en-CA` formats as YYYY-MM-DD, which also sorts.
+  return at.toLocaleDateString("en-CA", { timeZone: zone });
+}
+
+function fullLabel(at: Date, zone: string): string {
+  return `${DAYS[weekdayIn(at, zone)]} ${at.toLocaleDateString("ar", { day: "numeric", month: "long", timeZone: zone })} · ${formatSessionClock(at.toISOString(), zone)}`;
+}
+
+/**
+ * The teacher's declared hours as a calendar: a strip of days, then that day's
+ * hours split into morning · afternoon · evening (owner request 2026-10-11).
+ *
+ * ⚠️ IT USED TO BE ONE BUTTON PER HOUR, EACH REPEATING ITS OWN WEEKDAY AND DATE,
+ * and capped at 24 — so «الإثنين 12 أكتوبر» was read fourteen times and the
+ * picker ran out three days in. The cap is now on DAYS, never on hours, so a day
+ * that is offered is offered whole.
+ */
+function SlotPicker({
+  slots,
+  zone,
+  chosen,
+  onChoose,
+}: {
+  slots: Date[];
+  zone: string;
+  chosen: string | null;
+  onChoose: (value: string) => void;
+}) {
+  const days: { key: string; first: Date; hours: Date[] }[] = [];
+  for (const slot of slots) {
+    const key = dayKey(slot, zone);
+    const last = days[days.length - 1];
+    if (last?.key === key) last.hours.push(slot);
+    else if (days.length < MAX_DAYS) days.push({ key, first: slot, hours: [slot] });
+  }
+
+  const chosenDay = chosen === null ? null : dayKey(new Date(chosen), zone);
+  const [openDay, setOpenDay] = useState<string>(days[0]?.key ?? "");
+  const day = days.find((d) => d.key === openDay) ?? days[0];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* The strip scrolls sideways on a phone rather than wrapping into a wall. */}
+      <div role="group" aria-label="الأيام" className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1">
+        {days.map((d) => {
+          const open = d.key === day.key;
+
+          return (
+            <button
+              key={d.key}
+              type="button"
+              onClick={() => setOpenDay(d.key)}
+              aria-pressed={open}
+              className={`relative flex w-[5.5rem] shrink-0 snap-start flex-col items-center gap-0.5 rounded-2xl border px-2 py-3 transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                open
+                  ? "border-primary bg-primary text-white shadow-md shadow-primary/25"
+                  : "border-line bg-surface-raised text-ink hover:border-primary/50"
+              }`}
+            >
+              <span className={`text-xs font-bold ${open ? "text-white/85" : "text-ink-muted"}`}>
+                {DAYS[weekdayIn(d.first, zone)]}
+              </span>
+              <span className="text-2xl font-extrabold leading-tight">
+                {d.first.toLocaleDateString("ar", { day: "numeric", timeZone: zone })}
+              </span>
+              <span className={`text-[0.7rem] ${open ? "text-white/85" : "text-ink-muted"}`}>
+                {d.first.toLocaleDateString("ar", { month: "long", timeZone: zone })}
+              </span>
+              <span
+                className={`mt-1 whitespace-nowrap rounded-full px-2 text-[0.65rem] font-bold ${
+                  open ? "bg-white/20 text-white" : "bg-primary-soft text-primary-ink"
+                }`}
+              >
+                {counted(d.hours.length, { zero: "لا مواعيد", one: "موعد", two: "موعدان", few: "مواعيد", many: "موعداً", other: "موعد" })}
+              </span>
+              {/* A chosen hour on another day stays visible from the strip. */}
+              {chosenDay === d.key && !open && (
+                <span aria-hidden="true" className="absolute top-2 end-2 h-2 w-2 rounded-full bg-primary" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <div role="group" aria-label="المواعيد" className="flex flex-col gap-4">
+        {PERIODS.map((period, index) => {
+          const from = index === 0 ? 0 : PERIODS[index - 1].until;
+          const hours = day.hours.filter((h) => {
+            // `% 24`: some engines print midnight as «24» on a 24-hour clock.
+            const hour = Number(formatSessionClock24(h, zone)) % 24;
+            return hour >= from && hour < period.until;
+          });
+
+          if (hours.length === 0) return null;
+
+          return (
+            <div key={period.label} className="grid gap-2 sm:grid-cols-[6.5rem_1fr] sm:items-start">
+              <p className="pt-2 text-xs font-bold text-ink-muted">{period.label}</p>
+              <ul className="flex flex-wrap gap-2">
+                {hours.map((h) => {
+                  const value = h.toISOString();
+                  const picked = chosen === value;
+
+                  return (
+                    <li key={value}>
+                      <button
+                        type="button"
+                        onClick={() => onChoose(value)}
+                        aria-pressed={picked}
+                        aria-label={fullLabel(h, zone)}
+                        className={`rounded-xl border px-4 py-2 text-sm font-bold tabular-nums transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none ${
+                          picked
+                            ? "border-primary bg-primary-soft text-primary-ink ring-2 ring-primary/30"
+                            : "border-line bg-surface-raised text-ink hover:border-primary/50"
+                        }`}
+                      >
+                        <bdi>{formatSessionClock(value, zone)}</bdi>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** The hour (00–23) of `at` on `zone`'s clock. */
+function formatSessionClock24(at: Date, zone: string): string {
+  return clockIn(at, zone).slice(0, 2);
+}
 
 export function PrivateSessionRequestForm({
   courseUuid,
@@ -291,35 +437,22 @@ export function PrivateSessionRequestForm({
 
       {error && <Alert tone="danger" title="لم يُرسل الطلب">{error}</Alert>}
 
-      <ul className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-2">
-        {slots.slice(0, 24).map((slot) => {
-          const value = slot.toISOString();
+      <SlotPicker slots={slots} zone={zone} chosen={chosen} onChoose={setChosen} />
 
-          return (
-            <li key={value}>
-              <button
-                type="button"
-                onClick={() => setChosen(value)}
-                aria-pressed={chosen === value}
-                className={`w-full rounded-xl border px-3 py-2 text-start text-xs font-medium transition ${
-                  chosen === value
-                    ? "border-primary bg-primary-soft text-primary-ink"
-                    : "border-line text-ink hover:border-primary"
-                }`}
-              >
-                {DAYS[weekdayIn(slot, zone)]}{" "}
-                {slot.toLocaleDateString("ar", { day: "numeric", month: "long", timeZone: zone })}
-                {" · "}
-                {formatSessionClock(value, zone)}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-
-      <Button onClick={submit} disabled={chosen === null || sending}>
-        {sending ? "جارٍ الإرسال…" : "أرسل الطلب"}
-      </Button>
+      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-ink-muted" aria-live="polite">
+          {chosen === null ? (
+            "اختر يوماً ثم ساعة."
+          ) : (
+            <>
+              موعدك: <strong className="font-extrabold text-ink">{fullLabel(new Date(chosen), zone)}</strong>
+            </>
+          )}
+        </p>
+        <Button onClick={submit} disabled={chosen === null || sending}>
+          {sending ? "جارٍ الإرسال…" : "أرسل الطلب"}
+        </Button>
+      </div>
     </div>
   );
 }
