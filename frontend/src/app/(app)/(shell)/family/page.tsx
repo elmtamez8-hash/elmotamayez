@@ -147,6 +147,22 @@ export default function FamilyPage() {
     }
   };
 
+  /*
+   * The tab carries the name the sidebar gives this reader. `layout.tsx` can only
+   * hold one static title («المرتبطون»), and a student's sidebar says «من يتابعني».
+   */
+  const studentReader = user ? dashboardAudience(user) === "student" : false;
+  useEffect(() => {
+    if (studentReader) document.title = document.title.replace("المرتبطون", "من يتابعني");
+  }, [studentReader]);
+
+  // A link the student shared (`/family?code=…`) arrives with the code typed in:
+  // 36 characters are pasted or followed, never typed by hand.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("code");
+    if (code) setStudentCode(code);
+  }, []);
+
   if (loading) return <p className="text-ink-muted">جارٍ التحميل…</p>;
 
   /*
@@ -170,9 +186,16 @@ export default function FamilyPage() {
   const codeTyped = studentCode.trim() !== "";
   const following = relations.filter((relation) => relation.viewer_side === "student");
 
+  const shareCode = (code: string) => {
+    const link = `${window.location.origin}/family?code=${code}`;
+    const text = `هذا رمز ربط حسابي على المنصّة: ${code}
+افتح الرابط من حساب وليّ الأمر ليُكتب الرمز تلقائياً: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+  };
+
   return (
     <div className="space-y-8">
-      <PageHeader Icon={FamilyIcon} title="وليّ الأمر والأوصياء" />
+      <PageHeader Icon={FamilyIcon} title={readingAsStudent ? "من يتابعني" : "المرتبطون"} />
 
       {error && <Alert tone="danger" title={error} />}
 
@@ -189,15 +212,18 @@ export default function FamilyPage() {
             <SectionHeading id="family-code" Icon={ShieldIcon} title="رمز ربط حسابي" />
           </div>
           <p className="mb-3 text-sm text-ink-muted">
-            أرسِلْ هذا الرمز لوليّ أمرك ليُدخِله في صفحته. يصلك طلبه هنا فتقبله أو ترفضه، ولا
+            أرسِلْ هذا الرمز لوليّ أمرك ليُدخِله في صفحته «المرتبطون». يصلك طلبه هنا فتقبله أو ترفضه، ولا
             يرى شيئاً من حسابك قبل موافقتك.
           </p>
           <p className="mb-3 break-all font-mono text-sm text-ink select-all" dir="ltr">
             {user.uuid}
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="secondary" onClick={() => void copyCode(user.uuid)}>
               نسخ الرمز
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => shareCode(user.uuid)}>
+              إرسال عبر واتساب
             </Button>
             {copied && <span className="text-sm text-secondary-ink">نُسخ.</span>}
           </div>
@@ -212,7 +238,7 @@ export default function FamilyPage() {
       {(readingAsStudent || following.length > 0) && (
         <Card as="section">
           <div className="mb-4">
-            <SectionHeading id="family-following" Icon={EyeIcon} title="من يتابعني" />
+            <SectionHeading id="family-following" Icon={EyeIcon} title="المتابِعون" />
           </div>
 
           {following.length === 0 ? (
@@ -236,7 +262,7 @@ export default function FamilyPage() {
       {!readingAsStudent && (
       <Card as="section">
         <div className="mb-4">
-          <SectionHeading id="family-linked" Icon={FamilyIcon} title="المرتبطون" />
+          <SectionHeading id="family-linked" Icon={FamilyIcon} title="الطلاب المرتبطون بك" />
         </div>
 
         {mine.length === 0 ? (
@@ -275,7 +301,7 @@ export default function FamilyPage() {
             label="رمز حساب الطالب — إن كان له حساب على المنصّة"
             value={studentCode}
             onChange={setStudentCode}
-            hint="يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق عليه، ولا ترى شيئاً قبل موافقته."
+            hint="يجده ابنك في صفحة «من يتابعني» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق عليه، ولا ترى شيئاً قبل موافقته."
           />
 
           {!codeTyped && (

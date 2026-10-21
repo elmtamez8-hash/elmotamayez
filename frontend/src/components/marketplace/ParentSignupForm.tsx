@@ -17,17 +17,24 @@ function Field({
   id,
   label,
   error,
+  required,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink">
         {label}
+        {required && (
+          <span className="text-danger-ink" aria-hidden="true">
+            {" *"}
+          </span>
+        )}
       </label>
       {children}
       {error && (
@@ -77,9 +84,17 @@ export function ParentSignupForm() {
     setBanner("");
 
     // Checked here as well as on the server (FR-065); the server stays the
-    // authority, this only spares a round trip.
-    if (!form.terms_accepted) {
-      setErrors({ terms_accepted: "يجب الموافقة على الشروط والأحكام." });
+    // authority, this only spares a round trip — and names EVERY missing field
+    // at once, where the terms box alone used to answer first.
+    const missing: Record<string, string> = {};
+    if (form.first_name.trim() === "") missing.first_name = "أدخل اسمك الأول.";
+    if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) missing.email = "أدخل بريداً إلكترونياً صحيحاً.";
+    if (phone.trim() === "") missing.phone = "أدخل رقم الجوال.";
+    if (form.password.length < 8) missing.password = "كلمة المرور ثمانية أحرف على الأقل.";
+    if (!form.terms_accepted) missing.terms_accepted = "يجب الموافقة على الشروط والأحكام.";
+
+    if (Object.keys(missing).length > 0) {
+      setErrors(missing);
 
       return;
     }
@@ -119,7 +134,7 @@ export function ParentSignupForm() {
       )}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field id="first_name" label="الاسم الأول" error={errors.first_name}>
+        <Field id="first_name" label="الاسم الأول" error={errors.first_name} required>
           <input
             id="first_name"
             value={form.first_name}
@@ -143,7 +158,7 @@ export function ParentSignupForm() {
         </Field>
       </div>
 
-      <Field id="email" label="البريد الإلكتروني" error={errors.email}>
+      <Field id="email" label="البريد الإلكتروني" error={errors.email} required>
         <input
           id="email"
           type="email"

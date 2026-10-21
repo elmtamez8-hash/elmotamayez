@@ -56,7 +56,7 @@ const BY_CODE: Record<string, string> = {
     wrong rather than who has to act.
   */
   pending_guardian_consent:
-    "حسابك بانتظار موافقة وليّ أمرك على معالجة بياناتك. يصله الطلب في صفحة «وليّ الأمر والأوصياء»، وتستطيع الدخول فور موافقته.",
+    "حسابك بانتظار موافقة وليّ أمرك على معالجة بياناتك. يصله الطلب في صفحة «المرتبطون»، وتستطيع الدخول فور موافقته.",
   two_factor_required:
     "انتهت مهلة تفعيل التحقق بخطوتين. فعّله من إعدادات الأمان لمتابعة هذه العملية.",
   // Deliberately vague about WHY, because the server is: no seat, outside the

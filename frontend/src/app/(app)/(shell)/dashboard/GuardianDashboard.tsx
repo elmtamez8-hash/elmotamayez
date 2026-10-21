@@ -15,6 +15,7 @@ import { TermsConsentCard } from "@/components/billing/TermsConsentCard";
 import { ChildBalanceCard } from "./cards/ChildBalanceCard";
 import { ChildReportCardCard } from "./cards/ChildReportCardCard";
 import { ChildScheduleCard } from "./cards/ChildScheduleCard";
+import { ChildSubscriptionsCard } from "./cards/ChildSubscriptionsCard";
 import { ChildrenComparisonCard } from "./cards/ChildrenComparisonCard";
 import { ChildSwitcher, selectableChildren } from "./cards/ChildSwitcher";
 import { PermissionMissingNote } from "./cards/DashboardCard";
@@ -176,6 +177,7 @@ function ChildCards({ child }: { child: GuardianRelation }) {
             student={{ uuid: studentUuid, name: studentName }}
             onAccepted={() => setRefresh((n) => n + 1)}
           />
+          <ChildSubscriptionsCard studentUuid={studentUuid} studentName={studentName} />
           <ChildBalanceCard key={refresh} studentUuid={studentUuid} studentName={studentName} />
         </div>
       ),

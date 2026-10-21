@@ -73,6 +73,7 @@ export type ManagedPlan = Omit<Plan, "price_minor" | "currency"> & { is_priced: 
 
 export interface Subscription {
   uuid: string;
+  plan_uuid: string | null;
   plan_title: string | null;
   teacher_name: string | null;
   starts_on: string;
@@ -163,8 +164,16 @@ export const plans = {
   forCourse: (courseUuid: string) =>
     api.get<{ data: Plan[] }>(`/billing/plans?course=${encodeURIComponent(courseUuid)}`),
 
-  /** The subscriptions this student holds — live ones and finished ones. */
-  mine: () => api.get<{ data: Subscription[] }>("/billing/subscriptions"),
+  /**
+   * The subscriptions this student holds — live ones and finished ones. A
+   * guardian names the child (`studentUuid`); the server asks the «المدفوعات»
+   * permission, exactly as for a purchase.
+   */
+  mine: (studentUuid?: string) =>
+    api.get<{ data: Subscription[] }>(
+      "/billing/subscriptions"
+        + (studentUuid === undefined ? "" : `?student_uuid=${encodeURIComponent(studentUuid)}`),
+    ),
 
   /** The teacher's own plans — including the ones awaiting a price. */
   manage: {
