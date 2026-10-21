@@ -455,10 +455,8 @@ describe("where and how much the buyer transfers", () => {
 
     const sum = screen.getByRole("group", { name: "المبلغ المطلوب تحويله" });
 
-    expect(sum.textContent).toContain("اختر الباقة أولاً");
-
-    fireEvent.click(screen.getByRole("radio"));
-
+    // The one plan on offer is already chosen, so the sum is there at once.
+    expect((screen.getByRole("radio") as HTMLInputElement).checked).toBe(true);
     expect(sum.textContent).toContain(formatMinorMoney(MONTH_PLAN.price_minor, "QAR"));
     // There is no table on this page to upload from.
     expect(screen.queryByText(/من الجدول/)).toBeNull();

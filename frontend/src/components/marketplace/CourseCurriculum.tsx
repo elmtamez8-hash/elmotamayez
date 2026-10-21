@@ -172,7 +172,7 @@ export function CourseCurriculum({
                       جمهورَه، فيبقى مُعلَناً بلا رابط — والرابطُ يُبنى من
                       وجودِه لا من شرطٍ يُعادُ هنا.
 
-                      الداخلُ يذهبُ إلى `/learn` مباشرةً، والزائرُ إلى الدخولِ
+                      الداخلُ يذهبُ إلى `/learn` مباشرةً، والزائرُ إلى إنشاءِ حسابٍ (وفيه «لديك حساب؟» للدخول — ٢٠٢٦-١٠-٢١)
                       ومعه `next` يُعيدُه إلى الدرسِ نفسِه. وأثناءَ استعادةِ
                       الجلسةِ لا رابط: رابطُ الزائرِ المرسومُ في تلك اللحظةِ
                       يُرسِلُ صاحبَ الحسابِ إلى صفحةِ دخولٍ لا حاجةَ له بها.
@@ -181,7 +181,7 @@ export function CourseCurriculum({
                       freeWithAccount && item.uuid !== undefined && !loading
                         ? user !== null
                           ? `/learn/${item.uuid}`
-                          : `/login?next=${encodeURIComponent(`/learn/${item.uuid}`)}`
+                          : `/signup/student?next=${encodeURIComponent(`/learn/${item.uuid}`)}`
                         : null;
 
                     const kind = KINDS[item.kind] ?? FALLBACK;

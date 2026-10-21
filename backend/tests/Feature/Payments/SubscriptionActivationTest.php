@@ -236,6 +236,8 @@ it('opens the private-session door instead of a group when that is what was boug
         ->exists())->toBeTrue()
         ->and($notification)->not->toBeNull()
         ->and($notification->body)->toContain('مواعيد مدرّسك')
+        // The month's dates in words, never as `2026-10-21`.
+        ->and($notification->body)->not->toMatch('/\d{4}-\d{2}-\d{2}/')
         // To the course's «حصة خاصة» tab, where an hour is asked for — never the
         // empty `/schedule` (journey audit 2026-10-21).
         ->and($notification->action_url)->toBe('/courses/'.$this->course->slug.'?tab=private');

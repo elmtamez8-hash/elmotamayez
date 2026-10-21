@@ -155,6 +155,32 @@ export function StudentSignupForm({
     setForm((current) => ({ ...current, [key]: value }));
 
   /*
+   | A phone outside Qatar moves the region to «خارج قطر», and back to the first
+   | region when Qatar is picked again — an Egyptian number left «الدوحة» chosen
+   | for a student who never touched it (journey audit 2026-10-21). A region the
+   | student did pick by hand is kept.
+   */
+  const changeDial = (dialCode: string) => {
+    setDial(dialCode);
+
+    const outside = regions.find((region) => region.slug === "outside-qatar")?.slug;
+    const first = regions[0]?.slug ?? "";
+
+    if (outside === undefined) return;
+
+    setForm((current) => {
+      if (dialCode !== DEFAULT_COUNTRY.dial && current.region_slug === first) {
+        return { ...current, region_slug: outside };
+      }
+      if (dialCode === DEFAULT_COUNTRY.dial && current.region_slug === outside) {
+        return { ...current, region_slug: first };
+      }
+
+      return current;
+    });
+  };
+
+  /*
    * Under eighteen, decided from the date in this form — the same question the
    * API asks of the same payload. It only decides whether to DRAW the guardian
    * field: the server is the authority on whether the answer was needed, and a
@@ -351,7 +377,7 @@ export function StudentSignupForm({
             id="phone"
             dial={dial}
             number={phone}
-            onDialChange={setDial}
+            onDialChange={changeDial}
             onNumberChange={setPhone}
             error={errors.phone}
           />
@@ -485,7 +511,7 @@ export function StudentSignupForm({
               onClick={() => setShowReferral(true)}
               className="text-sm font-bold text-primary-ink underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              عندك كود دعوة من صديق؟
+              لديك رمز دعوة من صديق؟
             </button>
           )}
 
@@ -556,7 +582,12 @@ export function StudentSignupForm({
 
       <p className="text-center text-sm text-ink-muted">
         لديك حساب؟{" "}
-        <Link href="/login" className="text-primary-ink underline">
+        {/* The same `next`, so «I already have an account» still lands where
+            the visitor was heading (journey audit 2026-10-21). */}
+        <Link
+          href={next ? `/login?next=${encodeURIComponent(safeNext(next, "/dashboard"))}` : "/login"}
+          className="text-primary-ink underline"
+        >
           سجّل الدخول
         </Link>
       </p>
