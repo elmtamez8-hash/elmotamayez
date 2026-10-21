@@ -11,6 +11,11 @@ import { ScheduleIcon, SessionsIcon } from "@/components/icons";
 import { DashboardCard, ROW_CLASS, RowIcon } from "./DashboardCard";
 import { counted, NOUNS } from "@/lib/labels";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
+import type { Enrollment } from "@/lib/types";
+import { readActiveEnrolments } from "./ProgressChartCard";
+
+const LINK_CLASS =
+  "rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
 /** «يبدأ بعد ساعتين و١٥ دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها. */
 function untilLabel(seconds: number): string {
@@ -42,6 +47,7 @@ function untilLabel(seconds: number): string {
  */
 export function UpcomingSessionsCard() {
   const [bookings, setBookings] = useState<SessionBooking[]>([]);
+  const [courses, setCourses] = useState<Enrollment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +60,12 @@ export function UpcomingSessionsCard() {
       .then((result) => setBookings(result.data ?? []))
       .catch((err) => setError(userMessage(err)))
       .finally(() => setLoading(false));
+
+    // The SAME read the counts above make (shared, one request). Only the empty
+    // state uses it — and a failure just leaves the old «تصفّح المدرّسين».
+    readActiveEnrolments()
+      .then((result) => setCourses(result.data ?? []))
+      .catch(() => setCourses([]));
   }, []);
 
   useEffect(load, [load]);
@@ -76,15 +88,37 @@ export function UpcomingSessionsCard() {
       onRetry={load}
       empty={
         !loading && error === null && rows.length === 0 ? (
-          <p className="text-sm text-ink-muted">
-            لا حصص محجوزة.{" "}
-            <Link
-              href="/teachers"
-              className="rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              تصفّح المدرّسين
-            </Link>
-          </p>
+          courses.length > 0 ? (
+            /* A student who already pays has no use for «تصفّح المدرّسين»: their
+               group's times and the private-hour picker are both on the course
+               page (journey audit 2026-10-21).
+               ⚠️ NO `?tab=private` HERE. An enrolment does not say whether it was
+               a group or a private plan, and that tab offers a group student a
+               SECOND subscription. The activation message, which knows the plan,
+               is the one that opens that tab. */
+            <div className="space-y-2 text-sm text-ink-muted">
+              <p>لا حصص محجوزة بعد. مواعيد مجموعتك وحجز الحصص الخاصة في صفحة الكورس:</p>
+              <ul className="space-y-1">
+                {courses.slice(0, 3).map((course) => (
+                  <li key={course.uuid}>
+                    <Link
+                      href={`/courses/${course.course_uuid}`}
+                      className={LINK_CLASS}
+                    >
+                      {course.course_title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">
+              لا حصص محجوزة.{" "}
+              <Link href="/teachers" className={LINK_CLASS}>
+                تصفّح المدرّسين
+              </Link>
+            </p>
+          )
         ) : null
       }
     >

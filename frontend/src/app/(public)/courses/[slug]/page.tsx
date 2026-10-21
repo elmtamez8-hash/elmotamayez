@@ -186,8 +186,10 @@ function hours(seconds: number): string | null {
 
 export default async function CoursePage({
   params,
+  searchParams,
 }: {
   params: Promise<Params>;
+  searchParams?: Promise<{ tab?: string | string[] }>;
 }) {
   const { slug } = await params;
   const course = await loadCourse(slug);
@@ -208,7 +210,12 @@ export default async function CoursePage({
    * equals its own decoded form is an infinite redirect to itself.
    */
   if (course.slug && decodeURIComponent(slug) !== course.slug) {
-    permanentRedirect(`/courses/${course.slug}`);
+    // The open tab survives the hop: the dashboard links a course by its uuid
+    // straight to «حصة خاصة» (journey audit 2026-10-21).
+    const tab = (await searchParams)?.tab;
+    permanentRedirect(
+      `/courses/${course.slug}${typeof tab === "string" ? `?tab=${encodeURIComponent(tab)}` : ""}`,
+    );
   }
 
   /*
