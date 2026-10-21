@@ -27,6 +27,13 @@ vi.mock("@/lib/auth-context", () => ({
 }));
 
 const listRelations = vi.fn();
+const childSubscriptions = vi.fn(async (..._args: unknown[]) => ({ data: [] as unknown[] }));
+
+vi.mock("@/lib/plans", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/plans")>();
+
+  return { ...actual, plans: { ...actual.plans, mine: (uuid?: string) => childSubscriptions(uuid) } };
+});
 
 vi.mock("@/lib/notifications", () => ({
   family: { list: () => listRelations() },
@@ -251,7 +258,7 @@ describe("the subscription screen for a guardian", () => {
     create.mockResolvedValue({ data: { uuid: "order-uuid" } });
     uploadReceipt.mockResolvedValue({});
 
-    await openAsGuardian([CHILD]);
+    await openAsGuardian([CHILD, { ...CHILD, uuid: "rel-2", student_name: "بدر", student_uuid: "child-2" }]);
 
     const plan = await screen.findByRole("radio");
 
@@ -276,6 +283,23 @@ describe("the subscription screen for a guardian", () => {
     });
 
     expect(create.mock.calls[0][0].student_uuid).toBe("child-1");
+  });
+
+  /*
+  | The parent journey (2026-10-21): one child is the answer already, and a child
+  | who holds this plan is said out loud before any money moves.
+  */
+  it("picks the only child, and warns when that child already holds the plan", async () => {
+    childSubscriptions.mockResolvedValueOnce({
+      data: [{ uuid: "sub-1", plan_uuid: "plan-uuid", status: "active", ends_on: "2026-11-19" }],
+    });
+
+    await openAsGuardian([CHILD]);
+    fireEvent.click(await screen.findByRole("radio"));
+
+    expect(((await screen.findByLabelText(/لمن هذا الاشتراك/)) as HTMLSelectElement).value).toBe("child-1");
+    expect(await screen.findByText("ابنك مشترك في هذه الباقة بالفعل")).toBeTruthy();
+    expect(childSubscriptions).toHaveBeenCalledWith("child-1");
   });
 
   it("offers no child the server would refuse, and says what to do instead", async () => {

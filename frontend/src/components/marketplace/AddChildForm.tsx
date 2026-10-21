@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, errorMessage, fieldErrors } from "@/lib/api";
 import type { ChildLink } from "@/lib/types";
@@ -28,7 +27,6 @@ const FIELD_CLASS =
  * guardian link is not the flat "child" row the old route modelled.
  */
 export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] }) {
-  const router = useRouter();
 
   const [children, setChildren] = useState<ChildLink[]>([]);
   const [form, setForm] = useState({ name: "", age: "", school_year_slug: "", code: "" });
@@ -124,10 +122,12 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
                 <span className="font-medium text-ink">
                   {childLinkName(child.student_name, child.status)}
                 </span>
-                <span className="text-sm text-ink-muted">
-                  {child.student_school_year_name ??
-                    (child.student_age === null ? "—" : `${child.student_age} سنة`)}
-                </span>
+                {/* A pending child's details arrive on acceptance — nothing, not «—». */}
+                {(child.student_school_year_name ?? child.student_age) !== null && (
+                  <span className="text-sm text-ink-muted">
+                    {child.student_school_year_name ?? `${child.student_age} سنة`}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -157,7 +157,7 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
             className={FIELD_CLASS}
           />
           <p id="child-code-hint" className="mt-1 text-sm text-ink-muted">
-            يجده ابنك في صفحة «وليّ الأمر والأوصياء» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق
+            يجده ابنك في صفحة «من يتابعني» من حسابه. يكفي الرمز وحده: يصله طلبك ليوافق
             عليه، ولا ترى شيئاً قبل موافقته.
           </p>
           {errors.student_uuid && (
@@ -257,13 +257,13 @@ export function AddChildForm({ schoolYears }: { schoolYears: SchoolYearOption[] 
         <Link href="/teachers" className="text-sm font-semibold text-primary-ink hover:underline">
           تخطّي الآن وتصفّح المدرّسين
         </Link>
-        <button
-          type="button"
-          onClick={() => router.push("/teachers")}
+        {/* To the parent's own dashboard — the link beside it already goes to /teachers. */}
+        <Link
+          href="/dashboard"
           className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
         >
           إنهاء
-        </button>
+        </Link>
       </div>
     </div>
   );

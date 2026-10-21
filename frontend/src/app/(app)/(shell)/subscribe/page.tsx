@@ -20,8 +20,8 @@ import { dashboardAudience } from "@/lib/dashboard-audience";
 import { userMessage } from "@/lib/errors";
 import { family } from "@/lib/notifications";
 import type { GuardianRelation } from "@/lib/notifications";
-import { formatMinorMoney } from "@/lib/labels";
-import { SESSION_TYPE_LABELS, planShape, type Plan } from "@/lib/plans";
+import { formatDate, formatMinorMoney } from "@/lib/labels";
+import { SESSION_TYPE_LABELS, planShape, plans as plansApi, type Plan, type Subscription } from "@/lib/plans";
 import type { CourseDetail } from "@/lib/public-api";
 import {
   chosenCohort,
@@ -147,14 +147,16 @@ function SubscribeScreen() {
          */
         const relations = await family.list().catch(() => ({ data: [] }));
 
-        setChildren(
-          relations.data.filter(
-            (relation) =>
-              relation.status === "active"
-              && typeof relation.student_uuid === "string"
-              && relation.permissions.some((permission) => permission.key === "payments"),
-          ),
+        const payable = relations.data.filter(
+          (relation) =>
+            relation.status === "active"
+            && typeof relation.student_uuid === "string"
+            && relation.permissions.some((permission) => permission.key === "payments"),
         );
+
+        setChildren(payable);
+        // One child is the answer already — never a picker with one row to press.
+        if (payable.length === 1) setStudentUuid(payable[0].student_uuid as string);
       }
 
       setState("ready");
@@ -165,6 +167,32 @@ function SubscribeScreen() {
   // `cohortUuid` منها: هو ما يقرّرُ أيَّ باقاتٍ يردُّها الخادمُ (٠٣٦ · FR-016)،
   // فبدونِه تبقى القائمةُ قائمةَ المجموعةِ السابقةِ عندَ تبديلِ المجموعةِ في الرابط.
   }, [courseUuid, cohortUuid, mode, isGuardian, wantedPlan]);
+
+  /*
+   * The child's live subscriptions, read once a child is named: a guardian paid
+   * for a month the child already held, with nothing on screen saying so
+   * (parent journey, 2026-10-21). The server takes it as a renewal that starts
+   * when the current one ends — this says that BEFORE the money moves.
+   */
+  const [childHolds, setChildHolds] = useState<Subscription[]>([]);
+
+  useEffect(() => {
+    if (!isGuardian || studentUuid === "") return setChildHolds([]);
+
+    let live = true;
+    plansApi
+      .mine(studentUuid)
+      .then((result) => {
+        if (live) setChildHolds((result.data ?? []).filter((row) => row.status === "active"));
+      })
+      .catch(() => {
+        if (live) setChildHolds([]);
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [isGuardian, studentUuid]);
 
   useEffect(() => {
     void load();
@@ -257,8 +285,17 @@ function SubscribeScreen() {
           {/* FR-010, said out loud: nothing is owed to the buyer until an officer
               has seen the transfer. A screen that implied otherwise would have
               them turning up to a class they cannot enter. */}
-          سنراجع إيصالك، ويبدأ اشتراكك عند اعتماد الدفعة — لا قبله. سيصلك إشعار
-          بمواعيد {mode === "cohort" ? "مجموعتك" : "حصصك الخاصة"} وبالرابط الذي تدخل منه.
+          {isGuardian ? (
+            <>
+              سنراجع إيصالك، ويبدأ اشتراك ابنك عند اعتماد الدفعة — لا قبله. يصله إشعار
+              بمواعيد {mode === "cohort" ? "مجموعته" : "حصصه الخاصة"} وبالرابط الذي يدخل منه.
+            </>
+          ) : (
+            <>
+              سنراجع إيصالك، ويبدأ اشتراكك عند اعتماد الدفعة — لا قبله. سيصلك إشعار
+              بمواعيد {mode === "cohort" ? "مجموعتك" : "حصصك الخاصة"} وبالرابط الذي تدخل منه.
+            </>
+          )}
         </Alert>
 
         <p className="text-sm text-ink-muted">
@@ -365,6 +402,17 @@ function SubscribeScreen() {
             />
           </Card>
         ))}
+
+      {(() => {
+        const held = childHolds.find((row) => row.plan_uuid === planUuid);
+
+        return held === undefined ? null : (
+          <Alert tone="warning" title="ابنك مشترك في هذه الباقة بالفعل">
+            اشتراكه الحالي ساري حتى {formatDate(held.ends_on)}. إن أرسلت هذا الطلب فهو تجديد يبدأ
+            بعد انتهاء الاشتراك الحالي، لا اشتراك إضافي الآن.
+          </Alert>
+        );
+      })()}
 
       {/* What is being bought, shown back before any money is named (FR-006). */}
       <Card as="section">
@@ -518,7 +566,9 @@ function SubscribeScreen() {
       </Button>
 
       <p className="text-xs text-ink-muted">
-        لا يبدأ اشتراكك ولا يُفتح لك شيء قبل أن يعتمد الموظّف الدفعة.
+        {isGuardian
+          ? "لا يبدأ اشتراك ابنك ولا يُفتح له شيء قبل أن يعتمد الموظّف الدفعة."
+          : "لا يبدأ اشتراكك ولا يُفتح لك شيء قبل أن يعتمد الموظّف الدفعة."}
       </p>
     </div>
   );

@@ -83,7 +83,7 @@ describe("family page", () => {
      */
     expect(await screen.findByText("أم كريم")).toBeTruthy();
     expect(screen.queryByText("كريم")).toBeNull();
-    expect(screen.getByRole("heading", { name: "من يتابعني" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "المتابِعون" })).toBeTruthy();
   });
 
   it("offers accept only when the server says the reader may decide", async () => {
@@ -125,7 +125,7 @@ describe("family page", () => {
     render(<FamilyPage />);
 
     expect(await screen.findByText("كريم")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "من يتابعني" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "المتابِعون" })).toBeNull();
   });
 
   /*

@@ -357,10 +357,12 @@ export default function PurchaseCreditsPage() {
       {!loading && !failed && offers.length === 0 && (
         <EmptyState
           title="لا توجد حزم متاحة على هذا الكورس حالياً"
-          description="تواصل مع مدرّسك لمعرفة موعد إتاحتها."
+          description={
+            isGuardian ? "تواصل مع مدرّس ابنك لمعرفة موعد إتاحتها." : "تواصل مع مدرّسك لمعرفة موعد إتاحتها."
+          }
           action={
-            <Button variant="secondary" href="/billing">
-              رصيدي
+            <Button variant="secondary" href={hrefFor(null, student)}>
+              اختيار كورس آخر
             </Button>
           }
         />
@@ -407,12 +409,17 @@ export default function PurchaseCreditsPage() {
         </ul>
       )}
 
-      <TransferDestination />
+      {/* Where to transfer only once there is something to pay for. */}
+      {offers.length > 0 && (
+        <>
+          <TransferDestination />
 
-      <p className="text-xs text-ink-muted">
-        لا يُضاف أي رصيد قبل اعتماد الدفع. بعد اختيار الحزمة يُرفع إيصال التحويل،
-        ويظهر الرصيد فور اعتماده.
-      </p>
+          <p className="text-xs text-ink-muted">
+            لا يُضاف أي رصيد قبل اعتماد الدفع. بعد اختيار الحزمة يُرفع إيصال التحويل،
+            ويظهر الرصيد فور اعتماده.
+          </p>
+        </>
+      )}
     </div>
   );
 }

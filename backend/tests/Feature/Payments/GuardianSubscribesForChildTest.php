@@ -322,3 +322,26 @@ it('keeps the bank receipt with whoever uploaded it, not with the order owner', 
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.receipt_url', null);
 });
+
+/*
+| The parent journey (2026-10-21): a guardian paid with nothing telling them the
+| child already held this plan. The list reads the child's rows through the same
+| resolver as the purchase — the «payments» permission, nothing less.
+*/
+it('shows a guardian the child\'s subscriptions, and only with the payments permission', function (): void {
+    Subscription::factory()->create([
+        'plan_id' => $this->plan->getKey(),
+        'student_user_id' => $this->child->getKey(),
+    ]);
+    guardianOver($this->guardian, $this->child, GuardianPermission::Payments);
+    guardianOver($this->guardian, $this->otherChild, GuardianPermission::Attendance);
+
+    $this->actingAs($this->guardian, 'sanctum')
+        ->getJson('/api/v1/billing/subscriptions?student_uuid='.$this->child->uuid)
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.plan_uuid', (string) $this->plan->uuid);
+
+    $this->getJson('/api/v1/billing/subscriptions?student_uuid='.$this->otherChild->uuid)->assertForbidden();
+    $this->getJson('/api/v1/billing/subscriptions?student_uuid='.$this->stranger->uuid)->assertForbidden();
+});

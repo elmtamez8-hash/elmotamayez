@@ -68,12 +68,29 @@ class SubscriptionController extends Controller
         return response()->json(['data' => PlanResource::collection($plans)]);
     }
 
-    /** The subscriptions this student holds, live ones and finished ones. */
-    public function index(Request $request): JsonResponse
+    /**
+     * The subscriptions this student holds, live ones and finished ones.
+     *
+     * `?student_uuid=` reads a CHILD's, through the resolver the purchase door
+     * uses — so a guardian sees exactly the subscriptions they could pay for,
+     * and learns their child already holds one before paying twice.
+     */
+    public function index(Request $request, PurchaseBeneficiary $beneficiary): JsonResponse
     {
+        $student = $this->currentUser($request);
+        $named = $request->query('student_uuid');
+
+        if (is_string($named) && $named !== '') {
+            try {
+                $student = $beneficiary->resolve($student, $named)['student'];
+            } catch (DomainException $e) {
+                return response()->json(['message' => $e->getMessage()], 403);
+            }
+        }
+
         $subscriptions = Subscription::query()
             ->withoutWorkspaceScope()
-            ->where('student_user_id', $this->currentUser($request)->getKey())
+            ->where('student_user_id', $student->getKey())
             ->with(['plan', 'workspace'])
             ->orderByDesc('starts_on')
             ->get();

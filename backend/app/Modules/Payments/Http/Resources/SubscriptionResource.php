@@ -44,6 +44,7 @@ class SubscriptionResource extends JsonResource
 
         return [
             'uuid' => $this->resource->uuid,
+            'plan_uuid' => $this->whenLoaded('plan', fn (): ?string => $this->resource->plan?->uuid),
             'plan_title' => $this->whenLoaded('plan', fn (): ?string => $this->resource->plan?->title),
             'teacher_name' => $this->whenLoaded('workspace', fn (): ?string => $this->resource->workspace?->name),
             'starts_on' => $this->resource->starts_on->toDateString(),

@@ -104,7 +104,7 @@ export function RelationRow({
 
       <div className="p-5">
       <p className="text-sm font-bold text-ink">
-        {readingAsStudent ? "ما سيطّلع عليه:" : "ما يطّلع عليه:"}
+        {readingAsStudent && relation.status !== "active" ? "ما سيطّلع عليه:" : "ما يطّلع عليه:"}
       </p>
 
       {relation.permissions.length === 0 ? (

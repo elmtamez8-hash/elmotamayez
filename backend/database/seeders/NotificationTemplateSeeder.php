@@ -494,7 +494,7 @@ class NotificationTemplateSeeder extends Seeder
             */
             NotificationType::GuardianLinkRequested->value => [
                 'طلب ارتباط من {{ name }}',
-                'طلب {{ name }} الارتباط بحسابك بصفة {{ relation_type }}. افتح صفحة «المرتبطون» لقراءة ما سيطّلع عليه قبل أن تقبل أو ترفض.',
+                'طلب {{ name }} الارتباط بحسابك بصفة {{ relation_type }}. افتح صفحة «من يتابعني» لقراءة ما سيطّلع عليه قبل أن تقبل أو ترفض.',
                 ['name', 'relation_type'],
             ],
             NotificationType::GuardianLinkDecided->value => [
