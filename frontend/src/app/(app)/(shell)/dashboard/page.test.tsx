@@ -145,7 +145,7 @@ function studentAnswer(overrides: Record<string, unknown> = {}) {
       */
       return Promise.resolve({
         data: [
-          { uuid: "e-1", course_title: "الفيزياء", progress_pct: 62 },
+          { uuid: "e-1", course_uuid: "c-1", course_title: "الفيزياء", progress_pct: 62 },
           { uuid: "e-2", course_title: "الكيمياء", progress_pct: 5 },
           { uuid: "e-3", course_title: "الأحياء", progress_pct: 30 },
           ...Array.from({ length: 12 }, (_, index) => ({
@@ -259,6 +259,34 @@ describe("DashboardPage · الطالب الجديد", () => {
 
     expect(await screen.findByText("حصصك القادمة")).toBeDefined();
     expect(screen.queryByText("ابدأ من هنا")).toBeNull();
+  });
+
+  it("puts an order under review at the top, and sends a paying student to book on the course", async () => {
+    asStudent();
+    const base = get.getMockImplementation()!;
+    get.mockImplementation((path: string) => {
+      if (path === "/orders") {
+        return Promise.resolve({
+          data: [{ uuid: "o-9", status: "under_review", course_title: "أساسيّات التفاضل" }],
+          meta: { total: 1 },
+        });
+      }
+      if (path === "/class-sessions/schedule" || path.startsWith("/schedule")) {
+        return Promise.resolve({ data: [] });
+      }
+
+      return base(path);
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("طلبك قيد المراجعة")).toBeDefined();
+    expect(screen.getByText(/«أساسيّات التفاضل»/)).toBeDefined();
+    // Nothing booked: a student who already pays books on the course's tab.
+    const book = await screen.findByText(/احجز حصتك من صفحة الكورس/);
+    const links = within(book.parentElement!).getAllByRole("link");
+    expect(links[0].getAttribute("href")).toBe("/courses/c-1?tab=private");
+    expect(screen.queryByRole("link", { name: "تصفّح المدرّسين" })).toBeNull();
   });
 
   it("shows the full dashboard when the question cannot be answered", async () => {

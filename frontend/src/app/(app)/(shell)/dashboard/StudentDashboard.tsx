@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { Alert } from "@/components/ui/Alert";
 import { api } from "@/lib/api";
+import type { Order } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import { LearningIcon } from "@/components/icons";
 import { DashboardHero } from "./DashboardHero";
@@ -24,19 +27,22 @@ import { UpcomingSessionsCard } from "./cards/UpcomingSessionsCard";
  * card there owns its own error state, while the start screen would tell a
  * paying student to go and find a teacher.
  */
-async function isNewStudent(): Promise<boolean> {
-  const total = async (path: string) =>
-    (await api.get<{ meta?: { total?: number } }>(path)).meta?.total ?? 0;
-
+async function readStart(): Promise<{ fresh: boolean; waiting: Order[] }> {
   try {
     // Every enrolment, any status — an expired course is not a new student — and
     // NOT `?status=active`, which `StatCountsCard` and `ProgressChartCard` share
     // as ONE read (`FR-018`); asking it here first would make that read twice.
-    const [enrolments, orders] = await Promise.all([total("/enrollments"), total("/orders")]);
+    const [enrolments, orders] = await Promise.all([
+      api.get<{ meta?: { total?: number } }>("/enrollments"),
+      api.get<{ data?: Order[]; meta?: { total?: number } }>("/orders"),
+    ]);
 
-    return enrolments === 0 && orders === 0;
+    return {
+      fresh: (enrolments.meta?.total ?? 0) === 0 && (orders.meta?.total ?? 0) === 0,
+      waiting: (orders.data ?? []).filter((order) => order.status === "under_review"),
+    };
   } catch {
-    return false;
+    return { fresh: false, waiting: [] };
   }
 }
 
@@ -58,10 +64,15 @@ export function StudentDashboard() {
   const { user } = useAuth();
   // null while the answer is out: the hero waits on it, the cards do not exist yet.
   const [fresh, setFresh] = useState<boolean | null>(null);
+  const [waiting, setWaiting] = useState<Order[]>([]);
 
   useEffect(() => {
     let live = true;
-    void isNewStudent().then((answer) => live && setFresh(answer));
+    void readStart().then((answer) => {
+      if (!live) return;
+      setFresh(answer.fresh);
+      setWaiting(answer.waiting);
+    });
 
     return () => {
       live = false;
@@ -91,6 +102,20 @@ export function StudentDashboard() {
         line="هذه نظرة عامة على دراستك."
         Icon={LearningIcon}
       />
+
+      {/* The question a student who has just paid opens this screen with. It sat
+          at the foot, under five empty cards (journey audit 2026-10-21). */}
+      {waiting.length > 0 && (
+        <div className="mb-6">
+          <Alert tone="warning" title="طلبك قيد المراجعة">
+            نراجع إيصال {waiting.map((order) => `«${order.course_title ?? order.store_item_title ?? "طلبك"}»`).join("، ")}
+            ، ويُفتح لك ما اشتريته فور اعتماد الدفعة.{" "}
+            <Link href="/orders" className="font-semibold underline underline-offset-4">
+              صفحة الطلبات
+            </Link>
+          </Alert>
+        </div>
+      )}
 
       <StatCountsCard />
 

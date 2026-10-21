@@ -129,13 +129,15 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
         {/* ONE action. The card's trial button went to the student signup form
             (owner audit 2026-10-09), and the list does not know which teacher
             has a free recorded lesson — the profile does, and shows it as its
-            main button. So the card leads there. */}
+            main button. So the card leads there — and names only the profile,
+            since most teachers have no trial lesson to promise (journey audit
+            2026-10-21). */}
         <div className="mt-auto flex gap-2 pt-5">
           <Link
             href={profileHref}
             className="flex-1 rounded-full bg-accent px-3 py-2.5 text-center text-sm font-semibold text-accent-foreground transition duration-200 ease-out hover:brightness-105 active:scale-[0.97] active:duration-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            عرض الملف والحصة التجريبية
+            عرض ملف المدرّس
           </Link>
         </div>
       </div>

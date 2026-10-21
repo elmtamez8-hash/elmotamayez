@@ -10,6 +10,7 @@ import { usePlatformName } from "@/lib/platform-context";
 import { BrandMarkDecorative } from "@/components/ui/BrandMark";
 import { Alert } from "@/components/ui/Alert";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { hidesFloatingChrome } from "@/components/ui/FloatingActions";
 import { AccountMenu } from "@/components/app/AccountMenu";
 import { Avatar } from "@/components/ui/Avatar";
 import { NotificationBell } from "@/components/app/NotificationBell";
@@ -578,7 +579,13 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           | phone, and the padding steps down on small screens — 24px of gutter on
           | a 360px viewport is 13% of it spent on nothing.
         */}
-        <main id="main" className="mx-auto w-full max-w-7xl p-4 sm:p-6">
+        {/* pb-36: the floating WhatsApp and back-to-top stack is ~8rem tall, and
+            a page's LAST control — «أرسِلِ الطلب» on /subscribe — sat under it
+            with nowhere left to scroll (journey audit 2026-10-21). */}
+        <main
+          id="main"
+          className={`mx-auto w-full max-w-7xl p-4 sm:p-6 ${hidesFloatingChrome(pathname) ? "" : "pb-36 sm:pb-36"}`}
+        >
           <WorkspaceSwitchedNotice />
           {refused ? (
             // No heading of the screen's own above it: «أرصدة الطلاب» over a

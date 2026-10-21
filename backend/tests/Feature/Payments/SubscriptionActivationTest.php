@@ -235,7 +235,10 @@ it('opens the private-session door instead of a group when that is what was boug
         ->where('course_id', $this->course->getKey())
         ->exists())->toBeTrue()
         ->and($notification)->not->toBeNull()
-        ->and($notification->body)->toContain('مواعيد مدرّسك');
+        ->and($notification->body)->toContain('مواعيد مدرّسك')
+        // To the course's «حصة خاصة» tab, where an hour is asked for — never the
+        // empty `/schedule` (journey audit 2026-10-21).
+        ->and($notification->action_url)->toBe('/courses/'.$this->course->slug.'?tab=private');
 });
 
 it('prints the next lesson in the platform timezone, never as a raw timestamp', function (): void {

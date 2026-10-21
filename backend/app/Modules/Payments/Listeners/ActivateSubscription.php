@@ -477,7 +477,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
 
         $schedule = 'حصص خاصة: مواعيد مدرّسك صارت مفتوحة لطلب حصة.';
         $nextSession = 'لم تُجدول حصة قادمة بعد؛ ستصلك رسالة فور جدولتها.';
-        $actionUrl = '/schedule';
+        $actionUrl = $intent->isCohort() ? '/schedule' : $this->privateTabUrl($order->course_id);
 
         if ($intent->isCohort() && $intent->cohortUuid !== null) {
             $described = $this->cohorts->describeGroupCohort($intent->cohortUuid);
@@ -643,6 +643,21 @@ class ActivateSubscription implements ShouldQueueAfterCommit
     }
 
     /**
+     * Where a private plan's message sends the student: the course's «حصة خاصة»
+     * tab, the only place an hour is asked for. It was `/schedule`, which is
+     * empty until one is — so a student who had just paid read «لا حصص» and had
+     * no way on (journey audit 2026-10-21).
+     */
+    private function privateTabUrl(int|string|null $courseId): string
+    {
+        $slug = $courseId === null
+            ? null
+            : Course::query()->withoutWorkspaceScope()->whereKey($courseId)->value('slug');
+
+        return $slug === null ? '/schedule' : '/courses/'.$slug.'?tab=private';
+    }
+
+    /**
      * «فُعِّلت باقتك، وهذا رصيدك، وهذه مواعيدك» (٠٣٦ · FR-020 · T117).
      *
      * ⛔ ITS OWN TYPE, NOT `SubscriptionActivated`. That template demands
@@ -659,7 +674,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
     {
         $schedule = 'مواعيد مدرّسك مفتوحة لحجز حصصك.';
         $nextSession = 'لم تُجدول حصة قادمة بعد؛ ستصلك رسالة فور جدولتها.';
-        $actionUrl = '/schedule';
+        $actionUrl = $intent->isCohort() ? '/schedule' : $this->privateTabUrl($course->getKey());
 
         if ($intent->isCohort() && $intent->cohortUuid !== null) {
             $described = $this->cohorts->describeGroupCohort($intent->cohortUuid);
