@@ -11,6 +11,7 @@ import { PrivateRequestsCard } from "./cards/PrivateRequestsCard";
 import { QuickLinksCard } from "./cards/QuickLinksCard";
 import { TeacherFaqCard } from "./cards/TeacherFaqCard";
 import { TeacherSessionsCard } from "./cards/TeacherSessionsCard";
+import { TeacherStartCard } from "./cards/TeacherStartCard";
 import { WeekSessionsChartCard } from "./cards/WeekSessionsChartCard";
 import { WithheldStudentsCard } from "./cards/WithheldStudentsCard";
 
@@ -46,6 +47,8 @@ export function TeacherDashboard() {
         Icon={AcademicCapIcon}
       />
 
+      {/* Until a published course can be bought; null for an assistant. */}
+      <TeacherStartCard />
       {/* الأرقامُ الثلاثةُ أوّلاً: ما ينتظرُ قراراً منه، لا ما أنجزَه. وكلٌّ منها
           تُخفي نفسَها حينَ لا يملكُ القارئُ صلاحيّتَها. */}
       <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-3">

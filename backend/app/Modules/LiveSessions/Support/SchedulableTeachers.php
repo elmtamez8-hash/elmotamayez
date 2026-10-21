@@ -80,6 +80,29 @@ class SchedulableTeachers
     }
 
     /**
+     * `mayScheduleFor()` for a whole list, in two queries: `null` is «every
+     * profile» (the academy's owner), otherwise the profile ids that are the
+     * actor's own. The queue stamps each row with it, so a colleague's request
+     * no longer offers a «قبول» that `assert()` then refuses (journey audit
+     * 2026-10-21).
+     *
+     * @return list<int>|null
+     */
+    public function profileIdsFor(User $actor, int $workspaceId): ?array
+    {
+        $workspace = Workspace::query()->withoutGlobalScopes()->find($workspaceId);
+
+        if ($workspace instanceof Workspace && $workspace->isOwnedBy($actor)) {
+            return null;
+        }
+
+        return array_values(array_map(
+            static fn ($id): int => (int) $id,
+            TeacherProfile::query()->withoutGlobalScopes()->where('user_id', $actor->getKey())->pluck('id')->all(),
+        ));
+    }
+
+    /**
      * ⚠️ RAISED IN THE ACTION, NOT IN THE FORM REQUEST. The Action is the entry
      * point seeders, Filament and the API share (Constitution II); a guard in the
      * request shapes one HTTP call and nothing else.

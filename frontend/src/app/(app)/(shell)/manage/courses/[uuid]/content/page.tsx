@@ -113,6 +113,10 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
   // Bumped after a publish from the tree, so the open `LessonEditor` re-reads
   // its item's status instead of showing the one it opened with.
   const [editorRevision, setEditorRevision] = useState(0);
+  // Bumped after every save in the editor: an open «نشر كل المسودّات» preview
+  // is re-read, or it went on saying «النصّ مطلوب» about a lesson whose text had
+  // just been saved (journey audit 2026-10-21).
+  const [saves, setSaves] = useState(0);
   const [newTitle, setNewTitle] = useState("");
   const [askError, setAskError] = useState("");
 
@@ -364,6 +368,7 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
 
       {pending !== null && (
         <PublishImpactDialog
+          key={saves}
           courseUuid={uuid}
           items={pending.items}
           title={pending.title}
@@ -427,7 +432,10 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
           courseUuid={uuid}
           lessonUuid={editing}
           revision={editorRevision}
-          onSaved={() => void run(async () => undefined)}
+          onSaved={() => {
+            setSaves((n) => n + 1);
+            void run(async () => undefined);
+          }}
           onClose={() => setEditing(null)}
         />
       )}

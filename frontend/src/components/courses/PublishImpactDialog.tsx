@@ -73,7 +73,7 @@ export function PublishImpactDialog({
       </header>
 
       {error !== "" && (
-        <Alert tone="danger" title="تعذّر حساب الأثر">
+        <Alert tone="danger" title="لا يمكن النشر الآن">
           {error}
         </Alert>
       )}

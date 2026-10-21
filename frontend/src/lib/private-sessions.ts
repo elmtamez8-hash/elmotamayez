@@ -52,6 +52,14 @@ export interface PrivateSessionRequest {
    * «الحصة ملغاة» instead of offering a page for an hour that will not happen.
    */
   class_session_status?: string | null;
+  /**
+   * Staff queue only: whether THIS reader may accept — the hour goes on the
+   * addressed teacher's calendar, which only they or the academy's owner may
+   * write. Absent elsewhere; `false` hides «قبول» (rejecting stays open).
+   */
+  can_decide?: boolean;
+  /** Staff queue only: whose calendar the hour is on. */
+  teacher_name?: string | null;
 }
 
 export const privateSessions = {
