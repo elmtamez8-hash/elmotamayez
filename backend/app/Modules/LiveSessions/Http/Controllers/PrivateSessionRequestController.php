@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Exceptions\PrivateSessionConflictException;
 use App\Modules\LiveSessions\Http\Requests\RequestPrivateSessionRequest;
 use App\Modules\LiveSessions\Http\Resources\PrivateSessionRequestResource;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
+use App\Modules\LiveSessions\Support\SchedulableTeachers;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
@@ -107,7 +108,7 @@ class PrivateSessionRequestController extends Controller
     }
 
     /** The teacher's queue (FR-018). */
-    public function queue(Request $request, AssistantScopeDirectory $assistants): AnonymousResourceCollection
+    public function queue(Request $request, AssistantScopeDirectory $assistants, SchedulableTeachers $teachers): AnonymousResourceCollection
     {
         $this->authorize('viewAny', PrivateSessionRequest::class);
 
@@ -144,9 +145,24 @@ class PrivateSessionRequestController extends Controller
                 // naming it renders every row's byline as an empty string, with
                 // no error and a 200.
                 'student:id,uuid,first_name,last_name,timezone',
+                // Whose calendar the hour is on — named on a colleague's row.
+                'teacherProfile:id,user_id',
+                'teacherProfile.user:id,first_name,last_name',
             ])
             ->orderBy('starts_at')
             ->paginate(20);
+
+        /*
+        | Which rows THIS reader may answer — `SchedulableTeachers::assert()`, the
+        | rule the accept runs, asked once for the page. A colleague's request in a
+        | shared academy offered «قبول» and answered «لا تملك صلاحية» (journey
+        | audit 2026-10-21).
+        */
+        $own = $workspaceId === null ? [] : $teachers->profileIdsFor($this->currentUser($request), $workspaceId);
+
+        foreach ($requests as $row) {
+            $row->setAttribute('can_decide', $own === null || in_array((int) $row->teacher_profile_id, $own, true));
+        }
 
         return PrivateSessionRequestResource::collection($requests);
     }

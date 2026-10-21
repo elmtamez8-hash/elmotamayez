@@ -82,6 +82,16 @@ class PrivateSessionRequestResource extends JsonResource
                 'uuid' => $this->resource->student?->uuid,
                 'name' => $this->resource->student?->name,
             ]),
+            // The staff queue only: whether this reader may answer the row (the
+            // rule the accept runs), and whose calendar it is on.
+            'can_decide' => $this->when(
+                array_key_exists('can_decide', $this->resource->getAttributes()),
+                fn (): bool => (bool) $this->resource->getAttribute('can_decide'),
+            ),
+            'teacher_name' => $this->when(
+                array_key_exists('can_decide', $this->resource->getAttributes()) && $this->resource->relationLoaded('teacherProfile'),
+                fn (): ?string => $this->resource->teacherProfile?->user?->name,
+            ),
             // The uuid alone: the granted lesson is read through the routes that
             // guard it, and an id here would be a second door onto a session.
             'class_session_uuid' => $this->whenLoaded(

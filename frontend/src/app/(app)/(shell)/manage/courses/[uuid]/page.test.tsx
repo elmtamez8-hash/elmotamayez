@@ -9,6 +9,11 @@ const get = vi.fn();
 
 vi.mock("@/lib/api", () => ({ api: { get: (path: string) => get(path) } }));
 
+// The page asks `courses.publish` to offer «انشر الكورس» beside a draft.
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ user: { permissions: ["courses.publish"] } }),
+}));
+
 const { default: CourseDetailPage } = await import("./page");
 
 function course(status: string) {
@@ -38,12 +43,15 @@ describe("the course status badge", () => {
     await openPage("draft");
 
     expect(screen.getByText("مسودّة")).toBeTruthy();
+    // The publish button lives on the edit page; the draft points there.
+    expect(screen.getByRole("link", { name: "انشر الكورس" }).getAttribute("href")).toBe("/manage/courses/c-1/edit");
   });
 
   it("says a published course is published", async () => {
     await openPage("published");
 
     expect(screen.getByText("منشور")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "انشر الكورس" })).toBeNull();
   });
 });
 

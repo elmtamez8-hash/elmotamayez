@@ -145,13 +145,22 @@ export default function PrivateSessionQueuePage() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={pending === request.uuid}
-                  onClick={() => decide(request.uuid, true)}
-                >
-                  قبول
-                </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* The server's answer, never re-derived: a colleague's request
+                    in a shared academy offered «قبول» and answered «لا تملك
+                    صلاحية» (journey audit 2026-10-21). */}
+                {request.can_decide === false ? (
+                  <p className="text-sm text-ink-muted">
+                    على تقويم {request.teacher_name ?? "مدرّس آخر"}، والقبول لصاحب التقويم أو لمالك الأكاديمية.
+                  </p>
+                ) : (
+                  <Button
+                    disabled={pending === request.uuid}
+                    onClick={() => decide(request.uuid, true)}
+                  >
+                    قبول
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => setRejecting(request.uuid)}>
                   رفض
                 </Button>

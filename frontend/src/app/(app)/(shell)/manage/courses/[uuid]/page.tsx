@@ -2,7 +2,9 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { lessonTypeLabel } from "@/lib/labels";
+import { P, can } from "@/lib/permissions";
 import type { Course } from "@/lib/types";
 import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
@@ -64,6 +66,8 @@ export default function CourseDetailPage({
   params: Promise<{ uuid: string }>;
 }) {
   const { uuid } = use(params);
+  const { user } = useAuth();
+  const mayPublish = can(user, P.coursesPublish);
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +102,16 @@ export default function CourseDetailPage({
               who published every item read the tree as live while the course
               itself was still a draft. */}
           <StatusBadge status={course.status} />
+          {/* The publish button lives on the edit page; a new teacher looked for
+              it here and found only «مسودّة» (journey audit 2026-10-21). */}
+          {course.status === "draft" && mayPublish && (
+            <Link
+              href={`/manage/courses/${uuid}/edit`}
+              className="text-sm font-bold text-primary-ink underline underline-offset-4"
+            >
+              انشر الكورس
+            </Link>
+          )}
           {/* No price; «مجاني» only when the teacher ticked it — see the list. */}
           {course.is_free && <Badge tone="success">مجاني</Badge>}
           <span className="text-sm text-ink-muted">

@@ -1,7 +1,35 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/Alert";
+import { api } from "@/lib/api";
 import type { Course, PublicListingBlocker } from "@/lib/types";
+
+/** The public page's verdict: `true`/`false`, or `null` while unknown (unread, failed). */
+function useEnrolmentOpen(slug: string | null): boolean | null {
+  const [open, setOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (slug === null) return;
+
+    let live = true;
+    api
+      .get<{ data: { enrolment_open: boolean; free_enrollment: boolean } }>(
+        `/marketplace/courses/${encodeURIComponent(slug)}`,
+      )
+      .then((res) => live && setOpen(res.data.enrolment_open || res.data.free_enrollment))
+      // Unknown says nothing — never «nobody can buy it» on a failed read.
+      .catch(() => live && setOpen(null));
+
+    return () => {
+      live = false;
+    };
+  }, [slug]);
+
+  return open;
+}
 
 /**
  * «هل يصلُ الناسُ إلى هذا الكورس؟» — للمدرّسِ، على صفحتَي كورسِه.
@@ -50,15 +78,46 @@ export function CoursePublicReach({
 }) {
   const reach = course.public_listing;
 
+  const listed = reach !== undefined && course.status === "published" && reach.listed;
+  const open = useEnrolmentOpen(listed ? course.slug : null);
+
   if (reach === undefined || course.status !== "published") return null;
 
   if (reach.listed) {
+    const page = (
+      <Link href={`/courses/${course.slug}`} className="font-semibold underline">
+        <bdi>/courses/{course.slug}</bdi>
+      </Link>
+    );
+
+    /*
+     * ⚠️ «VISIBLE» IS NOT «BUYABLE» (journey audit 2026-10-21). A new teacher
+     * published, read «يظهر للجميع», and never learnt that every student saw
+     * «لم يفتح المدرّس الاشتراك بعد» — no group open, no priced plan. The
+     * verdict is the public page's own `enrolment_open`/`free_enrollment`, read
+     * back rather than re-derived here.
+     */
+    if (open === false) {
+      return (
+        <Alert tone="warning" title="الكورس منشور، لكن لا يستطيع أحد الاشتراك فيه بعد">
+          <p>
+            يرى الزوّار صفحته العامة ({page}) وعليها «لم يفتح المدرّس الاشتراك بعد»: لا مجموعة مفتوحة له،
+            ولا باقة مسعّرة تغطّيه.
+          </p>
+          <p className="mt-1">
+            أضف باقة من{" "}
+            <Link href="/manage/plans" className="font-semibold underline">
+              «باقات الاشتراك»
+            </Link>{" "}
+            وتُعرض للطلاب حين تحدّد المنصّة سعرها، أو اجعله مجانياً من تعديل الكورس.
+          </p>
+        </Alert>
+      );
+    }
+
     return (
       <Alert tone="success" title="الكورس منشور ويظهر للجميع">
-        صفحته العامة:{" "}
-        <Link href={`/courses/${course.slug}`} className="font-semibold underline">
-          <bdi>/courses/{course.slug}</bdi>
-        </Link>
+        صفحته العامة: {page}
       </Alert>
     );
   }

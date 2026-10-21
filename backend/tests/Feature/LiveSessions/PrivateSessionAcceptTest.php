@@ -13,6 +13,7 @@ use App\Modules\LiveSessions\Models\ClassSession;
 use App\Modules\LiveSessions\Models\PrivateSessionRequest;
 use App\Modules\LiveSessions\Models\SessionBooking;
 use App\Modules\Notifications\Support\NotificationType;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Support\WorkspaceContext;
 use Carbon\CarbonImmutable;
 use Laravel\Sanctum\Sanctum;
@@ -315,4 +316,34 @@ it('releases, never bills, a seat the teacher takes back after the deadline', fu
         ->and($session->cancelled_by)->toBe(SessionCanceller::Teacher)
         ->and((int) $fx['profile']->refresh()->cancelled_sessions_count)->toBe(1)
         ->and(wasNotified($fx['profile']->user, NotificationType::PrivateSessionCancelledByStudent))->toBeFalse();
+});
+
+/*
+| The queue says which rows the reader may ACCEPT — the hour goes on the
+| addressed teacher's calendar (`SchedulableTeachers`), so a colleague in the
+| same academy was offered «قبول» and answered «لا تملك صلاحية» (journey audit
+| 2026-10-21). The owner may accept any row; the colleague sees whose it is.
+*/
+it('stamps each queue row with whether this reader may accept it', function (): void {
+    fakeSessionTimeline();
+
+    $fx = privateSessionFixture();
+
+    Sanctum::actingAs($fx['student']);
+    test()->postJson("/api/v1/courses/{$fx['course']->uuid}/private-session-requests", [
+        'starts_at' => $fx['startsAt']->toIso8601String(),
+    ])->assertCreated();
+
+    test()->setCurrentWorkspace($fx['workspace'], $fx['owner']);
+    Sanctum::actingAs($fx['owner']);
+    $owner = test()->getJson('/api/v1/manage/private-session-requests')->assertOk()->json('data.0');
+
+    $colleague = test()->addWorkspaceMember($fx['workspace'], Roles::TEACHER);
+    test()->setCurrentWorkspace($fx['workspace'], $colleague);
+    Sanctum::actingAs($colleague);
+    $theirs = test()->getJson('/api/v1/manage/private-session-requests')->assertOk()->json('data.0');
+
+    expect($owner['can_decide'])->toBeTrue()
+        ->and($theirs['can_decide'])->toBeFalse()
+        ->and($theirs['teacher_name'])->not->toBeEmpty();
 });

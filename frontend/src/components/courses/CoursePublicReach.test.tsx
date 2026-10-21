@@ -1,7 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CoursePublicReach } from "./CoursePublicReach";
+
+// The public page's own verdict, read back for a listed course.
+const get = vi.fn();
+vi.mock("@/lib/api", () => ({ api: { get: (path: string) => get(path) } }));
+
+beforeEach(() => {
+  get.mockReset();
+  get.mockResolvedValue({ data: { enrolment_open: true, free_enrollment: false } });
+});
 
 /*
 | ⛔ «انشر الكورس» ثمّ لا شيء — 2026-09-26. كورسٌ منشورٌ بظهورٍ «خاص»، أو في
@@ -70,6 +79,24 @@ describe("CoursePublicReach", () => {
 
     expect(screen.getByText("الكورس منشور ويظهر للجميع")).toBeTruthy();
     expect(screen.getByRole("link").getAttribute("href")).toBe("/courses/physics-3");
+  });
+
+  /*
+  | Visible is not buyable (journey audit 2026-10-21): published, «يظهر للجميع»,
+  | and every student read «لم يفتح المدرّس الاشتراك بعد».
+  */
+  it("says when nobody can subscribe yet, from the public page's own verdict", async () => {
+    get.mockResolvedValue({ data: { enrolment_open: false, free_enrollment: false } });
+
+    render(
+      <CoursePublicReach
+        course={{ status: "published", slug: "physics-3", public_listing: { listed: true, blockers: [] } }}
+      />,
+    );
+
+    expect(await screen.findByText("الكورس منشور، لكن لا يستطيع أحد الاشتراك فيه بعد")).toBeTruthy();
+    expect(get).toHaveBeenCalledWith("/marketplace/courses/physics-3");
+    expect(screen.getByRole("link", { name: "«باقات الاشتراك»" }).getAttribute("href")).toBe("/manage/plans");
   });
 
   it("warns about nothing on a draft — every course starts as one", () => {
