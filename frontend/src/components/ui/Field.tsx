@@ -568,6 +568,18 @@ export function MultiSelectField(
                 />
               </div>
             ))}
+            {/* A way out that is not a guess: on a phone the panel covers the
+                next field, and a tap aimed at it ticked an option instead
+                (journey audit 2026-10-21). Sticky, so a long list keeps it. */}
+            <div className="sticky bottom-0 mt-1 bg-surface-raised pt-1">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="w-full rounded-lg bg-primary-soft py-2 text-sm font-bold text-primary-ink hover:bg-primary hover:text-white"
+              >
+                تمّ
+              </button>
+            </div>
           </div>
         )}
       </div>

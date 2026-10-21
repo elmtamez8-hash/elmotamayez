@@ -440,6 +440,15 @@ export default function CourseContentPage({ params }: { params: Promise<{ uuid: 
         />
       )}
 
+      {/* An empty course said nothing of its shape, and a new teacher had to
+          discover three levels before one lesson (journey audit 2026-10-21). */}
+      {tree.sections.length === 0 && (
+        <Alert tone="info" title="من أين أبدأ؟">
+          يُبنى الكورس من أقسام، وفي كل قسم فصول، والدروس داخل الفصول. ابدأ بقسم (مثل «الوحدة
+          الأولى»)، ثم أضف داخله فصلاً، ثم «+ إضافة عنصر» لأول درس.
+        </Alert>
+      )}
+
       <TreeOutline
         tree={tree}
         busy={busy}

@@ -24,6 +24,8 @@ import {
   type Slot,
 } from "@/components/marketplace/WeeklyAvailabilityEditor";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
+import { timezoneLabel } from "@/lib/labels";
+import { arabicNumber } from "@/lib/numerals";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 const FIELD =
@@ -46,7 +48,7 @@ interface ApplicationState {
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <ol className="mb-8 flex gap-2" aria-label={`الخطوة ${step} من ${STEPS.length}`}>
+    <ol className="mb-8 flex gap-2" aria-label={`الخطوة ${arabicNumber(step)} من ${arabicNumber(STEPS.length)}`}>
       {STEPS.map((label, index) => {
         const number = index + 1;
         const done = number < step;
@@ -64,7 +66,7 @@ function ProgressBar({ step }: { step: number }) {
               className={`text-xs ${current ? "font-bold text-primary-ink" : "text-ink-muted"}`}
               aria-current={current ? "step" : undefined}
             >
-              {number}. {label}
+              <bdi>{arabicNumber(number)}</bdi>. {label}
             </span>
           </li>
         );
@@ -252,8 +254,20 @@ export function TeacherSignupWizard({
   const submitStepOne = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!account.terms_accepted) {
-      setErrors({ terms_accepted: "يجب الموافقة على الشروط والأحكام." });
+    /*
+     | Every field at once and before the request, as the student form does — it
+     | answered «يجب الموافقة على الشروط» alone first, then the rest only after a
+     | round trip (journey audit 2026-10-21).
+     */
+    const missing: Record<string, string> = {};
+    if (account.first_name.trim() === "") missing.first_name = "أدخل اسمك الأول.";
+    if (!/^\S+@\S+\.\S+$/.test(account.email.trim())) missing.email = "أدخل بريداً إلكترونياً صحيحاً.";
+    if (phone.trim() === "") missing.phone = "أدخل رقم الجوال.";
+    if (account.password.length < 8) missing.password = "كلمة المرور ثمانية أحرف على الأقل.";
+    if (!account.terms_accepted) missing.terms_accepted = "يجب الموافقة على الشروط والأحكام.";
+
+    if (Object.keys(missing).length > 0) {
+      setErrors(missing);
 
       return;
     }
@@ -394,6 +408,7 @@ export function TeacherSignupWizard({
             <div>
               <label htmlFor="t-first" className="mb-1 block text-sm font-medium text-ink">
                 الاسم الأول
+                <span className="text-danger-ink" aria-hidden="true">{" *"}</span>
               </label>
               <input
                 id="t-first"
@@ -421,6 +436,7 @@ export function TeacherSignupWizard({
           <div>
             <label htmlFor="t-email" className="mb-1 block text-sm font-medium text-ink">
               البريد الإلكتروني
+              <span className="text-danger-ink" aria-hidden="true">{" *"}</span>
             </label>
             <input
               id="t-email"
@@ -655,7 +671,13 @@ export function TeacherSignupWizard({
           </div>
 
           <fieldset>
-            <legend className="mb-2 text-sm font-semibold text-ink">التوفّر الأسبوعي</legend>
+            <legend className="mb-1 text-sm font-semibold text-ink">التوفّر الأسبوعي</legend>
+            {/* Whose clock — the rows are saved on this zone, and a teacher in
+                Cairo applying to a Doha platform could not tell (journey audit
+                2026-10-21). */}
+            <p className="mb-2 text-xs text-ink-muted">
+              المواعيد بتوقيت {timezoneLabel(zone)}، ويراها كل طالب على ساعته.
+            </p>
 
             <WeeklyAvailabilityEditor
               slots={slots}

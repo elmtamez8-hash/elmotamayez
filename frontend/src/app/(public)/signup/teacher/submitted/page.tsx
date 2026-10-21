@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SignupFrame } from "@/components/marketplace/SignupFrame";
+import { arabicNumber } from "@/lib/numerals";
 
 export const metadata: Metadata = {
   title: "طلبك قيد المراجعة",
@@ -26,7 +27,7 @@ export default function TeacherApplicationSubmittedPage() {
       title="طلبك قيد المراجعة من فريقنا الأكاديمي"
       // A number, not "soon": the applicant is deciding whether to wait or look
       // elsewhere, and a vague promise is the least useful answer.
-      subtitle={`عادةً نردّ خلال ${REVIEW_DAYS} أيام عمل. لا حاجة لإعادة الإرسال.`}
+      subtitle={`عادةً نردّ خلال ${arabicNumber(REVIEW_DAYS)} أيام عمل. لا حاجة لإعادة الإرسال.`}
     >
       <h2 className="mb-5 text-lg font-extrabold text-ink">ماذا يحدث الآن؟</h2>
 
@@ -37,7 +38,7 @@ export default function TeacherApplicationSubmittedPage() {
               className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-white"
               aria-hidden="true"
             >
-              {index + 1}
+              {arabicNumber(index + 1)}
             </span>
             {item}
           </li>
