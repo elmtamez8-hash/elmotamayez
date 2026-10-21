@@ -282,10 +282,10 @@ describe("DashboardPage · الطالب الجديد", () => {
 
     expect(await screen.findByText("طلبك قيد المراجعة")).toBeDefined();
     expect(screen.getByText(/«أساسيّات التفاضل»/)).toBeDefined();
-    // Nothing booked: a student who already pays books on the course's tab.
-    const book = await screen.findByText(/احجز حصتك من صفحة الكورس/);
+    // Nothing booked: a paying student is sent to the course page — no tab forced.
+    const book = await screen.findByText(/مواعيد مجموعتك وحجز الحصص الخاصة/);
     const links = within(book.parentElement!).getAllByRole("link");
-    expect(links[0].getAttribute("href")).toBe("/courses/c-1?tab=private");
+    expect(links[0].getAttribute("href")).toBe("/courses/c-1");
     expect(screen.queryByRole("link", { name: "تصفّح المدرّسين" })).toBeNull();
   });
 
