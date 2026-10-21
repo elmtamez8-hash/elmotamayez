@@ -40,6 +40,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\QueryException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
+use IntlDateFormatter;
 
 /**
  * The money is witnessed; the subscription starts (T092 · FR-026).
@@ -504,8 +505,8 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             variables: [
                 'plan_title' => $intent->planTitle,
                 'teacher_name' => $intent->teacherName ?? 'مدرّسك',
-                'starts_on' => CarbonImmutable::parse($subscription->starts_on)->toDateString(),
-                'ends_on' => CarbonImmutable::parse($subscription->effective_ends_on)->toDateString(),
+                'starts_on' => $this->arabicDate(CarbonImmutable::parse($subscription->starts_on)),
+                'ends_on' => $this->arabicDate(CarbonImmutable::parse($subscription->effective_ends_on)),
                 'schedule' => $schedule,
                 'next_session' => $nextSession,
             ],
@@ -648,6 +649,18 @@ class ActivateSubscription implements ShouldQueueAfterCommit
      * empty until one is — so a student who had just paid read «لا حصص» and had
      * no way on (journey audit 2026-10-21).
      */
+    /**
+     * «٢١ أكتوبر ٢٠٢٦», never `2026-10-21` — the message read as a database row
+     * (journey audit 2026-10-21). `IntlDateFormatter` for the reason
+     * `NotifyPeriodicReviewPublished::arabicDate()` gives: Carbon leaves the
+     * digits Latin around an Arabic month.
+     */
+    private function arabicDate(CarbonImmutable $date): string
+    {
+        return (string) (new IntlDateFormatter('ar-QA', IntlDateFormatter::LONG, IntlDateFormatter::NONE))
+            ->format($date);
+    }
+
     private function privateTabUrl(int|string|null $courseId): string
     {
         $slug = $courseId === null

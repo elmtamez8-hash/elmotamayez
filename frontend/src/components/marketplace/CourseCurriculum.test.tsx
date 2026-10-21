@@ -143,7 +143,7 @@ describe("CourseCurriculum", () => {
     expect(within(link).getByText("مفتوح مجّاناً")).toBeTruthy();
   });
 
-  it("sends a visitor to sign in first, and back to the same lesson", () => {
+  it("sends a visitor to make an account first, and back to the same lesson", () => {
     render(
       <CourseCurriculum
         sections={tree([
@@ -154,7 +154,7 @@ describe("CourseCurriculum", () => {
     );
 
     expect(screen.getByRole("link").getAttribute("href")).toBe(
-      `/login?next=${encodeURIComponent("/learn/l-free")}`,
+      `/signup/student?next=${encodeURIComponent("/learn/l-free")}`,
     );
   });
 

@@ -57,7 +57,7 @@ async function readStart(): Promise<{ fresh: boolean; waiting: Order[] }> {
  * محروسٌ بصلاحيّةِ مساحةِ عمل)، ولا شاشةَ إدارةٍ في الروابطِ السريعةِ — تلك
  * تُرشَّحُ بـ`allowedNav` قبلَ أن تصلَ إلى هنا.
  *
- * الطالبُ الجديدُ (مراجعةُ ٢٠٢٦-١٠-٠٩) يرى «أهلاً بك» لا «أهلاً بعودتك»، وثلاثَ
+ * الطالبُ الجديدُ (مراجعةُ ٢٠٢٦-١٠-٠٩) يرى «أهلاً بك»، وثلاثَ
  * خطواتٍ بدلَ ثماني بطاقاتٍ فارغة، والإشعاراتِ وحدَها معها.
  */
 export function StudentDashboard() {
@@ -97,8 +97,10 @@ export function StudentDashboard() {
 
   return (
     <div>
+      {/* Not «أهلاً بعودتك»: a student who signed up and paid a minute ago lands
+          here too, and nothing on the account says how long they have had it. */}
       <DashboardHero
-        greeting={`أهلاً بعودتك، ${name}`}
+        greeting={`أهلاً، ${name}`}
         line="هذه نظرة عامة على دراستك."
         Icon={LearningIcon}
       />

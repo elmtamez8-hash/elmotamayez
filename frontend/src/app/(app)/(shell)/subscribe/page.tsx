@@ -129,6 +129,11 @@ function SubscribeScreen() {
        */
       if (wantedPlan !== null && offers.data.some((plan) => plan.uuid === wantedPlan)) {
         setPlanUuid(wantedPlan);
+      } else if (wantedPlan === null && offers.data.length === 1) {
+        // One offer is no choice: chosen for the buyer, so the amount to
+        // transfer shows at once (journey audit 2026-10-21). Never in place of a
+        // `?plan=` that was withdrawn — that buyer pressed a different plan.
+        setPlanUuid(offers.data[0].uuid);
       }
 
       if (isGuardian) {

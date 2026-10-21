@@ -85,6 +85,21 @@ describe("StudentSignupForm", () => {
     expect(select.value).toBe("");
   });
 
+  it("moves an untouched region to «خارج قطر» for a phone outside Qatar, and back", () => {
+    const regions = [...REGIONS, { slug: "outside-qatar", name: "خارج قطر" }];
+    const { container } = render(<StudentSignupForm schoolYears={YEARS} regions={regions} />);
+    const dial = screen.getByLabelText("رمز الدولة") as HTMLSelectElement;
+
+    fireEvent.change(dial, { target: { value: "+20" } });
+    toStepTwo(container);
+    expect((screen.getByLabelText(/^المنطقة/) as HTMLSelectElement).value).toBe("outside-qatar");
+
+    fireEvent.click(screen.getByRole("button", { name: "رجوع" }));
+    fireEvent.change(screen.getByLabelText("رمز الدولة"), { target: { value: "+974" } });
+    fireEvent.click(screen.getByRole("button", { name: "التالي" }));
+    expect((screen.getByLabelText(/^المنطقة/) as HTMLSelectElement).value).toBe("doha");
+  });
+
   it("asks for the year and not for the broad stage", () => {
     // FR-001ج — one question, one stored answer. A form that asked both would
     // be storing two facts that part company at the first edit of the mapping.
@@ -154,7 +169,7 @@ describe("StudentSignupForm — the referral code", () => {
 
     // Behind a link when nobody prefilled it.
     expect(screen.queryByLabelText("كود الدعوة (اختياري)")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "عندك كود دعوة من صديق؟" }));
+    fireEvent.click(screen.getByRole("button", { name: "لديك رمز دعوة من صديق؟" }));
     fireEvent.change(screen.getByLabelText("كود الدعوة (اختياري)"), { target: { value: " friend23 " } });
     submit(container);
 
