@@ -46,8 +46,10 @@ import {
 /** Whether the reader last chose the narrow rail. Per browser, per person. */
 const NAV_COLLAPSED_KEY = "nav:collapsed";
 
-/** The groups that never fold: where a teacher and a student spend their day. */
-const PRIMARY_GROUPS = new Set(["التدريس", "دراستي"]);
+/** The groups that never fold: where a teacher and a student spend their day, and
+ * «حسابي» — messages, payments and the family page for EVERY role (a guardian
+ * opened a sidebar with no way to pay or link a child in sight). */
+const PRIMARY_GROUPS = new Set(["التدريس", "دراستي", "حسابي"]);
 
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
