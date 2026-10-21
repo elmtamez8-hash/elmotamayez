@@ -48,6 +48,12 @@ export default function MembersPage() {
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("student");
+  // «دعوة مساعد» on /manage/assistants arrives with ?role=assistant-teacher;
+  // without it the form sat on «طالب» and the teacher had to notice and change it.
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("role");
+    if (ROLE_OPTIONS.some((o) => o.value === asked)) setRole(asked as string);
+  }, []);
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});

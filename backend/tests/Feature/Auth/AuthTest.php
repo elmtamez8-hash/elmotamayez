@@ -70,6 +70,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertCreated()->assertJsonPath('email', 'jane@example.com');
 
         $user = User::where('email', 'jane@example.com')->firstOrFail();
@@ -143,6 +144,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertStatus(422);
 
         expect(User::where('email', 'someone-else@example.com')->exists())->toBeFalse();
@@ -155,6 +157,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => Str::random(40),
+            'terms_accepted' => true,
         ])->assertStatus(422);
 
         expect(User::where('email', 'jane@example.com')->exists())->toBeFalse();
@@ -169,6 +172,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertStatus(422);
 
         expect(User::where('email', 'jane@example.com')->exists())->toBeFalse();
@@ -184,6 +188,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertStatus(422);
 
         expect(User::where('email', 'jane@example.com')->exists())->toBeFalse();
@@ -205,6 +210,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertStatus(422);
 
         expect(User::where('email', 'child@example.com')->exists())->toBeFalse();
@@ -213,7 +219,24 @@ describe('registration', function (): void {
     it('validates required fields', function (): void {
         $this->postJson('/api/v1/auth/register', [])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['first_name', 'email', 'password', 'invitation']);
+            ->assertJsonValidationErrors(['first_name', 'email', 'password', 'invitation', 'terms_accepted']);
+    });
+
+    // The invited assistant was the one account on the platform made without
+    // agreeing to the terms (assistant journey 2026-10-21).
+    it('refuses an invited account that did not accept the terms', function (): void {
+        $invitation = inviteFor('assistant@example.com');
+
+        $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Salma',
+            'email' => 'assistant@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'invitation' => $invitation->plainToken,
+        ])->assertStatus(422)
+            ->assertJsonPath('errors.terms_accepted.0', 'يجب الموافقة على الشروط والأحكام.');
+
+        expect(User::where('email', 'assistant@example.com')->exists())->toBeFalse();
     });
 
     it('prevents duplicate email registration', function (): void {
@@ -226,6 +249,7 @@ describe('registration', function (): void {
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'invitation' => $invitation->plainToken,
+            'terms_accepted' => true,
         ])->assertStatus(422)->assertJsonValidationErrors(['email']);
     });
 });

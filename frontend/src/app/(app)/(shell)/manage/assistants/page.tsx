@@ -127,7 +127,7 @@ export default function AssistantsPage() {
           title="فريق المساعدين"
           description="من يعمل معك، وعلى أيّ كورسات."
           actions={
-            <Button href="/members" iconStart={<UserPlusIcon />}>
+            <Button href="/members?role=assistant-teacher" iconStart={<UserPlusIcon />}>
               دعوة مساعد
             </Button>
           }
@@ -149,7 +149,7 @@ export default function AssistantsPage() {
               title="لا مساعدين بعد"
               description="يُضاف المساعد بدعوته إلى فريقك من شاشة الفريق؛ ويظهر هنا فور قبوله الدعوة."
               action={
-                <Button href="/members" variant="secondary" iconStart={<UserPlusIcon />}>
+                <Button href="/members?role=assistant-teacher" variant="secondary" iconStart={<UserPlusIcon />}>
                   ادعُ أوّل مساعد
                 </Button>
               }

@@ -123,9 +123,9 @@ export default function NewExamPage() {
               label="الكورس"
               value={form.course}
               onChange={set("course")}
-              options={[{ value: "", label: "كل طلابي" }, ...courseOptions]}
+              options={[{ value: "", label: "كل طلاب مكان العمل" }, ...courseOptions]}
               error={fields.course}
-              hint="بلا كورس يصل الاختبار إلى كل طلابك."
+              hint="بلا كورس يصل الاختبار إلى كل طلاب مكان العمل."
             />
           )}
 

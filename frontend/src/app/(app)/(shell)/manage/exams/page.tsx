@@ -144,7 +144,7 @@ export default function ManageExamsPage() {
       <PageHeader
         Icon={ExamIcon}
         title="إدارة الاختبارات"
-        description="المسودّات هنا لا يراها أحدٌ غيرك. ينشرها زرّ «إدارة» داخل كلّ اختبار."
+        description="المسودّات لا يراها الطلاب حتى تُنشَر، وينشرها زرّ «إدارة» داخل كلّ اختبار."
         actions={canCreate ? <Button href="/exams/new">اختبار جديد</Button> : undefined}
       />
 

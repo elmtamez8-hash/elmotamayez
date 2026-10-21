@@ -13,14 +13,15 @@ import { SiteFooter } from "@/components/marketplace/SiteFooter";
  * الحالةِ الغالبة — من يتحقّقُ من شهادةٍ ليسَ طالباً عندَنا — و`SiteHeader` هي
  * التي تعرفُ حالتَي «ضيف» و«موقَّع» معاً.
  *
- * `<main>` هنا لا في الصفحة: رابطُ «تخطَّ إلى المحتوى» في التخطيطِ الجذرِ يقصدُ
- * `‎#main`، وبلا هدفٍ يُصبِحُ رابطاً يقفزُ إلى لا شيء.
+ * No `<main>` here: every state of the page renders `AuthShell`, which carries
+ * `<main id="main">` itself — a second one here nested two landmarks with one
+ * id (assistant journey 2026-10-21).
  */
 export default function OutsideChromeLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SiteHeader />
-      <main id="main">{children}</main>
+      {children}
       <SiteFooter />
     </>
   );

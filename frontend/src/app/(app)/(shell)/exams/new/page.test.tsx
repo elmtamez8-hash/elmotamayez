@@ -72,7 +72,7 @@ describe("the new exam form's course", () => {
   it("lets a teacher set a paper for all their students — `course: null`", async () => {
     await openPage();
 
-    expect(screen.getByRole("option", { name: "كل طلابي" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "كل طلاب مكان العمل" })).toBeTruthy();
     expect(courseSelect().required).toBe(false);
 
     await submitWith("اختبار عام");
@@ -93,7 +93,7 @@ describe("the new exam form's course", () => {
     mockUser = { is_confined_assistant: true };
     await openPage();
 
-    expect(screen.queryByRole("option", { name: "كل طلابي" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "كل طلاب مكان العمل" })).toBeNull();
     expect(courseSelect().required).toBe(true);
 
     fireEvent.change(courseSelect(), { target: { value: "c-near" } });

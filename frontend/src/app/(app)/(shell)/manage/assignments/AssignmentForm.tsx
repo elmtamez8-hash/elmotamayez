@@ -168,7 +168,7 @@ export function AssignmentForm({
             error={errors.course_uuid}
             hint="بلا كورس يصل الواجب إلى كل طلابك."
             options={[
-              { value: "", label: "كل طلابي" },
+              { value: "", label: "كل طلاب مكان العمل" },
               ...courses.map((course) => ({ value: course.uuid, label: course.title })),
             ]}
           />

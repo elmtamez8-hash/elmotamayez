@@ -30,7 +30,7 @@ interface AuthContextValue {
     challenge: string,
     credential: { code?: string; recovery_code?: string },
   ) => Promise<User>;
-  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => Promise<void>;
+  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string; terms_accepted: boolean }) => Promise<void>;
   logout: () => Promise<void>;
   /**
    * ⚠️ THE ONE SPELLING OF «THIS TAB NOW HOLDS A SESSION», AND THERE WERE FOUR.
@@ -252,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     credential: { code?: string; recovery_code?: string },
   ) => finishSignIn(await twoFactor.challenge(challenge, credential));
 
-  const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) => {
+  const register = async (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string; terms_accepted: boolean }) => {
     await auth.register(data);
   };
 
