@@ -463,7 +463,7 @@ export default async function CoursePage({
                 )
               }
               groups={
-                course.cohorts.length > 0 ? (
+                course.type === "individual" && course.cohorts.length === 0 ? null : course.cohorts.length > 0 ? (
                   <CohortList
                     courseUuid={course.uuid}
                     cohorts={course.cohorts}

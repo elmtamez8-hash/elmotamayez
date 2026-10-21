@@ -15,7 +15,9 @@ const push = vi.fn();
 vi.mock("@/lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api")>()),
   api: {
-    get: () => Promise.resolve({ data: [] }),
+    // One subject, so the required «المادّة» can be filled.
+    get: (path: string) =>
+      Promise.resolve({ data: path === "/course-subjects" ? [{ uuid: "s-1", label: "الرياضيات" }] : [] }),
     post: (path: string, body: unknown) => post(path, body),
   },
 }));
@@ -41,17 +43,37 @@ beforeEach(() => {
   mockUser = { can_choose_course_visibility: true, can_choose_course_pricing: true };
 });
 
-function submit() {
+/**
+ * The three required answers, then submit — the form now refuses an empty one
+ * in Arabic before any request (journey audit 2026-10-21). A type the test
+ * already picked is kept.
+ */
+async function submit() {
+  fireEvent.change(screen.getByLabelText(/^عنوان الكورس/), { target: { value: "رياضيات" } });
+  await screen.findByRole("option", { name: "الرياضيات" });
+  fireEvent.change(screen.getByLabelText(/^المادّة/), { target: { value: "s-1" } });
+  const types = screen.getAllByRole("radio").filter((r) => (r as HTMLInputElement).name === "course_type");
+  if (!types.some((r) => (r as HTMLInputElement).checked)) fireEvent.click(types[0]);
   fireEvent.submit(screen.getByRole("button", { name: "أنشئ الكورس" }).closest("form")!);
 }
 
 describe("the new course form", () => {
+  it("refuses an empty form in Arabic and sends nothing", async () => {
+    render(<CreateCoursePage />);
+
+    fireEvent.submit(screen.getByRole("button", { name: "أنشئ الكورس" }).closest("form")!);
+
+    expect(await screen.findByText(/اختر نوع الكورس/)).toBeTruthy();
+    expect(screen.getByText("اكتب عنوان الكورس.")).toBeTruthy();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it("creates a course that is NOT free unless the teacher ticks it", async () => {
     render(<CreateCoursePage />);
 
     expect(screen.queryByLabelText("السعر")).toBeNull();
 
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -63,7 +85,7 @@ describe("the new course form", () => {
     render(<CreateCoursePage />);
 
     fireEvent.click(screen.getByLabelText(/كورس مجاني/));
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -79,7 +101,7 @@ describe("the new course form", () => {
     expect(typeRadios.some((r) => (r as HTMLInputElement).checked)).toBe(false);
 
     fireEvent.click(screen.getByRole("radio", { name: /جماعي/ }));
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -89,12 +111,12 @@ describe("the new course form", () => {
   it("creates a public course by default, and a private one when the teacher picks it", async () => {
     render(<CreateCoursePage />);
 
-    submit();
+    await submit();
     await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect((post.mock.calls[0] as [string, Record<string, unknown>])[1].visibility).toBe("public");
 
     fireEvent.click(screen.getByRole("radio", { name: /^خاص/ }));
-    submit();
+    await submit();
     await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(2));
     expect((post.mock.calls[1] as [string, Record<string, unknown>])[1].visibility).toBe("private");
   });
@@ -109,7 +131,7 @@ describe("«ظهور الكورس» on the new course form", () => {
     render(<CreateCoursePage />);
 
     fireEvent.click(screen.getByRole("radio", { name: /^خاص/ }));
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -126,7 +148,7 @@ describe("«ظهور الكورس» on the new course form", () => {
     expect(screen.queryByText("ظهور الكورس")).toBeNull();
     expect(screen.queryByRole("radio", { name: /^خاص/ })).toBeNull();
 
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -148,7 +170,7 @@ describe("«ظهور الكورس» on the new course form", () => {
     expect(screen.queryByLabelText(/كورس مجاني/)).toBeNull();
     expect(screen.getByText(/جعله مجانياً يقرّره مدرّس الكورس/)).toBeTruthy();
 
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
@@ -159,7 +181,7 @@ describe("«ظهور الكورس» on the new course form", () => {
   it("sends the teacher's price keys", async () => {
     render(<CreateCoursePage />);
 
-    submit();
+    await submit();
 
     await vi.waitFor(() => expect(post).toHaveBeenCalled());
     const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];

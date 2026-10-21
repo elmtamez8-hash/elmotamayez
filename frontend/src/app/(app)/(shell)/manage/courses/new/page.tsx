@@ -213,7 +213,19 @@ export default function CreateCoursePage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setFields({});
+
+    /*
+     | Our own sentences, all at once — `noValidate` below. The browser's bubble
+     | said «Please select one of these options» in English, half under the
+     | sticky header (journey audit 2026-10-21).
+     */
+    const missing: Record<string, string> = {};
+    if (form.title.trim() === "") missing.title = "اكتب عنوان الكورس.";
+    if (form.subject === "") missing.subject = "اختر المادّة.";
+    if (form.course_type === "") missing.course_type = "اختر نوع الكورس: فردي أو جماعي أو مسجّل.";
+    setFields(missing);
+    if (Object.keys(missing).length > 0) return;
+
     setLoading(true);
 
     try {
@@ -251,6 +263,7 @@ export default function CreateCoursePage() {
 
       <form
         onSubmit={submit}
+        noValidate
         className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
       >
         <div className="space-y-6">

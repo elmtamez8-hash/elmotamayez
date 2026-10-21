@@ -32,6 +32,7 @@ import {
 import { TONE_CLASSES } from "@/lib/labels";
 import { grading } from "@/lib/grading";
 import {
+  ChevronDownIcon,
   ChevronEndIcon,
   ChevronStartIcon,
   CloseIcon,
@@ -44,6 +45,9 @@ import {
 
 /** Whether the reader last chose the narrow rail. Per browser, per person. */
 const NAV_COLLAPSED_KEY = "nav:collapsed";
+
+/** The groups that never fold: where a teacher and a student spend their day. */
+const PRIMARY_GROUPS = new Set(["التدريس", "دراستي"]);
 
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
@@ -363,7 +367,32 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
           {/* Titled groups (review 2026-10-09). A light heading, not the bordered
               «الإدارة» block below: these are chapters of one list, not a second
               list. On the rail the heading goes and a short rule stands in. */}
-          {groupNav(placeLabelled(allowed(mainNav))).map((section, index) => (
+          {groupNav(placeLabelled(allowed(mainNav))).map((section, index) => {
+            /*
+             | A long group folds unless it holds the open page or is the main
+             | one — a new teacher met 34 links on day one (journey audit
+             | 2026-10-21). The rail shows every icon; there is nothing to fold.
+             */
+            const folds =
+              !collapsed &&
+              section.title !== null &&
+              section.items.length > 3 &&
+              !PRIMARY_GROUPS.has(section.title) &&
+              !section.items.some((item) => item.href === activeHref);
+
+            if (section.title !== null && !collapsed) {
+              return (
+                <details key={section.title} open={!folds} className="group/nav mt-4 first:mt-0">
+                  <summary className="mb-1.5 flex cursor-pointer list-none items-center justify-between rounded-lg px-3 text-[11px] font-extrabold tracking-wide text-ink-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+                    {section.title}
+                    <ChevronDownIcon aria-hidden className="h-3.5 w-3.5 transition-transform group-open/nav:rotate-180" />
+                  </summary>
+                  {section.items.map(renderItem)}
+                </details>
+              );
+            }
+
+            return (
             <div key={section.title ?? `untitled-${index}`} className={index === 0 ? "" : "mt-4"}>
               {section.title !== null && (
                 <>
@@ -375,7 +404,8 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
               )}
               {section.items.map(renderItem)}
             </div>
-          ))}
+            );
+          })}
           {/* ⚠️ The heading is hidden with its list, not left standing over an
               empty box. A section title with nothing under it reads as content
               that failed to load. */}

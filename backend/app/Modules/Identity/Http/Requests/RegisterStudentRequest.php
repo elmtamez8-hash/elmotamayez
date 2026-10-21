@@ -137,7 +137,7 @@ class RegisterStudentRequest extends FormRequest
             'email.unique' => 'هذا البريد الإلكتروني مسجّل بالفعل.',
             'password.min' => 'كلمة المرور يجب ألا تقل عن 8 أحرف.',
             'password.confirmed' => 'تأكيد كلمة المرور غير مطابق.',
-            'phone.regex' => 'أدخل رقم الجوال مع رمز الدولة، مثل ‎+97455512345.',
+            'phone.regex' => 'رقم الجوال غير صحيح. اختر رمز الدولة، ثم اكتب الرقم وحده، مثل 55512345.',
             'country.size' => 'اختر الدولة.',
             'school_year_slug.in' => 'اختر الصف الدراسي من القائمة.',
             'region_slug.in' => 'اختر المنطقة من القائمة.',

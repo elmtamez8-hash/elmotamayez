@@ -101,8 +101,11 @@ export function WeeklyAvailabilityEditor({
     <>
       <ul className="space-y-3">
         {slots.map((slot, index) => (
-          <li key={index} className="flex flex-wrap items-end gap-2">
-            <label className="flex-1">
+          <li key={index} className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap">
+            {/* A grid on a phone — the day on its own line, the two hours under
+                it: three controls in one wrapping row pushed the hours out of
+                the card (journey audit 2026-10-21). */}
+            <label className="col-span-2 sm:flex-1">
               <span className="sr-only">اليوم</span>
               <Select
                 value={slot.day_of_week}
@@ -118,8 +121,8 @@ export function WeeklyAvailabilityEditor({
               </Select>
             </label>
 
-            <label>
-              <span className="sr-only">من</span>
+            <label className="min-w-0">
+              <span className="mb-1 block text-xs text-ink-muted">من</span>
               <input
                 type="time"
                 value={slot.start_time}
@@ -129,8 +132,8 @@ export function WeeklyAvailabilityEditor({
               />
             </label>
 
-            <label>
-              <span className="sr-only">إلى</span>
+            <label className="min-w-0">
+              <span className="mb-1 block text-xs text-ink-muted">إلى</span>
               <input
                 type="time"
                 value={slot.end_time}
@@ -147,7 +150,7 @@ export function WeeklyAvailabilityEditor({
                 type="button"
                 onClick={() => onChange(slots.filter((_, i) => i !== index))}
                 disabled={disabled}
-                className="rounded-xl border border-line px-3 py-2.5 text-sm text-danger-ink"
+                className="col-span-2 rounded-xl border border-line px-3 py-2.5 text-sm text-danger-ink sm:col-span-1"
               >
                 حذف
                 <span className="sr-only"> فترة {DAYS[slot.day_of_week]}</span>

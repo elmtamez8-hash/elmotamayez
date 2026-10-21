@@ -57,20 +57,28 @@ export function CourseTabs({
 }: {
   /** Absent when the teacher wrote no description — the tab goes with it. */
   about: ReactNode;
-  groups: ReactNode;
+  /** Null drops the tab — a one-to-one course with no group. */
+  groups: ReactNode | null;
   privateSession: ReactNode;
   groupCount: number;
 }) {
   const tabs: TabDefinition[] = [
     ...(about === null ? [] : [{ key: "about", label: "عن الكورس", icon: <InfoIcon /> }]),
-    {
-      key: "groups",
-      label: "المجموعات المتاحة",
-      icon: <UsersIcon />,
-      // ⚠️ العددُ يُقرَأُ قبلَ النقر: «لا مواعيد» خلفَ تبويبٍ صامتٍ سؤالٌ يُطرَحُ
-      // بنقرة. و`Tabs` يُسقِطُ الصفرَ من تلقاءِ نفسِه، فلا يُطبَعُ «٠».
-      badge: groupCount,
-    },
+    // Null on a one-to-one course with no group — a «المجموعات المتاحة» tab
+    // there was a tab about something the course is not (journey audit
+    // 2026-10-21).
+    ...(groups === null
+      ? []
+      : [
+          {
+            key: "groups",
+            label: "المجموعات المتاحة",
+            icon: <UsersIcon />,
+            // ⚠️ العددُ يُقرَأُ قبلَ النقر: «لا مواعيد» خلفَ تبويبٍ صامتٍ سؤالٌ يُطرَحُ
+            // بنقرة. و`Tabs` يُسقِطُ الصفرَ من تلقاءِ نفسِه، فلا يُطبَعُ «٠».
+            badge: groupCount,
+          },
+        ]),
     { key: "private", label: "حصة خاصة", icon: <SessionsIcon /> },
   ];
 
