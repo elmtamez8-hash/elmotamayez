@@ -44,6 +44,12 @@ final class StartCoTeacherApplication extends Action
             ->first();
 
         if ($existing !== null) {
+            // A decided or submitted application is not resumable: the wizard
+            // would bounce them home. Say so instead.
+            if (! $existing->isEditable()) {
+                throw new DomainException('لهذا الحساب طلب تدريس قيد المراجعة أو بُتّ فيه بالفعل.');
+            }
+
             return $existing;
         }
 

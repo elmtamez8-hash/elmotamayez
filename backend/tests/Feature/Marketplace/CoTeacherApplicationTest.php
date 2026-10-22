@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Models\User;
 use App\Modules\Courses\Models\Course;
-use App\Modules\Marketplace\Events\TeacherApproved;
+use App\Modules\Marketplace\Actions\ApproveTeacherApplication;
 use App\Modules\Marketplace\Models\TeacherApplication;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Support\Roles;
@@ -66,13 +67,25 @@ it('moves the co-teacher\'s courses to their profile on approval, and no colleag
         ]),
     ]);
 
-    $profile = TeacherProfile::factory()->published()->create([
+    // The REAL approval, not a hand-fired event: it must fire inside its
+    // transaction, leave the foreign workspace's participation alone, and list
+    // the profile from the owner's participation.
+    $this->workspace->forceFill(['participates_in_marketplace' => true])->save();
+
+    $profile = TeacherProfile::factory()->create([
         'user_id' => $this->coTeacher->getKey(),
         'workspace_id' => $this->workspace->getKey(),
     ]);
+    $application = TeacherApplication::factory()->complete()->create([
+        'user_id' => $this->coTeacher->getKey(),
+        'workspace_id' => $this->workspace->getKey(),
+        'teacher_profile_id' => $profile->getKey(),
+        'status' => TeacherApplication::STATUS_SUBMITTED,
+    ]);
 
-    event(new TeacherApproved($profile));
+    app(ApproveTeacherApplication::class)->handle($application, User::factory()->create(['is_super_admin' => true]));
 
-    expect((int) $theirs->refresh()->teacher_profile_id)->toBe((int) $profile->getKey())
+    expect((bool) $profile->refresh()->is_publicly_listed)->toBeTrue()
+        ->and((int) $theirs->refresh()->teacher_profile_id)->toBe((int) $profile->getKey())
         ->and((int) $ownersCourse->refresh()->teacher_profile_id)->toBe((int) $ownerProfile->getKey());
 });

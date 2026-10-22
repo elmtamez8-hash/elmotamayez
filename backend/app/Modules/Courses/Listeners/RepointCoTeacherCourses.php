@@ -19,10 +19,10 @@ use App\Shared\Scopes\WorkspaceScope;
  * owner's rate while the sessions they schedule settle on their own profile
  * (`SchedulableTeachers::ownProfile()`): two answers to «whose course».
  *
- * ⚠️ `resolve()` decides, as in {@see ClaimCoursesForNewTeacherProfile}: a row
- * moves only when the creator is THIS teacher and the rule now names this
- * profile — a colleague's course is never touched, and an owner's own approval
- * moves nothing (their courses already carry their profile).
+ * ⚠️ `created_by` + `workspace_id` are the protection: only THIS teacher's
+ * courses in the profile's own workspace move, so a colleague's course is never
+ * touched, and an owner's own approval moves nothing (their courses already
+ * carry their profile). The `resolve()` check is a consistency guard only.
  */
 class RepointCoTeacherCourses
 {
