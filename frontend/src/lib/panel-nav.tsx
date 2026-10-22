@@ -555,7 +555,10 @@ export const adminNav: NavItem[] = [
    * it hides the entry from exactly the two readers who cannot use it while
    * staying strictly wider than the ownership rule the server enforces.
    */
-  { href: "/teaching/offboarding", label: "إنهاء النشاط", Icon: ShieldIcon, permission: P.settlementStatement },
+  // ⚠️ `roles.manage` since 2026-10-22: `settlement.statement.view` is on a
+  // CO-TEACHER too, who opened this and read «لا تملك صلاحية لهذا الإجراء». The
+  // server's rule is ownership, and `roles.manage` is the owner's alone.
+  { href: "/teaching/offboarding", label: "إنهاء النشاط", Icon: ShieldIcon, permission: P.rolesManage },
   { href: "/settings", label: "الإعدادات", Icon: SettingsIcon },
 ];
 

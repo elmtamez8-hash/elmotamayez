@@ -293,6 +293,8 @@ export interface Course {
    * hidden and the save sends neither `is_free_enrollment` nor `currency`.
    */
   can_change_pricing?: boolean;
+  /** Who teaches it (`Course::teacherUser()`), on the management list only. */
+  teacher_name?: string;
   /**
    * Spec 040 — the course's «حصة تجريبية», for its teacher (`CoursePolicy::
    * chooseTrialLesson`). Sent beside the pricing answer on the author's reads

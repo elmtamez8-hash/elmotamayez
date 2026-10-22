@@ -167,6 +167,26 @@ it('answers a total, so a page knows there is more than it received', function (
         ->assertJsonPath('meta.total', 3);
 });
 
+// An owner with a co-teacher could not tell whose course was whose (co-teacher
+// journey 2026-10-22): each row names who teaches it.
+it('names the teacher of each course, co-teachers included', function (): void {
+    [$own, $workspace, $owner] = manageListCourse('كورس المالك');
+    $coTeacher = $this->addWorkspaceMember($workspace, 'teacher');
+
+    $theirs = app(WorkspaceContext::class)->forWorkspace($workspace, fn (): Course => Course::factory()->create([
+        'workspace_id' => $workspace->getKey(),
+        'created_by' => $coTeacher->getKey(),
+        'title' => 'كورس الشريك',
+    ]));
+
+    Sanctum::actingAs($owner);
+
+    $rows = collect($this->getJson('/api/v1/courses')->assertOk()->json('data'))->keyBy('uuid');
+
+    expect($rows[$own->uuid]['teacher_name'])->toBe($owner->name)
+        ->and($rows[$theirs->uuid]['teacher_name'])->toBe($coTeacher->name);
+});
+
 it('stores and updates the stage, and refuses one that is not a stage', function (): void {
     [$course, , $owner] = manageListCourse();
 

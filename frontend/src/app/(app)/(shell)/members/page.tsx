@@ -32,6 +32,16 @@ const ROLE_OPTIONS = [
   { value: "student", label: "طالب" },
 ];
 
+// What each role may do, under the picker — the form offered three words and no
+// way to tell a co-teacher from an assistant (co-teacher journey 2026-10-22).
+const ROLE_HINTS: Record<string, string> = {
+  teacher:
+    "يُنشئ كورساته ويدرّسها في مكانك، وتُحتسب حصصه في كشف تسويتك بسعرك. لا تظهر كورساته في السوق حتى يكون له ملفّ تدريسي معتمد.",
+  "assistant-teacher":
+    "يعدّل محتوى الكورسات وينشئ الاختبارات، وتختار ما يزيد على ذلك من «فريق المساعدين». لا يرى أيّ بيانات ماليّة.",
+  student: "يدرس في كورساتك.",
+};
+
 /** The workspace the API is acting in, falling back to the only membership. */
 function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined {
   return workspaces?.find((w) => w.is_current) ?? workspaces?.[0];
@@ -288,6 +298,7 @@ export default function MembersPage() {
                 value={role}
                 onChange={setRole}
                 options={ROLE_OPTIONS}
+                hint={ROLE_HINTS[role]}
                 error={fields.role}
               />
             </div>

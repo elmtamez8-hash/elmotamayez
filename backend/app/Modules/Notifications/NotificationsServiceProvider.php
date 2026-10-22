@@ -36,6 +36,7 @@ use App\Modules\Notifications\Channels\WhatsAppChannel;
 use App\Modules\Notifications\Listeners\NotifyImportReady;
 use App\Modules\Notifications\Listeners\NotifyOffboardingStudents;
 use App\Modules\Notifications\Listeners\NotifyOnRewardRedeemed;
+use App\Modules\Notifications\Listeners\NotifyOwnerMemberJoined;
 use App\Modules\Notifications\Listeners\NotifySessionRescheduleDecided;
 use App\Modules\Notifications\Listeners\NotifyStudentBadgeAwarded;
 use App\Modules\Notifications\Listeners\NotifyStudentCertificateIssued;
@@ -59,6 +60,7 @@ use App\Modules\Notifications\Listeners\NotifyTeacherPrivateSessionRequested;
 use App\Modules\Notifications\Listeners\NotifyTeacherRejected;
 use App\Modules\Notifications\Listeners\NotifyTeacherSessionRescheduleRequested;
 use App\Modules\Notifications\Support\NotificationsPersonalData;
+use App\Modules\Tenancy\Events\WorkspaceMemberAdded;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
 use Minishlink\WebPush\WebPush;
@@ -128,6 +130,7 @@ class NotificationsServiceProvider extends Module
         parent::boot();
 
         Event::listen(EnrollmentCreated::class, NotifyStudentEnrolled::class);
+        Event::listen(WorkspaceMemberAdded::class, NotifyOwnerMemberJoined::class);
 
         /*
         | Spec 013 · FR-033 — the students of a departing teacher, and their

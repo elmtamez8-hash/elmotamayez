@@ -29,7 +29,11 @@ type Step = { title: string; line: string; href: string; cta: string; done: bool
 export function TeacherStartCard() {
   const { user } = useAuth();
   const mayPlans = can(user, P.plansManage);
-  const granted = user !== null && can(user, P.coursesCreate) && mayPlans && teachesOnPlatform(user);
+  // ⚠️ AND `roles.manage`, the OWNER's alone: a co-teacher holds the other two
+  // and read the owner's courses and plans as their own steps — «أنشئ كورسك
+  // الأول · تمّت» before making any (co-teacher journey 2026-10-22).
+  const granted =
+    user !== null && can(user, P.coursesCreate) && mayPlans && can(user, P.rolesManage) && teachesOnPlatform(user);
   const [steps, setSteps] = useState<Step[] | null>(null);
 
   useEffect(() => {

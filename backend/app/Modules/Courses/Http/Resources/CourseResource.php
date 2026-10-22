@@ -44,6 +44,20 @@ class CourseResource extends JsonResource
     }
 
     /**
+     * Who teaches it — {@see Course::teacherUser()} — stamped by the management
+     * list, where an owner with co-teachers could not tell whose course was
+     * whose (co-teacher journey 2026-10-22). Unstamped, the key is absent.
+     */
+    private ?string $teacherName = null;
+
+    public function withTeacherName(?string $name): static
+    {
+        $this->teacherName = $name;
+
+        return $this;
+    }
+
+    /**
      * Why the course is not publicly reachable — stamped in by the AUTHOR's
      * reads only (`CourseController::show()` / `publish()` / `unpublish()`),
      * never computed here: it walks `workspace` and `creator.teacherProfile`,
@@ -216,6 +230,7 @@ class CourseResource extends JsonResource
             'sections' => CourseSectionResource::collection($this->whenLoaded('sections')),
             // Empty when nothing stamped one in — see the constructor.
             'cohorts' => $this->cohorts,
+            'teacher_name' => $this->when($this->teacherName !== null, fn (): ?string => $this->teacherName),
         ];
     }
 }

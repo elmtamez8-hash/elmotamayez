@@ -299,6 +299,11 @@ export default function ManageCoursesPage() {
                       ? (stageNames[course.grade_level] ?? course.grade_level)
                       : "بلا مرحلة"}
                   </p>
+                  {/* Whose course, when it is not the reader's — an owner with
+                      co-teachers could not tell (co-teacher journey 2026-10-22). */}
+                  {course.teacher_name && course.teacher_name !== user?.name && (
+                    <p className="mt-1 text-xs text-ink-muted">المدرّس: {course.teacher_name}</p>
+                  )}
                 </div>
               </Link>
 
