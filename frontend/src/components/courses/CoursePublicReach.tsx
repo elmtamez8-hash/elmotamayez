@@ -74,7 +74,7 @@ const PRIVATE_FOR_OTHERS =
 export function CoursePublicReach({
   course,
 }: {
-  course: Pick<Course, "status" | "slug" | "public_listing" | "can_change_visibility">;
+  course: Pick<Course, "status" | "slug" | "public_listing" | "can_change_visibility" | "can_change_pricing">;
 }) {
   const reach = course.public_listing;
 
@@ -104,13 +104,19 @@ export function CoursePublicReach({
             يرى الزوّار صفحته العامة ({page}) وعليها «لم يفتح المدرّس الاشتراك بعد»: لا مجموعة مفتوحة له،
             ولا باقة مسعّرة تغطّيه.
           </p>
-          <p className="mt-1">
-            أضف باقة من{" "}
-            <Link href="/manage/plans" className="font-semibold underline">
-              «باقات الاشتراك»
-            </Link>{" "}
-            وتُعرض للطلاب حين تحدّد المنصّة سعرها، أو اجعله مجانياً من تعديل الكورس.
-          </p>
+          {/* The price is the teacher's call; an assistant was told to add a
+              plan they cannot reach (assistant journey 2026-10-21). */}
+          {course.can_change_pricing === false ? (
+            <p className="mt-1">اطلب من مدرّس الكورس إضافة باقة له أو جعله مجانياً.</p>
+          ) : (
+            <p className="mt-1">
+              أضف باقة من{" "}
+              <Link href="/manage/plans" className="font-semibold underline">
+                «باقات الاشتراك»
+              </Link>{" "}
+              وتُعرض للطلاب حين تحدّد المنصّة سعرها، أو اجعله مجانياً من تعديل الكورس.
+            </p>
+          )}
         </Alert>
       );
     }

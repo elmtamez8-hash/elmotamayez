@@ -50,6 +50,19 @@ class RegisterRequest extends FormRequest
             | show a message to.
             */
             'referral_code' => ['nullable', 'string', 'max:12'],
+
+            // Every other signup asks it; the invited staff account did not
+            // (assistant journey 2026-10-21). Validated, not stored — exactly as
+            // `RegisterStudentRequest`.
+            'terms_accepted' => ['accepted'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
         ];
     }
 }

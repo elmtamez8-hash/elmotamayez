@@ -21,12 +21,15 @@ type Step = { title: string; line: string; href: string; cta: string; done: bool
  *
  * Each step is ticked from the teacher's OWN data, and the card leaves once a
  * published course can be bought — free, or with a priced plan on offer. It is
- * the course OWNER's card (`courses.create`), so an assistant never sees it.
+ * the course OWNER's card, so an assistant never sees it — and `courses.create`
+ * alone did not say that: the default assistant holds it, and was told «أنشئ
+ * كورسك الأول» and «أضف باقة» on joining (assistant journey 2026-10-21).
+ * `plans.manage` is the teacher's and never an assistant's.
  */
 export function TeacherStartCard() {
   const { user } = useAuth();
-  const granted = user !== null && can(user, P.coursesCreate) && teachesOnPlatform(user);
   const mayPlans = can(user, P.plansManage);
+  const granted = user !== null && can(user, P.coursesCreate) && mayPlans && teachesOnPlatform(user);
   const [steps, setSteps] = useState<Step[] | null>(null);
 
   useEffect(() => {

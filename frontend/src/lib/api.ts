@@ -394,7 +394,7 @@ export const auth = {
       email,
       password,
     }),
-  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string }) =>
+  register: (data: { first_name: string; last_name?: string; email: string; password: string; password_confirmation: string; invitation?: string; terms_accepted: boolean }) =>
     api.post<User>("/auth/register", data),
   registerStudent: (data: StudentRegistration, idempotencyKey: string) =>
     request<{ user: User; token: string; session_uuid: string }>("/auth/register/student", {

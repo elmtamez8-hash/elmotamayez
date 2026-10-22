@@ -66,6 +66,7 @@ function RegisterForm() {
     password: "",
     password_confirmation: "",
   });
+  const [terms, setTerms] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -80,7 +81,7 @@ function RegisterForm() {
     setLoading(true);
 
     try {
-      await register({ ...form, invitation: invitation ?? undefined });
+      await register({ ...form, invitation: invitation ?? undefined, terms_accepted: terms });
 
       // Sign the new account in and drop it back on the invitation to accept.
       await login(form.email, form.password);
@@ -197,6 +198,37 @@ function RegisterForm() {
           autoComplete="new-password"
           required
         />
+
+        {/* Every other signup asks it; this one did not (assistant journey 2026-10-21). */}
+        <div>
+          <label className="flex items-start gap-3 text-sm text-ink">
+            <input
+              id="terms_accepted"
+              type="checkbox"
+              checked={terms}
+              onChange={(e) => setTerms(e.target.checked)}
+              aria-invalid={fields.terms_accepted ? true : undefined}
+              aria-describedby={fields.terms_accepted ? "terms_accepted-error" : undefined}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              أوافق على{" "}
+              <Link href="/terms" className="text-primary-ink underline">
+                الشروط والأحكام
+              </Link>{" "}
+              و
+              <Link href="/privacy" className="text-primary-ink underline">
+                سياسة الخصوصية
+              </Link>
+              .
+            </span>
+          </label>
+          {fields.terms_accepted && (
+            <p id="terms_accepted-error" className="mt-1 text-sm text-danger-ink">
+              {fields.terms_accepted}
+            </p>
+          )}
+        </div>
 
         <Button type="submit" fullWidth loading={loading} loadingLabel="جارٍ الإنشاء…">
           أنشئ الحساب

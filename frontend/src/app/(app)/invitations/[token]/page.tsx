@@ -1,7 +1,6 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { roleLabel } from "@/lib/labels";
@@ -27,7 +26,6 @@ export default function InvitationPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
   const [invitation, setInvitation] = useState<InvitationDetails | null>(null);
@@ -48,7 +46,11 @@ export default function InvitationPage({
     setError("");
     try {
       await api.post(`/workspaces/invitations/${token}/accept`);
-      router.push("/dashboard");
+      // A full load, not router.push: the account just gained a workspace,
+      // and the shell (sidebar, dashboard cards, X-Workspace) was built from the
+      // /auth/me read before it — pushed, the new assistant landed on an empty
+      // dashboard until they reloaded by hand (assistant journey 2026-10-21).
+      window.location.assign("/dashboard");
     } catch (err: unknown) {
       setError(userMessage(err));
     } finally {

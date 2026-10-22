@@ -70,7 +70,7 @@ describe("AssistantsPage", () => {
 
     await open();
 
-    expect(screen.getByRole("link", { name: "دعوة مساعد" }).getAttribute("href")).toBe("/members");
+    expect(screen.getByRole("link", { name: "دعوة مساعد" }).getAttribute("href")).toBe("/members?role=assistant-teacher");
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 
@@ -132,7 +132,7 @@ describe("AssistantsPage", () => {
     await open();
 
     expect(screen.getByText("لا مساعدين بعد")).toBeDefined();
-    expect(screen.getByRole("link", { name: "ادعُ أوّل مساعد" }).getAttribute("href")).toBe("/members");
+    expect(screen.getByRole("link", { name: "ادعُ أوّل مساعد" }).getAttribute("href")).toBe("/members?role=assistant-teacher");
     expect(screen.getByText("منى")).toBeDefined();
     expect(screen.getByText("أُنهيت المهمة")).toBeDefined();
   });
