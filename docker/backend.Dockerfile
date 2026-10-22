@@ -1,4 +1,4 @@
-FROM php:8.5.10-fpm-alpine
+FROM php:8.5.12-fpm-alpine
 
 # ⚠️ `intl` و`exif` مطلوبان ولا يذكرُهما `composer.json`: يأتيان من تبعيّاتٍ
 # غيرِ مباشرة، فيسقطُ `composer install` داخلَ الصورةِ برسالةٍ تُسمّي الامتدادَ
