@@ -23,6 +23,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Support\WorkspaceContext;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -150,6 +151,11 @@ class CourseController extends Controller
         // CONTRACT, which declares only the first of the two.
         $items = $courses->items();
 
+        // Who teaches each row, for an owner with co-teachers: two loads and
+        // `primeCreatorTeaches()`'s two reads for the page, never one per row.
+        (new EloquentCollection($items))->load(['creator', 'teacherProfile.user']);
+        Course::primeCreatorTeaches($items);
+
         $byCourse = $cohorts->teacherCohortsFor(
             array_values(array_map(fn (Course $course): int => (int) $course->getKey(), $items)),
         );
@@ -159,6 +165,7 @@ class CourseController extends Controller
         $payload['data'] = array_values(array_map(
             fn (Course $course): array => CourseResource::make($course)
                 ->withCohorts($byCourse[(int) $course->getKey()] ?? [])
+                ->withTeacherName($course->teacherUser()?->name)
                 // `resolve()`, never `toArray()`: the latter skips the filter
                 // that strips a `whenLoaded` MissingValue, and `sections` is one
                 // — `CourseSectionResource::collection(MissingValue)` then dies

@@ -212,7 +212,7 @@ export default function SettlementPage() {
       <PageHeader
         Icon={SettlementIcon}
         title="كشف التسوية"
-        description="ما تستحقّه عن عملك في هذه الفترة، بسعرك المعتمَد وقت تنفيذ كل حصة."
+        description="ما تستحقّه في هذه الفترة عن حصصك وحصص المدرّسين الذين انضمّوا إلى مكانك، بسعرك المعتمَد وقت تنفيذ كل حصة."
         actions={
           <Button
             onClick={exportStatement}

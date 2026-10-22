@@ -26,7 +26,7 @@ function answer(courses: unknown[], plans: unknown[]) {
 
 beforeEach(() => {
   get.mockReset();
-  mockUser = { permissions: ["courses.create", "plans.manage"], workspaces: [{ uuid: "w" }] };
+  mockUser = { permissions: ["courses.create", "plans.manage", "roles.manage"], workspaces: [{ uuid: "w" }] };
 });
 
 describe("TeacherStartCard", () => {
@@ -51,6 +51,17 @@ describe("TeacherStartCard", () => {
 
   it("never draws for an assistant, who creates no course", () => {
     mockUser = { permissions: ["courses.update"], workspaces: [{ uuid: "w" }] };
+
+    const { container } = render(<TeacherStartCard />);
+
+    expect(container.textContent).toBe("");
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  // Co-teacher journey 2026-10-22: a co-teacher holds both of the owner's other
+  // permissions, and read the owner's courses as «أنشئ كورسك الأول · تمّت».
+  it("never draws for a co-teacher, whose steps are the owner's", () => {
+    mockUser = { permissions: ["courses.create", "plans.manage"], workspaces: [{ uuid: "w" }] };
 
     const { container } = render(<TeacherStartCard />);
 

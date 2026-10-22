@@ -246,6 +246,8 @@ function dispatchOf(User $user, NotificationType $type): void
             */
             'payer' => 'مريم',
             'order' => 'الفيزياء',
+            // A SIXTEENTH time, with `workspace_member_joined` (78 against 79).
+            'role' => 'مدرّس',
         ],
     ));
 }

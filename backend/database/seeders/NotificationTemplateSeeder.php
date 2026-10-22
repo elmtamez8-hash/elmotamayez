@@ -502,6 +502,11 @@ class NotificationTemplateSeeder extends Seeder
                 'بتّ {{ name }} في طلب الارتباط الذي أرسلته. افتح صفحة «المرتبطون» لقراءة حالة الطلب.',
                 ['name'],
             ],
+            NotificationType::WorkspaceMemberJoined->value => [
+                'انضمّ {{ name }} إلى فريقك',
+                'قبل {{ name }} دعوتك وانضمّ إلى مكانك بصفة {{ role }}. تجده في «فريقك».',
+                ['name', 'role'],
+            ],
             NotificationType::DataOwnershipTransferred->value => [
                 'صارت بياناتك ملكَك',
                 'بلغ {{ student_name }} الثامنةَ عشرة، فانتقلت إليه ملكيةُ بياناته: هو وحده من يوافق على معالجتها ويطلب نسخةً منها أو حذفَها. لم ينقطع شيءٌ من الخدمة.',

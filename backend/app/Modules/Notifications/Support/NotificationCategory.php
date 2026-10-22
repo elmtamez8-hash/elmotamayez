@@ -253,6 +253,7 @@ enum NotificationCategory: string
                 // type does not crash the feed, it silently stops being filterable.
                 NotificationType::GuardianLinkRequested,
                 NotificationType::GuardianLinkDecided,
+                NotificationType::WorkspaceMemberJoined,
                 NotificationType::DataOwnershipTransferred,
                 NotificationType::DataRequestCreated,
                 NotificationType::DataRequestCompleted,

@@ -198,6 +198,13 @@ enum NotificationType: string
     case GuardianLinkDecided = 'guardian_link_decided';
 
     /*
+    | The owner's half of an invitation (co-teacher journey 2026-10-22): the
+    | invitee accepted, and the teacher who sent the link learnt it only by
+    | opening «فريقك» again.
+    */
+    case WorkspaceMemberJoined = 'workspace_member_joined';
+
+    /*
     | Spec 010 — somebody wrote to you and you were not looking (FR-012).
     |
     | ⚠️ IT DOES NOT TARGET GUARDIANS, AND THAT IS A DECISION RATHER THAN AN
@@ -644,6 +651,7 @@ enum NotificationType: string
             // case without a line here fails static analysis before it fails a
             // test, which is the cheapest place to find out.
             self::LessonLinkReported => 'بلاغ عن رابط درس لا يعمل',
+            self::WorkspaceMemberJoined => 'انضمام عضو إلى فريقك',
         };
     }
 
