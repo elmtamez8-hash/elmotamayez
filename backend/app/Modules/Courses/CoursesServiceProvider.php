@@ -7,9 +7,11 @@ namespace App\Modules\Courses;
 use App\Modules\Compliance\Events\TeacherOffboardingCompleted;
 use App\Modules\Courses\Listeners\ClaimCoursesForNewTeacherProfile;
 use App\Modules\Courses\Listeners\ClearPromoVideoOnOffboarding;
+use App\Modules\Courses\Listeners\RepointCoTeacherCourses;
 use App\Modules\Courses\Listeners\SyncLessonDurationFromAsset;
 use App\Modules\Courses\Support\CoursesPersonalData;
 use App\Modules\Marketplace\Events\TeacherApplicationSubmitted;
+use App\Modules\Marketplace\Events\TeacherApproved;
 use App\Modules\Media\Events\MediaAssetReady;
 use App\Shared\Modules\Module;
 use Illuminate\Support\Facades\Event;
@@ -56,5 +58,6 @@ class CoursesServiceProvider extends Module
         | `teacher_profile_id` فارغاً إلى الأبد، فلا يُسعَّرُ الكورسُ أبداً.
         */
         Event::listen(TeacherApplicationSubmitted::class, ClaimCoursesForNewTeacherProfile::class);
+        Event::listen(TeacherApproved::class, RepointCoTeacherCourses::class);
     }
 }

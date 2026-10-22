@@ -57,7 +57,11 @@ import { useAuth } from "@/lib/auth-context";
  * says no to, so a second spelling in the browser would eventually open a form
  * whose every save is refused — a worse dead end than the redirect it replaced.
  */
-export default function SignupLayout({ children }: { children: React.ReactNode }) {
+export default function SignupLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -121,6 +125,16 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (user === null || arrivedSignedIn !== true) return;
 
+    // The confirmation a signed-in applicant lands on after «إرسال الطلب»: it
+    // asks nothing, and redirecting from it sent an invited co-teacher (who
+    // applies signed in) to the home page with «أنت مسجَّل الدخول بالفعل»
+    // instead of «تم إرسال طلبك» (co-teacher journey 2026-10-22).
+    if (pathname === "/signup/teacher/submitted") {
+      setResumable(true);
+
+      return;
+    }
+
     if (pathname !== "/signup/teacher") {
       setResumable(false);
 
@@ -133,7 +147,10 @@ export default function SignupLayout({ children }: { children: React.ReactNode }
       .get<{ application: { editable?: boolean } }>("/teacher/application")
       // A refusal is not a resumable application: someone who is not a teacher,
       // or a teacher with no application at all, is redirected as before.
-      .then(({ application }) => alive && setResumable(application.editable === true))
+      .then(
+        ({ application }) =>
+          alive && setResumable(application.editable === true),
+      )
       .catch(() => alive && setResumable(false));
 
     return () => {

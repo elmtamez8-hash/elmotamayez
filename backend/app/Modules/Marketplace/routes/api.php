@@ -131,6 +131,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
      */
     Route::get('/manage/teachers', [WorkspaceTeacherController::class, 'index']);
 
+    // An invited co-teacher's own application (co-teacher journey 2026-10-22).
+    Route::post('/teacher/application', [TeacherApplicationController::class, 'start'])->middleware('idempotent');
     Route::get('/teacher/application', [TeacherApplicationController::class, 'show']);
     Route::put('/teacher/application/step-2', [TeacherApplicationController::class, 'stepTwo']);
     Route::put('/teacher/application/step-3', [TeacherApplicationController::class, 'stepThree']);

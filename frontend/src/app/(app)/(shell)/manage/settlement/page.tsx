@@ -63,7 +63,11 @@ export default function SettlementPage() {
     setLoading(true);
     setError("");
 
-    Promise.all([settlement.statement(), settlement.units(), settlement.periods()])
+    Promise.all([
+      settlement.statement(),
+      settlement.units(),
+      settlement.periods(),
+    ])
       .then(([summary, page, closed]) => {
         setStatement(summary);
         setUnits(page.data ?? []);
@@ -194,7 +198,9 @@ export default function SettlementPage() {
           {/* The reason is the whole value of a pending row: "waiting" with no
               object is the message that generates a support ticket. */}
           {unit.pending_reason ? (
-            <span className="ms-2 text-xs text-ink-muted">{unit.pending_reason}</span>
+            <span className="ms-2 text-xs text-ink-muted">
+              {unit.pending_reason}
+            </span>
           ) : null}
         </>
       ),
@@ -212,7 +218,7 @@ export default function SettlementPage() {
       <PageHeader
         Icon={SettlementIcon}
         title="كشف التسوية"
-        description="ما تستحقّه في هذه الفترة عن حصصك وحصص المدرّسين الذين انضمّوا إلى مكانك، بسعرك المعتمَد وقت تنفيذ كل حصة."
+        description="ما تستحقّه في هذه الفترة عن كل حصة محسوبة على ملفّك — ومنها حصص من انضمّ إلى مكانك من المدرّسين قبل اعتماد ملفّاتهم — بسعرك المعتمَد وقت تنفيذها."
         actions={
           <Button
             onClick={exportStatement}
@@ -240,9 +246,9 @@ export default function SettlementPage() {
       {statement.pending_rate_request ? (
         <Alert tone="info" title="طلب سعر قيد الاعتماد">
           لديك طلب سعر قيد الاعتماد بقيمة{" "}
-          {money(statement.pending_rate_request.requested_amount_minor)} — قُدِّم في{" "}
-          {formatDate(statement.pending_rate_request.requested_at)}. السعر الحالي
-          يظل سارياً حتى يُعتمد.
+          {money(statement.pending_rate_request.requested_amount_minor)} —
+          قُدِّم في {formatDate(statement.pending_rate_request.requested_at)}.
+          السعر الحالي يظل سارياً حتى يُعتمد.
         </Alert>
       ) : null}
 
@@ -253,7 +259,8 @@ export default function SettlementPage() {
           <SectionHeading id="rates" Icon={TagIcon} title="أسعارك السارية" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {statement.rates.map((rate) => {
-              const RateIcon = rate.session_type === "group" ? UsersIcon : UserIcon;
+              const RateIcon =
+                rate.session_type === "group" ? UsersIcon : UserIcon;
 
               return (
                 <Card key={rate.uuid} padding="sm" interactive>
@@ -262,7 +269,9 @@ export default function SettlementPage() {
                       <RateIcon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink">{rate.session_type_label}</p>
+                      <p className="text-sm font-medium text-ink">
+                        {rate.session_type_label}
+                      </p>
                       <bdi className="mt-0.5 block text-xl font-bold text-ink">
                         {formatMinorMoney(rate.amount_minor, rate.currency)}
                       </bdi>
@@ -302,7 +311,9 @@ export default function SettlementPage() {
 
             {rateError && (
               <div className="mb-3">
-                <Alert tone="danger" title="لم يُرسَل الطلب">{rateError}</Alert>
+                <Alert tone="danger" title="لم يُرسَل الطلب">
+                  {rateError}
+                </Alert>
               </div>
             )}
 
@@ -336,8 +347,8 @@ export default function SettlementPage() {
             <p className="mt-3 flex items-start gap-2 rounded-2xl bg-surface px-3 py-2 text-xs text-ink-muted">
               <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                يُحتسب السعر على المقعد المحمَّل — الحاضر ومَن تخلَّف دون إخطار — لا على
-                كل مقعد محجوز.
+                يُحتسب السعر على المقعد المحمَّل — الحاضر ومَن تخلَّف دون إخطار
+                — لا على كل مقعد محجوز.
               </span>
             </p>
 
