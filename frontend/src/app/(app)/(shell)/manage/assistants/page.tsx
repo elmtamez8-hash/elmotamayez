@@ -34,7 +34,11 @@ import {
   type AssistantCourse,
 } from "@/lib/assistants";
 import { userMessage } from "@/lib/errors";
+import { useAuth } from "@/lib/auth-context";
 import { counted, NOUNS } from "@/lib/labels";
+import { P, can } from "@/lib/permissions";
+
+import { AssistantPowersCard } from "./AssistantPowersCard";
 
 /**
  * The teacher's team (spec 010 · US1).
@@ -57,6 +61,7 @@ export default function AssistantsPage() {
   const [rows, setRows] = useState<AssistantAssignment[]>([]);
   const [courses, setCourses] = useState<AssistantCourse[]>([]);
   const [teachers, setTeachers] = useState(1);
+  const { user } = useAuth();
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -134,6 +139,8 @@ export default function AssistantsPage() {
         />
         <HouseRules />
       </div>
+
+      {can(user, P.rolesManage) && <AssistantPowersCard />}
 
       {state === "loading" && <RowsSkeleton count={3} />}
 
@@ -227,8 +234,8 @@ function HouseRules() {
   return (
     <ul className="banner-rise divide-y divide-line rounded-3xl border border-line bg-surface-raised px-4 text-sm text-ink-muted">
       <Rule Icon={ShieldIcon}>
-        <strong className="text-ink">ما</strong> يستطيع كلٌّ منهم فعله يُضبط بنداً بنداً على
-        دوره من شاشة الأدوار في لوحة الإدارة، لا من هنا.
+        <strong className="text-ink">ما</strong> يستطيعه مساعدوك فوق الأساس تختاره من «ما يستطيعه
+        مساعدوك» أدناه، ويسري على كلّ مساعديك.
       </Rule>
       <Rule Icon={UserPlusIcon}>
         يُدعى المساعد ويُزال من{" "}
