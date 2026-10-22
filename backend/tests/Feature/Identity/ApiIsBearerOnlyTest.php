@@ -73,3 +73,17 @@ it('does not let a session rescue a revoked token', function (): void {
         ->getJson('/api/v1/auth/me')
         ->assertUnauthorized();
 });
+
+it('answers a public route as a guest beside a panel session', function (): void {
+    // A staff member signed into `/admin` as A, browsing the site as B
+    // (2026-10-22): the public route read A's workspace and refused B's page 409.
+    [, $panelAccount] = $this->createWorkspaceWithOwner();
+    [$theirs, $siteAccount] = $this->createWorkspaceWithOwner();
+
+    Auth::guard('web')->setUser($panelAccount);
+
+    $this->withHeader('Authorization', 'Bearer '.$siteAccount->createToken('walk')->plainTextToken)
+        ->withHeader('X-Workspace', (string) $theirs->uuid)
+        ->getJson('/api/v1/marketplace/grade-levels')
+        ->assertOk();
+});

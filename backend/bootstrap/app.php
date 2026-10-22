@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Courses\Exceptions\ContentLockedException;
+use App\Shared\Middleware\ApiIgnoresPanelSession;
 use App\Shared\Middleware\EnsureCurrentWorkspace;
 use App\Shared\Middleware\Idempotent;
 use App\Shared\Middleware\RefuseAuthenticated;
@@ -115,6 +116,7 @@ return Application::configure(basePath: dirname(__DIR__))
             '2fa.required' => RequireTwoFactor::class,
         ]);
         $middleware->appendToGroup('api', [
+            ApiIgnoresPanelSession::class,
             EnsureCurrentWorkspace::class,
             RefuseStaleWorkspace::class,
         ]);
@@ -127,6 +129,8 @@ return Application::configure(basePath: dirname(__DIR__))
         | middleware's own docblock for the exemptions.
         */
         $middleware->prependToPriorityList(SubstituteBindings::class, RefuseStaleWorkspace::class);
+        // A public route must read as a guest before the stale-workspace check reads it.
+        $middleware->prependToPriorityList(RefuseStaleWorkspace::class, ApiIgnoresPanelSession::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
