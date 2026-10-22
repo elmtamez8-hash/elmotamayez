@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Tenancy\Http\Controllers\Manage\AssistantPowersController;
 use App\Modules\Tenancy\Http\Controllers\PlatformIdentityController;
 use App\Modules\Tenancy\Http\Controllers\WorkspaceController;
 use App\Shared\Middleware\RefuseStaleWorkspace;
@@ -56,4 +57,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/workspaces/{workspace}/invitations', [WorkspaceController::class, 'invite'])
         ->middleware('2fa.required');
     Route::post('/workspaces/invitations/{token}/accept', [WorkspaceController::class, 'acceptInvitation']);
+
+    // What every assistant of this workspace may do (owner decision 2026-10-21).
+    // `2fa.required` like the member-role change beside it: both widen what
+    // somebody else can reach.
+    Route::get('/manage/assistant-powers', [AssistantPowersController::class, 'show']);
+    Route::put('/manage/assistant-powers', [AssistantPowersController::class, 'update'])->middleware('2fa.required');
 });

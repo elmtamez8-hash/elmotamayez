@@ -12,13 +12,19 @@ import type { AssistantAssignment } from "@/lib/assistants";
 */
 
 const get = vi.fn();
+const put = vi.fn();
+let permissions: string[] = [];
 
 vi.mock("@/lib/api", () => ({
   api: {
     get: (path: string) => get(path),
-    put: vi.fn(),
+    put: (path: string, body: unknown) => put(path, body),
     delete: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/auth-context", () => ({
+  useAuth: () => ({ user: { permissions } }),
 }));
 
 function assignment(overrides: Partial<AssistantAssignment> = {}): AssistantAssignment {
@@ -48,6 +54,10 @@ function serve(team: AssistantAssignment[], teachersCount = 1) {
         ],
         meta: { teachers_count: teachersCount },
       });
+    }
+
+    if (path === "/manage/assistant-powers") {
+      return Promise.resolve({ groups: { grading: false, chat: true, sessions: false, exams: false } });
     }
 
     return Promise.reject(new Error(`unexpected read ${path}`));
@@ -197,5 +207,40 @@ describe("AssistantsPage", () => {
 
     expect(screen.getByText("مقصور على كورس واحد حُذف، فلا يصل الآن إلى أيّ كورس")).toBeDefined();
     expect(screen.queryByText("كل الكورسات")).toBeNull();
+  });
+});
+
+describe("what assistants may do (owner decision 2026-10-21)", () => {
+  beforeEach(() => {
+    get.mockReset();
+    put.mockReset();
+  });
+
+  it("is the owner's: ticks a group and saves every group that is on", async () => {
+    permissions = ["roles.manage"];
+    serve([]);
+    put.mockResolvedValue({ groups: { grading: true, chat: true, sessions: false, exams: false } });
+    await open();
+
+    const grading = screen.getByRole("checkbox", { name: /التصحيح/ }) as HTMLInputElement;
+    expect(grading.checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: /الردّ على رسائل الطلاب/ }) as HTMLInputElement).checked).toBe(true);
+
+    fireEvent.click(grading);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "حفظ" }));
+    });
+
+    expect(put).toHaveBeenCalledWith("/manage/assistant-powers", { groups: ["grading", "chat"] });
+    expect(screen.getByText("حُفظ. يسري على كلّ مساعديك.")).toBeDefined();
+  });
+
+  it("is not shown, nor read, without roles.manage", async () => {
+    permissions = [];
+    serve([]);
+    await open();
+
+    expect(screen.queryByText("ما يستطيعه مساعدوك")).toBeNull();
+    expect(get).not.toHaveBeenCalledWith("/manage/assistant-powers");
   });
 });

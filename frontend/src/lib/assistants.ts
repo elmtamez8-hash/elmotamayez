@@ -68,7 +68,15 @@ export const assistants = {
 
   /** Where the signed-in user is an assistant, and on what. */
   mine: () => api.get<{ data: AssistantAssignment[] }>("/assistants/me"),
+
+  /** What every assistant of this workspace may do beyond the default (`roles.manage`). */
+  powers: () => api.get<{ groups: AssistantPowers }>("/manage/assistant-powers"),
+  setPowers: (groups: AssistantPowerGroup[]) =>
+    api.put<{ groups: AssistantPowers }>("/manage/assistant-powers", { groups }),
 };
+
+export type AssistantPowerGroup = "grading" | "chat" | "sessions" | "exams";
+export type AssistantPowers = Record<AssistantPowerGroup, boolean>;
 
 /** The confinement in one sentence, for a row that has to be scannable. */
 export function scopeSummary(assignment: AssistantAssignment): string {
