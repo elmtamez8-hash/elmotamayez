@@ -36,14 +36,16 @@ const ROLE_OPTIONS = [
 // way to tell a co-teacher from an assistant (co-teacher journey 2026-10-22).
 const ROLE_HINTS: Record<string, string> = {
   teacher:
-    "يُنشئ كورساته ويدرّسها في مكانك، وتُحتسب حصصه في كشف تسويتك بسعرك. لا تظهر كورساته في السوق حتى يكون له ملفّ تدريسي معتمد.",
+    "يُنشئ كورساته ويدرّسها في مكانك، وتُحتسب حصصه في كشف تسويتك بسعرك حتى يُعتمَد له ملفّ تدريسي يقدّم عليه من «ملفّي»؛ فتُعرض كورساته في السوق باسمه ويُحاسَب بسعره.",
   "assistant-teacher":
     "يعدّل محتوى الكورسات وينشئ الاختبارات، وتختار ما يزيد على ذلك من «فريق المساعدين». لا يرى أيّ بيانات ماليّة.",
   student: "يدرس في كورساتك.",
 };
 
 /** The workspace the API is acting in, falling back to the only membership. */
-function pickCurrent(workspaces: Workspace[] | undefined): Workspace | undefined {
+function pickCurrent(
+  workspaces: Workspace[] | undefined,
+): Workspace | undefined {
   return workspaces?.find((w) => w.is_current) ?? workspaces?.[0];
 }
 
@@ -67,7 +69,9 @@ export default function MembersPage() {
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState("");
   const [fields, setFields] = useState<Record<string, string>>({});
-  const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
+  const [invite, setInvite] = useState<{ email: string; link: string } | null>(
+    null,
+  );
   const [copied, setCopied] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -93,9 +97,10 @@ export default function MembersPage() {
 
         setWorkspaceUuid(current.uuid);
 
-        const detail = await api.get<{ data: Member[]; meta?: { last_page: number } }>(
-          `/workspaces/${current.uuid}/members?page=${target}`,
-        );
+        const detail = await api.get<{
+          data: Member[];
+          meta?: { last_page: number };
+        }>(`/workspaces/${current.uuid}/members?page=${target}`);
         const rows = detail.data ?? [];
         setMembers((before) => (target === 1 ? rows : [...before, ...rows]));
         setLastPage(detail.meta?.last_page ?? 1);
@@ -124,7 +129,10 @@ export default function MembersPage() {
       );
 
       // No mail is sent yet — hand the inviter the link to pass on themselves.
-      setInvite({ email, link: `${window.location.origin}/invitations/${token}` });
+      setInvite({
+        email,
+        link: `${window.location.origin}/invitations/${token}`,
+      });
       setEmail("");
       load();
     } catch (err: unknown) {
@@ -155,7 +163,9 @@ export default function MembersPage() {
     setRoleError("");
 
     try {
-      await api.patch(`/workspaces/${workspaceUuid}/members/${member.uuid}`, { role: next });
+      await api.patch(`/workspaces/${workspaceUuid}/members/${member.uuid}`, {
+        role: next,
+      });
       load();
     } catch (err: unknown) {
       // The owner's row and an expired two-factor grace both land here, each
@@ -255,9 +265,12 @@ export default function MembersPage() {
             header: "إجراء",
             render: (m: Member) =>
               m.is_owner ? null : (
-                <Button size="sm" variant="ghost" onClick={() => setRemoving(m)}>
-                  إزالة
-                  {" "}<span className="sr-only">{m.name}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setRemoving(m)}
+                >
+                  إزالة <span className="sr-only">{m.name}</span>
                 </Button>
               ),
           },
@@ -271,7 +284,10 @@ export default function MembersPage() {
 
       {canInvite && (
         <Card as="section" padding="sm">
-          <form onSubmit={submitInvite} className="flex flex-wrap items-end gap-3">
+          <form
+            onSubmit={submitInvite}
+            className="flex flex-wrap items-end gap-3"
+          >
             {error && (
               <div className="w-full">
                 <Alert tone="danger" title={error} />
@@ -303,7 +319,11 @@ export default function MembersPage() {
               />
             </div>
 
-            <Button type="submit" loading={inviting} loadingLabel="جارٍ الإرسال…">
+            <Button
+              type="submit"
+              loading={inviting}
+              loadingLabel="جارٍ الإرسال…"
+            >
               أرسل الدعوة
             </Button>
           </form>
@@ -318,7 +338,8 @@ export default function MembersPage() {
                 الدعوة جاهزة لـ <bdi>{invite.email}</bdi>
               </p>
               <p className="text-sm text-ink-muted">
-                أرسل له هذا الرابط — تنتهي صلاحيته بعد سبعة أيام ولا يعمل إلا لهذا البريد.
+                أرسل له هذا الرابط — تنتهي صلاحيته بعد سبعة أيام ولا يعمل إلا
+                لهذا البريد.
               </p>
             </div>
             <button

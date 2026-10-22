@@ -30,11 +30,18 @@ import {
   toViewerSlot,
 } from "@/lib/availability";
 import { useAuth } from "@/lib/auth-context";
+import { P, can } from "@/lib/permissions";
+import { CoTeacherApplyButton } from "@/components/marketplace/CoTeacherApplyButton";
 import { userMessage } from "@/lib/errors";
 import { profileApi, type Faq, type TeacherProfile } from "@/lib/profile";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { AcademicCapIcon, QuestionIcon, ScheduleIcon, UserIcon } from "@/components/icons";
+import {
+  AcademicCapIcon,
+  QuestionIcon,
+  ScheduleIcon,
+  UserIcon,
+} from "@/components/icons";
 import { arabicNumber } from "@/lib/numerals";
 import { TEACHING_LANGUAGES } from "@/lib/teaching-languages";
 import { useViewerTimeZone } from "@/lib/viewer-time-zone";
@@ -84,7 +91,9 @@ export default function ProfileSettingsPage() {
    * وحدَهما — وموضعٌ ثالثٌ يحوّلُ هو الحالةُ التي أصلحها ٢٠٢٦-٠٩-٠٢.
    */
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [storedWeek, setStoredWeek] = useState<TeacherProfile["availability"] | null>(null);
+  const [storedWeek, setStoredWeek] = useState<
+    TeacherProfile["availability"] | null
+  >(null);
 
   /*
    * ⚠️ THE WEEK AS STORED, AND THE WEEK ON THIS TEACHER'S CLOCK, ARE TWO STATES.
@@ -94,11 +103,18 @@ export default function ProfileSettingsPage() {
    * on the same clock the save will name — the zone can arrive a render late
    * (the account's stored zone loads after the page).
    */
-  const showWeek = useCallback((stored: TeacherProfile["availability"], on: string) => {
-    const week = stored.map((slot) => toViewerSlot(slot, on));
+  const showWeek = useCallback(
+    (stored: TeacherProfile["availability"], on: string) => {
+      const week = stored.map((slot) => toViewerSlot(slot, on));
 
-    setSlots(week.length > 0 ? week : [{ day_of_week: 0, start_time: "16:00", end_time: "18:00" }]);
-  }, []);
+      setSlots(
+        week.length > 0
+          ? week
+          : [{ day_of_week: 0, start_time: "16:00", end_time: "18:00" }],
+      );
+    },
+    [],
+  );
   const zoneRef = useRef(zone);
 
   // The zone can change once after the week loaded (the account's stored zone
@@ -113,7 +129,10 @@ export default function ProfileSettingsPage() {
     if (storedWeek !== null) showWeek(storedWeek, zone);
   }, [storedWeek, zone, showWeek]);
 
-  const [student, setStudent] = useState({ school_year_slug: "", region_slug: "" });
+  const [student, setStudent] = useState({
+    school_year_slug: "",
+    region_slug: "",
+  });
 
   const [fields, setFields] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -132,7 +151,9 @@ export default function ProfileSettingsPage() {
      * `teacher_profile_uuid` on `/auth/me` is the very relation this route
      * refuses on (`$user->teacherProfile`), so null means «403», in advance.
      */
-    const mine = hasTeacherProfile ? await profileApi.teacher().catch(() => null) : null;
+    const mine = hasTeacherProfile
+      ? await profileApi.teacher().catch(() => null)
+      : null;
 
     setTeacher(mine);
 
@@ -238,7 +259,10 @@ export default function ProfileSettingsPage() {
           duration: 10000,
         });
       } else {
-        toast.error("لم يُحفظ التغيير", { description: userMessage(err), duration: 10000 });
+        toast.error("لم يُحفظ التغيير", {
+          description: userMessage(err),
+          duration: 10000,
+        });
       }
     } finally {
       setSaving(false);
@@ -269,11 +293,24 @@ export default function ProfileSettingsPage() {
         name={user?.name ?? "؟"}
       />
 
-      {!hasProfile && (
+      {/* An invited co-teacher (settlement but not the owner's roles.manage)
+          had no way to a profile, so their courses never reached the
+          marketplace (co-teacher journey 2026-10-22). */}
+      {!hasProfile &&
+      can(user, P.settlementStatement) &&
+      !can(user, P.rolesManage) ? (
         <EmptyState
-          title="لا ملفّ عامّ لهذا الحساب"
-          description="الملفّ العامّ لمن يدرّس أو يدرس على المنصّة. صورتك واسمك فوق، وبقيّة بياناتك في صفحة الإعدادات."
+          title="لا ملفّ تدريسي لك بعد"
+          description="تُعرض كورساتك في السوق باسمك حين يكون لك ملفّ تدريسي معتمد. قدّم طلبك، فيراجعه فريق المنصّة، وتُحتسب حصصك بعد اعتماده بسعرك أنت."
+          action={<CoTeacherApplyButton />}
         />
+      ) : (
+        !hasProfile && (
+          <EmptyState
+            title="لا ملفّ عامّ لهذا الحساب"
+            description="الملفّ العامّ لمن يدرّس أو يدرس على المنصّة. صورتك واسمك فوق، وبقيّة بياناتك في صفحة الإعدادات."
+          />
+        )
       )}
 
       {teacher !== null && (
@@ -310,10 +347,13 @@ export default function ProfileSettingsPage() {
                      * كانَ سيُجابُ ٤٢٢ عن حقلٍ لم يقصدْ ملأَه أصلاً.
                      */
                     faqs: form.faqs.filter(
-                      (faq) => faq.question.trim() !== "" || faq.answer.trim() !== "",
+                      (faq) =>
+                        faq.question.trim() !== "" || faq.answer.trim() !== "",
                     ),
                     intro_video_url:
-                      form.intro_video_url.trim() === "" ? null : form.intro_video_url.trim(),
+                      form.intro_video_url.trim() === ""
+                        ? null
+                        : form.intro_video_url.trim(),
                     years_experience: Number(form.years_experience),
                     headline: form.headline,
                     bio: form.bio,
@@ -352,7 +392,10 @@ export default function ProfileSettingsPage() {
               placeholder="اختر المراحل"
               value={form.grade_levels}
               onChange={(grade_levels) => setForm({ ...form, grade_levels })}
-              options={stages.map((stage) => ({ value: stage.slug, label: stage.name }))}
+              options={stages.map((stage) => ({
+                value: stage.slug,
+                label: stage.name,
+              }))}
             />
 
             <MultiSelectField
@@ -362,7 +405,9 @@ export default function ProfileSettingsPage() {
               required
               placeholder="اختر اللغات"
               value={form.teaching_languages}
-              onChange={(teaching_languages) => setForm({ ...form, teaching_languages })}
+              onChange={(teaching_languages) =>
+                setForm({ ...form, teaching_languages })
+              }
               options={TEACHING_LANGUAGES.map((language) => ({
                 value: language.value,
                 label: language.label,
@@ -424,7 +469,10 @@ export default function ProfileSettingsPage() {
               الملفَّ كاملاً في كلِّ حفظ، فنموذجٌ ثانٍ يُرسِلُ الأسئلةَ وحدَها كانَ
               سيمسحُ ما في الحقولِ فوقَه.
             */}
-            <fieldset id="faqs" className="scroll-mt-24 rounded-2xl border border-line p-4">
+            <fieldset
+              id="faqs"
+              className="scroll-mt-24 rounded-2xl border border-line p-4"
+            >
               <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-ink">
                 <QuestionIcon className="h-4 w-4 text-primary-ink" />
                 الأسئلة الشائعة
@@ -436,7 +484,9 @@ export default function ProfileSettingsPage() {
               </p>
 
               {form.faqs.length === 0 && (
-                <p className="mb-4 text-sm text-ink-muted">لم تضف أي سؤال بعد.</p>
+                <p className="mb-4 text-sm text-ink-muted">
+                  لم تضف أي سؤال بعد.
+                </p>
               )}
 
               <div className="space-y-4">
@@ -485,7 +535,10 @@ export default function ProfileSettingsPage() {
                       type="button"
                       variant="ghost"
                       onClick={() =>
-                        setForm({ ...form, faqs: form.faqs.filter((_, at) => at !== index) })
+                        setForm({
+                          ...form,
+                          faqs: form.faqs.filter((_, at) => at !== index),
+                        })
                       }
                     >
                       احذف هذا السؤال
@@ -504,7 +557,10 @@ export default function ProfileSettingsPage() {
                   variant="secondary"
                   disabled={form.faqs.length >= 20}
                   onClick={() =>
-                    setForm({ ...form, faqs: [...form.faqs, { question: "", answer: "" }] })
+                    setForm({
+                      ...form,
+                      faqs: [...form.faqs, { question: "", answer: "" }],
+                    })
                   }
                 >
                   أضف سؤالاً
@@ -519,7 +575,9 @@ export default function ProfileSettingsPage() {
               id="years_experience"
               label="سنوات الخبرة"
               value={String(form.years_experience)}
-              onChange={(value) => setForm({ ...form, years_experience: Number(value) })}
+              onChange={(value) =>
+                setForm({ ...form, years_experience: Number(value) })
+              }
               error={fields.years_experience}
               min={0}
               max={60}
@@ -542,8 +600,9 @@ export default function ProfileSettingsPage() {
               title="مواعيدي الأسبوعية"
               description={
                 <>
-                  الساعات التي يُحجَز فيها عندك. منها تُولَّد حصص مجموعاتك، وعليها يُرفَض
-                  طلب الحصة الخاصة خارجها، وهي ما تعرضه صفحتك العامة. بتوقيتك أنت.
+                  الساعات التي يُحجَز فيها عندك. منها تُولَّد حصص مجموعاتك،
+                  وعليها يُرفَض طلب الحصة الخاصة خارجها، وهي ما تعرضه صفحتك
+                  العامة. بتوقيتك أنت.
                 </>
               }
             />
@@ -569,7 +628,9 @@ export default function ProfileSettingsPage() {
               const straddling = endsBeforeStartIndex(slots);
 
               if (straddling !== -1) {
-                setFields({ availability: `فترة ${DAYS[slots[straddling].day_of_week]}: ${PAST_MIDNIGHT_MESSAGE}` });
+                setFields({
+                  availability: `فترة ${DAYS[slots[straddling].day_of_week]}: ${PAST_MIDNIGHT_MESSAGE}`,
+                });
 
                 return;
               }
@@ -617,7 +678,9 @@ export default function ProfileSettingsPage() {
                * still held the old one, and the next load of this form (or a
                * second save from it) put the old value straight back.
                */
-              void save(profileApi.saveStudent(student).then(() => refreshUser()));
+              void save(
+                profileApi.saveStudent(student).then(() => refreshUser()),
+              );
             }}
           >
             {/*
@@ -636,8 +699,13 @@ export default function ProfileSettingsPage() {
               label="الصف الدراسي"
               placeholder="اختر الصف"
               value={student.school_year_slug}
-              onChange={(value) => setStudent({ ...student, school_year_slug: value })}
-              options={years.map((year) => ({ value: year.slug, label: year.name }))}
+              onChange={(value) =>
+                setStudent({ ...student, school_year_slug: value })
+              }
+              options={years.map((year) => ({
+                value: year.slug,
+                label: year.name,
+              }))}
               error={fields.school_year_slug}
               required
             />
@@ -647,8 +715,13 @@ export default function ProfileSettingsPage() {
               label="المنطقة"
               placeholder="اختر المنطقة"
               value={student.region_slug}
-              onChange={(value) => setStudent({ ...student, region_slug: value })}
-              options={regions.map((region) => ({ value: region.slug, label: region.name }))}
+              onChange={(value) =>
+                setStudent({ ...student, region_slug: value })
+              }
+              options={regions.map((region) => ({
+                value: region.slug,
+                label: region.name,
+              }))}
               error={fields.region_slug}
               required
             />
@@ -660,8 +733,8 @@ export default function ProfileSettingsPage() {
               يُبطِلُ البوّابةَ من داخلِها. تغييرُهما يمرُّ بالدعم.
             */}
             <p className="text-xs text-ink-muted">
-              لتغيير تاريخ الميلاد أو رقم ولي الأمر، تواصل مع الدعم — يُبنى عليهما
-              إذنُ ولي الأمر.
+              لتغيير تاريخ الميلاد أو رقم ولي الأمر، تواصل مع الدعم — يُبنى
+              عليهما إذنُ ولي الأمر.
             </p>
 
             <Button type="submit" loading={saving} loadingLabel="جارٍ الحفظ…">

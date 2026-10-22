@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Identity\Actions\StartAuthSession;
 use App\Modules\Marketplace\Actions\RegisterTeacher;
 use App\Modules\Marketplace\Actions\SaveTeacherApplicationStep;
+use App\Modules\Marketplace\Actions\StartCoTeacherApplication;
 use App\Modules\Marketplace\Actions\SubmitTeacherApplication;
 use App\Modules\Marketplace\Data\TeacherStepFourData;
 use App\Modules\Marketplace\Data\TeacherStepThreeData;
@@ -17,6 +18,8 @@ use App\Modules\Marketplace\Http\Requests\TeacherStepFourRequest;
 use App\Modules\Marketplace\Http\Requests\TeacherStepThreeRequest;
 use App\Modules\Marketplace\Http\Requests\TeacherStepTwoRequest;
 use App\Modules\Marketplace\Models\TeacherApplication;
+use App\Shared\Support\WorkspaceContext;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -51,6 +54,27 @@ class TeacherApplicationController extends Controller
             'token' => $result?->plainTextToken,
             'session_uuid' => $result?->session->uuid,
         ], 201);
+    }
+
+    /**
+     * An invited co-teacher starts (or resumes) an application for their own
+     * profile in the current workspace — see {@see StartCoTeacherApplication}.
+     */
+    public function start(Request $request, StartCoTeacherApplication $action): JsonResponse
+    {
+        $workspace = app(WorkspaceContext::class)->current();
+
+        if ($workspace === null) {
+            return response()->json(['message' => 'افتح مكان العمل الذي تدرّس فيه أولاً.'], 422);
+        }
+
+        try {
+            $application = $action->handle($this->currentUser($request), $workspace);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return $this->saved($application);
     }
 
     public function show(Request $request): JsonResponse
