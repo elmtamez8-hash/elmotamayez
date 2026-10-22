@@ -42,6 +42,10 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // A public API route's identity: none. See ApiIgnoresPanelSession.
+        'api-public' => [
+            'driver' => 'nobody',
+        ],
     ],
 
     /*

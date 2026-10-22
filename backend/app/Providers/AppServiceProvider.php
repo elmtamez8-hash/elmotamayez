@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -51,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+
+        // The guard a public API route reads — nobody. See ApiIgnoresPanelSession.
+        Auth::viaRequest('nobody', fn (): null => null);
 
         // Super Admin is a platform-level flag, not a tenant role, so it holds no
         // spatie permissions. BasePolicy::before() already lets it through policy
