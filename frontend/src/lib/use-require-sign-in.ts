@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { useAuth } from "@/lib/auth-context";
+import { consumeSignedOut, useAuth } from "@/lib/auth-context";
 
 /**
  * Sends a signed-out visitor to the sign-in page, carrying the address they were on.
@@ -34,6 +34,11 @@ export function useRequireSignIn() {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (consumeSignedOut(user)) {
+      router.push("/login");
+      return;
+    }
+
     if (!loading && !user) {
       const intended = `${pathname}${window.location.search}`;
 

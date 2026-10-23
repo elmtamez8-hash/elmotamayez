@@ -27,6 +27,7 @@ use App\Modules\Identity\Models\AuthSession;
 use App\Modules\Identity\Support\SessionEndReason;
 use App\Modules\Identity\Support\TwoFactorChallenges;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -242,6 +243,9 @@ class AuthController extends Controller
 
         if ($valid && ! $user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();
+            // `markEmailAsVerified()` fires nothing on its own, and a guardian
+            // named by email is found by this event.
+            event(new Verified($user));
         }
 
         return redirect()->away(config('cms.site_url').'/login?verified='.($valid ? '1' : '0'));

@@ -29,6 +29,7 @@ use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Modules\Module;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Routing\UrlGenerator;
@@ -184,5 +185,6 @@ class IdentityServiceProvider extends Module
         | had. Verified, never typed: see the listener's docblock.
         */
         Event::listen(ContactVerified::class, InviteGuardianOnContactVerified::class);
+        Event::listen(Verified::class, InviteGuardianOnContactVerified::class);
     }
 }

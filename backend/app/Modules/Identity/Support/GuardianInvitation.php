@@ -60,12 +60,11 @@ final class GuardianInvitation
             'student_name' => $name,
             'relation_type' => RelationType::Parent->value,
             /*
-            | `DataRights` and nothing more — the single permission a guardian
-            | needs to consent to processing this child's data. A child hands over
-            | NO authority by typing a phone number, because a `pending` row grants
-            | nothing; widening is the student's decision alone (FR-009).
+            | A `pending` row grants nothing, so typing a contact hands over no
+            | authority; what the guardian holds once they accept is
+            | `permissionsFor()`.
             */
-            'permissions' => [GuardianPermission::DataRights->value],
+            'permissions' => $this->permissionsFor($student),
             'status' => RelationStatus::Pending->value,
             'requested_by_user_id' => $student->getKey(),
         ]);
@@ -82,5 +81,31 @@ final class GuardianInvitation
         ));
 
         return true;
+    }
+
+    /**
+     * ⚠️ A MINOR'S GUARDIAN FOLLOWS THEM FROM THE START (owner decision
+     * 2026-10-23). With `DataRights` alone, a parent who consented saw «غير ممنوح
+     * لك» on every card and nothing told the child to widen it. These still grant
+     * nothing until the guardian accepts (`Pending`), and the student may narrow
+     * them afterwards through `UpdateRelationPermissions`. `Messages` stays the
+     * student's to give: it lets the guardian WRITE as the child.
+     *
+     * @return list<string>
+     */
+    private function permissionsFor(User $student): array
+    {
+        if ($student->status !== UserStatus::PendingGuardianConsent->value) {
+            return [GuardianPermission::DataRights->value];
+        }
+
+        return array_map(fn (GuardianPermission $p): string => $p->value, [
+            GuardianPermission::DataRights,
+            GuardianPermission::Attendance,
+            GuardianPermission::Schedule,
+            GuardianPermission::Results,
+            GuardianPermission::Payments,
+            GuardianPermission::AcademicWarnings,
+        ]);
     }
 }

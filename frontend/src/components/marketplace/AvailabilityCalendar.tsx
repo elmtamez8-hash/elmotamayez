@@ -38,6 +38,19 @@ export function partOfDay(startTime: string): {
   return { label: "ليلاً", Icon: NightIcon };
 }
 
+/**
+ * The part-of-day label for a whole slot, or null when it spans more than two
+ * parts — «11:00 – 21:00 صباحاً» read as a morning slot (journey walk,
+ * 2026-10-23). 17:00–21:00 keeps «مساءً», per `partOfDay`'s rule.
+ */
+export function slotPartLabel(slot: Pick<AvailabilityItem, "start_time" | "end_time">): string | null {
+  const parts = ["صباحاً", "ظهراً", "مساءً", "ليلاً"];
+  const start = partOfDay(slot.start_time).label;
+  const end = partOfDay(slot.end_time).label;
+
+  return parts.indexOf(end) - parts.indexOf(start) > 1 ? null : start;
+}
+
 /** A slot's length in minutes. A negative span is clamped to zero. */
 export function slotMinutes(slot: Pick<AvailabilityItem, "start_time" | "end_time">): number {
   const toMinutes = (time: string) => {
@@ -186,7 +199,8 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
                 {open ? (
                   <ul className="space-y-1.5">
                     {daySlots.map((slot) => {
-                      const { label, Icon } = partOfDay(slot.start_time);
+                      const { Icon } = partOfDay(slot.start_time);
+                      const label = slotPartLabel(slot);
 
                       return (
                         <li
@@ -210,7 +224,8 @@ export function AvailabilityCalendar({ slots }: { slots: AvailabilityItem[] }) {
                             <bdi>{slot.end_time}</bdi>
                           </span>
                           <span className="mt-0.5 block text-[11px] text-ink-muted">
-                            {label} · {formatDuration(slotMinutes(slot))}
+                            {label === null ? "" : `${label} · `}
+                            {formatDuration(slotMinutes(slot))}
                           </span>
                         </li>
                       );

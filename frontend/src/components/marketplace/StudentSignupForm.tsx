@@ -151,8 +151,12 @@ export function StudentSignupForm({
     [],
   );
 
-  const set = (key: keyof typeof form, value: string | boolean) =>
+  const set = (key: keyof typeof form, value: string | boolean) => {
     setForm((current) => ({ ...current, [key]: value }));
+    // An edited field drops its refusal: «مسجّل بالفعل» stayed under an email
+    // the reader had already changed (journey walk, 2026-10-23).
+    setErrors(({ [key]: _dropped, ...rest }) => rest);
+  };
 
   /*
    | A phone outside Qatar moves the region to «خارج قطر», and back to the first
@@ -280,6 +284,8 @@ export function StudentSignupForm({
        */
       if (err instanceof ApiError && errorCode(err.body) === "pending_guardian_consent") {
         setAwaitingGuardian(true);
+        // The notice replaces a long form; start the reader at its top.
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setLoading(false);
 
         return;
@@ -304,7 +310,8 @@ export function StudentSignupForm({
     return (
       <Alert tone="info" title="أُنشئ حسابك، وهو بانتظار موافقة وليّ أمرك">
         يصل الطلب إلى وليّ أمرك في صفحة «المرتبطون» من حسابه على المنصّة. إن لم يكن له
-        حساب بعد، فليُنشئه ويؤكّد رقم الجوّال الذي أدخلته هنا، فيصله الطلب تلقائياً. تستطيع تسجيل
+        حساب بعد، فليُنشئ حساب وليّ أمر بالبريد الإلكتروني الذي أدخلته هنا، ثم يؤكّده من الرسالة التي
+        تصله، فيصله الطلب تلقائياً. تستطيع تسجيل
         الدخول فور موافقته.
       </Alert>
     );
@@ -461,17 +468,18 @@ export function StudentSignupForm({
           {isMinor && (
             <Field
               id="guardian_contact"
-              label="رقم جوّال وليّ الأمر"
+              label="البريد الإلكتروني لوليّ الأمر"
               error={errors.guardian_contact}
               required
             >
               <input
                 id="guardian_contact"
-                type="tel"
+                type="email"
                 dir="ltr"
+                autoComplete="off"
                 value={form.guardian_contact}
                 onChange={(e) => set("guardian_contact", e.target.value)}
-                placeholder="+97455512345"
+                placeholder="parent@example.com"
                 required
                 aria-invalid={errors.guardian_contact ? true : undefined}
                 aria-describedby={errors.guardian_contact ? "guardian_contact-hint guardian_contact-error" : "guardian_contact-hint"}

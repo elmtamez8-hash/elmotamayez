@@ -230,9 +230,8 @@ class CreateAccount extends Page
                                 ->live()
                                 ->helperText('دونَ الثامنةَ عشرةَ ⇐ الحساب موقوف حتّى موافقة وليّ الأمر (FR-009).'),
                             TextInput::make('guardian_contact')
-                                ->label('هاتف وليّ الأمر')
-                                ->tel()
-                                ->rule('regex:/^\+[1-9]\d{6,14}$/')
+                                ->label('بريد وليّ الأمر')
+                                ->email()
                                 ->required(fn (Get $get): bool => self::isMinor($get('date_of_birth')))
                                 ->visible(fn (Get $get): bool => self::isMinor($get('date_of_birth')))
                                 ->helperText('يُطلَب للقاصر وحده، وهو مَن تصله دعوة الموافقة.'),

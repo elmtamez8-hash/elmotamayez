@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth-context";
 import { dashboardAudience } from "@/lib/dashboard-audience";
 import { family, GUARDIAN_PERMISSIONS, type GuardianRelation } from "@/lib/notifications";
 
+import { EmailVerificationSection } from "../settings/security/EmailVerificationSection";
 import { RelationRow } from "./RelationRow";
 
 /**
@@ -198,6 +199,21 @@ export default function FamilyPage() {
       <PageHeader Icon={FamilyIcon} title={readingAsStudent ? "من يتابعني" : "المرتبطون"} />
 
       {error && <Alert tone="danger" title={error} />}
+
+      {/*
+        A minor names their guardian's EMAIL at signup, and the request reaches
+        the guardian only once that address is confirmed (owner decision
+        2026-10-23). Nothing else on this screen said so.
+      */}
+      {readingAsGuardian && user?.email_verified_at === null && (
+        <>
+          <Alert tone="info" title="أكّد بريدك ليصلك طلب ابنك">
+            إن أدخل ابنك بريدك عند تسجيله، يظهر طلبه هنا بعد أن تضغط رابط التأكيد الذي وصلك على
+            بريدك.
+          </Alert>
+          <EmailVerificationSection />
+        </>
+      )}
 
       {/*
         The FIRST STEP of linking a child who already has an account, and it had

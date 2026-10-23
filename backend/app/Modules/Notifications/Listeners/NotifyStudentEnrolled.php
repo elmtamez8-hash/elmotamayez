@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Notifications\Listeners;
 
 use App\Modules\Learning\Events\EnrollmentCreated;
+use App\Modules\Learning\Models\Enrollment;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -25,6 +26,19 @@ class NotifyStudentEnrolled implements ShouldQueue
     public function handle(EnrollmentCreated $event): void
     {
         $enrollment = $event->enrollment;
+
+        // ⚠️ ONE NOTICE PER ORDER. A plan covering eleven courses wrote eleven
+        // rows and told the student eleven times (journey walk, 2026-10-23);
+        // the order's first row speaks for all of them.
+        if ($enrollment->order_id !== null && Enrollment::query()
+            ->withoutGlobalScopes()
+            ->where('order_id', $enrollment->order_id)
+            ->where('student_user_id', $enrollment->student_user_id)
+            ->where('id', '<', $enrollment->getKey())
+            ->exists()) {
+            return;
+        }
+
         $course = $enrollment->course;
 
         $this->dispatch->handle(new NotificationRequest(

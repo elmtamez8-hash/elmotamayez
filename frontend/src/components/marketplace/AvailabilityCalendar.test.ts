@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDays, formatDuration, partOfDay, slotMinutes } from "./AvailabilityCalendar";
+import { formatDays, formatDuration, partOfDay, slotMinutes, slotPartLabel } from "./AvailabilityCalendar";
 
 /*
 | THE THREE PURE PIECES OF THE WEEKLY TIMETABLE.
@@ -23,6 +23,16 @@ describe("partOfDay", () => {
     expect(partOfDay("12:00").label).toBe("ظهراً");
     expect(partOfDay("16:59").label).toBe("ظهراً");
     expect(partOfDay("21:00").label).toBe("ليلاً");
+  });
+});
+
+describe("slotPartLabel", () => {
+  it("drops the label on a slot that runs across the day", () => {
+    expect(slotPartLabel({ start_time: "11:00", end_time: "21:00" })).toBeNull();
+  });
+
+  it("keeps it on a slot that ends in the next part", () => {
+    expect(slotPartLabel({ start_time: "17:00", end_time: "21:00" })).toBe("مساءً");
   });
 });
 

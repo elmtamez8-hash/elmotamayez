@@ -68,6 +68,19 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
+ * True from a deliberate sign-out until the next signed-in screen. The sign-in
+ * guard then sends a bare `/login`: carrying the page along handed the NEXT
+ * person on a shared device the last one's lesson (journey walk, 2026-10-23).
+ */
+let signedOutOnPurpose = false;
+
+export function consumeSignedOut(user: User | null): boolean {
+  if (user) signedOutOnPurpose = false;
+
+  return signedOutOnPurpose;
+}
+
+/**
  * Whether this account is on the LEARNING side of the product — a student or a
  * guardian. Derived from {@link dashboardAudience}, the one classifier; see that
  * module for the order and the people each step is there for.
@@ -274,6 +287,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await auth.logout();
     } finally {
       clearToken();
+      signedOutOnPurpose = true;
       setUser(null);
     }
   };

@@ -35,7 +35,16 @@ class NotificationPreferenceController extends Controller
                     'key' => $channel->value,
                     'label' => $channel->label(),
                 ],
-                $registry->implemented(),
+                /*
+                | ⚠️ AND SWITCHED ON. WhatsApp is implemented but the platform has
+                | no subscription (2026-10-23), and the screen offered a number to
+                | verify whose code was never sent — the page said nothing and the
+                | person waited. A channel that cannot deliver is not offered.
+                */
+                array_values(array_filter(
+                    $registry->implemented(),
+                    static fn (NotificationChannel $channel): bool => $registry->get($channel)->isEnabled(),
+                )),
             ),
             'types' => array_map(
                 static fn (NotificationType $type): array => [

@@ -5,6 +5,7 @@ import { useRequireSignIn } from "./use-require-sign-in";
 
 const push = vi.fn();
 const auth = { user: null as unknown, loading: false };
+let signedOut = false;
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -13,12 +14,14 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth-context", () => ({
   useAuth: () => auth,
+  consumeSignedOut: () => signedOut,
 }));
 
 beforeEach(() => {
   push.mockReset();
   auth.user = null;
   auth.loading = false;
+  signedOut = false;
 });
 
 describe("useRequireSignIn", () => {
@@ -28,6 +31,16 @@ describe("useRequireSignIn", () => {
     renderHook(() => useRequireSignIn());
 
     expect(push).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/whiteboard/abc-123?page=2")}`);
+  });
+
+  it("sends a bare sign-in after a deliberate sign-out, never the last page", () => {
+    // The next person on a shared device landed on the previous one's lesson.
+    signedOut = true;
+    window.history.replaceState(null, "", "/whiteboard/abc-123");
+
+    renderHook(() => useRequireSignIn());
+
+    expect(push).toHaveBeenCalledWith("/login");
   });
 
   it("waits while the session is still loading", () => {
