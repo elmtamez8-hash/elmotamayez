@@ -7,6 +7,10 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
+import { StarRating } from "@/components/marketplace/StarRating";
+import { subjectIcon } from "@/components/marketplace/subject-icon";
+import { AvailableNowChip, AvailableNowDot } from "@/components/marketplace/AvailableNow";
+import { counted, TEACHERS } from "@/lib/labels";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsWall } from "@/components/marketplace/TestimonialsWall";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
@@ -32,6 +36,7 @@ import {
   ProgressIcon,
   QuestionIcon,
   ScheduleIcon,
+  SearchIcon,
   SessionsIcon,
   SettlementIcon,
   StarIcon,
@@ -39,6 +44,7 @@ import {
   TeacherIcon,
   TrustShieldIcon,
   UsersIcon,
+  VerifiedBadgeIcon,
 } from "@/components/icons";
 
 /*
@@ -307,6 +313,69 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
   );
 }
 
+/*
+ * A short, slightly staggered stack of the featured teachers — real rows from
+ * the same list the section below prints in full, so the hero promises nobody
+ * the page cannot show.
+ */
+function HeroTeachers({ teachers }: { teachers: HomePayload["featured_teachers"] }) {
+  return (
+    <div className="relative min-w-0">
+      <div className="bg-squares absolute inset-6 -z-10 rounded-3xl bg-primary" aria-hidden="true" />
+      <ul className="space-y-4">
+        {teachers.map((teacher, index) => {
+          const subject = teacher.subjects[0];
+          const Icon = subject ? subjectIcon(subject) : null;
+
+          return (
+            <li
+              key={teacher.uuid}
+              className={`reveal ${index === 1 ? "lg:-translate-x-10" : "lg:translate-x-4"}`}
+            >
+              <Link
+                href={`/teachers/${teacher.slug ?? teacher.uuid}`}
+                className="group flex items-center gap-4 rounded-2xl border border-line bg-surface-raised p-4 shadow-lg shadow-primary/10 transition duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 motion-reduce:transition-none"
+              >
+                <span className="relative shrink-0">
+                  {teacher.photo_url ? (
+                    <img src={teacher.photo_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
+                  ) : (
+                    <span
+                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary-ink"
+                      aria-hidden="true"
+                    >
+                      {teacher.name.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("")}
+                    </span>
+                  )}
+                  {teacher.available_now && <AvailableNowDot />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 font-extrabold text-ink group-hover:text-primary-ink">
+                    <span className="truncate">{teacher.name}</span>
+                    {teacher.is_verified && (
+                      <VerifiedBadgeIcon className="h-4 w-4 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
+                    )}
+                    {teacher.available_now && <AvailableNowChip />}
+                  </span>
+                  {subject && Icon && (
+                    <span className="mt-1 inline-flex items-center gap-1 text-sm text-ink-muted">
+                      <Icon className="h-4 w-4" />
+                      {subject.name}
+                    </span>
+                  )}
+                  <span className="mt-1 block">
+                    <StarRating value={teacher.average_rating} count={teacher.reviews_count} />
+                  </span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const identity = await platformIdentity();
   const name = identity.name;
@@ -332,34 +401,72 @@ export default async function HomePage() {
       {/* bg-grid paints squared-paper lines behind the hero and fades them out
           before they reach the body copy. Decorative only — it is a ::before with
           no content, so nothing new lands in the accessibility tree. */}
-      <section className="bg-grid mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
-        <div>
+      <section className="bg-grid mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
+        <div className="min-w-0">
           <h1 className="mb-5 text-3xl font-extrabold leading-tight text-ink sm:text-4xl lg:text-5xl">
-            مدرّسك الخصوصي الموثوق،
+            تعلّم مع مدرّس يناسبك،
             <span className="text-primary-ink"> أينما كنت في العالم العربي</span>
           </h1>
           <p className="mb-8 max-w-xl text-lg leading-relaxed text-ink-muted">
             حصص فردية وجماعية، مباشرة ومسجّلة، مع مدرّسين يمرّون بمراجعة أكاديمية
             قبل انضمامهم — وتقييم شفاف يوضّح التزام كل مدرّس قبل أن تحجز.
           </p>
-          {/* Centred: the two doors are a CHOICE between equals, and a choice
-              reads as one when neither is first. `justify-center` and not
-              `mx-auto` — the row is a flex container, so centring belongs to
-              how it distributes its children, not to a width it does not set. */}
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/signup/student"
+
+          {/* A plain GET form: `/teachers` already reads `q`, so the search
+              needs no script and works before hydration. */}
+          <form action="/teachers" role="search" className="mb-4 flex max-w-xl gap-2">
+            <label htmlFor="hero-search" className="sr-only">ابحث عن مادة أو مدرّس</label>
+            <div className="relative flex-1">
+              <SearchIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+              <input
+                id="hero-search"
+                name="q"
+                type="search"
+                placeholder="ابحث عن مادة أو مدرّس"
+                className="w-full rounded-xl border border-line bg-surface-raised py-3 pe-4 ps-12 text-base text-ink shadow-sm placeholder:text-ink-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <button
+              type="submit"
               className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
+              ابحث
+            </button>
+          </form>
+
+          {home.subjects.length > 0 && (
+            <ul className="mb-8 flex max-w-xl flex-wrap gap-2" aria-label="مواد شائعة">
+              {home.subjects.slice(0, 6).map((subject) => {
+                const Icon = subjectIcon(subject);
+
+                return (
+                  <li key={subject.slug}>
+                    <Link
+                      href={`/teachers?subject=${subject.slug}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-raised px-3 py-1.5 text-sm font-semibold text-ink transition hover:border-primary/40 hover:bg-primary-soft hover:text-primary-ink"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {subject.name}
+                      {subject.teachers_count !== undefined && subject.teachers_count > 0 && (
+                        <span className="hidden font-normal text-ink-muted sm:inline">· {counted(subject.teachers_count, TEACHERS)}</span>
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <p className="text-sm text-ink-muted">
+            جديد هنا؟{" "}
+            <Link href="/signup/student" className="font-semibold text-primary-ink hover:underline">
               سجّل كطالب
             </Link>
-            <Link
-              href="/signup/teacher"
-              className="rounded-xl border border-primary px-6 py-3 text-base font-semibold text-primary-ink transition hover:bg-primary-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              سجّل كمدرّس
+            {" · "}
+            <Link href="/signup/teacher" className="font-semibold text-primary-ink hover:underline">
+              انضمّ كمدرّس
             </Link>
-          </div>
+          </p>
         </div>
 
         {/*
@@ -376,6 +483,11 @@ export default async function HomePage() {
           | The 4/3 aspect is baked into the file itself (the crop is 1600×1200),
           | so the box cannot letterbox or jump while it loads.
         */}
+        {/* Real featured teachers where the stock photo stood; the photo stays
+            as the fallback for a platform with none yet. */}
+        {home.featured_teachers.length > 0 ? (
+          <HeroTeachers teachers={home.featured_teachers.slice(0, 3)} />
+        ) : (
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-surface-raised">
           <Image
             src="/marketplace/hero-study.webp"
@@ -386,6 +498,7 @@ export default async function HomePage() {
             className="object-cover"
           />
         </div>
+        )}
       </section>
 
       <StatBar stats={home.stats} />
