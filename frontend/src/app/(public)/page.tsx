@@ -7,10 +7,8 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
-import { StarRating } from "@/components/marketplace/StarRating";
 import { subjectIcon } from "@/components/marketplace/subject-icon";
-import { AvailableNowChip } from "@/components/marketplace/AvailableNow";
-import { counted, TEACHERS } from "@/lib/labels";
+import { HeroSpotlight } from "@/components/marketplace/HeroSpotlight";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsWall } from "@/components/marketplace/TestimonialsWall";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
@@ -44,7 +42,6 @@ import {
   TeacherIcon,
   TrustShieldIcon,
   UsersIcon,
-  VerifiedBadgeIcon,
 } from "@/components/icons";
 
 /*
@@ -313,107 +310,6 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
   );
 }
 
-function initialsOf(name: string): string {
-  return name.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("");
-}
-
-/*
- * One featured teacher, large, with the next few as a row of faces under the
- * card — real rows from the same list the section below prints in full, so the
- * hero promises nobody the page cannot show.
- */
-function HeroTeachers({ teachers, total }: { teachers: HomePayload["featured_teachers"]; total: number }) {
-  const [lead, ...others] = teachers;
-  const subject = lead.subjects[0];
-  const Icon = subject ? subjectIcon(subject) : null;
-  const profileHref = `/teachers/${lead.slug ?? lead.uuid}`;
-
-  return (
-    <div className="relative isolate mx-auto w-full max-w-md min-w-0 py-8">
-      <div
-        className="bg-squares absolute inset-x-8 inset-y-0 -z-10 rounded-[2rem] bg-primary"
-        aria-hidden="true"
-      />
-
-      <article className="reveal mx-4 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-xl shadow-primary/15">
-        <div className="relative aspect-[4/3] bg-primary-soft">
-          {lead.photo_url ? (
-            <img src={lead.photo_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span
-              className="flex h-full w-full items-center justify-center text-6xl font-extrabold text-primary-ink"
-              aria-hidden="true"
-            >
-              {initialsOf(lead.name)}
-            </span>
-          )}
-          <span className="absolute start-3 top-3 rounded-full bg-surface-raised/90 px-3 py-1 text-xs font-bold text-primary-ink shadow-sm">
-            مدرّس مميّز
-          </span>
-          {lead.available_now && (
-            <span className="absolute end-3 top-3">
-              <AvailableNowChip />
-            </span>
-          )}
-        </div>
-
-        <div className="p-5">
-          <h2 className="flex items-center gap-1.5 text-xl font-extrabold text-ink">
-            <span className="truncate">{lead.name}</span>
-            {lead.is_verified && (
-              <VerifiedBadgeIcon className="h-5 w-5 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
-            )}
-          </h2>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-            {subject && Icon && (
-              <span className="inline-flex items-center gap-1">
-                <Icon className="h-4 w-4" />
-                {subject.name}
-              </span>
-            )}
-            <StarRating value={lead.average_rating} count={lead.reviews_count} />
-          </div>
-          <Link
-            href={profileHref}
-            className="mt-5 block rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            عرض ملف المدرّس
-          </Link>
-        </div>
-      </article>
-
-      {others.length > 0 && (
-        <Link
-          href="/teachers"
-          className="group mx-4 mt-5 flex items-center justify-center gap-3 text-sm font-semibold text-white"
-        >
-          <span className="flex -space-x-3 rtl:space-x-reverse" aria-hidden="true">
-            {others.map((teacher) =>
-              teacher.photo_url ? (
-                <img
-                  key={teacher.uuid}
-                  src={teacher.photo_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full object-cover ring-2 ring-primary"
-                />
-              ) : (
-                <span
-                  key={teacher.uuid}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-xs font-extrabold text-primary-ink ring-2 ring-primary"
-                >
-                  {initialsOf(teacher.name)}
-                </span>
-              ),
-            )}
-          </span>
-          <span className="group-hover:underline">
-            {total > 0 ? `${counted(total, TEACHERS)} على المنصّة` : "عرض كل المدرّسين"}
-          </span>
-        </Link>
-      )}
-    </div>
-  );
-}
 
 export default async function HomePage() {
   const identity = await platformIdentity();
@@ -548,7 +444,7 @@ export default async function HomePage() {
         {/* Real featured teachers where the stock photo stood; the photo stays
             as the fallback for a platform with none yet. */}
         {home.featured_teachers.length > 0 ? (
-          <HeroTeachers teachers={home.featured_teachers.slice(0, 5)} total={home.stats.teachers} />
+          <HeroSpotlight teachers={home.featured_teachers.slice(0, 5)} total={home.stats.teachers} />
         ) : (
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-surface-raised">
           <Image
