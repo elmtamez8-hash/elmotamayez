@@ -393,6 +393,21 @@ dialog[open] {
   animation: banner-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* A bottom sheet arriving (`TeacherFilters` on a phone). Runs each time the
+   `<dialog>` opens, because `showModal()` takes it from `display: none`. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheet-up[open] {
+  animation: sheet-up 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* One item of a staggered set — a row of `RecordList`, a tile of `StatStrip`,
    or anything given `staggerStyle(index)` from `components/ui/stagger.ts`.
    The same rise as the banner, shorter: a staff screen loads into a task, so

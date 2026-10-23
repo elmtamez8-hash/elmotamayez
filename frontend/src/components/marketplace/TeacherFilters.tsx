@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useTransition } from "react";
-import { CloseIcon } from "@/components/icons";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { CloseIcon, SearchIcon, StarIcon } from "@/components/icons";
 import { Select } from "@/components/ui/Field";
 import type { Taxonomy } from "@/lib/public-api";
+import { subjectIcon } from "./subject-icon";
 
 import { arabicNumber } from "@/lib/numerals";
 /**
@@ -20,6 +21,16 @@ import { arabicNumber } from "@/lib/numerals";
  * the stage sits BEFORE the subject here: the second control is narrowed by the
  * first, and reading them in the other order asks the visitor to pick from a
  * list that is about to change under them.
+ *
+ * THE SHAPE (owner, 2026-10-23). The subject is how a parent starts («I need
+ * someone for physics»), so the most-taught subjects are one-tap chips under
+ * the search, and the rest sit in one «مواد أخرى» select beside them — chips
+ * WRAP and never scroll sideways (the rule `FilterBar` records), and a capped
+ * count keeps eleven-and-growing pills from pushing the first teacher off a
+ * phone. The two switches are toggle chips on every width. On a laptop the
+ * remaining filters are one row of compact selects; on a phone they live in a
+ * bottom sheet behind «فلاتر», as tap-able options rather than six stacked
+ * dropdowns.
  */
 const SORTS = [
   { value: "rating_desc", label: "الأعلى تقييمًا" },
@@ -35,27 +46,30 @@ const LANGUAGES = [
 const RATINGS = [4.5, 4, 3.5, 3];
 const TRUST_SCORES = [80, 60, 40];
 
+/** How many subjects get a chip; the rest go in «مواد أخرى». */
+const SUBJECT_CHIPS = 5;
+
+/** The filters that live in the sheet on a phone — counted on its button. */
+const SHEET_KEYS = ["grade_level", "min_rating", "min_trust_score", "language"] as const;
+
 const ar = (value: number) => arabicNumber(value);
 
-export function TeacherFilters({
-  subjects,
-  gradeLevels,
-  // The page renders this twice — a mobile drawer and a desktop bar — so ids
-  // must be namespaced. Duplicate ids break every label/control association on
-  // the page, not just the second copy.
-  idPrefix,
-}: {
-  /** Already scoped to the chosen stage by the page that fetched them. */
-  subjects: Taxonomy[];
-  gradeLevels: Taxonomy[];
-  idPrefix: string;
-}) {
+const chip = (pressed: boolean) =>
+  "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition duration-200 " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary " +
+  (pressed
+    ? "border-primary bg-primary text-white shadow-sm shadow-primary/20"
+    : "border-line bg-surface-raised text-ink hover:border-primary/40 hover:bg-primary-soft hover:text-primary-ink");
+
+const pill =
+  "rounded-full border border-line bg-surface-raised px-4 py-2.5 text-sm text-ink transition duration-200 hover:border-primary/50 " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary";
+
+function useFilterUrl() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
-
-  const id = (name: string) => `${idPrefix}-${name}`;
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params.toString());
@@ -69,184 +83,349 @@ export function TeacherFilters({
 
     // ⚠️ Changing the stage CLEARS the subject, and it has to.
     // The subject options come from the server scoped to the stage, so a subject
-    // that is not taught at the new one has no matching <option>: the browser
-    // would show «كل المواد» while the URL still filtered by it — the control
+    // that is not taught at the new one has no matching option: the control
+    // would say «كل المواد» while the URL still filtered by it — the control
     // and the results saying different things, which is worse than losing a
     // choice the visitor can remake in one click.
     if (key === "grade_level") next.delete("subject");
 
-    startTransition(() => router.push(`${pathname}?${next.toString()}`, { scroll: false }));
+    const query = next.toString();
+
+    startTransition(() => router.push(query === "" ? pathname : `${pathname}?${query}`, { scroll: false }));
   };
 
-  const field =
-    "w-full rounded-full border border-line bg-surface-raised px-4 py-2.5 text-sm text-ink " +
-    "transition duration-200 hover:border-primary/50 " +
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary";
+  const clear = () => startTransition(() => router.push(pathname, { scroll: false }));
 
-  const labelClass = "mb-1.5 block text-xs font-semibold text-ink-muted";
+  return { params, pending, update, clear };
+}
+
+/** One choice in the sheet: a toggle button, exactly one pressed per group. */
+function Option({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" aria-pressed={pressed} onClick={onClick} className={chip(pressed)}>
+      {children}
+    </button>
+  );
+}
+
+function SheetGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <fieldset className="border-t border-line py-4 first:border-t-0 first:pt-0">
+      <legend className="mb-3 text-sm font-extrabold text-ink">{title}</legend>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </fieldset>
+  );
+}
+
+export function TeacherFilters({
+  subjects,
+  gradeLevels,
+}: {
+  /** Already scoped to the chosen stage by the page that fetched them. */
+  subjects: Taxonomy[];
+  gradeLevels: Taxonomy[];
+}) {
+  const { params, pending, update, clear } = useFilterUrl();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheet = useRef<HTMLDialogElement>(null);
+
+  // `showModal()`, not the `open` attribute: the method is what traps focus,
+  // makes the page behind inert and wires Escape (see `ui/Modal`).
+  useEffect(() => {
+    const dialog = sheet.current;
+    if (dialog === null) return;
+    if (sheetOpen && !dialog.open) dialog.showModal();
+    if (!sheetOpen && dialog.open) dialog.close();
+  }, [sheetOpen]);
+
+  const get = (key: string) => params.get(key) ?? "";
+  const subject = get("subject");
+  const stage = get("grade_level");
+
+  const ranked = [...subjects].sort((a, b) => (b.teachers_count ?? 0) - (a.teachers_count ?? 0));
+  const chipSubjects = ranked.slice(0, SUBJECT_CHIPS);
+  const otherSubjects = ranked.slice(SUBJECT_CHIPS);
+  const otherChosen = otherSubjects.some((item) => item.slug === subject);
+
+  const sheetCount = SHEET_KEYS.filter((key) => get(key) !== "").length;
 
   return (
     <div
       aria-busy={pending}
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.2fr_repeat(5,1fr)_auto] lg:items-end"
+      className="rounded-3xl border border-line bg-surface-raised p-4 shadow-lg shadow-primary/10 sm:p-5"
     >
-      <div>
-        <label htmlFor={id("q")} className={labelClass}>
-          بحث بالاسم
-        </label>
-        <input
-          id={id("q")}
-          type="search"
-          defaultValue={params.get("q") ?? ""}
-          onChange={(event) => update("q", event.target.value)}
-          placeholder="اسم المدرّس"
-          className={field}
-        />
-      </div>
+      {/* Row 1 — the name search, then (laptop) the stage that narrows the
+          subjects below it and the sort; (phone) the sheet's button. */}
+      <div className="flex items-center gap-2">
+        <label htmlFor="teacher-q" className="sr-only">بحث باسم المدرّس</label>
+        <div className="relative min-w-0 flex-1">
+          <SearchIcon className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+          <input
+            id="teacher-q"
+            type="search"
+            defaultValue={get("q")}
+            onChange={(event) => update("q", event.target.value)}
+            placeholder="ابحث باسم المدرّس"
+            className={`w-full ps-10 ${pill}`}
+          />
+        </div>
 
-      <div>
-        <label htmlFor={id("grade_level")} className={labelClass}>
-          المرحلة
-        </label>
-        <Select
-          id={id("grade_level")}
-          value={params.get("grade_level") ?? ""}
+        <label htmlFor="teacher-stage" className="sr-only">المرحلة</label>
+        <div className="hidden lg:block">
+          <Select
+          id="teacher-stage"
+          value={stage}
           onChange={(event) => update("grade_level", event.target.value)}
-          className={field}
+          className={`${pill}`}
         >
           <option value="">كل المراحل</option>
           {gradeLevels.map((level) => (
-            <option key={level.slug} value={level.slug}>
-              {level.name}
-            </option>
+            <option key={level.slug} value={level.slug}>{level.name}</option>
           ))}
         </Select>
-      </div>
+        </div>
 
-      {/* A select, not a row of pills. There are eleven subjects seeded and the
-          real catalogue is longer; eleven pills already scrolled sideways on a
-          phone before the visitor saw a single teacher, and the list only grows.
-          Scoped by the stage above, so it opens with what is actually taught
-          there. */}
-      <div>
-        <label htmlFor={id("subject")} className={labelClass}>
-          المادة
-        </label>
-        <Select
-          id={id("subject")}
-          value={params.get("subject") ?? ""}
-          onChange={(event) => update("subject", event.target.value)}
-          className={field}
+        <label htmlFor="teacher-sort" className="sr-only">ترتيب حسب</label>
+        <div className="hidden lg:block">
+          <Select
+          id="teacher-sort"
+          value={get("sort") || "rating_desc"}
+          onChange={(event) => update("sort", event.target.value)}
+          className={`${pill}`}
         >
-          <option value="">
-            {params.get("grade_level") ? "كل مواد المرحلة" : "كل المواد"}
-          </option>
-          {subjects.map((subject) => (
-            <option key={subject.slug} value={subject.slug}>
-              {subject.name}
-              {subject.teachers_count !== undefined
-                ? ` (${ar(subject.teachers_count)})`
-                : ""}
-            </option>
+          {SORTS.map((sort) => (
+            <option key={sort.value} value={sort.value}>{sort.label}</option>
           ))}
         </Select>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-primary/20 transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+        >
+          فلاتر
+          {sheetCount > 0 && (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-primary-ink">
+              {ar(sheetCount)}
+            </span>
+          )}
+        </button>
       </div>
 
-      <div>
-        <label htmlFor={id("min_rating")} className={labelClass}>
-          التقييم
-        </label>
-        <Select
-          id={id("min_rating")}
-          value={params.get("min_rating") ?? ""}
+      {/* Row 2 — the subject, the question a visitor arrives with. */}
+      <div role="group" aria-label="المادة" className="mt-4 flex flex-wrap items-center gap-2">
+        <button type="button" aria-pressed={subject === ""} onClick={() => update("subject", "")} className={chip(subject === "")}>
+          {stage ? "كل مواد المرحلة" : "كل المواد"}
+        </button>
+        {chipSubjects.map((item) => {
+          const Icon = subjectIcon(item);
+          const pressed = item.slug === subject;
+
+          return (
+            <button
+              key={item.slug}
+              type="button"
+              aria-pressed={pressed}
+              onClick={() => update("subject", pressed ? "" : item.slug)}
+              className={chip(pressed)}
+            >
+              <Icon className="h-4 w-4" />
+              {item.name}
+            </button>
+          );
+        })}
+        {otherSubjects.length > 0 && (
+          <>
+            <label htmlFor="teacher-subject-more" className="sr-only">مواد أخرى</label>
+            <Select
+              id="teacher-subject-more"
+              value={otherChosen ? subject : ""}
+              onChange={(event) => update("subject", event.target.value)}
+              className={`${pill} py-2 font-semibold ${otherChosen ? "border-primary text-primary-ink" : ""}`}
+            >
+              <option value="">مواد أخرى</option>
+              {otherSubjects.map((item) => (
+                <option key={item.slug} value={item.slug}>{item.name}</option>
+              ))}
+            </Select>
+          </>
+        )}
+      </div>
+
+      {/* Row 3 — the switches on every width; the finer selects on a laptop
+          only (a phone has them in the sheet). */}
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <button
+          type="button"
+          aria-pressed={get("available_now") === "1"}
+          onClick={() => update("available_now", get("available_now") === "1" ? "" : "1")}
+          className={chip(get("available_now") === "1")}
+        >
+          <span className="h-2 w-2 rounded-full bg-secondary" aria-hidden="true" />
+          متاح الآن
+        </button>
+        {/* Any declared weekly hours — a private session can be booked (review 2026-10-09). */}
+        <button
+          type="button"
+          aria-pressed={get("bookable") === "1"}
+          onClick={() => update("bookable", get("bookable") === "1" ? "" : "1")}
+          className={chip(get("bookable") === "1")}
+        >
+          لديه مواعيد للحجز
+        </button>
+
+        <span className="mx-1 hidden h-6 w-px bg-line lg:block" aria-hidden="true" />
+
+        <label htmlFor="teacher-rating" className="sr-only">التقييم</label>
+        <div className="hidden lg:block">
+          <Select
+          id="teacher-rating"
+          value={get("min_rating")}
           onChange={(event) => update("min_rating", event.target.value)}
-          className={field}
+          className={`${pill} py-2`}
         >
           <option value="">أي تقييم</option>
           {RATINGS.map((rating) => (
-            <option key={rating} value={rating}>
-              {ar(rating)} فأكثر
-            </option>
+            <option key={rating} value={rating}>{ar(rating)} نجوم فأكثر</option>
           ))}
         </Select>
-      </div>
+        </div>
 
-      <div>
-        <label htmlFor={id("min_trust_score")} className={labelClass}>
-          درجة الثقة
-        </label>
-        <Select
-          id={id("min_trust_score")}
-          value={params.get("min_trust_score") ?? ""}
+        <label htmlFor="teacher-trust" className="sr-only">درجة الثقة</label>
+        <div className="hidden lg:block">
+          <Select
+          id="teacher-trust"
+          value={get("min_trust_score")}
           onChange={(event) => update("min_trust_score", event.target.value)}
-          className={field}
+          className={`${pill} py-2`}
         >
-          <option value="">أي درجة</option>
+          <option value="">أي درجة ثقة</option>
           {TRUST_SCORES.map((score) => (
-            <option key={score} value={score}>
-              {ar(score)} فأكثر
-            </option>
+            <option key={score} value={score}>ثقة {ar(score)} فأكثر</option>
           ))}
         </Select>
-      </div>
+        </div>
 
-      <div>
-        <label htmlFor={id("language")} className={labelClass}>
-          لغة التدريس
-        </label>
-        <Select
-          id={id("language")}
-          value={params.get("language") ?? ""}
+        <label htmlFor="teacher-language" className="sr-only">لغة التدريس</label>
+        <div className="hidden lg:block">
+          <Select
+          id="teacher-language"
+          value={get("language")}
           onChange={(event) => update("language", event.target.value)}
-          className={field}
+          className={`${pill} py-2`}
         >
-          <option value="">كل اللغات</option>
+          <option value="">كل لغات التدريس</option>
           {LANGUAGES.map((lang) => (
-            <option key={lang.value} value={lang.value}>
-              {lang.label}
-            </option>
+            <option key={lang.value} value={lang.value}>{lang.label}</option>
           ))}
         </Select>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 sm:col-span-2 lg:col-span-1 lg:pb-2.5">
-        <label className="flex items-center gap-2.5 text-sm font-medium text-ink">
-          <input
-            type="checkbox"
-            checked={params.get("available_now") === "1"}
-            onChange={(event) => update("available_now", event.target.checked ? "1" : "")}
-            className="h-4 w-4 rounded border-line text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-          />
-          متاح الآن
-        </label>
+      {/* The phone's sheet. Every change applies at once — the list behind
+          updates while it is open — so «اعرض النتائج» only closes it. */}
+      <dialog
+        ref={sheet}
+        aria-labelledby="teacher-sheet-title"
+        onClose={() => setSheetOpen(false)}
+        onClick={(event) => {
+          // Only a press on the backdrop itself (see `ui/Modal`, C-06).
+          if (event.target === sheet.current) sheet.current?.close();
+        }}
+        className="sheet-up fixed inset-x-0 bottom-0 top-auto m-0 max-h-[85vh] open:flex w-full max-w-full flex-col rounded-t-3xl border-t border-line bg-surface-raised p-0 text-start text-ink shadow-2xl backdrop:bg-overlay lg:hidden"
+      >
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 id="teacher-sheet-title" className="text-lg font-extrabold">فلاتر</h2>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(false)}
+            aria-label="إغلاق"
+            className="grid h-9 w-9 place-items-center rounded-full text-ink-muted transition hover:bg-primary-soft hover:text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
 
-        {/* Any declared weekly hours — a private session can be booked (review 2026-10-09). */}
-        <label className="flex items-center gap-2.5 text-sm font-medium text-ink">
-          <input
-            type="checkbox"
-            checked={params.get("bookable") === "1"}
-            onChange={(event) => update("bookable", event.target.checked ? "1" : "")}
-            className="h-4 w-4 rounded border-line text-primary-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-          />
-          لديه مواعيد للحجز
-        </label>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <SheetGroup title="المرحلة">
+            <Option pressed={stage === ""} onClick={() => update("grade_level", "")}>كل المراحل</Option>
+            {gradeLevels.map((level) => (
+              <Option key={level.slug} pressed={stage === level.slug} onClick={() => update("grade_level", level.slug)}>
+                {level.name}
+              </Option>
+            ))}
+          </SheetGroup>
 
-        <label htmlFor={id("sort")} className="sr-only">
-          ترتيب حسب
-        </label>
-        <Select
-          id={id("sort")}
-          value={params.get("sort") ?? "rating_desc"}
-          onChange={(event) => update("sort", event.target.value)}
-          className="rounded-full border border-line bg-surface-raised px-4 py-2.5 text-sm text-ink transition duration-200 hover:border-primary/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
-        >
-          {SORTS.map((sort) => (
-            <option key={sort.value} value={sort.value}>
-              {sort.label}
-            </option>
-          ))}
-        </Select>
-      </div>
+          <SheetGroup title="المادة">
+            <Option pressed={subject === ""} onClick={() => update("subject", "")}>
+              {stage ? "كل مواد المرحلة" : "كل المواد"}
+            </Option>
+            {ranked.map((item) => (
+              <Option key={item.slug} pressed={subject === item.slug} onClick={() => update("subject", item.slug)}>
+                {item.name}
+              </Option>
+            ))}
+          </SheetGroup>
+
+          <SheetGroup title="التقييم">
+            <Option pressed={get("min_rating") === ""} onClick={() => update("min_rating", "")}>أي تقييم</Option>
+            {RATINGS.map((rating) => (
+              <Option key={rating} pressed={get("min_rating") === String(rating)} onClick={() => update("min_rating", String(rating))}>
+                <StarIcon className="h-3.5 w-3.5 text-star" aria-hidden="true" />
+                {ar(rating)} فأكثر
+              </Option>
+            ))}
+          </SheetGroup>
+
+          <SheetGroup title="درجة الثقة">
+            <Option pressed={get("min_trust_score") === ""} onClick={() => update("min_trust_score", "")}>أي درجة</Option>
+            {TRUST_SCORES.map((score) => (
+              <Option key={score} pressed={get("min_trust_score") === String(score)} onClick={() => update("min_trust_score", String(score))}>
+                {ar(score)} فأكثر
+              </Option>
+            ))}
+          </SheetGroup>
+
+          <SheetGroup title="لغة التدريس">
+            <Option pressed={get("language") === ""} onClick={() => update("language", "")}>كل اللغات</Option>
+            {LANGUAGES.map((lang) => (
+              <Option key={lang.value} pressed={get("language") === lang.value} onClick={() => update("language", lang.value)}>
+                {lang.label}
+              </Option>
+            ))}
+          </SheetGroup>
+
+          <SheetGroup title="الترتيب">
+            {SORTS.map((sort) => (
+              <Option
+                key={sort.value}
+                pressed={(get("sort") || "rating_desc") === sort.value}
+                onClick={() => update("sort", sort.value)}
+              >
+                {sort.label}
+              </Option>
+            ))}
+          </SheetGroup>
+        </div>
+
+        <div className="flex gap-3 border-t border-line px-5 py-4">
+          <button
+            type="button"
+            onClick={clear}
+            className="rounded-full border border-line px-5 py-3 text-sm font-semibold text-ink transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            مسح الكل
+          </button>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(false)}
+            className="flex-1 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            اعرض النتائج
+          </button>
+        </div>
+      </dialog>
     </div>
   );
 }
