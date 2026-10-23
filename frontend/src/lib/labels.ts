@@ -648,6 +648,15 @@ export const UNREAD_NOTIFICATIONS: CountedForms = {
  * ⚠️ «أقل من سنة»، لا «لا سنوات خبرة». الصفرُ هنا مدرّسٌ مُعتمَدٌ في أوّلِ عامِه،
  * وجملةُ النفيِ تقرأُ حكماً عليه على صفحةٍ تُعرَضُ في السوق.
  */
+/** A subject's teacher count — the subjects grid and the home hero's chips. */
+export const TEACHERS: CountedForms = {
+  one: "مدرّس واحد",
+  two: "مدرّسان",
+  few: "مدرّسين",
+  many: "مدرّساً",
+  other: "مدرّس",
+};
+
 export const YEARS_OF_EXPERIENCE: CountedForms = {
   zero: "أقل من سنة خبرة",
   one: "سنة خبرة",
