@@ -393,40 +393,6 @@ dialog[open] {
   animation: banner-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* The hero slider's card arriving (`HeroSpotlight`). Physical `translateX`
-   on purpose: the product is RTL-only, so «next» — the arrow at the reading
-   END, on the left — brings the card in from the left, and «previous» from
-   the right. */
-@keyframes slide-in-next {
-  from {
-    opacity: 0;
-    transform: translateX(-3rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-in-prev {
-  from {
-    opacity: 0;
-    transform: translateX(3rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.slide-in-next {
-  animation: slide-in-next 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.slide-in-prev {
-  animation: slide-in-prev 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
 /* One item of a staggered set — a row of `RecordList`, a tile of `StatStrip`,
    or anything given `staggerStyle(index)` from `components/ui/stagger.ts`.
    The same rise as the banner, shorter: a staff screen loads into a task, so

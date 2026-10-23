@@ -15,46 +15,90 @@ function initialsOf(name: string): string {
   return name.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("");
 }
 
+function Slide({ teacher, hidden }: { teacher: TeacherCard; hidden: boolean }) {
+  const subject = teacher.subjects[0];
+  const Icon = subject ? subjectIcon(subject) : null;
+
+  return (
+    // `inert` takes the off-screen cards out of the tab order and the
+    // accessibility tree, so a keyboard never lands on a link nobody can see.
+    <article aria-roledescription="slide" aria-hidden={hidden} inert={hidden} className="w-full shrink-0">
+      <div className="relative aspect-[4/3] bg-primary-soft">
+        {teacher.photo_url ? (
+          <img src={teacher.photo_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span
+            className="flex h-full w-full items-center justify-center text-6xl font-extrabold text-primary-ink"
+            aria-hidden="true"
+          >
+            {initialsOf(teacher.name)}
+          </span>
+        )}
+        <span className="absolute start-3 top-3 rounded-full bg-surface-raised/90 px-3 py-1 text-xs font-bold text-primary-ink shadow-sm">
+          مدرّس مميّز
+        </span>
+        {teacher.available_now && (
+          <span className="absolute end-3 top-3">
+            <AvailableNowChip />
+          </span>
+        )}
+      </div>
+
+      <div className="p-5">
+        <h2 className="flex items-center gap-1.5 text-xl font-extrabold text-ink">
+          <span className="truncate">{teacher.name}</span>
+          {teacher.is_verified && (
+            <VerifiedBadgeIcon className="h-5 w-5 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
+          )}
+        </h2>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
+          {subject && Icon && (
+            <span className="inline-flex items-center gap-1">
+              <Icon className="h-4 w-4" />
+              {subject.name}
+            </span>
+          )}
+          <StarRating value={teacher.average_rating} count={teacher.reviews_count} />
+        </div>
+        <Link
+          href={`/teachers/${teacher.slug ?? teacher.uuid}`}
+          className="mt-5 block rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          عرض ملف المدرّس
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 /*
  * The home hero's featured teacher, as a slider over the top five.
  *
- * Owner decision 2026-10-23: no single teacher may own the hero for every
+ * Owner decision 2026-10-23: no single teacher owns the hero for every
  * visitor, so the card takes turns. It starts on the first (the page is static,
  * `revalidate = 60`, and a random start would swap the card after hydration),
  * advances on its own, and stops while the reader's pointer or focus is inside
  * it — and never moves on its own for a reader who asked for reduced motion.
- * The row of faces under the card is the slider's own set of dots.
+ *
+ * ONE TRACK, NOT ONE CARD RE-MOUNTED (owner, same day): the cards sit side by
+ * side and the track moves, so the incoming card pushes the outgoing one out.
+ * The track is a flex row in an RTL page, so card N sits N widths to the LEFT
+ * and the track moves RIGHT (positive X) to bring it in.
  */
 export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; total: number }) {
   const [index, setIndex] = useState(0);
-  // Which side the card slides in from; 0 = first paint, no animation.
-  const [direction, setDirection] = useState<-1 | 0 | 1>(0);
   const [paused, setPaused] = useState(false);
   const count = teachers.length;
-
-  const go = (step: -1 | 1) => {
-    setDirection(step);
-    setIndex((i) => (i + step + count) % count);
-  };
-  const show = (i: number) => {
-    if (i === index) return;
-    setDirection(i > index ? 1 : -1);
-    setIndex(i);
-  };
+  const go = (step: number) => setIndex((i) => (i + step + count) % count);
 
   useEffect(() => {
     if (paused || count < 2 || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => {
-      setDirection(1);
-      setIndex((i) => (i + 1) % count);
-    }, ADVANCE_MS);
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % count), ADVANCE_MS);
     return () => window.clearInterval(timer);
   }, [paused, count]);
 
-  const lead = teachers[index];
-  const subject = lead.subjects[0];
-  const Icon = subject ? subjectIcon(subject) : null;
-  const slideIn = direction === 1 ? "slide-in-next" : direction === -1 ? "slide-in-prev" : "";
+  const arrow =
+    "pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-ink shadow-md transition hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
 
   return (
     <section
@@ -71,78 +115,29 @@ export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; to
         aria-hidden="true"
       />
 
-      <article
-        key={lead.uuid}
-        aria-roledescription="slide"
-        aria-label={`${index + 1} من ${count}`}
-        className={`mx-4 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-xl shadow-primary/15 ${slideIn}`}
-      >
-        <div className="relative aspect-[4/3] bg-primary-soft">
-          {lead.photo_url ? (
-            <img src={lead.photo_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span
-              className="flex h-full w-full items-center justify-center text-6xl font-extrabold text-primary-ink"
-              aria-hidden="true"
-            >
-              {initialsOf(lead.name)}
-            </span>
-          )}
-          <span className="absolute start-3 top-3 rounded-full bg-surface-raised/90 px-3 py-1 text-xs font-bold text-primary-ink shadow-sm">
-            مدرّس مميّز
-          </span>
-          {lead.available_now && (
-            <span className="absolute end-3 top-3">
-              <AvailableNowChip />
-            </span>
-          )}
-
-          {count > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={() => go(-1)}
-                aria-label="المدرّس السابق"
-                className="absolute start-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-surface-raised/90 text-ink shadow-md transition hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                <ChevronStartIcon className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => go(1)}
-                aria-label="المدرّس التالي"
-                className="absolute end-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-surface-raised/90 text-ink shadow-md transition hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                <ChevronEndIcon className="h-5 w-5" />
-              </button>
-            </>
-          )}
+      <div className="relative mx-4 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-xl shadow-primary/15">
+        <div
+          className="flex transition-transform duration-500 ease-[cubic-bezier(0.65,0,0.35,1)]"
+          style={{ transform: `translateX(${index * 100}%)` }}
+        >
+          {teachers.map((teacher, i) => (
+            <Slide key={teacher.uuid} teacher={teacher} hidden={i !== index} />
+          ))}
         </div>
 
-        <div className="p-5">
-          <h2 className="flex items-center gap-1.5 text-xl font-extrabold text-ink">
-            <span className="truncate">{lead.name}</span>
-            {lead.is_verified && (
-              <VerifiedBadgeIcon className="h-5 w-5 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
-            )}
-          </h2>
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
-            {subject && Icon && (
-              <span className="inline-flex items-center gap-1">
-                <Icon className="h-4 w-4" />
-                {subject.name}
-              </span>
-            )}
-            <StarRating value={lead.average_rating} count={lead.reviews_count} />
+        {/* The arrows stay put while the track moves under them, centred on
+            the photo — which is the top 4:3 of every card. */}
+        {count > 1 && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex aspect-[4/3] items-center justify-between px-3">
+            <button type="button" onClick={() => go(-1)} aria-label="المدرّس السابق" className={arrow}>
+              <ChevronStartIcon className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={() => go(1)} aria-label="المدرّس التالي" className={arrow}>
+              <ChevronEndIcon className="h-5 w-5" />
+            </button>
           </div>
-          <Link
-            href={`/teachers/${lead.slug ?? lead.uuid}`}
-            className="mt-5 block rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-accent-foreground transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            عرض ملف المدرّس
-          </Link>
-        </div>
-      </article>
+        )}
+      </div>
 
       <div className="mx-4 mt-5 flex flex-wrap items-center justify-center gap-3 text-sm font-semibold text-white">
         {count > 1 && (
@@ -151,7 +146,7 @@ export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; to
               <button
                 key={teacher.uuid}
                 type="button"
-                onClick={() => show(i)}
+                onClick={() => setIndex(i)}
                 aria-label={`اعرض ${teacher.name}`}
                 aria-current={i === index ? "true" : undefined}
                 className={`h-9 w-9 overflow-hidden rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
