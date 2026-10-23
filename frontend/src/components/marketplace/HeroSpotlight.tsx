@@ -37,8 +37,10 @@ function Slide({ teacher, hidden }: { teacher: TeacherCard; hidden: boolean }) {
         <span className="absolute start-3 top-3 rounded-full bg-surface-raised/90 px-3 py-1 text-xs font-bold text-primary-ink shadow-sm">
           مدرّس مميّز
         </span>
+        {/* The chip is a 15% tint made for a white card; on a photo it needs
+            solid ground under it, like «مدرّس مميّز» beside it. */}
         {teacher.available_now && (
-          <span className="absolute end-3 top-3">
+          <span className="absolute end-3 top-3 rounded-full bg-surface-raised shadow-sm">
             <AvailableNowChip />
           </span>
         )}
