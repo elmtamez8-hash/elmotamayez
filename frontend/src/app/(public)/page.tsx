@@ -10,7 +10,6 @@ import { TeacherCard } from "@/components/marketplace/TeacherCard";
 import { StarRating } from "@/components/marketplace/StarRating";
 import { subjectIcon } from "@/components/marketplace/subject-icon";
 import { AvailableNowChip, AvailableNowDot } from "@/components/marketplace/AvailableNow";
-import { counted, TEACHERS } from "@/lib/labels";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsWall } from "@/components/marketplace/TestimonialsWall";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
@@ -466,9 +465,6 @@ export default async function HomePage() {
                     >
                       <Icon className="h-4 w-4" />
                       {subject.name}
-                      {subject.teachers_count !== undefined && subject.teachers_count > 0 && (
-                        <span className="hidden font-normal text-ink-muted sm:inline">· {counted(subject.teachers_count, TEACHERS)}</span>
-                      )}
                     </Link>
                   </li>
                 );
