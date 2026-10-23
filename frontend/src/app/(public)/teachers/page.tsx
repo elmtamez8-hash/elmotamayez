@@ -14,12 +14,11 @@ import {
 } from "@/components/marketplace/TeacherFilters";
 import { Pagination } from "@/components/ui/Pagination";
 import { PageBanner } from "@/components/ui/PageBanner";
-import { SearchIcon, TeacherIcon, UsersIcon } from "@/components/icons";
+import { TeacherIcon, UsersIcon } from "@/components/icons";
 import { EmptyState } from "@/components/ui/states/EmptyState";
 import { ErrorState } from "@/components/ui/states/ErrorState";
 import { counted } from "@/lib/labels";
 
-import { arabicNumber } from "@/lib/numerals";
 export const revalidate = 60;
 
 // Canonical and `og:url` on the bare path — see `publicPageMetadata()`.
@@ -129,51 +128,12 @@ export default async function TeachersPage({
         </p>
       </PageBanner>
 
-      {/* ⚠️ CLOSED on a filtered load, and open only when nothing matched.
-          It used to open whenever any filter was set, which on a phone meant six
-          stacked controls between the heading and the first teacher — the
-          visitor pays a screenful to be told what they already chose. The chips
-          below say what is applied in one line and remove it in one tap; the
-          panel is only worth the space when the answer is "nothing matched" and
-          widening the search is the next move. */}
-      <details
-        open={teachers.data.length === 0 && hasFilters}
-        className="group mb-4 rounded-3xl border border-line bg-surface-raised px-5 py-4 shadow-sm lg:hidden"
-      >
-        <summary className="flex cursor-pointer items-center justify-between text-sm font-bold text-ink">
-          <span className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-primary-ink transition duration-200 group-open:bg-primary group-open:text-white">
-              <SearchIcon className="h-4 w-4" />
-            </span>
-            خيارات أدق
-            {appliedCount > 0 && (
-              <span className="ms-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-                {arabicNumber(appliedCount)}
-              </span>
-            )}
-          </span>
-          <span
-            className="text-ink-muted transition duration-200 group-open:rotate-180"
-            aria-hidden="true"
-          >
-            ▾
-          </span>
-        </summary>
-        <div className="mt-5">
-          <TeacherFilters subjects={subjects} gradeLevels={gradeLevels} idPrefix="m" />
-        </div>
-      </details>
-
-      {/* The desktop console: raised and tinted with the brand's shadow so it
-          reads as the page's one control surface, not a form left on the page. */}
-      <div className="mb-4 hidden rounded-3xl border border-line bg-surface-raised px-6 py-5 shadow-lg shadow-primary/10 lg:block">
-        <h2 className="mb-4 flex items-center gap-3 text-base font-extrabold text-ink">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-white">
-            <SearchIcon className="h-5 w-5" />
-          </span>
-          خيارات تصفية أدق
-        </h2>
-        <TeacherFilters subjects={subjects} gradeLevels={gradeLevels} idPrefix="d" />
+      {/* One control surface on every width (owner, 2026-10-23): the subject
+          chips and the two switches show everywhere, the finer filters are a
+          row of selects on a laptop and a bottom sheet on a phone — so a
+          filtered load never costs a screenful of stacked dropdowns. */}
+      <div className="mb-4">
+        <TeacherFilters subjects={subjects} gradeLevels={gradeLevels} />
       </div>
 
       <div className="mb-8">
