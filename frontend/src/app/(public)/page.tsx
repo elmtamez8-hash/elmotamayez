@@ -320,8 +320,19 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
  */
 function HeroTeachers({ teachers }: { teachers: HomePayload["featured_teachers"] }) {
   return (
-    <div className="relative min-w-0">
-      <div className="bg-squares absolute inset-6 -z-10 rounded-3xl bg-primary" aria-hidden="true" />
+    <div className="relative isolate min-w-0 py-6 lg:py-10">
+      {/* A tilted panel the cards overlap at both edges, rather than a band
+          that ends where they do. */}
+      <div
+        className="bg-squares absolute inset-x-6 inset-y-0 -z-10 rotate-3 rounded-[2rem] bg-primary motion-reduce:rotate-0"
+        aria-hidden="true"
+      />
+      <div className="mb-4 flex items-center justify-between px-12 text-white">
+        <p className="text-sm font-bold">مدرّسون مميّزون</p>
+        <Link href="/teachers" className="text-sm font-semibold underline-offset-4 hover:underline">
+          عرض الكل
+        </Link>
+      </div>
       <ul className="space-y-4">
         {teachers.map((teacher, index) => {
           const subject = teacher.subjects[0];
@@ -403,6 +414,10 @@ export default async function HomePage() {
           no content, so nothing new lands in the accessibility tree. */}
       <section className="bg-grid mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
         <div className="min-w-0">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-secondary/30 bg-secondary/10 px-3 py-1.5 text-sm font-semibold text-secondary-ink">
+            <TrustShieldIcon className="h-4 w-4" aria-hidden="true" />
+            مدرّسون يمرّون بمراجعة أكاديمية
+          </p>
           <h1 className="mb-5 text-3xl font-extrabold leading-tight text-ink sm:text-4xl lg:text-5xl">
             تعلّم مع مدرّس يناسبك،
             <span className="text-primary-ink"> أينما كنت في العالم العربي</span>
@@ -414,28 +429,32 @@ export default async function HomePage() {
 
           {/* A plain GET form: `/teachers` already reads `q`, so the search
               needs no script and works before hydration. */}
-          <form action="/teachers" role="search" className="mb-4 flex max-w-xl gap-2">
+          {/* One field with the button inside it: the box reads as a single
+              control, and the ring on focus-within lights the whole of it. */}
+          <form
+            action="/teachers"
+            role="search"
+            className="mb-5 flex max-w-xl items-center gap-2 rounded-2xl border border-line bg-surface-raised p-1.5 shadow-lg shadow-primary/5 transition focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30"
+          >
             <label htmlFor="hero-search" className="sr-only">ابحث عن مادة أو مدرّس</label>
-            <div className="relative flex-1">
-              <SearchIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-              <input
-                id="hero-search"
-                name="q"
-                type="search"
-                placeholder="ابحث عن مادة أو مدرّس"
-                className="w-full rounded-xl border border-line bg-surface-raised py-3 pe-4 ps-12 text-base text-ink shadow-sm placeholder:text-ink-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-            </div>
+            <SearchIcon className="ms-3 h-5 w-5 shrink-0 text-ink-muted" aria-hidden="true" />
+            <input
+              id="hero-search"
+              name="q"
+              type="search"
+              placeholder="ابحث عن مادة أو مدرّس"
+              className="min-w-0 flex-1 bg-transparent py-2.5 text-base text-ink placeholder:text-ink-muted focus:outline-none"
+            />
             <button
               type="submit"
-              className="rounded-xl bg-primary px-6 py-3 text-base font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="shrink-0 rounded-xl bg-primary px-6 py-2.5 text-base font-semibold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               ابحث
             </button>
           </form>
 
           {home.subjects.length > 0 && (
-            <ul className="mb-8 flex max-w-xl flex-wrap gap-2" aria-label="مواد شائعة">
+            <ul className="mb-8 flex max-w-xl flex-wrap items-center gap-2" aria-label="مواد شائعة">
               {home.subjects.slice(0, 6).map((subject) => {
                 const Icon = subjectIcon(subject);
 
@@ -455,6 +474,24 @@ export default async function HomePage() {
                 );
               })}
             </ul>
+          )}
+
+          {/* No seat count here: this payload is cached, and «٣ أماكن» would
+              outlive the group filling. The course page reads seats fresh. */}
+          {home.featured_courses.some((course) => course.type === "group") && (
+            <Link
+              href="/courses?type=group"
+              className="group mb-6 flex max-w-xl items-center gap-3 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 transition hover:border-accent/60"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+                <SessionsIcon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="flex-1">
+                <span className="block font-extrabold text-ink">مجموعات مفتوحة للحجز</span>
+                <span className="block text-sm text-ink-muted">حصص حيّة مع مجموعة، بمواعيد معروفة مسبقاً</span>
+              </span>
+              <ChevronEndIcon className="h-5 w-5 shrink-0 text-ink-muted transition group-hover:-translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
+            </Link>
           )}
 
           <p className="text-sm text-ink-muted">
