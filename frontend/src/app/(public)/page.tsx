@@ -443,6 +443,8 @@ export default async function HomePage() {
         */}
         {/* Real featured teachers where the stock photo stood; the photo stays
             as the fallback for a platform with none yet. */}
+        {/* Above the text on a phone (owner, 2026-10-23), beside it from `lg`. */}
+        <div className="order-first min-w-0 lg:order-none">
         {home.featured_teachers.length > 0 ? (
           <HeroSpotlight teachers={home.featured_teachers.slice(0, 5)} total={home.stats.teachers} />
         ) : (
@@ -457,6 +459,7 @@ export default async function HomePage() {
           />
         </div>
         )}
+        </div>
       </section>
 
       <StatBar stats={home.stats} />
