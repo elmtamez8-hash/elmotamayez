@@ -106,7 +106,7 @@ it('leaves a minor blocked until a guardian consents', function (): void {
         ->fillForm(adminAccountForm([
             'email' => 'child@example.test',
             'date_of_birth' => CarbonImmutable::now()->subYears(12)->toDateString(),
-            'guardian_contact' => '+97455599999',
+            'guardian_contact' => 'parent@example.test',
         ]))
         ->call('create')
         ->assertHasNoFormErrors();
@@ -114,7 +114,7 @@ it('leaves a minor blocked until a guardian consents', function (): void {
     $child = User::query()->where('email', 'child@example.test')->sole();
 
     expect($child->status)->toBe(UserStatus::PendingGuardianConsent->value)
-        ->and($child->studentProfile?->guardian_contact)->toBe('+97455599999');
+        ->and($child->studentProfile?->guardian_contact)->toBe('parent@example.test');
 });
 
 it('creates a guardian with no student profile', function (): void {

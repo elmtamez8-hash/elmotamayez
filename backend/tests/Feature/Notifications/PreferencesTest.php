@@ -33,6 +33,8 @@ function send(User $user, NotificationType $type): void
 }
 
 it('lists only implemented channels', function (): void {
+    configureWhatsApp();
+    config()->set('webpush.vapid', ['public' => 'p', 'private' => 'k', 'subject' => 'mailto:a@b.test']);
     Sanctum::actingAs(User::factory()->create());
 
     $response = $this->getJson('/api/v1/notifications/types')->assertOk();
@@ -212,4 +214,14 @@ it('saves a quiet-hours window', function (): void {
     ])->assertOk();
 
     expect($user->fresh()->timezone)->toBe('Asia/Qatar');
+});
+
+it('hides a channel that is switched off', function (): void {
+    configureWhatsApp(false);
+    Sanctum::actingAs(User::factory()->create());
+
+    $channels = array_column($this->getJson('/api/v1/notifications/types')->assertOk()->json('channels'), 'key');
+
+    // No subscription means no code is ever sent, so no number may be offered.
+    expect($channels)->not->toContain(NotificationChannel::WhatsApp->value);
 });

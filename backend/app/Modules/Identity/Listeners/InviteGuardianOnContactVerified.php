@@ -10,6 +10,7 @@ use App\Modules\Identity\Models\StudentProfile;
 use App\Modules\Identity\Support\GuardianInvitation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Notifications\Events\ContactVerified;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 
 /**
@@ -49,16 +50,26 @@ class InviteGuardianOnContactVerified implements ShouldQueueAfterCommit
 
     public function __construct(private readonly GuardianInvitation $invitation) {}
 
-    public function handle(ContactVerified $event): void
+    /**
+     * `Verified` is the email door (owner decision 2026-10-23): a minor names
+     * their guardian's email, stored lowercased by `RegisterStudent`.
+     */
+    public function handle(ContactVerified|Verified $event): void
     {
-        $guardian = User::query()->whereKey($event->userId)->first();
+        if ($event instanceof Verified) {
+            $guardian = $event->user instanceof User ? $event->user : null;
+            $contact = mb_strtolower($event->user->getEmailForVerification());
+        } else {
+            $guardian = User::query()->whereKey($event->userId)->first();
+            $contact = $event->contactValue;
+        }
 
         if ($guardian === null || $guardian->platform_role !== PlatformRole::Parent) {
             return;
         }
 
         $profiles = StudentProfile::query()
-            ->where('guardian_contact', trim($event->contactValue))
+            ->where('guardian_contact', trim($contact))
             ->where('user_id', '!=', $guardian->getKey())
             ->with('user')
             ->orderBy('id')

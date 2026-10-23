@@ -9,6 +9,7 @@ use App\Modules\Identity\Support\GuardianContactResolver;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Actions\ConfirmContactVerification;
 use App\Modules\Notifications\Actions\RequestContactVerification;
 use App\Modules\Notifications\Models\Notification;
@@ -16,6 +17,7 @@ use App\Modules\Notifications\Support\NotificationChannel;
 use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Support\GuardianPermission;
+use Illuminate\Auth\Events\Verified;
 
 /*
 | A GUARDIAN WHO SIGNS UP AFTER THEIR CHILD.
@@ -152,4 +154,46 @@ it('does not invite a parent who verified the number over a channel that sends n
 
     expect(ParentStudentRelation::query()->count())->toBe(0)
         ->and(app(GuardianContactResolver::class)->resolve(LATE_GUARDIAN_NUMBER))->toBeNull();
+});
+
+/*
+| THE EMAIL DOOR (owner decision 2026-10-23). The platform has no WhatsApp
+| subscription, so no number could ever be proved and every minor stayed
+| pending. A minor names an email now, and the guardian proves it with the
+| verification link every account receives.
+*/
+it('invites the parent who confirms the email the child named, with the viewing permissions', function (): void {
+    $child = lateSignupChild('mona@example.test');
+    $child->forceFill(['status' => UserStatus::PendingGuardianConsent->value])->save();
+    $parent = User::factory()->unverified()->create([
+        'platform_role' => PlatformRole::Parent,
+        'email' => 'Mona@Example.test',
+    ]);
+
+    $parent->markEmailAsVerified();
+    event(new Verified($parent));
+
+    $relation = ParentStudentRelation::query()->sole();
+
+    expect($relation->guardian_user_id)->toBe($parent->getKey())
+        ->and($relation->status)->toBe(RelationStatus::Pending->value)
+        // A minor's guardian follows them from the start; `Messages` stays the child's.
+        ->and($relation->permissions)->toEqualCanonicalizing([
+            GuardianPermission::DataRights->value,
+            GuardianPermission::Attendance->value,
+            GuardianPermission::Schedule->value,
+            GuardianPermission::Results->value,
+            GuardianPermission::Payments->value,
+            GuardianPermission::AcademicWarnings->value,
+        ]);
+});
+
+it('finds a parent whose email is already confirmed when the child signs up, and never an unconfirmed one', function (): void {
+    $confirmed = User::factory()->create(['email' => 'dad@example.test']);
+    User::factory()->unverified()->create(['email' => 'stranger@example.test']);
+
+    $resolver = app(GuardianContactResolver::class);
+
+    expect($resolver->resolve('DAD@example.test')?->getKey())->toBe($confirmed->getKey())
+        ->and($resolver->resolve('stranger@example.test'))->toBeNull();
 });

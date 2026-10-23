@@ -109,3 +109,20 @@ it('rewords the shipped enrolment template on a live database, and leaves an ope
 
     expect($row->fresh()?->body)->toBe('OPERATOR_WORDING {{ name }} {{ course_title }}');
 });
+
+it('tells the student once for an order that opens several courses', function (): void {
+    ['course' => $course, 'student' => $student] = enrolmentNoticeFixture();
+    $second = app(WorkspaceContext::class)->forWorkspace(
+        $course->workspace,
+        fn (): Course => Course::factory()->published()->create([
+            'workspace_id' => $course->workspace_id,
+            'created_by' => $course->created_by,
+        ]),
+    );
+
+    // One plan order covering two courses (journey walk 2026-10-23: eleven notices).
+    app(EnrollStudent::class)->handle($course, $student, 'subscription', 4242);
+    app(EnrollStudent::class)->handle($second, $student, 'subscription', 4242);
+
+    assertNotifiedOnce($student, NotificationType::EnrollmentCreated);
+});

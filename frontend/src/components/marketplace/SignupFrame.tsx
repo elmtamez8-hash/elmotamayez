@@ -65,7 +65,7 @@ const ROLES: Record<
     image: "/marketplace/signup-parent.webp",
     imageAlt: "",
     points: [
-      { Icon: FamilyIcon, title: "اربط حساب ابنك", body: "برمز من حسابه، ولا ترى شيئاً قبل موافقته." },
+      { Icon: FamilyIcon, title: "اربط حساب ابنك", body: "برمز من حسابه، أو بطلبٍ يصلك إن أدخل بريدك عند تسجيله." },
       { Icon: ScheduleIcon, title: "الحضور والمواعيد", body: "تعرف متى حصته القادمة، وهل حضر الحصة الماضية." },
       { Icon: ProgressIcon, title: "النتائج وكشف الدرجات", body: "تقدير كل فترة، بمساهمة كل مدرّس على حدة." },
       { Icon: AlertIcon, title: "المدفوعات والإنذارات", body: "ما عليه من مستحقات، وأي إنذار أكاديمي في وقته." },

@@ -41,6 +41,16 @@ final class GuardianContactResolver
             return null;
         }
 
+        // An email (owner decision 2026-10-23): the same rule, proved by the
+        // verification link instead of a code — an unverified address is a
+        // string nobody confirmed, exactly like `users.phone`.
+        if (str_contains($contact, '@')) {
+            return User::query()
+                ->whereRaw('lower(email) = ?', [mb_strtolower(trim($contact))])
+                ->whereNotNull('email_verified_at')
+                ->first();
+        }
+
         $userId = ContactVerification::query()
             ->where('contact_value', trim($contact))
             ->whereNotNull('verified_at')

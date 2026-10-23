@@ -134,7 +134,7 @@ function consentDoorsRegistration(string $email, string $dateOfBirth): array
         'registered_by_parent' => false,
         'terms_accepted' => true,
         'date_of_birth' => $dateOfBirth,
-        'guardian_contact' => '+97455598765',
+        'guardian_contact' => 'guardian@example.test',
         'region_slug' => 'doha',
     ];
 }

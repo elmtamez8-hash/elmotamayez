@@ -120,7 +120,16 @@ class RegisterStudentRequest extends FormRequest
                 Rule::requiredIf(fn (): bool => $this->isMinor()),
                 'nullable',
                 'string',
-                'regex:/^\+[1-9]\d{6,14}$/',
+                /*
+                | ⚠️ AN EMAIL, NOT A PHONE NUMBER (owner decision 2026-10-23). A
+                | number is proved by a WhatsApp code, and the platform has no
+                | WhatsApp subscription — so no guardian could prove one and every
+                | minor stayed `pending_guardian_consent`. An email is proved by
+                | the verification link every account already receives.
+                */
+                'email',
+                'max:190',
+                'different:email',
             ],
             // FR-065: ships unchecked, so an absent value must fail rather than
             // quietly default to consent.
@@ -145,8 +154,9 @@ class RegisterStudentRequest extends FormRequest
             'referral_code.max' => 'كود الإحالة أطول من اللازم. تأكّد منه، أو امسح الخانة.',
             'terms_accepted.accepted' => 'يجب الموافقة على الشروط والأحكام.',
             'date_of_birth.before' => 'أدخل تاريخ ميلادٍ صحيحاً.',
-            'guardian_contact.required' => 'لأنّك دون الثامنة عشرة، أدخل رقم جوّال وليّ أمرك ليوافق على تفعيل حسابك.',
-            'guardian_contact.regex' => 'أدخل رقم جوّال وليّ الأمر مع رمز الدولة، مثل ‎+97455512345.',
+            'guardian_contact.required' => 'لأنّك دون الثامنة عشرة، أدخل البريد الإلكتروني لوليّ أمرك ليوافق على تفعيل حسابك.',
+            'guardian_contact.email' => 'أدخل بريداً إلكترونياً صحيحاً لوليّ الأمر.',
+            'guardian_contact.different' => 'أدخل بريد وليّ أمرك، لا بريدك أنت.',
         ];
     }
 

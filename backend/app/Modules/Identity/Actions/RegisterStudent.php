@@ -40,6 +40,8 @@ class RegisterStudent extends Action
         // forceFill, not fill: platform_role is guarded precisely so a request
         // payload can never choose it — and `status` for the same reason, since
         // it is the gate this phase adds.
+        $guardianContact = $data->guardianContact === null ? null : mb_strtolower(trim($data->guardianContact));
+
         $user->forceFill([
             'first_name' => $data->firstName,
             'last_name' => $data->lastName,
@@ -73,7 +75,9 @@ class RegisterStudent extends Action
             */
             'dob_is_estimated' => $dateOfBirth === null ? null : false,
             // Kept even when it resolves to nobody — see GuardianContactResolver.
-            'guardian_contact' => $data->guardianContact,
+            // Lowercased: `InviteGuardianOnContactVerified` matches it against
+            // the address a guardian confirms, on SQLite as on MySQL.
+            'guardian_contact' => $guardianContact,
             /*
             | ⚠️ RESOLVED HERE, AND AN UNKNOWN SLUG BECOMES NULL RATHER THAN AN
             | ERROR. The form request has already refused anything outside the
@@ -85,7 +89,7 @@ class RegisterStudent extends Action
         ]);
 
         if ($isMinor) {
-            $this->inviteGuardian($user, $data->guardianContact);
+            $this->inviteGuardian($user, $guardianContact);
         }
 
         // No workspace, no membership, no role (FR-010). A student browses the
