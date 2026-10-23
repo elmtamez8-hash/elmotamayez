@@ -126,6 +126,7 @@ _Read before touching `Modules/Identity/`, auth, two-factor, devices, auth sessi
 - `users` carries what every account has; anything true of one role gets its own table.
 - A `GROUP BY … HAVING` DISCOVERY QUERY IS A PREDICATE THAT SHRINKS UNDER ITS OWN WALK, AND PAGING IT BY `OFFSET` SKIPS EXACTLY THE ROWS THE LAST PAGE FIXED — the `chunk`-vs-`chunkById` rule above, reached through an aggregate instead of a column.
 - A confined assistant reads the guardians of their OWN students only — the staff branch of `ParentStudentRelationPolicy` also asks `mayActOnStudent()`.
+- A minor names their guardian's EMAIL (no WhatsApp subscription — a phone could never be proved); the guardian is found when they CONFIRM it (`Verified`), and a minor's guardian is invited with the viewing permissions.
 
 ### Marketplace, taxonomy and signup catalogues → [`docs/gotchas/marketplace.md`](docs/gotchas/marketplace.md)
 _Read before touching `Modules/Marketplace/`, public listing, subjects/stages/school years, signup forms._

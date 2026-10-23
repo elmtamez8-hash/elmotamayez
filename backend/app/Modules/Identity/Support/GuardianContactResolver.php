@@ -48,6 +48,9 @@ final class GuardianContactResolver
             return User::query()
                 ->whereRaw('lower(email) = ?', [mb_strtolower(trim($contact))])
                 ->whereNotNull('email_verified_at')
+                // A teacher's or another student's address is nobody's guardian —
+                // the narrowing `InviteGuardianOnContactVerified` already has.
+                ->where('platform_role', PlatformRole::Parent->value)
                 ->first();
         }
 

@@ -188,12 +188,14 @@ it('invites the parent who confirms the email the child named, with the viewing 
         ]);
 });
 
-it('finds a parent whose email is already confirmed when the child signs up, and never an unconfirmed one', function (): void {
-    $confirmed = User::factory()->create(['email' => 'dad@example.test']);
-    User::factory()->unverified()->create(['email' => 'stranger@example.test']);
+it('finds a parent whose email is already confirmed when the child signs up, and never an unconfirmed one or a non-parent', function (): void {
+    $confirmed = User::factory()->create(['email' => 'dad@example.test', 'platform_role' => PlatformRole::Parent]);
+    User::factory()->unverified()->create(['email' => 'stranger@example.test', 'platform_role' => PlatformRole::Parent]);
+    User::factory()->create(['email' => 'teacher@example.test', 'platform_role' => PlatformRole::Teacher]);
 
     $resolver = app(GuardianContactResolver::class);
 
     expect($resolver->resolve('DAD@example.test')?->getKey())->toBe($confirmed->getKey())
-        ->and($resolver->resolve('stranger@example.test'))->toBeNull();
+        ->and($resolver->resolve('stranger@example.test'))->toBeNull()
+        ->and($resolver->resolve('teacher@example.test'))->toBeNull();
 });
