@@ -27,19 +27,34 @@ function initialsOf(name: string): string {
  */
 export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; total: number }) {
   const [index, setIndex] = useState(0);
+  // Which side the card slides in from; 0 = first paint, no animation.
+  const [direction, setDirection] = useState<-1 | 0 | 1>(0);
   const [paused, setPaused] = useState(false);
   const count = teachers.length;
 
+  const go = (step: -1 | 1) => {
+    setDirection(step);
+    setIndex((i) => (i + step + count) % count);
+  };
+  const show = (i: number) => {
+    if (i === index) return;
+    setDirection(i > index ? 1 : -1);
+    setIndex(i);
+  };
+
   useEffect(() => {
     if (paused || count < 2 || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setInterval(() => setIndex((i) => (i + 1) % count), ADVANCE_MS);
+    const timer = window.setInterval(() => {
+      setDirection(1);
+      setIndex((i) => (i + 1) % count);
+    }, ADVANCE_MS);
     return () => window.clearInterval(timer);
   }, [paused, count]);
 
   const lead = teachers[index];
   const subject = lead.subjects[0];
   const Icon = subject ? subjectIcon(subject) : null;
-  const go = (step: number) => setIndex((i) => (i + step + count) % count);
+  const slideIn = direction === 1 ? "slide-in-next" : direction === -1 ? "slide-in-prev" : "";
 
   return (
     <section
@@ -60,7 +75,7 @@ export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; to
         key={lead.uuid}
         aria-roledescription="slide"
         aria-label={`${index + 1} من ${count}`}
-        className="mx-4 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-xl shadow-primary/15 animate-float-in"
+        className={`mx-4 overflow-hidden rounded-3xl border border-line bg-surface-raised shadow-xl shadow-primary/15 ${slideIn}`}
       >
         <div className="relative aspect-[4/3] bg-primary-soft">
           {lead.photo_url ? (
@@ -136,7 +151,7 @@ export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; to
               <button
                 key={teacher.uuid}
                 type="button"
-                onClick={() => setIndex(i)}
+                onClick={() => show(i)}
                 aria-label={`اعرض ${teacher.name}`}
                 aria-current={i === index ? "true" : undefined}
                 className={`h-9 w-9 overflow-hidden rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
