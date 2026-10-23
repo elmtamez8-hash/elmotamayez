@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronEndIcon, ChevronStartIcon, VerifiedBadgeIcon } from "@/components/icons";
 import { counted, TEACHERS } from "@/lib/labels";
 import type { TeacherCard } from "@/lib/public-api";
@@ -10,6 +10,7 @@ import { StarRating } from "./StarRating";
 import { subjectIcon } from "./subject-icon";
 
 const ADVANCE_MS = 5000;
+const ARROWS_AFTER_TOUCH_MS = 4000;
 
 function initialsOf(name: string): string {
   return name.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("");
@@ -90,6 +91,9 @@ function Slide({ teacher, hidden }: { teacher: TeacherCard; hidden: boolean }) {
 export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; total: number }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  // A phone has no hover, so a touch shows the arrows for a while instead.
+  const [touched, setTouched] = useState(false);
+  const hideTimer = useRef<number | undefined>(undefined);
   const count = teachers.length;
   const go = (step: number) => setIndex((i) => (i + step + count) % count);
 
@@ -99,18 +103,33 @@ export function HeroSpotlight({ teachers, total }: { teachers: TeacherCard[]; to
     return () => window.clearInterval(timer);
   }, [paused, count]);
 
-  const arrow =
-    "pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-ink shadow-md transition hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary";
+  useEffect(() => () => window.clearTimeout(hideTimer.current), []);
+
+  const onTouch = () => {
+    setTouched(true);
+    window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setTouched(false), ARROWS_AFTER_TOUCH_MS);
+  };
+
+  // Hidden until the slider is hovered, holds focus, or was just touched
+  // (owner, 2026-10-23). Hidden means unclickable too, so a tap that lands
+  // where an arrow will appear only reveals it.
+  const arrow = `flex h-9 w-9 items-center justify-center rounded-full bg-surface-raised/90 text-ink shadow-md transition hover:bg-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+    touched
+      ? "opacity-100 pointer-events-auto"
+      : "opacity-0 pointer-events-none group-hover/slider:opacity-100 group-hover/slider:pointer-events-auto group-focus-within/slider:opacity-100 group-focus-within/slider:pointer-events-auto"
+  }`;
 
   return (
     <section
       aria-roledescription="carousel"
       aria-label="مدرّسون مميّزون"
-      className="relative isolate mx-auto w-full max-w-md min-w-0 py-8"
+      className="group/slider relative isolate mx-auto w-full max-w-md min-w-0 py-8"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
+      onTouchStart={onTouch}
     >
       <div
         className="bg-squares absolute inset-x-8 inset-y-0 -z-10 rounded-[2rem] bg-primary"
