@@ -7,9 +7,8 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { organizationLd } from "@/lib/structured-data";
 import { siteUrl } from "@/lib/site";
 import { TeacherCard } from "@/components/marketplace/TeacherCard";
-import { StarRating } from "@/components/marketplace/StarRating";
 import { subjectIcon } from "@/components/marketplace/subject-icon";
-import { AvailableNowChip, AvailableNowDot } from "@/components/marketplace/AvailableNow";
+import { HeroSpotlight } from "@/components/marketplace/HeroSpotlight";
 import { CourseCard } from "@/components/marketplace/CourseCard";
 import { TestimonialsWall } from "@/components/marketplace/TestimonialsWall";
 import { SubjectsGrid } from "@/components/marketplace/SubjectsGrid";
@@ -43,7 +42,6 @@ import {
   TeacherIcon,
   TrustShieldIcon,
   UsersIcon,
-  VerifiedBadgeIcon,
 } from "@/components/icons";
 
 /*
@@ -312,79 +310,6 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
   );
 }
 
-/*
- * A short, slightly staggered stack of the featured teachers — real rows from
- * the same list the section below prints in full, so the hero promises nobody
- * the page cannot show.
- */
-function HeroTeachers({ teachers }: { teachers: HomePayload["featured_teachers"] }) {
-  return (
-    <div className="relative isolate min-w-0 py-6 lg:py-10">
-      {/* A tilted panel the cards overlap at both edges, rather than a band
-          that ends where they do. */}
-      <div
-        className="bg-squares absolute inset-x-6 inset-y-0 -z-10 rotate-3 rounded-[2rem] bg-primary motion-reduce:rotate-0"
-        aria-hidden="true"
-      />
-      <div className="mb-4 flex items-center justify-between px-12 text-white">
-        <p className="text-sm font-bold">مدرّسون مميّزون</p>
-        <Link href="/teachers" className="text-sm font-semibold underline-offset-4 hover:underline">
-          عرض الكل
-        </Link>
-      </div>
-      <ul className="space-y-4">
-        {teachers.map((teacher, index) => {
-          const subject = teacher.subjects[0];
-          const Icon = subject ? subjectIcon(subject) : null;
-
-          return (
-            <li
-              key={teacher.uuid}
-              className={`reveal ${index === 1 ? "lg:-translate-x-10" : "lg:translate-x-4"}`}
-            >
-              <Link
-                href={`/teachers/${teacher.slug ?? teacher.uuid}`}
-                className="group flex items-center gap-4 rounded-2xl border border-line bg-surface-raised p-4 shadow-lg shadow-primary/10 transition duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 motion-reduce:transition-none"
-              >
-                <span className="relative shrink-0">
-                  {teacher.photo_url ? (
-                    <img src={teacher.photo_url} alt="" className="h-14 w-14 rounded-xl object-cover" />
-                  ) : (
-                    <span
-                      className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary-ink"
-                      aria-hidden="true"
-                    >
-                      {teacher.name.split(" ").slice(0, 2).map((part) => part.charAt(0)).join("")}
-                    </span>
-                  )}
-                  {teacher.available_now && <AvailableNowDot />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 font-extrabold text-ink group-hover:text-primary-ink">
-                    <span className="truncate">{teacher.name}</span>
-                    {teacher.is_verified && (
-                      <VerifiedBadgeIcon className="h-4 w-4 shrink-0 text-secondary-ink" title="مدرّس موثّق" />
-                    )}
-                    {teacher.available_now && <AvailableNowChip />}
-                  </span>
-                  {subject && Icon && (
-                    <span className="mt-1 inline-flex items-center gap-1 text-sm text-ink-muted">
-                      <Icon className="h-4 w-4" />
-                      {subject.name}
-                    </span>
-                  )}
-                  <span className="mt-1 block">
-                    <StarRating value={teacher.average_rating} count={teacher.reviews_count} />
-                  </span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
 
 export default async function HomePage() {
   const identity = await platformIdentity();
@@ -518,8 +443,10 @@ export default async function HomePage() {
         */}
         {/* Real featured teachers where the stock photo stood; the photo stays
             as the fallback for a platform with none yet. */}
+        {/* Above the text on a phone (owner, 2026-10-23), beside it from `lg`. */}
+        <div className="order-first min-w-0 lg:order-none">
         {home.featured_teachers.length > 0 ? (
-          <HeroTeachers teachers={home.featured_teachers.slice(0, 3)} />
+          <HeroSpotlight teachers={home.featured_teachers.slice(0, 5)} total={home.stats.teachers} />
         ) : (
         <div className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-surface-raised">
           <Image
@@ -532,6 +459,7 @@ export default async function HomePage() {
           />
         </div>
         )}
+        </div>
       </section>
 
       <StatBar stats={home.stats} />
