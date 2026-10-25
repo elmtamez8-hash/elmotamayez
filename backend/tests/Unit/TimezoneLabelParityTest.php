@@ -49,9 +49,20 @@ it('names every zone the server accepts, and no two alike', function (): void {
 });
 
 it('names only real zones, so a typo in a key cannot hide an unnamed one', function (): void {
-    $known = timezone_identifiers_list(DateTimeZone::ALL_WITH_BC);
+    // Asked of the parser, not of `timezone_identifiers_list(ALL_WITH_BC)`: a
+    // newer timezonedb drops old aliases (Asia/Calcutta, Europe/Kiev) from that
+    // list while still accepting them, and a browser may still report one.
+    $unknown = array_filter(array_keys(TimezoneLabel::labels()), function (string $zone): bool {
+        try {
+            new DateTimeZone($zone);
 
-    expect(array_values(array_diff(array_keys(TimezoneLabel::labels()), $known)))->toBe([]);
+            return false;
+        } catch (Exception) {
+            return true;
+        }
+    });
+
+    expect(array_values($unknown))->toBe([]);
 });
 
 it('keeps the zone name when the map does not know it', function (): void {
