@@ -78,11 +78,6 @@ export interface ChildLink {
   accepted_at: string | null;
 }
 
-export interface NotificationPreferences {
-  weekly_reports: boolean;
-  session_alerts: boolean;
-}
-
 export interface TeacherRegistration {
   first_name: string;
   last_name: string;
@@ -377,16 +372,6 @@ export interface Exam {
   status: string;
   is_published: boolean;
   questions_count?: number;
-}
-
-export interface Attempt {
-  uuid: string;
-  status: string;
-  score: number;
-  max_score: number;
-  passed: boolean;
-  started_at: string;
-  submitted_at: string | null;
 }
 
 export interface Certificate {
