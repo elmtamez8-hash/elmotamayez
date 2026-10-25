@@ -361,5 +361,3 @@ export const WB = {
     last_page: "لا يمكن حذف الصفحة الأخيرة.",
   },
 } as const;
-
-export type WbErrorCode = keyof typeof WB.errors;

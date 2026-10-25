@@ -10,7 +10,6 @@ import {
   screenAt,
   screensIn,
   pageFrameId,
-  penFor,
   recolorForBackground,
 } from "./page-model";
 
@@ -86,14 +85,6 @@ describe("streaming defaults", () => {
   it("never starts below its own floor", () => {
     expect(STREAM_DEFAULTS.fontSize).toBeGreaterThanOrEqual(STREAM_DEFAULTS.minFontSize);
     expect(STREAM_DEFAULTS.strokeWidth).toBeGreaterThanOrEqual(STREAM_DEFAULTS.minStrokeWidth);
-  });
-});
-
-describe("penFor", () => {
-  it("starts each background with its own high-contrast pen", () => {
-    expect(penFor("white")).toBe(BACKGROUNDS.white.pen);
-    expect(penFor("blackboard")).toBe(BACKGROUNDS.blackboard.pen);
-    expect(penFor("greenboard")).not.toBe(penFor("white"));
   });
 });
 

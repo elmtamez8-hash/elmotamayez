@@ -198,13 +198,6 @@ export interface EligibleStudent {
   current_cohort: { uuid: string; name: string } | null;
 }
 
-/** The refusal codes §ج answers a join or a transfer request with. */
-export type CohortWriteRefusal =
-  | "cohort_full"
-  | "already_member"
-  | "request_pending"
-  | "same_cohort"
-  | "cohort_closed";
 
 export const cohorts = {
   forCourse: (courseUuid: string) =>

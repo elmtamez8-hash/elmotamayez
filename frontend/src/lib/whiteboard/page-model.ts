@@ -113,11 +113,6 @@ export function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** The pen a board starts with on a background (US1-3). */
-export function penFor(background: BoardBackground): string {
-  return BACKGROUNDS[background].pen;
-}
-
 /** Just the colour fields recolouring reads and writes — any Excalidraw element has them. */
 export interface Colourable {
   strokeColor: string;

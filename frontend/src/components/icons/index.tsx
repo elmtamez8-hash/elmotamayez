@@ -20,7 +20,6 @@ import {
   IconFileImport,
   IconFiles,
   IconLayoutDashboard,
-  IconPalette,
   IconPresentation,
   IconTool,
   IconAlertTriangle,
@@ -545,5 +544,4 @@ export const PagesIcon = wrap(IconFiles, "h-4 w-4");
 export const ToolsIcon = wrap(IconTool, "h-4 w-4");
 export const PanelLayoutIcon = wrap(IconLayoutDashboard, "h-4 w-4");
 export const ImportIcon = wrap(IconFileImport, "h-4 w-4");
-export const PaletteIcon = wrap(IconPalette, "h-4 w-4");
 export const PlusIcon = wrap(IconPlus, "h-4 w-4");

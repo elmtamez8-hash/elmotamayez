@@ -9,7 +9,6 @@ import type { WbCustomData } from "@/lib/whiteboard/custom-data";
  * without `eval` (since v4), which the site's script policy would refuse.
  */
 export type GraphData = Extract<WbCustomData, { kind: "graph" }>;
-export type GraphPoint = GraphData["points"][number];
 
 /** Dark enough to read on white through a compressed stream, and apart from each other. */
 export const GRAPH_COLORS = ["#1d4ed8", "#c2410c", "#15803d", "#7e22ce"] as const;
