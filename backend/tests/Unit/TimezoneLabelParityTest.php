@@ -49,20 +49,19 @@ it('names every zone the server accepts, and no two alike', function (): void {
 });
 
 it('names only real zones, so a typo in a key cannot hide an unnamed one', function (): void {
-    // Asked of the parser, not of `timezone_identifiers_list(ALL_WITH_BC)`: a
-    // newer timezonedb drops old aliases (Asia/Calcutta, Europe/Kiev) from that
-    // list while still accepting them, and a browser may still report one.
-    $unknown = array_filter(array_keys(TimezoneLabel::labels()), function (string $zone): bool {
-        try {
-            new DateTimeZone($zone);
+    // ⚠️ Old aliases a browser still reports (Chrome's ICU says Asia/Calcutta),
+    // so they keep their label — but the runner's system tzdata ships without
+    // the legacy links (2026-10-25), so neither the list nor the parser knows
+    // them there. They are named here; anything else must be a real zone.
+    $legacy = [
+        'Africa/Asmera', 'America/Buenos_Aires', 'America/Catamarca', 'America/Cordoba',
+        'America/Godthab', 'America/Indianapolis', 'America/Jujuy', 'America/Louisville',
+        'America/Mendoza', 'Asia/Calcutta', 'Asia/Katmandu', 'Asia/Rangoon', 'Asia/Saigon',
+        'Atlantic/Faeroe', 'Europe/Kiev', 'Pacific/Enderbury', 'Pacific/Ponape', 'Pacific/Truk',
+    ];
+    $known = [...timezone_identifiers_list(DateTimeZone::ALL_WITH_BC), ...$legacy];
 
-            return false;
-        } catch (Exception) {
-            return true;
-        }
-    });
-
-    expect(array_values($unknown))->toBe([]);
+    expect(array_values(array_diff(array_keys(TimezoneLabel::labels()), $known)))->toBe([]);
 });
 
 it('keeps the zone name when the map does not know it', function (): void {
