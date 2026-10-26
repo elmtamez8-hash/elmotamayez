@@ -27,6 +27,22 @@ import { subjectIcon } from "./subject-icon";
  * it — and a cover is exactly a user-supplied image. The existing comment at the
  * hero said so; it moves here with the markup.
  */
+/*
+ * The card's ground follows the SUBJECT (owner, 2026-10-26): a grid of covers
+ * that are all one maroon reads as one picture repeated. The same subject always
+ * gets the same colour, and every colour is a brand token white reads on.
+ */
+const GROUNDS = ["bg-primary", "bg-secondary", "bg-accent"] as const;
+
+export function groundFor(subject?: Taxonomy | null): string {
+  if (!subject) return GROUNDS[0];
+
+  let sum = 0;
+  for (const char of subject.slug) sum += char.charCodeAt(0);
+
+  return GROUNDS[sum % GROUNDS.length];
+}
+
 export function CourseCover({
   title,
   coverUrl,
@@ -81,7 +97,7 @@ export function CourseCover({
     return (
       <div
         aria-hidden="true"
-        className="bg-squares bg-squares-start relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-primary"
+        className={`bg-squares bg-squares-start relative isolate flex h-full w-full items-center justify-center overflow-hidden ${groundFor(subject)}`}
       >
         <Mark className="absolute -bottom-10 end-3 -z-10 h-44 w-44 text-white/15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
         <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-white ring-1 ring-white/25 backdrop-blur-sm transition duration-300 ease-out group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">

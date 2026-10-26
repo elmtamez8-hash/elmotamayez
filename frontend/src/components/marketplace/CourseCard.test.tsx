@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { CourseCard } from "./CourseCard";
+import { groundFor } from "./CourseCover";
 import type { CourseCard as Course } from "@/lib/public-api";
 
 /*
@@ -155,5 +156,30 @@ describe("CourseCard trial badge", () => {
       expect(screen.queryByText("حصة تجريبية مجانية")).toBeNull();
       unmount();
     }
+  });
+});
+
+/*
+| Owner, 2026-10-26 — an unrated course says «جديد» instead of empty stars, and a
+| cover-less course's ground follows its subject so a grid is not one colour.
+*/
+describe("CourseCard · new and unpictured courses", () => {
+  it("says «جديد» until someone rates it", () => {
+    const { unmount } = render(<CourseCard course={course} />);
+    expect(screen.getByText("جديد")).toBeTruthy();
+    unmount();
+
+    render(<CourseCard course={{ ...course, average_rating: 4.5 }} />);
+    expect(screen.queryByText("جديد")).toBeNull();
+  });
+
+  it("gives one subject one colour, and not every subject the same one", () => {
+    const grounds = ["math", "physics", "chemistry", "arabic", "english"].map((slug) =>
+      groundFor({ slug, name: slug }),
+    );
+
+    expect(groundFor({ slug: "math", name: "x" })).toBe(grounds[0]);
+    expect(new Set(grounds).size).toBeGreaterThan(1);
+    expect(groundFor(null)).toBe("bg-primary");
   });
 });
