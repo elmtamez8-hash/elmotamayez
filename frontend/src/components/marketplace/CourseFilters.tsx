@@ -1,17 +1,30 @@
 "use client";
 
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useState } from "react";
 import type { Taxonomy } from "@/lib/public-api";
 import { Select } from "@/components/ui/Field";
+import { CloseIcon } from "@/components/icons";
 import { COURSE_TYPES, courseTypeLabel } from "@/lib/labels";
-import { CloseIcon, SearchIcon } from "@/components/icons";
+import {
+  chip,
+  FilterSheet,
+  Option,
+  pill,
+  rankSubjects,
+  SheetButton,
+  SheetGroup,
+  SubjectChips,
+  useFilterUrl,
+} from "./filter-kit";
 
 /**
- * Horizontal filter bar for the courses page.
+ * The courses page's filters, in the teachers page's shape (owner, 2026-10-26):
+ * the course type and the subject are one-tap chips on every width; the stage
+ * and the sort are compact selects on a laptop and a bottom sheet on a phone,
+ * so four stacked dropdowns no longer push the first course below the fold.
  *
- * Same contract as TeacherFilters: state lives in the URL so a filtered result is
- * shareable and the page can stay a Server Component (FR-051, SC-015).
+ * The subjects here are NOT scoped to the stage (the page fetches them all), so
+ * changing the stage keeps the subject.
  */
 const SORTS = [
   { value: "popular", label: "الأكثر طلباً" },
@@ -25,133 +38,104 @@ export function CourseFilters({
   subjects: Taxonomy[];
   gradeLevels: Taxonomy[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
-  const [pending, startTransition] = useTransition();
+  const { get, pending, update, clear } = useFilterUrl();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const update = (key: string, value: string) => {
-    const next = new URLSearchParams(params.toString());
-
-    if (value === "") next.delete(key);
-    else next.set(key, value);
-
-    // A narrowed search must not land on page 4 of a 2-page result and read as
-    // "no courses found".
-    next.delete("page");
-
-    startTransition(() => router.push(`${pathname}?${next.toString()}`));
-  };
-
-  const field =
-    "w-full rounded-2xl border border-line bg-surface px-3.5 py-3 text-sm font-semibold text-ink transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary motion-reduce:transition-none";
-
-  const hasFilters = ["subject", "grade_level", "type"].some(
-    (key) => params.get(key),
-  );
+  const type = get("type");
+  const stage = get("grade_level");
+  const subject = get("subject");
+  const sort = get("sort") || "popular";
+  const hasFilters = type !== "" || stage !== "" || subject !== "";
 
   return (
     <div
       aria-busy={pending}
-      className="mb-10 flex flex-col gap-5 rounded-3xl border border-line bg-surface-raised p-5 shadow-lg shadow-primary/5 transition-opacity aria-busy:opacity-70 motion-reduce:transition-none sm:p-6 lg:flex-row lg:items-end"
+      className="mb-10 rounded-3xl border border-line bg-surface-raised p-4 shadow-lg shadow-primary/10 transition-opacity aria-busy:opacity-70 motion-reduce:transition-none sm:p-5"
     >
-      {/* علامةٌ لا عنوان: الحقولُ الأربعةُ تحملُ أسماءَها، والبلاطةُ تقولُ
-          «هنا تُضيِّقُ النتائج» بلا كلمةٍ فوقَها. */}
-      <span
-        aria-hidden="true"
-        className="hidden h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-md shadow-primary/20 lg:grid"
-      >
-        <SearchIcon className="h-6 w-6" />
-      </span>
-
-      <div className="grid flex-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label htmlFor="f-subject" className="mb-1.5 block text-sm font-bold text-ink">
-            المادة
-          </label>
-          <Select
-            id="f-subject"
-            value={params.get("subject") ?? ""}
-            onChange={(event) => update("subject", event.target.value)}
-            className={field}
-          >
-            <option value="">كل المواد</option>
-            {subjects.map((subject) => (
-              <option key={subject.slug} value={subject.slug}>
-                {subject.name}
-              </option>
-            ))}
-          </Select>
+      {/* Row 1 — the kind of course, then (laptop) the stage and the sort;
+          (phone) the sheet's button. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="نوع الكورس" className="flex flex-1 flex-wrap items-center gap-2">
+          <button type="button" aria-pressed={type === ""} onClick={() => update("type", "")} className={chip(type === "")}>
+            كل الأنواع
+          </button>
+          {COURSE_TYPES.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={type === item.value}
+              onClick={() => update("type", type === item.value ? "" : item.value)}
+              className={chip(type === item.value)}
+            >
+              {/* الاسمُ وحدَه: التوضيحُ بعد الشرطة للمدرّس وهو يختار، لا للزائر وهو يفلتر. */}
+              {courseTypeLabel(item.value)}
+            </button>
+          ))}
         </div>
 
-        <div>
-          <label htmlFor="f-grade" className="mb-1.5 block text-sm font-bold text-ink">
-            المرحلة الدراسية
-          </label>
-          <Select
-            id="f-grade"
-            value={params.get("grade_level") ?? ""}
-            onChange={(event) => update("grade_level", event.target.value)}
-            className={field}
-          >
+        <label htmlFor="course-stage" className="sr-only">المرحلة الدراسية</label>
+        <div className="hidden lg:block">
+          <Select id="course-stage" value={stage} onChange={(event) => update("grade_level", event.target.value)} className={pill}>
             <option value="">كل المراحل</option>
             {gradeLevels.map((level) => (
-              <option key={level.slug} value={level.slug}>
-                {level.name}
-              </option>
+              <option key={level.slug} value={level.slug}>{level.name}</option>
             ))}
           </Select>
         </div>
 
-        <div>
-          <label htmlFor="f-type" className="mb-1.5 block text-sm font-bold text-ink">
-            نوع الكورس
-          </label>
-          <Select
-            id="f-type"
-            value={params.get("type") ?? ""}
-            onChange={(event) => update("type", event.target.value)}
-            className={field}
-          >
-            <option value="">كل الأنواع</option>
-            {COURSE_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>
-                {/* الفلتر يعرض الاسم وحده: التوضيحُ بعد الشرطة للمدرّس وهو يختار، لا للزائر وهو يفلتر. */}
-                {courseTypeLabel(type.value)}
-              </option>
+        <label htmlFor="course-sort" className="sr-only">ترتيب حسب</label>
+        <div className="hidden lg:block">
+          <Select id="course-sort" value={sort} onChange={(event) => update("sort", event.target.value)} className={pill}>
+            {SORTS.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
             ))}
           </Select>
         </div>
 
-        <div>
-          <label htmlFor="f-sort" className="mb-1.5 block text-sm font-bold text-ink">
-            ترتيب حسب
-          </label>
-          <Select
-            id="f-sort"
-            value={params.get("sort") ?? "popular"}
-            onChange={(event) => update("sort", event.target.value)}
-            className={field}
-          >
-            {SORTS.map((sort) => (
-              <option key={sort.value} value={sort.value}>
-                {sort.label}
-              </option>
-            ))}
-          </Select>
-        </div>
+        <SheetButton count={stage === "" ? 0 : 1} onClick={() => setSheetOpen(true)} />
       </div>
+
+      {/* Row 2 — the subject. */}
+      <SubjectChips id="course" subjects={subjects} subject={subject} allLabel="كل المواد" onPick={(slug) => update("subject", slug)} />
 
       {hasFilters && (
         <button
           type="button"
-          onClick={() => startTransition(() => router.push(pathname))}
-          className="inline-flex w-fit shrink-0 items-center gap-1.5 self-start rounded-full bg-primary-soft px-4 py-2.5 text-sm font-extrabold text-primary-ink transition hover:bg-primary hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none lg:self-end"
+          onClick={clear}
+          className="mt-4 hidden items-center gap-1.5 text-sm font-semibold text-ink-muted underline-offset-4 transition hover:text-primary-ink hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:inline-flex"
         >
           <CloseIcon className="h-4 w-4" />
           إزالة كل الفلاتر
         </button>
       )}
+
+      <FilterSheet id="course-sheet" open={sheetOpen} onClose={() => setSheetOpen(false)} onClear={clear}>
+        <SheetGroup title="المرحلة الدراسية">
+          <Option pressed={stage === ""} onClick={() => update("grade_level", "")}>كل المراحل</Option>
+          {gradeLevels.map((level) => (
+            <Option key={level.slug} pressed={stage === level.slug} onClick={() => update("grade_level", level.slug)}>
+              {level.name}
+            </Option>
+          ))}
+        </SheetGroup>
+
+        <SheetGroup title="المادة">
+          <Option pressed={subject === ""} onClick={() => update("subject", "")}>كل المواد</Option>
+          {rankSubjects(subjects).map((item) => (
+            <Option key={item.slug} pressed={subject === item.slug} onClick={() => update("subject", item.slug)}>
+              {item.name}
+            </Option>
+          ))}
+        </SheetGroup>
+
+        <SheetGroup title="الترتيب">
+          {SORTS.map((item) => (
+            <Option key={item.value} pressed={sort === item.value} onClick={() => update("sort", item.value)}>
+              {item.label}
+            </Option>
+          ))}
+        </SheetGroup>
+      </FilterSheet>
     </div>
   );
 }
