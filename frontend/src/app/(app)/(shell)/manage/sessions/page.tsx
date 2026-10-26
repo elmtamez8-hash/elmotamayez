@@ -32,10 +32,8 @@ import { useViewerTimeZone } from "@/lib/viewer-time-zone";
 
 /** The local date, as `YYYY-MM-DD`. */
 function today(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  // en-CA writes the local date as YYYY-MM-DD.
+  return new Date().toLocaleDateString("en-CA");
 }
 
 /**

@@ -36,8 +36,6 @@ return [
     |
     */
 
-    'max_attempts' => 5,
-
     'backoff_seconds' => [30, 120, 300, 900],
 
     /*
