@@ -160,17 +160,17 @@ describe("CourseCard trial badge", () => {
 });
 
 /*
-| Owner, 2026-10-26 — an unrated course says «جديد» instead of empty stars, and a
+| Owner, 2026-10-26 — an unrated course says «لم يُقيَّم بعد» instead of empty stars, and a
 | cover-less course's ground follows its subject so a grid is not one colour.
 */
 describe("CourseCard · new and unpictured courses", () => {
-  it("says «جديد» until someone rates it", () => {
+  it("says «لم يُقيَّم بعد» until someone rates it", () => {
     const { unmount } = render(<CourseCard course={course} />);
-    expect(screen.getByText("جديد")).toBeTruthy();
+    expect(screen.getByText("لم يُقيَّم بعد")).toBeTruthy();
     unmount();
 
     render(<CourseCard course={{ ...course, average_rating: 4.5 }} />);
-    expect(screen.queryByText("جديد")).toBeNull();
+    expect(screen.queryByText("لم يُقيَّم بعد")).toBeNull();
   });
 
   it("gives one subject one colour, and not every subject the same one", () => {

@@ -161,12 +161,13 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         </h3>
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          {/* No rating yet reads «جديد», not five empty stars and «(٠)» (owner,
+          {/* No rating yet reads «لم يُقيَّم بعد», not five empty stars and «(٠)» —
+              never «جديد», which an old unrated course is not (owner,
               2026-10-26) — a chip of the subject chip's height, so the row keeps
               its shape. */}
           {course.average_rating === null ? (
-            <span className="rounded-full border border-secondary px-2.5 py-0.5 text-xs font-extrabold text-secondary-ink">
-              جديد
+            <span className="rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-ink-muted">
+              لم يُقيَّم بعد
             </span>
           ) : (
             <StarRating value={course.average_rating} />
