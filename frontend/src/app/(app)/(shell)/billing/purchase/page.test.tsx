@@ -111,7 +111,12 @@ describe("الطالب لنفسه", () => {
     // الحقلُ غائبٌ لا `null`: الغيابُ يعني «أنا»، وهو ما عنَتْه كلُّ طلباتِ ما قبلَ ٠٣١.
     expect(asked).toContain("/billing/packages?course=c-1");
     // ووجهةُ التحويلِ تُطلَبُ من الشاشةِ نفسِها، فالمشتري يعرفُ إلى أين قبلَ أن يدفع.
-    expect(asked).toContain("/billing/transfer-instructions");
+    // ⚠️ Waited for: `TransferDestination` mounts with the offers and asks in its
+    // own effect, so the request can land a tick after the package name shows
+    // (it failed that way on a slow runner, 2026-10-25).
+    await waitFor(() =>
+      expect(get.mock.calls.map((call) => String(call[0]))).toContain("/billing/transfer-instructions"),
+    );
 
     screen.getByRole("button", { name: "اختيار هذه الحزمة" }).click();
 
