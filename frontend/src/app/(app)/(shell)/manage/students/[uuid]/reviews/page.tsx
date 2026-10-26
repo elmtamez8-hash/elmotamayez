@@ -33,8 +33,8 @@ function thisMonth(): { start: string; end: string } {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const iso = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  // en-CA writes the local date as YYYY-MM-DD.
+  const iso = (date: Date) => date.toLocaleDateString("en-CA");
 
   return { start: iso(start), end: iso(end) };
 }

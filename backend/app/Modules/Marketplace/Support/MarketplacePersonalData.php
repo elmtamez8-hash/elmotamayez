@@ -14,6 +14,7 @@ use App\Shared\Support\ExpiryBehaviour;
 use App\Shared\Support\ExportWalk;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 
 /**
  * Marketplace's half of the data-rights contract (spec 013).
@@ -70,7 +71,7 @@ class MarketplacePersonalData implements PersonalDataOwner
                     'users.first_name as teacher_first_name',
                     'users.last_name as teacher_last_name',
                 ]),
-            fn (Review $review): array => self::only([
+            fn (Review $review): array => Arr::only([
                 'rating' => $review->rating,
                 'comment' => $review->comment,
                 'created_at' => ExportWalk::at($review->created_at),
@@ -93,7 +94,7 @@ class MarketplacePersonalData implements PersonalDataOwner
         yield from ExportWalk::keyed(
             'review',
             TeacherProfile::query()->withoutWorkspaceScope()->where('user_id', $userId),
-            fn (TeacherProfile $teacher): array => self::only([
+            fn (TeacherProfile $teacher): array => Arr::only([
                 'uuid' => $teacher->uuid,
                 'slug' => $teacher->slug,
                 'headline' => $teacher->headline,
@@ -118,18 +119,6 @@ class MarketplacePersonalData implements PersonalDataOwner
                 'created_at' => ExportWalk::at($complaint->created_at),
             ],
         );
-    }
-
-    /**
-     * The row, reduced to the keys the module's own allowlist names.
-     *
-     * @param  array<string, mixed>  $row
-     * @param  list<string>  $allowed
-     * @return array<string, mixed>
-     */
-    private static function only(array $row, array $allowed): array
-    {
-        return array_intersect_key($row, array_flip($allowed));
     }
 
     /**

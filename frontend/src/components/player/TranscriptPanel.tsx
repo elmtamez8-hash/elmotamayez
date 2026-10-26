@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { type Caption } from "@/lib/media";
+import { formatClock } from "@/components/community/VoiceNotePlayer";
 
 /**
  * The lesson's words, read from the same WebVTT the `<track>` element uses.
@@ -63,7 +64,7 @@ export function TranscriptPanel({
               className="flex w-full items-start gap-3 rounded-lg px-2 py-1 text-start text-sm text-ink hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <span dir="ltr" className="shrink-0 font-mono text-xs text-ink-muted">
-                {clock(cue.start)}
+                {formatClock(cue.start)}
               </span>
               <span>{cue.text}</span>
             </button>
@@ -107,9 +108,3 @@ function seconds(stamp: string): number {
   return parts.reduce((total, part) => total * 60 + part, 0);
 }
 
-function clock(total: number): string {
-  const minutes = Math.floor(total / 60);
-  const rest = Math.floor(total % 60);
-
-  return `${minutes}:${String(rest).padStart(2, "0")}`;
-}

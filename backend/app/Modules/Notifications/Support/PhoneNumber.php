@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Notifications\Support;
 
+use Illuminate\Support\Str;
+
 /**
  * One written-down phone number, read as one international number.
  *
@@ -83,6 +85,6 @@ final class PhoneNumber
      */
     public static function mask(string $e164): string
     {
-        return strlen($e164) <= 4 ? '****' : str_repeat('*', strlen($e164) - 4).substr($e164, -4);
+        return strlen($e164) <= 4 ? '****' : Str::mask($e164, '*', 0, -4);
     }
 }

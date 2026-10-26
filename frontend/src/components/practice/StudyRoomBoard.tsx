@@ -10,6 +10,7 @@ import {
   type StudyRoomState,
 } from "@/lib/study-rooms";
 import { arabicNumber } from "@/lib/numerals";
+import { formatClock } from "@/components/community/VoiceNotePlayer";
 
 /**
  * The live scoreboard of one study room (FR-014 · SC-006).
@@ -84,7 +85,7 @@ export function StudyRoomBoard({
           <Badge tone="neutral">انتهى الوقت</Badge>
         ) : (
           <Badge tone={remaining <= 60 ? "warning" : "info"}>
-            <bdi>{clock(remaining)}</bdi>
+            <bdi>{formatClock(remaining)}</bdi>
           </Badge>
         )}
       </div>
@@ -127,9 +128,3 @@ function secondsUntil(iso: string): number {
   return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 1000));
 }
 
-/** `m:ss`, wrapped in `<bdi>` by the caller so the digits do not reorder in RTL. */
-function clock(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-
-  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
-}

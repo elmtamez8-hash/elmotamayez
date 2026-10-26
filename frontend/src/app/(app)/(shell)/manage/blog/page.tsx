@@ -21,7 +21,7 @@ import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { usePagedList } from "@/lib/use-paged-list";
 import { fieldErrors } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
-import { counted, formatDate } from "@/lib/labels";
+import { counted, formatDate, isoToLocalDateTime } from "@/lib/labels";
 import { P, can } from "@/lib/permissions";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { RecordList, RecordRow } from "@/components/ui/RecordList";
@@ -60,18 +60,6 @@ const EMPTY: ArticleInput = {
   canonical_url: "",
 };
 
-/**
- * ⚠️ `datetime-local` يريدُ `YYYY-MM-DDTHH:mm` ولا يقبلُ ISO الكاملَ بحرفِ `Z`،
- * فيبقى الحقلُ فارغاً بلا خطأ — ويقرأُ المدرّسُ ذلك «لا تاريخَ لمقالي المنشور».
- */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return "";
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
-}
-
 function formOf(article: ManagedArticle): ArticleInput {
   return {
     title: article.title,
@@ -79,7 +67,7 @@ function formOf(article: ManagedArticle): ArticleInput {
     body: article.body ?? "",
     slug: article.slug ?? "",
     status: article.status,
-    published_at: toLocalInput(article.published_at),
+    published_at: isoToLocalDateTime(article.published_at),
     seo_title: article.seo_title ?? "",
     seo_description: article.seo_description ?? "",
     canonical_url: article.canonical_url ?? "",
