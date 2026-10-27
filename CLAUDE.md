@@ -372,6 +372,7 @@ _Read before touching anything under `frontend/src/`._
 - A session time is drawn on `useViewerTimeZone()`, never on `session.timezone` — that field is the PLATFORM zone.
 - «Is the reader at the bottom?» is asked BEFORE the new message is laid out (`lib/chat-scroll.ts`) — asked after, its own height counts against it, and one scroll box per thread.
 - The floating WhatsApp button is hidden on `/messages` by prefix — `hidesFloatingChrome()` is the one place that rule is written.
+- A faint icon fades with `opacity-NN` on the whole icon, never `text-white/15` — a translucent colour doubles where strokes cross.
 
 ### HTTP surface, rate limits and proxies → [`docs/gotchas/http-and-security.md`](docs/gotchas/http-and-security.md)
 _Read before touching routes, middleware, rate limiters, API response shapes, logging._

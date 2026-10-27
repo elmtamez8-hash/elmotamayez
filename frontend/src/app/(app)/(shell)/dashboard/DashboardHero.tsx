@@ -23,7 +23,7 @@ export function DashboardHero({
       {/* The screen's own icon, oversized and faint in the end corner. */}
       <Icon
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -end-6 -z-10 h-44 w-44 text-white/10 transition duration-700 ease-out group-hover:-rotate-6 group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:rotate-0 motion-reduce:group-hover:scale-100"
+        className="pointer-events-none absolute -bottom-8 -end-6 -z-10 h-44 w-44 text-white opacity-10 transition duration-700 ease-out group-hover:-rotate-6 group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:rotate-0 motion-reduce:group-hover:scale-100"
       />
       <div className="flex items-center gap-4">
         <span

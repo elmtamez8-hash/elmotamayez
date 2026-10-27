@@ -37,7 +37,7 @@ export function SubjectsGrid({ subjects }: { subjects: Taxonomy[] }) {
                   this grid into a field of pink). On hover the whole tile
                   becomes the brand colour and the glyph follows. */}
               <Icon
-                className="pointer-events-none absolute -bottom-6 -end-6 -z-10 h-32 w-32 rotate-12 text-primary-ink/10 transition duration-500 ease-out group-hover:-rotate-6 group-hover:scale-110 group-hover:text-white/15 motion-reduce:transition-none"
+                className="pointer-events-none absolute -bottom-6 -end-6 -z-10 h-32 w-32 rotate-12 text-primary-ink opacity-10 transition duration-500 ease-out group-hover:-rotate-6 group-hover:scale-110 group-hover:text-white group-hover:opacity-15 motion-reduce:transition-none"
               />
 
               <span className="flex items-start justify-between">

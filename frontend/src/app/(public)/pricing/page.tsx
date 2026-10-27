@@ -223,7 +223,7 @@ export default async function PricingPage() {
       >
         <NoCommissionIcon
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-10 -start-10 -z-10 h-56 w-56 text-secondary-ink/10"
+          className="pointer-events-none absolute -bottom-10 -start-10 -z-10 h-56 w-56 text-secondary-ink opacity-10"
         />
 
         <div>
@@ -280,7 +280,7 @@ export default async function PricingPage() {
           </h2>
           <WalletIcon
             aria-hidden="true"
-            className="pointer-events-none absolute -top-6 end-0 -z-10 hidden h-40 w-40 text-primary-ink/10 lg:block"
+            className="pointer-events-none absolute -top-6 end-0 -z-10 hidden h-40 w-40 text-primary-ink opacity-10 lg:block"
           />
         </div>
 
@@ -303,7 +303,7 @@ export default async function PricingPage() {
       <section className="bg-squares relative isolate overflow-hidden rounded-3xl bg-primary px-6 py-12 text-center shadow-xl shadow-primary/20 transition-shadow duration-500 ease-out hover:shadow-2xl hover:shadow-primary/30 motion-reduce:transition-none sm:px-10 lg:py-16">
         <TagIcon
           aria-hidden="true"
-          className="pointer-events-none absolute -top-8 -end-8 -z-10 h-48 w-48 text-white/10"
+          className="pointer-events-none absolute -top-8 -end-8 -z-10 h-48 w-48 text-white opacity-10"
         />
         <h2 className="mb-4 text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">
           الرقم الذي يخصّك يظهر على الكورس

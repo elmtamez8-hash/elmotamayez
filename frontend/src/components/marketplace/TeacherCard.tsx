@@ -43,7 +43,7 @@ export function TeacherCard({ teacher }: { teacher: Teacher }) {
         aria-hidden="true"
       >
         {CoverIcon && (
-          <CoverIcon className="absolute -bottom-6 end-3 -z-10 h-28 w-28 text-white/15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
+          <CoverIcon className="absolute -bottom-6 end-3 -z-10 h-28 w-28 text-white opacity-15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
         )}
       </div>
 

@@ -151,7 +151,7 @@ export default async function PreviewLessonPage({
       <aside className="bg-squares relative isolate flex flex-col items-start gap-4 overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20 sm:p-10">
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-8 -end-6 -z-10 text-white/10"
+          className="pointer-events-none absolute -bottom-8 -end-6 -z-10 text-white opacity-10"
         >
           <AcademicCapIcon className="h-40 w-40 sm:h-52 sm:w-52" />
         </span>

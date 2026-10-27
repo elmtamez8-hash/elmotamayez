@@ -127,7 +127,7 @@ export function CohortList({
             >
               <UsersIcon
                 aria-hidden="true"
-                className={`pointer-events-none absolute -bottom-6 -start-4 -z-10 h-24 w-24 ${lit ? "text-white/10" : "text-primary-ink/10"}`}
+                className={`pointer-events-none absolute -bottom-6 -start-4 -z-10 h-24 w-24 opacity-10 ${lit ? "text-white" : "text-primary-ink"}`}
               />
             <div className="flex items-start justify-between gap-3">
               <h3 className="text-xl font-extrabold leading-snug">

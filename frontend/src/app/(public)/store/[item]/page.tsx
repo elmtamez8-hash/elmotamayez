@@ -95,7 +95,7 @@ export default async function StoreItemPage({ params }: { params: Promise<Params
         <header className="bg-squares relative isolate overflow-hidden rounded-3xl bg-primary p-6 text-white shadow-xl shadow-primary/20 sm:p-8 lg:col-start-1">
           <KindIcon
             aria-hidden="true"
-            className="pointer-events-none absolute -bottom-12 -end-12 -z-10 h-64 w-64 text-white/10"
+            className="pointer-events-none absolute -bottom-12 -end-12 -z-10 h-64 w-64 text-white opacity-10"
           />
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
             <div className="mx-auto w-40 shrink-0 sm:mx-0 sm:w-48">

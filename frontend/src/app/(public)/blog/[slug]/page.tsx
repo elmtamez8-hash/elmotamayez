@@ -320,7 +320,7 @@ export default async function ArticlePage({
           aria-labelledby="summary-heading"
           className="relative isolate my-10 overflow-hidden rounded-3xl border border-primary/20 bg-primary-soft p-6 shadow-sm sm:p-8"
         >
-          <SparkIcon className="pointer-events-none absolute -bottom-8 -end-8 -z-10 h-40 w-40 text-primary-ink/10" />
+          <SparkIcon className="pointer-events-none absolute -bottom-8 -end-8 -z-10 h-40 w-40 text-primary-ink opacity-10" />
           <h2
             id="summary-heading"
             className="mb-3 flex items-center gap-2.5 text-base font-extrabold text-primary-ink"

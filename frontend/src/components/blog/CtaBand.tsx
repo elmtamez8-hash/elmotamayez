@@ -43,7 +43,7 @@ export function CtaBand({
     <section className="bg-squares relative isolate mt-16 overflow-hidden rounded-3xl bg-primary px-6 py-12 shadow-xl shadow-primary/20 sm:px-10 lg:py-14">
       <BookIcon
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-10 -end-10 -z-10 h-56 w-56 text-white/10"
+        className="pointer-events-none absolute -bottom-10 -end-10 -z-10 h-56 w-56 text-white opacity-10"
       />
 
       <h2 className="text-balance text-3xl font-extrabold leading-tight text-white sm:text-4xl">{title}</h2>

@@ -31,7 +31,7 @@ export function PageHeader({
       {Icon !== undefined && (
         <Icon
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-6 -end-4 -z-10 hidden h-32 w-32 sm:block text-primary-ink/10 transition duration-700 ease-out group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:rotate-0"
+          className="pointer-events-none absolute -bottom-6 -end-4 -z-10 hidden h-32 w-32 sm:block text-primary-ink opacity-10 transition duration-700 ease-out group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:rotate-0"
         />
       )}
       <div className="flex min-w-0 items-center gap-4">
