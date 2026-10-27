@@ -60,16 +60,17 @@ class ListPublicCourses extends Action
     /** @param Builder<Course> $query */
     private function applyFilters(Builder $query, CourseFilterDTO $filters): void
     {
-        // Courses carry no taxonomy of their own. Rather than duplicate the
-        // subject/grade pivots onto a second table that could then disagree with
-        // the teacher's, the filter reads through the author's profile: a maths
-        // teacher's course is a maths course.
-        $query->when($filters->subject, fn (Builder $q, string $slug) => self::throughTeacher(
-            $q,
-            '.subjects',
+        // The course's OWN subject — the one its card shows. It read the author's
+        // subjects, written when a course had none (every course has carried one
+        // since 2026-08-27), so a computer-science teacher's «عامّ» course was
+        // listed under computer science (reported 2026-10-27).
+        $query->when($filters->subject, fn (Builder $q, string $slug) => $q->whereHas(
+            'subject',
             fn (Builder $sub) => $sub->where('subjects.slug', $slug),
         ));
 
+        // The stage still reads through the author's profile: `courses.grade_level`
+        // is optional, so most courses would drop out of every stage.
         $query->when($filters->gradeLevel, fn (Builder $q, string $slug) => self::throughTeacher(
             $q,
             '.gradeLevels',

@@ -101,24 +101,25 @@ it('rejects an unknown course type', function (): void {
         ->assertJsonValidationErrors(['type']);
 });
 
-it('filters by the teaching subject of the course author', function (): void {
-    $subject = app(WorkspaceContext::class)->forWorkspace(
-        $this->workspace,
-        fn () => Subject::query()->firstOrCreate(['slug' => 'math'], ['name' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]),
-    );
+// The course's own subject, never its author's (reported 2026-10-27): a maths
+// teacher's «عامّ» course is not a maths course.
+it('filters by the course own subject, not the subjects its author teaches', function (): void {
+    [$math, $general] = app(WorkspaceContext::class)->forWorkspace($this->workspace, fn () => [
+        Subject::query()->firstOrCreate(['slug' => 'math'], ['name' => 'الرياضيات', 'sort_order' => 0, 'is_active' => true]),
+        Subject::query()->firstOrCreate(['slug' => 'general'], ['name' => 'عامّ', 'sort_order' => 0, 'is_active' => true]),
+    ]);
 
-    $this->teacher->subjects()->attach($subject);
+    $this->teacher->subjects()->attach($math);
 
-    marketplaceCourse($this->workspace, $this->teacher);
-
-    $other = marketplaceTeacher($this->workspace);
-    marketplaceCourse($this->workspace, $other);
+    $mathCourse = marketplaceCourse($this->workspace, $this->teacher, ['subject_id' => $math->id]);
+    marketplaceCourse($this->workspace, $this->teacher, ['subject_id' => $general->id]);
 
     $this->asGuest();
 
     $this->getJson('/api/v1/marketplace/courses?subject=math')
         ->assertOk()
-        ->assertJsonPath('meta.total', 1);
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.uuid', $mathCourse->uuid);
 });
 
 // FR-053: a struck-through price must mean an actual saving.
