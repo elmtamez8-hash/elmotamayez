@@ -197,7 +197,7 @@ export default async function TeachersPage({
           className="reveal bg-squares relative isolate mt-16 overflow-hidden rounded-3xl bg-primary px-6 py-10 text-white shadow-xl shadow-primary/20 sm:px-10 lg:flex lg:items-center lg:justify-between lg:gap-10 lg:px-14"
         >
           <TeacherIcon
-            className="absolute -bottom-10 end-6 -z-10 h-56 w-56 text-white/10"
+            className="absolute -bottom-10 end-6 -z-10 h-56 w-56 text-white opacity-10"
           />
           <div className="max-w-xl">
             <h2

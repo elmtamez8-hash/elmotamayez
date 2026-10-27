@@ -605,7 +605,7 @@ function HeroMark({ subject }: { subject: CourseDetail["subject"] }) {
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute -bottom-8 -end-6 -z-10 text-white/10"
+      className="pointer-events-none absolute -bottom-8 -end-6 -z-10 text-white opacity-10"
     >
       <Mark className="h-44 w-44 sm:h-56 sm:w-56" />
     </span>

@@ -27,7 +27,7 @@ export function PublicStoreCard({ item }: { item: PublicStoreItem }) {
       <div className="bg-squares relative isolate flex aspect-[4/3] items-end justify-center overflow-hidden bg-primary px-8 pt-8">
         <KindIcon
           aria-hidden="true"
-          className="pointer-events-none absolute -bottom-8 -start-8 -z-10 h-36 w-36 text-white/10"
+          className="pointer-events-none absolute -bottom-8 -start-8 -z-10 h-36 w-36 text-white opacity-10"
         />
 
         {item.cover_url ? (
