@@ -53,6 +53,9 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
   }
 
   const hasFilters = STORE_FILTER_KEYS.some((key) => typeof params[key] === "string" && params[key] !== "");
+  // An empty store with nothing filtered (owner, 2026-10-26): no filter bar and
+  // no «٠ منتج» — there is nothing to narrow and nothing to count.
+  const emptyStore = !hasFilters && items.data.length === 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -62,23 +65,25 @@ export default async function StorePage({ searchParams }: { searchParams: Promis
         title="المتجر"
         description="كتب ومذكّرات مدرّسيك — نسخة رقمية تصلك فور اعتماد الدفع، أو نسخة مطبوعة تُشحن إلى بابك."
       >
-        <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
-          {counted(items.meta.total, {
-            one: "منتج متاح",
-            two: "منتجان متاحان",
-            few: "منتجات متاحة",
-            many: "منتجاً متاحاً",
-            other: "منتج متاح",
-          })}
-        </p>
+        {!emptyStore && (
+          <p className="mt-5 inline-flex items-center rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold text-white backdrop-blur-sm">
+            {counted(items.meta.total, {
+              one: "منتج متاح",
+              two: "منتجان متاحان",
+              few: "منتجات متاحة",
+              many: "منتجاً متاحاً",
+              other: "منتج متاح",
+            })}
+          </p>
+        )}
       </PageBanner>
 
-      <StoreFilters facets={facets} />
+      {!emptyStore && <StoreFilters facets={facets} />}
 
       <section aria-label="منتجات المتجر">
         {items.data.length === 0 ? (
           <EmptyState
-            title="لا توجد منتجات مطابقة"
+            title={hasFilters ? "لا توجد منتجات مطابقة" : "لا توجد منتجات بعد"}
             description={
               hasFilters
                 ? "جرّب مدرّساً آخر أو مادة أخرى، أو أزِل الفلاتر."

@@ -84,7 +84,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         </span>
 
         {course.is_bestseller && (
-          <span className="absolute top-3 start-3 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-foreground shadow-md">
+          <span className="absolute top-3 start-3 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-foreground shadow-md ring-1 ring-white/70">
             الأكثر طلباً
           </span>
         )}
@@ -98,7 +98,7 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         {course.has_trial === true && (
           <Link
             href={`${href}/trial`}
-            className="absolute bottom-3 end-3 z-10 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-extrabold text-accent-foreground shadow-md transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="absolute bottom-3 end-3 z-10 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-extrabold text-accent-foreground shadow-md ring-1 ring-white/70 transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <PlayIcon className="h-3.5 w-3.5" />
             حصة تجريبية مجانية
@@ -161,7 +161,17 @@ export function CourseCard({ course, anchor = "" }: { course: Course; anchor?: s
         </h3>
 
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <StarRating value={course.average_rating} />
+          {/* No rating yet reads «لم يُقيَّم بعد», not five empty stars and «(٠)» —
+              never «جديد», which an old unrated course is not (owner,
+              2026-10-26) — a chip of the subject chip's height, so the row keeps
+              its shape. */}
+          {course.average_rating === null ? (
+            <span className="rounded-full border border-line px-2.5 py-0.5 text-xs font-semibold text-ink-muted">
+              لم يُقيَّم بعد
+            </span>
+          ) : (
+            <StarRating value={course.average_rating} />
+          )}
           {course.subject && Mark && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-semibold text-primary-ink">
               <Mark className="h-3.5 w-3.5" />

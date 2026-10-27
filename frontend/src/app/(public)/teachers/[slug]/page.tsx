@@ -117,7 +117,12 @@ export async function generateMetadata({
   }
 }
 
-function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
+/**
+ * The figures worth showing (owner, 2026-10-26): a new teacher's row was four
+ * «٠»/«—» that read as a bad record. A figure not measured yet is dropped, and so
+ * is a zero COUNT; a zero RATE stays, since «٠٪» is a measurement, not a gap.
+ */
+function shownStats(stats: TeacherDetail["stats"]) {
   /* ⚠️ أيقونةٌ لكلِّ رقمٍ من الطقمِ القائم، ولا رسمَ يُخترَعُ للمناسبة: أربعُ
      أيقوناتٍ متقاربةٌ أسوأُ من أربعةِ عناوين — قاعدةُ `AXIS_ICONS` نفسُها. وهي
      `aria-hidden` بالبناءِ من `wrap()`، فالتسميةُ تحتَها هي النصُّ ولا يُقرَأُ
@@ -134,6 +139,10 @@ function QuickStats({ stats }: { stats: TeacherDetail["stats"] }) {
     { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "٪", Icon: ProgressIcon },
   ];
 
+  return items.filter(({ value, suffix }) => value !== null && (suffix !== undefined || value > 0));
+}
+
+function QuickStats({ items }: { items: ReturnType<typeof shownStats> }) {
   // Four bordered boxes of big-number-small-label is the hero-metric template,
   // and it was standing inside the «نبذة» tab as if these facts were part of the
   // biography. They are facts about the teacher whichever tab is open, so they
@@ -177,6 +186,7 @@ export default async function TeacherProfilePage({
     .then((page) => page.data)
     .catch(() => []);
   const active: ProfileTabId = isProfileTab(tab) ? tab : "about";
+  const stats = shownStats(teacher.stats);
   // The shared subject map, as the chips below use it — never a second one.
   const CoverIcon = teacher.subjects[0] ? subjectIcon(teacher.subjects[0]) : null;
 
@@ -336,10 +346,12 @@ export default async function TeacherProfilePage({
             moving them to their own full-width row left the masthead with an
             empty half and the numbers floating under it. One block: who he is,
             and what he has actually done. */}
-        <div className="shrink-0 border-t border-line pt-6 lg:border-s lg:border-t-0 lg:ps-10 lg:pt-0">
-          <h2 className="sr-only">إحصائيات المدرّس</h2>
-          <QuickStats stats={teacher.stats} />
-        </div>
+        {stats.length > 0 && (
+          <div className="shrink-0 border-t border-line pt-6 lg:border-s lg:border-t-0 lg:ps-10 lg:pt-0">
+            <h2 className="sr-only">إحصائيات المدرّس</h2>
+            <QuickStats items={stats} />
+          </div>
+        )}
         </div>
       </header>
 
