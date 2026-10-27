@@ -99,7 +99,10 @@ export function CourseCover({
         aria-hidden="true"
         className={`bg-squares bg-squares-start relative isolate flex h-full w-full items-center justify-center overflow-hidden ${groundFor(subject)}`}
       >
-        <Mark className="absolute -bottom-10 end-3 -z-10 h-44 w-44 text-white/15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
+        {/* `opacity-15` on the whole mark, never `text-white/15`: a translucent
+            COLOUR is laid per stroke, so where two strokes cross it doubles and
+            draws a seam (reported 2026-10-27). */}
+        <Mark className="absolute -bottom-10 end-3 -z-10 h-44 w-44 text-white opacity-15 transition duration-500 ease-out group-hover:-translate-y-1 group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 motion-reduce:group-hover:rotate-0" />
         <span className="grid h-16 w-16 place-items-center rounded-2xl bg-white/15 text-white ring-1 ring-white/25 backdrop-blur-sm transition duration-300 ease-out group-hover:scale-110 motion-reduce:transition-none motion-reduce:group-hover:scale-100">
           <Mark className="h-8 w-8" />
         </span>
@@ -119,7 +122,7 @@ export function CourseCover({
       */
       className="bg-dots relative isolate flex h-full w-full flex-col items-center justify-center gap-2 bg-primary-soft"
     >
-      <Mark className="h-20 w-20 text-primary-ink/25 sm:h-24 sm:w-24" />
+      <Mark className="h-20 w-20 text-primary-ink opacity-25 sm:h-24 sm:w-24" />
 
       {/*
         ⛔ **ولا اسمَ للمادّةِ هنا، وقد كانَ.** الكارتُ يحملُ شريحةَ المادّةِ

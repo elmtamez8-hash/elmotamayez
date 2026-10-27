@@ -230,7 +230,7 @@ export default async function TeacherProfilePage({
           aria-hidden="true"
         >
           {CoverIcon && (
-            <CoverIcon className="absolute -bottom-10 end-6 -z-10 h-48 w-48 text-white/10 sm:h-60 sm:w-60" />
+            <CoverIcon className="absolute -bottom-10 end-6 -z-10 h-48 w-48 text-white opacity-10 sm:h-60 sm:w-60" />
           )}
         </div>
 
@@ -420,7 +420,7 @@ export default async function TeacherProfilePage({
                   `bg-primary` only — the chips that need the light surface stay
                   in the masthead. */}
               <div className="bg-squares relative isolate overflow-hidden bg-primary px-6 pt-6 pb-5 text-white">
-                <SessionsIcon className="absolute -top-4 -end-4 -z-10 h-28 w-28 text-white/10" />
+                <SessionsIcon className="absolute -top-4 -end-4 -z-10 h-28 w-28 text-white opacity-10" />
                 <p className="mb-1 flex items-center gap-2 text-sm font-semibold text-white/80">
                   <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-accent-foreground">
                     <SessionsIcon className="h-4 w-4" />

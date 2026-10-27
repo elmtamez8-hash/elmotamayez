@@ -117,7 +117,7 @@ export function ReviewsTab({
               key={review.uuid}
               className="group relative isolate break-inside-avoid overflow-hidden rounded-3xl border border-line bg-surface-raised p-6 shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
-              <QuoteMarkIcon className="absolute -top-2 end-3 -z-10 h-20 w-20 text-primary-ink/10 transition duration-300 ease-out group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
+              <QuoteMarkIcon className="absolute -top-2 end-3 -z-10 h-20 w-20 text-primary-ink opacity-10 transition duration-300 ease-out group-hover:-rotate-6 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <p className="flex items-center gap-3 font-bold text-ink">
                   {review.student_avatar_url ? (
