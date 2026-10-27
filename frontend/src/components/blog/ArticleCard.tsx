@@ -88,7 +88,7 @@ export function ArticleCard({
         // رسمٌ خالصٌ في الزاوية: أثرُ الأيقونةِ مكبَّراً وباهتاً، لا ادّعاءَ تصنيف.
         <DocumentIcon
           className={`pointer-events-none absolute -bottom-8 -end-8 -z-10 ${
-            onBrand ? "h-56 w-56 text-white/10" : "h-36 w-36 text-primary-ink/10"
+            onBrand ? "h-56 w-56 text-white opacity-10" : "h-36 w-36 text-primary-ink opacity-10"
           }`}
         />
       )}

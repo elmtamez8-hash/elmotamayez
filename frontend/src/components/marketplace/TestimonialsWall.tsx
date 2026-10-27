@@ -61,8 +61,8 @@ export function TestimonialsWall({ items }: { items: Testimonial[] }) {
               <QuoteMarkIcon
                 className={`pointer-events-none absolute -z-10 ${
                   featured
-                    ? "-bottom-12 -start-8 h-72 w-72 text-white/10"
-                    : "-top-4 -end-4 h-28 w-28 text-primary-ink/10"
+                    ? "-bottom-12 -start-8 h-72 w-72 text-white opacity-10"
+                    : "-top-4 -end-4 h-28 w-28 text-primary-ink opacity-10"
                 }`}
               />
 
