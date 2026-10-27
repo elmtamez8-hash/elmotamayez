@@ -69,13 +69,17 @@ class ListPublicCourses extends Action
             fn (Builder $sub) => $sub->where('subjects.slug', $slug),
         ));
 
-        // The stage still reads through the author's profile: `courses.grade_level`
-        // is optional, so most courses would drop out of every stage.
-        $query->when($filters->gradeLevel, fn (Builder $q, string $slug) => self::throughTeacher(
-            $q,
-            '.gradeLevels',
-            fn (Builder $sub) => $sub->where('grade_levels.slug', $slug),
-        ));
+        // The course's own stage when the teacher chose one, so a secondary course
+        // is not listed under the preparatory stage its author also teaches. Only
+        // a course with NO stage (`courses.grade_level` is optional, and most
+        // carry none) falls back to its author's stages, so none drops out.
+        $query->when($filters->gradeLevel, fn (Builder $q, string $slug) => $q->where(fn (Builder $stage) => $stage
+            ->where('courses.grade_level', $slug)
+            ->orWhere(fn (Builder $unset) => self::throughTeacher(
+                $unset->whereNull('courses.grade_level'),
+                '.gradeLevels',
+                fn (Builder $sub) => $sub->where('grade_levels.slug', $slug),
+            ))));
 
         $query->when($filters->teacher, fn (Builder $q, string $uuid) => self::throughTeacher(
             $q,

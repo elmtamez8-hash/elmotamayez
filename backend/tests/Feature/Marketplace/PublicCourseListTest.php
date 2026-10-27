@@ -6,6 +6,7 @@ use App\Modules\Courses\Models\Course;
 use App\Modules\Marketplace\Actions\Public\ListPublicCourses;
 use App\Modules\Marketplace\DTOs\CourseFilterDTO;
 use App\Modules\Marketplace\Http\Resources\PublicCourseCardResource;
+use App\Modules\Marketplace\Models\GradeLevel;
 use App\Modules\Marketplace\Models\Subject;
 use App\Modules\Marketplace\Models\TeacherProfile;
 use App\Modules\Tenancy\Models\Workspace;
@@ -120,6 +121,27 @@ it('filters by the course own subject, not the subjects its author teaches', fun
         ->assertOk()
         ->assertJsonPath('meta.total', 1)
         ->assertJsonPath('data.0.uuid', $mathCourse->uuid);
+});
+
+// A course's own stage, when it has one; only a stage-less course falls back to
+// its author's stages, so none drops out of the listing (2026-10-27).
+it('files a course under its own stage, and a stage-less one under its author stages', function (): void {
+    [$prep, $secondary] = app(WorkspaceContext::class)->forWorkspace($this->workspace, fn () => [
+        GradeLevel::query()->firstOrCreate(['slug' => 'preparatory'], ['name' => 'الإعدادية', 'sort_order' => 0, 'is_active' => true]),
+        GradeLevel::query()->firstOrCreate(['slug' => 'secondary'], ['name' => 'الثانوية', 'sort_order' => 1, 'is_active' => true]),
+    ]);
+
+    $this->teacher->gradeLevels()->attach([$prep->id, $secondary->id]);
+
+    $staged = marketplaceCourse($this->workspace, $this->teacher, ['grade_level' => 'secondary']);
+    $unstaged = marketplaceCourse($this->workspace, $this->teacher, ['grade_level' => null]);
+
+    $this->asGuest();
+
+    expect($this->getJson('/api/v1/marketplace/courses?grade_level=preparatory')->assertOk()->json('data.*.uuid'))
+        ->toBe([$unstaged->uuid])
+        ->and($this->getJson('/api/v1/marketplace/courses?grade_level=secondary')->json('data.*.uuid'))
+        ->toEqualCanonicalizing([$staged->uuid, $unstaged->uuid]);
 });
 
 // FR-053: a struck-through price must mean an actual saving.
