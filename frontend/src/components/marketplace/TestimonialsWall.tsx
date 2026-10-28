@@ -21,9 +21,8 @@ type Testimonial = {
  * section reads as a crowd of voices rather than one slide nobody advances —
  * and the crawler in SC-016 reads every quote without hidden slides.
  *
- * The first review is the featured one (two columns by two rows, burgundy,
- * large type); the rest fill around it. With the six the home payload carries
- * that is a full 3 × 3 at `lg`.
+ * One review MAY be featured (two columns by two rows, burgundy, large type) —
+ * see `arrangeWall()` for when. Otherwise every card is the same size.
  *
  * ⚠️ It renders nothing on an empty list, and that matters more than it looks:
  * this used to be fed three hardcoded quotes from invented people, so the
@@ -31,19 +30,51 @@ type Testimonial = {
  * means the section is absent until a student writes one — which is the honest
  * state of a product before launch, and the one PRODUCT.md requires.
  */
+/** Below this a quote is too short to carry the featured card's large type. */
+const FEATURE_MIN_LENGTH = 80;
+
+/**
+ * The featured card used to be simply the NEWEST review, so a one-word «كويس»
+ * could land in the large type while the best quote sat in a small card. Now
+ * it is earned: the longest five-star quote of at least FEATURE_MIN_LENGTH
+ * characters, moved to the front (the 2 × 2 card must open the grid).
+ *
+ * And only when the count closes the `lg` grid: the 2 × 2 card plus n − 1
+ * others fill whole rows of three only when n is a multiple of three (3 → 2
+ * rows, 6 → 3 rows). Any other count featured leaves holes, so it gets none.
+ */
+export function arrangeWall<T extends Pick<Testimonial, "rating" | "comment">>(
+  items: T[],
+): { ordered: T[]; featured: boolean } {
+  if (items.length % 3 !== 0) return { ordered: items, featured: false };
+
+  let best = -1;
+  items.forEach((item, i) => {
+    if (item.rating < 5 || item.comment.length < FEATURE_MIN_LENGTH) return;
+    if (best === -1 || item.comment.length > items[best].comment.length) best = i;
+  });
+
+  if (best === -1) return { ordered: items, featured: false };
+
+  return { ordered: [items[best], ...items.filter((_, i) => i !== best)], featured: true };
+}
+
 export function TestimonialsWall({ items }: { items: Testimonial[] }) {
   if (items.length === 0) return null;
+
+  const { ordered, featured: hasFeatured } = arrangeWall(items);
 
   // ⚠️ Keyed by index deliberately. The obvious key — display name plus
   // timestamp — collides in production, because `studentDisplayName()` is
   // built NOT to be unique: it truncates the family name on purpose so a
   // reviewer cannot be identified to the teacher they just rated. Two students
   // called "أحمد م." reviewing in the same second is normal, not a coincidence.
-  // The list is fetched once and never reorders, so the index is stable.
+  // The list is fetched once and `arrangeWall()` orders it the same way every
+  // render, so the index is stable.
   return (
     <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3" aria-label="مراجعات الطلاب">
-      {items.map((item, i) => {
-        const featured = i === 0;
+      {ordered.map((item, i) => {
+        const featured = hasFeatured && i === 0;
 
         return (
           <li
