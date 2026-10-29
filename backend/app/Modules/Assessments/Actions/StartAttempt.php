@@ -9,7 +9,6 @@ use App\Modules\Assessments\Models\Attempt;
 use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
-use App\Modules\Assessments\Models\QuestionOption;
 use App\Modules\Assessments\Support\ApplyAccommodation;
 use App\Modules\Assessments\Support\QuestionSnapshot;
 use App\Modules\Courses\Enums\LessonType;
@@ -399,10 +398,13 @@ class StartAttempt extends Action
     /**
      * Returns the options for a question, optionally shuffled with the attempt's seed.
      *
-     * @param  Collection<int, QuestionOption>  $options
-     * @return Collection<int, QuestionOption>
+     * The question id is passed rather than read off the first option: the
+     * options are the SNAPSHOT's now, plain arrays that carry no `question_id`.
+     *
+     * @param  Collection<int, array{id: int, content: string}>  $options
+     * @return Collection<int, array{id: int, content: string}>
      */
-    public function optionsForQuestion(Attempt $attempt, Collection $options): Collection
+    public function optionsForQuestion(Attempt $attempt, Collection $options, int $questionId): Collection
     {
         if ($attempt->exam === null || ! $attempt->exam->shuffle_answers) {
             return $options;
@@ -410,7 +412,7 @@ class StartAttempt extends Action
 
         // Vary the seed per question so two questions of the same attempt don't
         // shuffle their options identically.
-        $seed = $attempt->random_seed + ($options->isEmpty() ? 0 : $options->first()->question_id);
+        $seed = $attempt->random_seed + ($options->isEmpty() ? 0 : $questionId);
         mt_srand($seed);
         $shuffled = $options->values()->all();
         for ($i = count($shuffled) - 1; $i > 0; $i--) {

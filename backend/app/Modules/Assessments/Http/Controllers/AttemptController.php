@@ -10,6 +10,7 @@ use App\Modules\Assessments\Actions\StartAttempt;
 use App\Modules\Assessments\Http\Requests\SubmitAttemptRequest;
 use App\Modules\Assessments\Http\Resources\AttemptResource;
 use App\Modules\Assessments\Models\Attempt;
+use App\Modules\Assessments\Models\AttemptItem;
 use App\Modules\Assessments\Models\Exam;
 use DomainException;
 use Illuminate\Http\JsonResponse;
@@ -30,16 +31,31 @@ class AttemptController extends Controller
         // A used-up attempt allowance throws DomainException, rendered as 422.
         $attempt = $action->handle($exam, $this->currentUser($request));
 
-        $questions = $action->questionsForAttempt($attempt)->map(function ($q) use ($action, $attempt) {
+        /*
+        | ⛔ THE PAPER IS RENDERED FROM THE SNAPSHOT IT IS MARKED AGAINST (QA
+        | 2026-10-29). This read the LIVE question, while `AnswerMarker` marks
+        | against `attempt_items.snapshot`: a teacher edited a question while a
+        | student had the paper open, the resume showed the new wording and the
+        | re-ordered options, and the student picked what was now correct and
+        | scored zero. A pre-snapshot item falls back to the live row.
+        */
+        $snapshots = $attempt->items()->get(['question_id', 'snapshot'])
+            ->keyBy(fn (AttemptItem $item): int => (int) $item->question_id);
+
+        $questions = $action->questionsForAttempt($attempt)->map(function ($q) use ($action, $attempt, $snapshots) {
+            $snapshot = $snapshots->get((int) $q->id)?->snapshot;
+            $frozen = is_array($snapshot['options'] ?? null);
+
+            $options = $frozen
+                ? collect($snapshot['options'])->map(fn (array $o): array => ['id' => (int) $o['id'], 'content' => (string) $o['content']])
+                : collect($q->options)->map(fn ($o): array => ['id' => (int) $o->id, 'content' => (string) $o->content]);
+
             return [
                 'id' => $q->id,
-                'type' => $q->type,
-                'content' => $q->content,
+                'type' => $frozen ? ($snapshot['type'] ?? $q->type) : $q->type,
+                'content' => $frozen ? ($snapshot['content'] ?? $q->content) : $q->content,
                 'points' => $q->points,
-                'options' => $action->optionsForQuestion($attempt, $q->options)->map(fn ($o) => [
-                    'id' => $o->id,
-                    'content' => $o->content,
-                ]),
+                'options' => $action->optionsForQuestion($attempt, $options->values(), (int) $q->id),
             ];
         });
 
