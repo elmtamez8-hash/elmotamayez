@@ -43,6 +43,8 @@ use Illuminate\Support\Facades\DB;
  */
 class MistakeNotebook
 {
+    public function __construct(private readonly PracticePool $pool) {}
+
     /**
      * @param  list<int>  $workspaceIds
      * @param  MistakeFilters  $filters
@@ -88,8 +90,37 @@ class MistakeNotebook
         }
 
         $this->stampTeachers($items);
+        $this->stampWithheld($items, $studentId);
 
         return $page->setCollection(collect($items));
+    }
+
+    /**
+     * Whether each row's answer key is still WITHHELD from this student.
+     *
+     * ⛔ THE PRACTICE POOL'S RULE, AT THE NOTEBOOK'S DOOR TOO (QA 2026-10-29).
+     * One bank question serves several exams: a question missed on one paper
+     * may sit on a published paper this student has not sat yet. «تدرّب على
+     * أخطائك» already left such a question out (`BuildPracticeFromMistakes`
+     * asks `PracticePool::withheldQuestionIds()`), but this list printed its
+     * correct option beside it — a student read the key, then sat the exam and
+     * scored 100. The mistake still shows; its correction and explanation wait
+     * until the paper is sat.
+     *
+     * One query per teacher on the page, never per row.
+     *
+     * @param  list<Answer>  $items
+     */
+    private function stampWithheld(array $items, int $studentId): void
+    {
+        $withheld = [];
+
+        foreach ($items as $answer) {
+            $workspaceId = (int) $answer->workspace_id;
+            $withheld[$workspaceId] ??= array_flip($this->pool->withheldQuestionIds($workspaceId, $studentId));
+
+            $answer->setAttribute('answer_withheld', isset($withheld[$workspaceId][(int) $answer->question_id]));
+        }
     }
 
     /**
