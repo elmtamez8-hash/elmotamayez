@@ -37,7 +37,8 @@ class OrderPolicy extends BasePolicy
         }
 
         if (($workspaceCheck = $this->belongsToCurrentWorkspace($order))->denied()) {
-            return $workspaceCheck;
+            // 404, not 403: a real uuid from another workspace must look like a random one.
+            return Response::denyAsNotFound();
         }
 
         /*

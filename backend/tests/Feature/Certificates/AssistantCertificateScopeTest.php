@@ -128,5 +128,5 @@ it('shows a confined assistant nothing of another workspace', function (): void 
     Sanctum::actingAs($this->assistant);
 
     expect(listedCertificateUuids())->not->toContain($theirs->uuid);
-    $this->getJson("/api/v1/certificates/{$theirs->uuid}")->assertForbidden();
+    $this->getJson("/api/v1/certificates/{$theirs->uuid}")->assertNotFound();
 });
