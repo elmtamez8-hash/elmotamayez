@@ -56,6 +56,8 @@ class CancelBooking extends Action
             throw new DomainException('الحصة المرتبطة بهذا الحجز غير موجودة.');
         }
 
+        self::assertNotStarted($session);
+
         $inWindow = now()->lessThan($session->cancellationDeadline());
 
         DB::transaction(function () use ($booking, $session, $reason, $inWindow): void {
@@ -139,6 +141,8 @@ class CancelBooking extends Action
             throw new DomainException('الحصة المرتبطة بهذا الحجز غير موجودة.');
         }
 
+        self::assertNotStarted($session);
+
         $released = $this->release($booking, $reason ?? 'ألغى المدرّس هذا الحجز.');
 
         if ($released->status !== BookingStatus::Released) {
@@ -149,6 +153,24 @@ class CancelBooking extends Action
         $this->cancelEmptyPrivateSession($session, (int) $booking->student_user_id, SessionCanceller::Teacher);
 
         return $released;
+    }
+
+    /**
+     * ⛔ A BOOKING IS GIVEN UP BEFORE ITS HOUR, NEVER DURING OR AFTER IT (QA
+     * 2026-10-29). Neither door asked the session at all: a student tapping
+     * «إلغاء» mid-lesson wrote `cancelled_late` — still billed, now refused at
+     * the join and the heartbeat, and «تراجع» refused too because `BookSeat`
+     * will not book a started hour — and staff «released» a seat two days after
+     * the session was delivered, rewriting the register and its billing behind
+     * it. Taking someone out of a running lesson is «إخراج»; correcting a
+     * delivered one is the attendance override. A system release (a freeze, a
+     * cancelled hour) does not come through here.
+     */
+    private static function assertNotStarted(ClassSession $session): void
+    {
+        if ($session->status !== ClassSessionStatus::Scheduled || ! now()->lessThan($session->starts_at)) {
+            throw new DomainException('بدأت هذه الحصة أو انتهت، فلا يُلغى حجزها الآن.');
+        }
     }
 
     /**
