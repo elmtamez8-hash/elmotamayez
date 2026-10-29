@@ -18,6 +18,7 @@ use App\Modules\Notifications\Support\NotificationType;
 use App\Shared\Contracts\GuardianDirectory;
 use App\Shared\Support\GuardianPermission;
 use Illuminate\Auth\Events\Verified;
+use Laravel\Sanctum\Sanctum;
 
 /*
 | A GUARDIAN WHO SIGNS UP AFTER THEIR CHILD.
@@ -162,6 +163,37 @@ it('does not invite a parent who verified the number over a channel that sends n
 | pending. A minor names an email now, and the guardian proves it with the
 | verification link every account receives.
 */
+/*
+| ⛔ QA 2026-10-29: an unrelated parent asked to link a minor still waiting on
+| their guardian. Only the child could settle it, and the child cannot sign in,
+| so it stayed pending — and a pending parent made the REAL guardian's email
+| confirmation invite nobody. Refused at the door; the real one still arrives.
+*/
+it('refuses a stranger\'s link to a minor awaiting consent, and still invites the real guardian', function (): void {
+    $child = lateSignupChild('real-guardian@example.test');
+    $child->forceFill(['status' => UserStatus::PendingGuardianConsent->value])->save();
+
+    $stranger = User::factory()->create(['platform_role' => PlatformRole::Parent]);
+    Sanctum::actingAs($stranger);
+
+    $this->postJson('/api/v1/family/relations', [
+        'student_uuid' => $child->uuid,
+        'relation_type' => RelationType::Parent->value,
+        'permissions' => [GuardianPermission::DataRights->value],
+    ])->assertStatus(422);
+
+    expect(ParentStudentRelation::query()->count())->toBe(0);
+
+    $parent = User::factory()->unverified()->create([
+        'platform_role' => PlatformRole::Parent,
+        'email' => 'real-guardian@example.test',
+    ]);
+    $parent->markEmailAsVerified();
+    event(new Verified($parent));
+
+    expect(ParentStudentRelation::query()->sole()->guardian_user_id)->toBe($parent->getKey());
+});
+
 it('invites the parent who confirms the email the child named, with the viewing permissions', function (): void {
     $child = lateSignupChild('mona@example.test');
     $child->forceFill(['status' => UserStatus::PendingGuardianConsent->value])->save();
