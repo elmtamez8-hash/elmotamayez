@@ -85,7 +85,11 @@ class EligibilityController extends Controller
         | both short of credit AND short of homework needs to be told both, not
         | whichever the server checked first.
         */
-        $other = $eligibility->refusalReason($session, $student);
+        // ⛔ The booking's own first question first (QA 2026-10-29): a student
+        // of another group read «open» here and «هذه الحصة لمجموعة لست عضواً
+        // فيها» at «احجز» — `BookSeat` asks the scope before anything else.
+        $other = $eligibility->bookingScopeRefusal($session, $student)
+            ?? $eligibility->refusalReason($session, $student);
 
         return response()->json([
             'data' => [

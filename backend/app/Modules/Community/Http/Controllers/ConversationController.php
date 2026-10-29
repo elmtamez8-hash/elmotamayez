@@ -9,6 +9,7 @@ use App\Modules\Community\Actions\ListConversations;
 use App\Modules\Community\Actions\ReadContactOptions;
 use App\Modules\Community\Actions\StartConversation;
 use App\Modules\Community\Data\StartConversationData;
+use App\Modules\Community\Enums\ConversationKind;
 use App\Modules\Community\Http\Requests\StartConversationRequest;
 use App\Modules\Community\Http\Resources\ConversationResource;
 use Illuminate\Http\JsonResponse;
@@ -31,10 +32,22 @@ class ConversationController extends Controller
 
     public function store(StartConversationRequest $request, StartConversation $action): JsonResponse
     {
+        $reader = $this->currentUser($request);
+
         $conversation = $action->handle(
-            $this->currentUser($request),
+            $reader,
             StartConversationData::fromArray($request->validated()),
         );
+
+        /*
+        | ⛔ A GUARDIAN WRITING AS THEIR CHILD READS THE TEACHER'S NAME HERE TOO
+        | (QA 2026-10-29). `ListConversations` stamps `readByGuardian`, this door
+        | did not, so the first answer was titled with the child's own name. A
+        | private thread whose student is not the reader is a guardian's: staff
+        | never OPEN a thread, and a student's thread names themselves.
+        */
+        $conversation->readByGuardian = $conversation->kind === ConversationKind::Private
+            && (int) $conversation->student_user_id !== (int) $reader->getKey();
 
         /*
         | 201 whether the row was written now or found already open. The client
