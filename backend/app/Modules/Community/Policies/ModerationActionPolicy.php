@@ -7,6 +7,7 @@ namespace App\Modules\Community\Policies;
 use App\Models\User;
 use App\Modules\Community\Support\BanReader;
 use App\Modules\Tenancy\Support\Permissions;
+use App\Modules\Tenancy\Support\Roles;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Support\WorkspacePermission;
 use Illuminate\Auth\Access\Response;
@@ -79,10 +80,30 @@ class ModerationActionPolicy
             return $moderate;
         }
 
+        /*
+        | ⛔ THE WORKSPACE BAN IS FOR A STUDENT, NEVER FOR STAFF (QA 2026-10-29).
+        | `mayActOnStudent()` is TRUE for everybody not confined — it narrows, it
+        | never asks «is this a student» — so a teacher member, or an assistant
+        | holding `chat.moderate`, banned the OWNER and silenced them in every
+        | chat of their own workspace (and could ban themselves). Staff of this
+        | workspace are refused by their pivot row; a student or a prospect has
+        | no such row. The lift stays open, so a ban placed before this repairs.
+        */
+        $subject = User::query()->find($subjectUserId);
+
+        if ($subject instanceof User && $subject->workspaces()
+            ->wherePivot('workspace_id', $workspaceId)
+            ->wherePivot('role', '!=', Roles::STUDENT)
+            ->exists()) {
+            return Response::deny(self::STAFF_REFUSAL);
+        }
+
         return $this->assistants->mayActOnStudent($user, $workspaceId, $subjectUserId)
             ? Response::allow()
             : Response::deny('هذا الطالب خارج نطاق عملك.');
     }
+
+    public const STAFF_REFUSAL = 'الإيقاف عن الكتابة للطلاب وحدهم، لا لفريق التدريس.';
 
     /**
      * Lifting a person's workspace ban (owner decision 2026-09-29).
