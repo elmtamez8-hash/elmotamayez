@@ -144,21 +144,33 @@ class PracticePool
     public function withheldQuestionIdsQuery(int $workspaceId, int $studentId): QueryBuilder
     {
         /*
-        | "Not completed" is the absence of a submitted attempt — not the absence
-        | of a passing one. A student who sat the paper and failed has already
-        | seen every question on it, so withholding them afterwards protects
-        | nothing and blocks revision of exactly the paper they need.
+        | ⛔ AN EXAM RELEASES ITS KEY WHEN IT IS DONE WITH — PASSED, OR EVERY
+        | ATTEMPT SPENT — never at the first submitted attempt (owner decision
+        | 2026-10-29). This used to read «any submitted attempt», on the grounds
+        | that a student who failed has seen the questions anyway. But seeing a
+        | question is not seeing its ANSWER: on a two-attempt exam the first
+        | failure printed the key in the notebook, the second attempt scored 100,
+        | and the course certificate issued (QA run, 2026-10-29). Held back until
+        | the student cannot sit the paper again, the key protects the attempts
+        | that are left and blocks nothing a student can still be graded on.
+        |
+        | Submitted attempts only: an attempt still open is not «spent». Grouped
+        | by the exam alone with every other column aggregated, so MySQL's
+        | ONLY_FULL_GROUP_BY accepts it (docs/gotchas/database.md).
         |
         | Nested rather than plucked: `exam_id` is filtered NOT NULL here, so the
         | `NOT IN` below can never meet the NULL that would make it match nothing.
         */
-        $satExamIds = DB::table('exam_attempts')
-            ->select('exam_id')
-            ->where('workspace_id', $workspaceId)
-            ->where('student_user_id', $studentId)
-            ->where('is_practice', false)
-            ->whereNotNull('exam_id')
-            ->whereNotNull('submitted_at');
+        $satExamIds = DB::table('exam_attempts as a')
+            ->join('exams as x', 'x.id', '=', 'a.exam_id')
+            ->select('a.exam_id')
+            ->where('a.workspace_id', $workspaceId)
+            ->where('a.student_user_id', $studentId)
+            ->where('a.is_practice', false)
+            ->whereNotNull('a.exam_id')
+            ->whereNotNull('a.submitted_at')
+            ->groupBy('a.exam_id')
+            ->havingRaw('MAX(CASE WHEN a.passed = 1 THEN 1 ELSE 0 END) = 1 OR COUNT(*) >= MAX(x.max_attempts)');
 
         return DB::table('exam_items as i')
             ->join('exams as e', 'e.id', '=', 'i.exam_id')

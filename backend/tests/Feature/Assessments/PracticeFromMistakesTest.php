@@ -134,11 +134,11 @@ it('keeps the key of a question on an exam not yet sat out of the notebook as we
         ->and($rows->get('سؤال حرّ؟')['answer_withheld'])->toBeFalse()
         ->and($rows->get('سؤال حرّ؟')['correct_answer'])->not->toBe([]);
 
-    // Once the paper is sat, the key comes back.
+    // Once the paper is done with — passed (#461) — the key comes back.
     Attempt::query()->create([
         'workspace_id' => $workspaceId, 'exam_id' => $exam->getKey(),
         'student_user_id' => $student->getKey(), 'is_practice' => false,
-        'status' => 'graded', 'started_at' => now(), 'submitted_at' => now(), 'random_seed' => 1,
+        'status' => 'graded', 'passed' => true, 'started_at' => now(), 'submitted_at' => now(), 'random_seed' => 1,
     ]);
 
     $row = collect($this->getJson('/api/v1/mistakes')->json('data'))
@@ -147,6 +147,43 @@ it('keeps the key of a question on an exam not yet sat out of the notebook as we
     expect($row['answer_withheld'])->toBeFalse()
         ->and($row['correct_answer'])->not->toBe([]);
 });
+
+/*
+| ⛔ Owner decision 2026-10-29, after the QA run: on a two-attempt exam the first
+| FAILED attempt printed the key, the second scored 100 and the certificate
+| issued. The key now waits until the exam is passed or every attempt is spent.
+*/
+it('holds the key of a multi-attempt exam until it is passed or every attempt is spent', function (string $ending): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    $workspaceId = (int) $workspace->getKey();
+
+    $exam = Exam::factory()->create(['workspace_id' => $workspaceId, 'status' => 'published', 'max_attempts' => 2]);
+    $question = practiceQuestion($workspace, 'سؤال بمحاولتين؟');
+    $exam->items()->create(['workspace_id' => $workspaceId, 'question_id' => $question->getKey(), 'order' => 1]);
+
+    answerRow($workspaceId, $student, (int) $question->getKey(), correct: false);
+
+    $sit = fn (bool $passed) => Attempt::query()->create([
+        'workspace_id' => $workspaceId, 'exam_id' => $exam->getKey(),
+        'student_user_id' => $student->getKey(), 'is_practice' => false,
+        'status' => 'graded', 'passed' => $passed, 'random_seed' => 1,
+        'started_at' => now(), 'submitted_at' => now(),
+    ]);
+
+    Sanctum::actingAs($student);
+
+    $sit(false);
+
+    // One failure, one attempt left: still held, so nothing to practise.
+    $this->postJson('/api/v1/practice/from-mistakes')->assertStatus(422);
+
+    $sit($ending === 'passed');
+
+    $this->postJson('/api/v1/practice/from-mistakes')->assertCreated();
+})->with(['passed', 'spent']);
 
 it('leaves a disabled question in the notebook and out of the paper', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
