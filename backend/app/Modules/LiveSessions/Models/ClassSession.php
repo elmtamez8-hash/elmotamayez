@@ -253,6 +253,23 @@ class ClassSession extends BaseModel
         };
     }
 
+    /**
+     * Whether this person holds a seat RIGHT NOW — `Booked`, nothing else.
+     *
+     * The narrowest of the three: `holdsSeat()` is «is this session any of your
+     * business» (a cancelled seat answers yes), `heldBillableSeat()` is the money
+     * question. This one is «are you one of the people in this room», asked by
+     * the roster door (owner decision 2026-10-29).
+     */
+    public function holdsLiveSeat(User $user): bool
+    {
+        return $this->bookings()
+            ->withoutWorkspaceScope()
+            ->where('student_user_id', $user->getKey())
+            ->where('status', BookingStatus::Booked)
+            ->exists();
+    }
+
     public function holdsSeat(User $user): bool
     {
         return $this->bookings()
