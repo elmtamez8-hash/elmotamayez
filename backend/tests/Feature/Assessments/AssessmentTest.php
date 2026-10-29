@@ -142,6 +142,43 @@ describe('exam submission', function (): void {
         $this->postJson("/api/v1/attempts/{$attemptUuid}/submit", ['answers' => $answers])->assertOk();
         $this->postJson("/api/v1/attempts/{$attemptUuid}/submit", ['answers' => $answers])->assertStatus(422);
     });
+
+    /*
+    | ⛔ QA 2026-10-29: the resume read the LIVE question while the marker read
+    | the snapshot. A teacher's edit re-used the option rows by index, so the
+    | option the student was SHOWN as «Correct answer» was not the one marked
+    | correct, and the student scored zero for picking it.
+    */
+    it('resumes on the paper it marks against, whatever the teacher edits meanwhile', function (): void {
+        [$workspace] = $this->createWorkspaceWithOwner();
+        [$exam, $correctOptionIds] = createExamWithQuestions($workspace->id, 1);
+        $questionId = (int) array_key_first($correctOptionIds);
+        $correctId = (int) reset($correctOptionIds);
+
+        $student = $this->addWorkspaceMember($workspace, 'student');
+        Sanctum::actingAs($student);
+
+        $attemptUuid = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts")->json('attempt.uuid');
+
+        // The teacher's edit, as `syncOptions` writes it: same rows, new words,
+        // the correct flag moved to the other row.
+        QuestionOption::query()->whereKey($correctId)->update(['content' => 'Wrong answer', 'is_correct' => false]);
+        QuestionOption::query()->where('question_id', $questionId)->whereKeyNot($correctId)
+            ->update(['content' => 'Correct answer', 'is_correct' => true]);
+
+        $resumed = $this->postJson("/api/v1/exams/{$exam->uuid}/attempts");
+
+        expect($resumed->json('attempt.uuid'))->toBe($attemptUuid);
+
+        $shown = collect($resumed->json('questions.0.options'))->firstWhere('content', 'Correct answer');
+
+        // What reads «Correct answer» is still the row the snapshot marks right.
+        expect((int) $shown['id'])->toBe($correctId);
+
+        $this->postJson("/api/v1/attempts/{$attemptUuid}/submit", [
+            'answers' => [['question_id' => $questionId, 'selected_option_ids' => [(int) $shown['id']]]],
+        ])->assertOk()->assertJsonPath('score', 100);
+    });
 });
 
 describe('certificate generation', function (): void {
