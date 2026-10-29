@@ -41,7 +41,7 @@ class CohortGateImpact extends Command
 {
     protected $signature = 'cohorts:gate-impact';
 
-    protected $description = 'عُدَّ المجموعات التي فيها أعضاء وستخرج من العرض حين تعضّ بوّابة السعر (٠٣٦ · FR-010)';
+    protected $description = 'عُدَّ المجموعات التي فيها أعضاء وستخرج من العرض حين تعضّ بوّابة السعر (036 · FR-010)';
 
     public function handle(CohortDirectory $cohorts): int
     {

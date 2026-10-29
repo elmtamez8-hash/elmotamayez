@@ -181,7 +181,7 @@ class AssignStudentToCohort extends Page implements HasTable
                     ->color(fn (mixed $state): string => $state === null ? 'warning' : 'success'),
                 TextColumn::make('progress_pct')
                     ->label('التقدّم')
-                    ->formatStateUsing(fn (mixed $state): string => ((int) $state).'٪'),
+                    ->formatStateUsing(fn (mixed $state): string => ((int) $state).'%'),
                 TextColumn::make('enrolled_at')->label('تاريخُ التسجيل')->dateTime('Y-m-d')->sortable(),
             ])
             ->filters([

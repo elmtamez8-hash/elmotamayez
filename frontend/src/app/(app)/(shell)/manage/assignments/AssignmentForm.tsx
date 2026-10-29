@@ -225,7 +225,7 @@ export function AssignmentForm({
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <NumberField
               id="assignment_penalty_per_day"
-              label="نسبة الخصم عن كل يوم (٪)"
+              label="نسبة الخصم عن كل يوم (%)"
               value={form.penaltyPerDay}
               onChange={(value) => set("penaltyPerDay", value)}
               error={errors.late_penalty_pct_per_day}
@@ -234,7 +234,7 @@ export function AssignmentForm({
             />
             <NumberField
               id="assignment_penalty_cap"
-              label="أقصى خصم (٪)"
+              label="أقصى خصم (%)"
               value={form.penaltyCap}
               onChange={(value) => set("penaltyCap", value)}
               error={errors.late_penalty_cap_pct}

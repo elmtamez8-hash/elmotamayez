@@ -80,7 +80,7 @@ export function AxisScore({
         </div>
       </div>
 
-      <span className="sr-only">{`${label}: ${arabicNumber(value)} من ٥`}</span>
+      <span className="sr-only">{`${label}: ${arabicNumber(value)} من 5`}</span>
     </div>
   );
 }

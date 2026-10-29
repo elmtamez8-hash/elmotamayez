@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 | EVERY NUMBER ON EVERY SCREEN IS DRAWN BY `numerals.ts`, AND A BARE LOCALE
 | STRING IS WHAT UNDOES THAT.
 |
-| ⛔ `toLocaleString("ar-QA")` WITHOUT `-u-nu-arab` IS ICU-DEPENDENT: «١٠٣» on
+| ⛔ (Latin digits since the owner decision of 2026-10-29: the pin is now
+| `-u-nu-latn`.) `toLocaleString("ar-QA")` WITHOUT A `-u-nu-` PIN IS ICU-DEPENDENT: «١٠٣» on
 | ICU 77 and «103» on ICU 78 — the same source, two shapes, decided by whichever
 | library the visitor's browser happens to ship. `numerals.ts` pins it; thirty-two
 | call sites had written the locale out by hand instead, in TWO different locales
@@ -27,7 +28,7 @@ import { describe, expect, it } from "vitest";
 const SRC = join(process.cwd(), "src");
 
 /** A number-formatting call naming an Arabic locale without the pin. */
-const UNPINNED = /\.toLocaleString\(\s*["'`]ar(?!-[A-Z]{2}-u-nu-arab)/g;
+const UNPINNED = /\.toLocaleString\(\s*["'`]ar(?!-[A-Z]{2}-u-nu-latn)/g;
 
 /**
  * ⚠️ A DATE IS NOT A NUMBER, AND THE RECEIVER IS THE ONLY THING THAT SAYS SO.
@@ -94,6 +95,6 @@ describe("numerals are pinned in one place", () => {
   it("pins the numbering system where the decision lives", () => {
     // ⛔ THE POSITIVE HALF. The check above is equally green on a tree that
     // formats no numbers at all, or on one whose owner quietly dropped the pin.
-    expect(readFileSync(join(SRC, "lib", "numerals.ts"), "utf8")).toContain("ar-QA-u-nu-arab");
+    expect(readFileSync(join(SRC, "lib", "numerals.ts"), "utf8")).toContain("ar-QA-u-nu-latn");
   });
 });

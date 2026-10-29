@@ -187,10 +187,10 @@ describe("a teacher's own listing", () => {
     });
 
     // الصفُّ الأوّلُ جاءَ من الخادم، فالسؤالُ الأوّلُ مملوءٌ سلفاً.
-    expect((screen.getByLabelText(/السؤال ١/) as HTMLInputElement).value).toBe("كم مدة الحصة؟");
+    expect((screen.getByLabelText(/السؤال 1/) as HTMLInputElement).value).toBe("كم مدة الحصة؟");
 
     fireEvent.click(screen.getByRole("button", { name: "أضف سؤالاً" }));
-    fireEvent.change(screen.getByLabelText(/السؤال ٢/), {
+    fireEvent.change(screen.getByLabelText(/السؤال 2/), {
       target: { value: "هل توجد حصة تجريبية؟" },
     });
     fireEvent.change(screen.getAllByLabelText(/الإجابة/)[1], {

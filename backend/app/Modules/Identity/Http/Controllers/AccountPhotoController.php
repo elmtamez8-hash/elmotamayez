@@ -31,7 +31,7 @@ class AccountPhotoController extends Controller
             'photo.required' => 'اختر صورة.',
             'photo.image' => 'الملف ليس صورة.',
             'photo.mimes' => 'الصيغ المقبولة: JPG أو PNG أو WEBP.',
-            'photo.max' => 'الصورة أكبر من ٤ ميغابايت.',
+            'photo.max' => 'الصورة أكبر من 4 ميغابايت.',
         ]);
 
         try {

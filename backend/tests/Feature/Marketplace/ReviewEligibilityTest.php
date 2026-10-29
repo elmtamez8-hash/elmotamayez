@@ -33,7 +33,7 @@ it('refuses a student below the attendance threshold, and says what is missing',
     // ⚠️ THE REFUSAL NAMES THE NUMBERS. «You may not» leaves a student who is two
     // lessons away with nothing to act on, which is how a form gets abandoned.
     // Arabic-Indic digits since #200, like the rest of the interface.
-    expect((string) $response->json('message'))->toContain('٣');
+    expect((string) $response->json('message'))->toContain('3');
 
     expect(Review::query()->withoutWorkspaceScope()->count())->toBe(0);
 });

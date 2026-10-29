@@ -23,7 +23,7 @@ use App\Modules\Courses\Models\Lesson;
 | لذلك يُقاسُ ما يُرسَلُ إلى المحرّكِ لا ما يعودُ منه.
 */
 
-it('يبني الرقمَ ١ قيمةً حرفيّةً لا معرِّفاً مقتبَساً', function (): void {
+it('يبني الرقمَ 1 قيمةً حرفيّةً لا معرِّفاً مقتبَساً', function (): void {
     $sql = Lesson::query()->progressEligible()->toSql();
 
     // ما يقتلُ MySQL: الرقمُ ملفوفاً كاسمِ عمود.

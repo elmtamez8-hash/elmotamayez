@@ -69,7 +69,7 @@ it('opens one course and shuts another for the same score', function (): void {
     | course A on a rule its teacher never wrote.
     */
     expect($directory->refusalFor($student, (int) $secondA->getKey()))->toBeNull()
-        ->and($directory->refusalFor($student, (int) $secondB->getKey()))->toContain('80٪');
+        ->and($directory->refusalFor($student, (int) $secondB->getKey()))->toContain('80%');
 });
 
 it('inherits the default where no course rule exists, and never reads its absence as open', function (): void {

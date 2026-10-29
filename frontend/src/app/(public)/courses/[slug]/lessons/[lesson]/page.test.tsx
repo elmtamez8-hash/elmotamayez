@@ -40,7 +40,7 @@ const LESSON: PreviewLesson = {
   kind: "embed",
   duration_seconds: 1200,
   embed_url: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
-  course: { uuid: "3b7a", title: "الفيزياء ٣", slug: "physics-3" },
+  course: { uuid: "3b7a", title: "الفيزياء 3", slug: "physics-3" },
 };
 
 async function renderPage() {
@@ -105,7 +105,7 @@ describe("the public preview lesson page", () => {
   it("shows the duration when there is one", async () => {
     await renderPage();
 
-    expect(screen.getByText("٢٠ دقيقة")).toBeDefined();
+    expect(screen.getByText("20 دقيقة")).toBeDefined();
   });
 
   it("answers a refusal with the not-found page, never with a reason", async () => {

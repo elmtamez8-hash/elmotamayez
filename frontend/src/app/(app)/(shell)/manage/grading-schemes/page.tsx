@@ -122,7 +122,7 @@ export default function GradingSchemesPage() {
                   meta={GRADE_COMPONENTS.map((component) => ({
                     key: component.key,
                     label: component.label,
-                    value: `${arabicNumber(scheme.weights[component.key] ?? 0)}٪`,
+                    value: `${arabicNumber(scheme.weights[component.key] ?? 0)}%`,
                   }))}
                 />
               ))}

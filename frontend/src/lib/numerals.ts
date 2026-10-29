@@ -1,5 +1,10 @@
 /**
- * Arabic-Indic digits, everywhere, on every surface.
+ * Latin digits (123), everywhere, on every surface — owner decision
+ * 2026-10-29, which REVERSED the Arabic-Indic choice below after the QA run
+ * found screens mixing «يتبقّى 100» beside «الخبرة ٠». The function names
+ * stay (`arabicNumber` …) so no call site moves; what they produce is Latin.
+ *
+ * The history, kept because the reasoning about PINNING still holds:
  *
  * ⚠️ THIS EXISTS BECAUSE THE PRODUCT WAS SHOWING BOTH. The home stats read
  * «٤٤٢» while the trust ring on a profile read «91», the star rating read
@@ -32,7 +37,7 @@
  * sites had written it out by hand, in two different locales.
  */
 
-const LOCALE = "ar-QA-u-nu-arab";
+const LOCALE = "ar-QA-u-nu-latn";
 
 /** Whole numbers: counts, scores, percentages. */
 export function arabicNumber(value: number): string {
@@ -57,5 +62,6 @@ export function arabicDecimal(value: number, digits = 1): string {
  * number to format at all: its separators and leading zeros are part of it.
  */
 export function arabicDigits(text: string | number): string {
-  return String(text).replace(/[0-9]/g, (digit) => String.fromCharCode(0x0660 + Number(digit)));
+  // Latin digits now (owner decision 2026-10-29): the text passes through as written.
+  return String(text);
 }

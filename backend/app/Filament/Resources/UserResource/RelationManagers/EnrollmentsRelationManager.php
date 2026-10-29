@@ -86,7 +86,7 @@ class EnrollmentsRelationManager extends RelationManager
                     ->formatStateUsing(fn (string $state): string => EnrollmentStatus::labelFor($state)),
                 TextColumn::make('progress_pct')
                     ->label('التقدّم')
-                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'٪'),
+                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'%'),
                 TextColumn::make('enrolled_at')->label('تاريخ التسجيل')->dateTime('Y-m-d H:i')->sortable(),
             ])
             ->recordUrl(fn (Enrollment $record): ?string => RecordLink::to(EnrollmentResource::class, $record));

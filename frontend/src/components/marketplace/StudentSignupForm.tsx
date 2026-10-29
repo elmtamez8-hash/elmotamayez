@@ -327,7 +327,7 @@ export function StudentSignupForm({
           ))}
         </div>
         <p className="text-sm font-bold text-ink-muted">
-          {step === 1 ? "الخطوة ١ من ٢ · بياناتك" : "الخطوة ٢ من ٢ · دراستك"}
+          {step === 1 ? "الخطوة 1 من 2 · بياناتك" : "الخطوة 2 من 2 · دراستك"}
         </p>
       </div>
 

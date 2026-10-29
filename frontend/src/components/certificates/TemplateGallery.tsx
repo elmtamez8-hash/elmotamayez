@@ -24,7 +24,7 @@ const SAMPLE: CertificateValues = {
   student: "عبد الرحمن محمد الشريف الخطيب",
   subject: "الرياضيات",
   teacher: "سامي عبد الله",
-  date: "١٤ مايو ٢٠٢٦",
+  date: "14 مايو 2026",
   number: "CERT-2026-A1B2C3D4",
   // An absolute address so the code actually draws: an empty one renders no box
   // at all, and where the code sits is part of what is being chosen.

@@ -74,8 +74,10 @@ it('never serves a question that sits in a published exam the student has not sa
 
 /*
 | The mirror: once they HAVE sat that exam, the question comes back. Withholding
-| it afterwards protects nothing — they have already seen every question on the
-| paper — and blocks revision of exactly the one they need.
+| it afterwards protects nothing — the paper cannot be sat again — and blocks
+| revision of exactly the one they need. ONE attempt here on purpose: on a
+| multi-attempt exam a failure keeps the key held until it is passed or every
+| attempt is spent (owner decision 2026-10-29, `PracticeFromMistakesTest`).
 */
 it('serves the question again once that exam has been sat', function (): void {
     $fx = adaptiveFixture(['easy', 'easy']);
@@ -85,7 +87,7 @@ it('serves the question again once that exam has been sat', function (): void {
         $exam = Exam::factory()->create([
             'workspace_id' => $fx['workspace']->getKey(),
             'status' => 'published',
-            'max_attempts' => 3,
+            'max_attempts' => 1,
         ]);
 
         ExamItem::create([

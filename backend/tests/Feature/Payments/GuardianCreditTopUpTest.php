@@ -54,7 +54,7 @@ beforeEach(function (): void {
     [$this->workspace, $this->teacher] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية الفيزياء']);
 
     $this->course = courseWithRate((int) $this->workspace->getKey(), 5000);
-    $this->course->forceFill(['title' => 'الفيزياء ٣'])->save();
+    $this->course->forceFill(['title' => 'الفيزياء 3'])->save();
 
     /*
     | A second course at the SAME teacher, and one at a different teacher. The

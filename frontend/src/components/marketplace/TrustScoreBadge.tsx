@@ -55,13 +55,13 @@ export function TrustScoreBadge({
       ) : (
         <span>
           {arabicNumber(score)}
-          <span className="opacity-70">٪</span>
+          <span className="opacity-70">%</span>
         </span>
       )}
       <span className="sr-only">
         {score === null
           ? "درجة الثقة قيد التكوين — لم تتوفّر بيانات كافية بعد"
-          : `درجة الثقة ${arabicNumber(score)} من ١٠٠، ${style.label}`}
+          : `درجة الثقة ${arabicNumber(score)} من 100، ${style.label}`}
       </span>
     </span>
   );

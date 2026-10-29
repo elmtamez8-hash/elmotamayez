@@ -58,7 +58,7 @@ class StudentMoneyWidget extends BaseWidget
                     ->formatStateUsing(fn (mixed $state): ?string => Countries::name($state)),
                 TextColumn::make('paid_minor')
                     ->label('المدفوع')
-                    ->formatStateUsing(fn (User $record): string => Money::line($this->paidBy($record), '٠٫٠٠'))
+                    ->formatStateUsing(fn (User $record): string => Money::line($this->paidBy($record), '0.00'))
                     ->sortable(),
                 TextColumn::make('owed_credits')
                     ->label('الرصيد السالب')

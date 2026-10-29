@@ -262,7 +262,7 @@ describe("a long list of plans", () => {
 
     await open([...priced, UNPRICED_PLAN]);
 
-    fireEvent.click(screen.getByRole("button", { name: "تنتظر التسعير ١" }));
+    fireEvent.click(screen.getByRole("button", { name: "تنتظر التسعير 1" }));
 
     expect(screen.getByText("الشهري")).toBeTruthy();
     expect(screen.queryByText("مسعّرة 0")).toBeNull();

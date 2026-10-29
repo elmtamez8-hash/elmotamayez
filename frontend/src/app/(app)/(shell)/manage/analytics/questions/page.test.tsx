@@ -39,7 +39,7 @@ beforeEach(() => {
   questions.mockResolvedValue({
     data: [
       {
-        question: { uuid: "q-1", content: "ما ناتج ٢ + ٢؟", is_active: true, concept: null },
+        question: { uuid: "q-1", content: "ما ناتج 2 + 2؟", is_active: true, concept: null },
         attempts_count: 30,
         wrong_count: 3,
         wrong_pct: 10,
@@ -93,6 +93,6 @@ describe("the item-analysis screen", () => {
   it("tells the question total from the server, not from the page on screen", async () => {
     await openPage();
 
-    expect(screen.getByText(/يُعرض أدناه أعلاها خطأً: ١\./)).toBeTruthy();
+    expect(screen.getByText(/يُعرض أدناه أعلاها خطأً: 1\./)).toBeTruthy();
   });
 });

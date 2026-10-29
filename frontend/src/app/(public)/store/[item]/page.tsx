@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 const FACTS = {
   digital: [
     { Icon: DocumentIcon, text: "نسخة رقمية تُفتح من «مشترياتي» فور اعتماد دفعتك." },
-    { Icon: RefundIcon, text: "الاسترداد متاح خلال ٤٨ ساعة ما لم يُفتح الملف." },
+    { Icon: RefundIcon, text: "الاسترداد متاح خلال 48 ساعة ما لم يُفتح الملف." },
   ],
   physical: [
     { Icon: BookIcon, text: "نسخة مطبوعة تُجهَّز وتُشحن بعد اعتماد دفعتك." },

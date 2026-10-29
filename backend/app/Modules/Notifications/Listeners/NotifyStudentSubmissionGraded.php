@@ -53,7 +53,7 @@ class NotifyStudentSubmissionGraded implements ShouldQueue
                 'score' => rtrim(rtrim(number_format((float) $submission->score, 2, '.', ''), '0'), '.'),
                 'points' => (string) $assignment->points,
                 'penalty_note' => $penalty > 0
-                    ? 'خُصم '.rtrim(rtrim(number_format($penalty, 2, '.', ''), '0'), '.').'٪ للتأخير.'
+                    ? 'خُصم '.rtrim(rtrim(number_format($penalty, 2, '.', ''), '0'), '.').'% للتأخير.'
                     // True of an on-time hand-in AND of a late one under an
                     // `accept` policy, which is why it is not «سُلّم في الموعد».
                     : 'لم يُخصم شيء للتأخير.',

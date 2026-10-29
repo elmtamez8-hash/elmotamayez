@@ -75,7 +75,7 @@ export function ChildReportCardCard({ studentUuid, studentName }: ChildCardProps
               {latest.overall_pct === null ? (
                 "لم يُحتسب بعد"
               ) : (
-                <bdi>{`${arabicDecimal(latest.overall_pct)}٪`}</bdi>
+                <bdi>{`${arabicDecimal(latest.overall_pct)}%`}</bdi>
               )}
             </span>
           </p>

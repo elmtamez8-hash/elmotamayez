@@ -588,7 +588,7 @@ export default function ManagePlansPage() {
             <NumberField
               id="plan-duration"
               label="المدّة بالأيّام"
-              hint="٣٠ يوماً تعني شهراً. اليوم وحدة لا لبس فيها، بخلاف «شهر»."
+              hint="30 يوماً تعني شهراً. اليوم وحدة لا لبس فيها، بخلاف «شهر»."
               value={draft.duration_days}
               onChange={(duration_days) => setDraft({ ...draft, duration_days })}
               min={1}
@@ -689,7 +689,7 @@ export default function ManagePlansPage() {
               <NumberField
                 id="plan-requested-price"
                 label="السعر المقترح بالوحدة الصغرى (اختياريّ)"
-                hint="٣٠٠٫٠٠ ريالاً تُكتب 30000. اتركه فارغاً لتحدّده المنصّة."
+                hint="300.00 ريالاً تُكتب 30000. اتركه فارغاً لتحدّده المنصّة."
                 value={draft.requested_price}
                 onChange={(requested_price) => setDraft({ ...draft, requested_price })}
                 min={1}

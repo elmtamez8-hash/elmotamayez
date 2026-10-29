@@ -110,7 +110,7 @@ class SendScheduledReportsJob implements ShouldQueue
             }
 
             $value = (bool) ($metric['is_ratio'] ?? false)
-                ? number_format(((float) $metric['value']) * 100, 1).'٪'
+                ? number_format(((float) $metric['value']) * 100, 1).'%'
                 : number_format((float) ($metric['numerator'] ?? 0));
 
             $parts[] = $metric['label'].': '.$value;

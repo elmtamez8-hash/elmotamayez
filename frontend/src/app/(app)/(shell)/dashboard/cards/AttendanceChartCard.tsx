@@ -90,7 +90,7 @@ export function AttendanceChartCard({ studentUuid, studentName }: ChildCardProps
           <p className="text-sm text-ink">
             نسبة الحضور في آخر <bdi>{arabicNumber(summary.window_days)}</bdi> يوماً:{" "}
             <span className="font-semibold">
-              {summary.rate_pct === null ? "—" : <bdi>{`${arabicNumber(summary.rate_pct)}٪`}</bdi>}
+              {summary.rate_pct === null ? "—" : <bdi>{`${arabicNumber(summary.rate_pct)}%`}</bdi>}
             </span>
           </p>
 

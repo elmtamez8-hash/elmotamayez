@@ -98,6 +98,39 @@ it('stops a banned participant writing anywhere in the workspace', function (): 
     $this->getJson("/api/v1/conversations/{$this->roomUuid}/messages")->assertOk();
 });
 
+/*
+| ⛔ QA 2026-10-29: a teacher member holding `chat.moderate` banned the OWNER
+| (201) and the ban silenced them in every chat of their own workspace — and
+| banned themselves as well. The workspace ban is a student's; staff are
+| refused by their pivot row. The same moderator still bans the student.
+*/
+it('refuses a workspace ban on the owner or any staff, and still bans the student', function (): void {
+    $teacher = $this->addWorkspaceMember($this->workspace, Roles::TEACHER);
+
+    $this->setCurrentWorkspace($this->workspace, $teacher);
+    Sanctum::actingAs($teacher);
+
+    foreach ([$this->owner, $teacher] as $staff) {
+        $this->postJson('/api/v1/moderation/actions', [
+            'verdict' => ModerationVerdict::Banned->value,
+            'subject_type' => 'user',
+            'subject_uuid' => $staff->uuid,
+        ])->assertForbidden();
+    }
+
+    expect(ModerationAction::query()->count())->toBe(0);
+
+    $this->postJson('/api/v1/moderation/actions', [
+        'verdict' => ModerationVerdict::Banned->value,
+        'subject_type' => 'user',
+        'subject_uuid' => $this->student->uuid,
+    ])->assertCreated();
+
+    // And the owner still writes in their own room.
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/conversations/{$this->roomUuid}/messages", ['body' => 'ما زلتُ هنا'])->assertCreated();
+});
+
 it('lifts a ban with a new row rather than by deleting the old one', function (): void {
     $this->setCurrentWorkspace($this->workspace, $this->owner);
     Sanctum::actingAs($this->owner);

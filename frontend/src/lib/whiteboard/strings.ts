@@ -221,7 +221,7 @@ export const WB = {
     curtain: "حافة الستارة: اسحبها لكشف ما تحتها",
     reveal: "اكشف قليلاً",
     closeCurtain: "إزالة الستارة",
-    wheelNames: "الأسماء، اسم في كل سطر (أو رقم واحد مثل ٣٠):",
+    wheelNames: "الأسماء، اسم في كل سطر (أو رقم واحد مثل 30):",
     wheelPlaceholder: "أحمد\nمريم\nيوسف",
     wheelNoRepeat: "بدون تكرار حتى تنتهي الجولة",
     wheelLast: (name: string) => `الأخير: ${name}`,

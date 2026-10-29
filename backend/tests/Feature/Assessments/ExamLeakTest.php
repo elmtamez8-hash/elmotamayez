@@ -54,7 +54,7 @@ it('lets the question into the pool once the student has sat that exam', functio
 
     $onExam = practiceQuestion($workspace, 'سؤال امتحانٍ جلستُ له؟', ['lesson_id' => $lesson->getKey()]);
 
-    $exam = Exam::factory()->create(['workspace_id' => $workspaceId, 'status' => 'published']);
+    $exam = Exam::factory()->create(['workspace_id' => $workspaceId, 'status' => 'published', 'max_attempts' => 1]);
     $exam->items()->create([
         'workspace_id' => $workspaceId,
         'question_id' => $onExam->getKey(),
@@ -70,10 +70,12 @@ it('lets the question into the pool once the student has sat that exam', functio
     | every question on the paper — and blocks revision of the one thing they
     | most need to revise.
     |
-    | ⚠️ `submitted_at`, not `passed`. "Has seen the paper" is what the rule is
-    | about, and a student who sat it and failed has seen every question on it;
-    | keying the release on passing would lock revision away from exactly the
-    | person it exists for.
+    | ⚠️ ONE ATTEMPT on this exam, so failing it SPENDS it: the paper can never
+    | be sat again, and that is what releases its questions. On a multi-attempt
+    | exam a failure keeps them held until the exam is passed or every attempt
+    | is spent (owner decision 2026-10-29, `PracticeFromMistakesTest`) — the
+    | rule used to be «any submitted attempt», and on a two-attempt exam that
+    | handed the key to the second sitting.
     */
     Attempt::create([
         'workspace_id' => $workspaceId,

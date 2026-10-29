@@ -80,7 +80,7 @@ export function ProgressChartCard() {
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="text-ink">{row.course_title}</span>
               <span className="shrink-0 text-ink-muted">
-                <bdi>{`${arabicNumber(Math.round(row.progress_pct))}٪`}</bdi>
+                <bdi>{`${arabicNumber(Math.round(row.progress_pct))}%`}</bdi>
               </span>
             </div>
             <ProgressBar value={row.progress_pct} label={row.course_title} size="sm" />

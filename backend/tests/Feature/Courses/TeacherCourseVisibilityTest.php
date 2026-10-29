@@ -25,13 +25,13 @@ it('creates a teacher course PUBLIC when nothing is said', function (): void {
     Sanctum::actingAs($owner);
 
     $this->postJson('/api/v1/courses', [
-        'title' => 'فيزياء ٣',
+        'title' => 'فيزياء 3',
         'subject' => (string) $subject->uuid,
         'course_type' => Course::TYPE_RECORDED,
     ])->assertCreated()->assertJsonPath('visibility', 'public');
 
     // The column, not the echo.
-    expect(Course::query()->where('title', 'فيزياء ٣')->sole()->visibility)->toBe('public');
+    expect(Course::query()->where('title', 'فيزياء 3')->sole()->visibility)->toBe('public');
 });
 
 it('creates a course PRIVATE when the teacher chooses so', function (): void {

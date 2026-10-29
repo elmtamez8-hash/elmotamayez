@@ -89,7 +89,7 @@ it('refuses a joiner who has not sat the published exam the host already has', f
         $exam = Exam::factory()->create([
             'workspace_id' => $fx['workspace']->getKey(),
             'status' => 'published',
-            'max_attempts' => 3,
+            'max_attempts' => 1,
         ]);
 
         foreach ($fx['questions']->values() as $index => $question) {
@@ -101,7 +101,9 @@ it('refuses a joiner who has not sat the published exam the host already has', f
             ]);
         }
 
-        // The HOST has sat it, so those questions are back in THEIR pool and the
+        // The HOST has sat it — a one-attempt paper, so it is DONE with (owner
+        // decision 2026-10-29: the key waits until passed or every attempt is
+        // spent) — so those questions are back in THEIR pool and the
         // room they build from it is entirely legitimate.
         $attempt = app(StartAttempt::class)->handle($exam, $fx['student']);
 

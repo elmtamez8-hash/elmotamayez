@@ -259,12 +259,12 @@ describe('coupon', function (): void {
             app(WorkspaceContext::class)->forWorkspace($this->teacherWorkspace, fn (): Course => Course::factory()->create([
                 'workspace_id' => $this->teacherWorkspace->getKey(),
                 'created_by' => $this->teacher->getKey(),
-                'title' => 'الفيزياء ١',
+                'title' => 'الفيزياء 1',
             ])),
             app(WorkspaceContext::class)->forWorkspace($this->officerWorkspace, fn (): Course => Course::factory()->create([
                 'workspace_id' => $this->officerWorkspace->getKey(),
                 'created_by' => $this->officer->getKey(),
-                'title' => 'الفيزياء ٢',
+                'title' => 'الفيزياء 2',
             ])),
         ];
 
@@ -279,8 +279,8 @@ describe('coupon', function (): void {
         expect(array_keys($offered))->toBe([(string) $mine->uuid])
             // Platform-wide: both teachers, each named, since two may sell one title.
             ->and(CouponResource::scopeTargets(CouponScope::Course, null, 'الفيزياء'))->toBe([
-                (string) $mine->uuid => 'الفيزياء ١ — أكاديمية خالد',
-                (string) $theirs->uuid => 'الفيزياء ٢ — مساحة الموظّف',
+                (string) $mine->uuid => 'الفيزياء 1 — أكاديمية خالد',
+                (string) $theirs->uuid => 'الفيزياء 2 — مساحة الموظّف',
             ]);
 
         Livewire::actingAs($this->admin)

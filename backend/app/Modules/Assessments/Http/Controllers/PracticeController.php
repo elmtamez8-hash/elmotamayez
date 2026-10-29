@@ -106,6 +106,19 @@ class PracticeController extends Controller
         */
         abort_unless($attempt->is_practice, 404);
 
+        /*
+        | ⛔ AND ONLY ONCE IT IS SUBMITTED (QA 2026-10-29). Asked mid-run, this
+        | handed the student every correct answer of the paper they were still
+        | answering — read the key, then submit a perfect score. 409, not 404: the
+        | attempt exists and is the reader's; it is simply not finished.
+        */
+        if ($attempt->submitted_at === null) {
+            return response()->json([
+                'message' => 'سلّم التدريب أولاً لترى الإجابات.',
+                'code' => 'not_submitted',
+            ], 409);
+        }
+
         return response()->json(['data' => PracticeResultResource::make($attempt)]);
     }
 

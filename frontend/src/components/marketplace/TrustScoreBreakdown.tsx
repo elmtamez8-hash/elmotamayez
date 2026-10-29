@@ -83,7 +83,7 @@ export function TrustScoreBreakdown({
                 <span className={`text-3xl font-extrabold ${BAND_COLOR[band]}`}>
                   {arabicNumber(score)}
                 </span>
-                <span className="text-xs text-ink-muted">من ١٠٠</span>
+                <span className="text-xs text-ink-muted">من 100</span>
               </>
             )}
           </div>
@@ -92,14 +92,14 @@ export function TrustScoreBreakdown({
         <div className="flex-1">
           {score === null ? (
             <p className="text-sm leading-relaxed text-ink-muted">
-              هذا المدرّس جديد على المنصة. تظهر درجة الثقة بعد إكمال ١٠ حصص على
-              الأقل والحصول على ٣ تقييمات — حتى ذلك الحين نفضّل ألا نعرض رقماً لا
+              هذا المدرّس جديد على المنصة. تظهر درجة الثقة بعد إكمال 10 حصص على
+              الأقل والحصول على 3 تقييمات — حتى ذلك الحين نفضّل ألا نعرض رقماً لا
               تسنده بيانات كافية.
             </p>
           ) : (
             <>
               <p className="mb-5 text-sm leading-relaxed text-ink-muted">
-                رقم من ١٠٠ يجمع تقييمات الطلاب والتزام المدرّس بالمواعيد ونسبة إكمال
+                رقم من 100 يجمع تقييمات الطلاب والتزام المدرّس بالمواعيد ونسبة إكمال
                 الحصص دون إلغاء ومدة عمله على المنصة وسرعة رده على الطلاب، ناقص أي
                 شكاوى مؤكدة.
               </p>
@@ -119,7 +119,7 @@ export function TrustScoreBreakdown({
                     >
                       <dt className="text-ink">{FACTOR_LABELS[key] ?? key}</dt>
                       <dd className="font-semibold text-ink">
-                        {isPenalty ? `−${arabicNumber(value)}` : `${arabicNumber(value)}٪`}
+                        {isPenalty ? `−${arabicNumber(value)}` : `${arabicNumber(value)}%`}
                       </dd>
                       <dd
                         className="col-span-2 mt-1 h-1.5 overflow-hidden rounded-full bg-line"

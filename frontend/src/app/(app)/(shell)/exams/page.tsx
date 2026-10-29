@@ -90,7 +90,7 @@ export default function ExamsPage() {
                 <ul className="mb-5 grid grid-cols-2 gap-2 text-sm font-bold text-primary-ink">
                   <li className="rounded-2xl bg-primary-soft px-3 py-2">{counted(exam.duration_minutes, NOUNS.minutes)}</li>
                   <li className="rounded-2xl bg-primary-soft px-3 py-2">
-                    النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}٪</bdi>
+                    النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}%</bdi>
                   </li>
                   <li className="rounded-2xl bg-primary-soft px-3 py-2">{counted(exam.max_attempts, NOUNS.attempts)}</li>
                   {exam.questions_count !== undefined && (

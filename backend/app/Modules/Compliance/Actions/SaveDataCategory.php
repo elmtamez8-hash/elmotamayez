@@ -98,7 +98,7 @@ class SaveDataCategory extends Action
         | so neither failure appears on a development machine.
         */
         if ($days > ComplianceSettings::maxRetainDays()) {
-            throw new DomainException('أقصى مدّةِ احتفاظٍ ٦٥٥٣٥ يوماً (‏نحو ١٧٩ سنة). اتركِ الحقلَ فارغاً إن كان الصنفُ لا ينقضي.');
+            throw new DomainException('أقصى مدّةِ احتفاظٍ 65535 يوماً (‏نحو 179 سنة). اتركِ الحقلَ فارغاً إن كان الصنفُ لا ينقضي.');
         }
     }
 }

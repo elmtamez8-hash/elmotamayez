@@ -248,7 +248,7 @@ function StatBar({ stats }: { stats: HomePayload["stats"] }) {
     { label: "طالب", value: stats.students, Icon: UsersIcon },
     { label: "مدرّس", value: stats.teachers, Icon: AcademicCapIcon },
     { label: "حصة مكتملة", value: stats.sessions, Icon: SessionsIcon },
-    { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "٪", Icon: StarIcon },
+    { label: "معدّل الرضا", value: stats.satisfaction_rate, suffix: "%", Icon: StarIcon },
   ].flatMap((item) =>
     typeof item.value === "number" && item.value > 0 ? [{ ...item, value: item.value }] : [],
   );

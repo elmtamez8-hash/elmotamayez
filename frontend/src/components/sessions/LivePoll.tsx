@@ -363,7 +363,7 @@ function ResultBar({ label, count, total }: { label: string; count: number; tota
       <div className="flex justify-between text-sm">
         <span>{label}</span>
         <span className="text-ink-muted">
-          {arabicNumber(count)} · {arabicNumber(share)}٪
+          {arabicNumber(count)} · {arabicNumber(share)}%
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">

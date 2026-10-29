@@ -453,7 +453,7 @@ export default function LearnLessonPage({
             <Card>
               <p className="mb-3 text-sm text-ink-muted">
                 {"passing_score" in detail.reference &&
-                  `النجاح من ${arabicNumber(detail.reference.passing_score)}٪ · ${counted(detail.reference.duration_minutes, NOUNS.minutes)}`}
+                  `النجاح من ${arabicNumber(detail.reference.passing_score)}% · ${counted(detail.reference.duration_minutes, NOUNS.minutes)}`}
                 {detail.exam_gate === "pass" &&
                   " · لا يُفتح ما بعده حتى تجتازه"}
               </p>

@@ -69,7 +69,7 @@ export function twoFactorSentence(days: number | null): string | null {
 export function receiptReviewSentence(hours: number | null): string | null {
   if (!known(hours) || hours === 0) return null;
 
-  return `بعد التحويل ترفع صورة الإيصال (JPG أو PNG أو PDF، حتى ١٠ ميجابايت)، ويراجعها فريق المالية. نسعى إلى المراجعة خلال ${counted(hours, HOURS_GEN)}، وهذا هدفٌ لا موعدٌ ملزِم.`;
+  return `بعد التحويل ترفع صورة الإيصال (JPG أو PNG أو PDF، حتى 10 ميجابايت)، ويراجعها فريق المالية. نسعى إلى المراجعة خلال ${counted(hours, HOURS_GEN)}، وهذا هدفٌ لا موعدٌ ملزِم.`;
 }
 
 /** The ceiling on unconsumed credits in one course. */
@@ -103,7 +103,7 @@ export function cancellationWindow(minutes: number | null): string | null {
 export function attendanceBar(percent: number | null): string | null {
   if (!known(percent) || percent === 0) return null;
 
-  return percent === 50 ? "نصف مدّة الحصة" : `${arabicNumber(percent)}٪ من مدّة الحصة`;
+  return percent === 50 ? "نصف مدّة الحصة" : `${arabicNumber(percent)}% من مدّة الحصة`;
 }
 
 /** How long attendance may be corrected after a session. */
@@ -136,7 +136,7 @@ export function deferredLadderSentence(ladder: DeferredLadder): string | null {
   const start =
     initial === 0
       ? "يبدأ الحدّ المسموح من صفر"
-      : `يبدأ الحدّ المسموح ${/^[٠-٩]/.test(opening) ? "بـ" : "ب"}${opening}`;
+      : `يبدأ الحدّ المسموح ${/^[0-90-9]/.test(opening) ? "بـ" : "ب"}${opening}`;
 
   const grows =
     known(increaseAfterOnTime) && increaseAfterOnTime > 0

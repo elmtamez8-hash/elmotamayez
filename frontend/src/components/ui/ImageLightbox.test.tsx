@@ -61,7 +61,7 @@ describe("ImageLightbox", () => {
 
     expect(dialog()?.open).toBe(true);
     expect(shown()).toBe("الثانية");
-    expect(screen.getByText("٢ من ٣")).toBeTruthy();
+    expect(screen.getByText("2 من 3")).toBeTruthy();
     expect(document.documentElement.style.overflow).toBe("hidden");
     // Focus lands on the way out.
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "إغلاق عارض الصور" }));
@@ -300,10 +300,10 @@ describe("useLightboxIn", () => {
     });
 
     expect(dialog()?.open).toBe(true);
-    expect(screen.getByText("٢ من ٢")).toBeTruthy();
+    expect(screen.getByText("2 من 2")).toBeTruthy();
 
     fireEvent.keyDown(dialog() as HTMLDialogElement, { key: "ArrowRight" });
-    expect(screen.getByText("١ من ٢")).toBeTruthy();
+    expect(screen.getByText("1 من 2")).toBeTruthy();
   });
 
   it("keeps the pictures pressable through a re-render of the page", () => {
@@ -316,7 +316,7 @@ describe("useLightboxIn", () => {
     expect(second.getAttribute("role")).toBe("button");
 
     fireEvent.click(second);
-    expect(screen.getByText("٢ من ٢")).toBeTruthy();
+    expect(screen.getByText("2 من 2")).toBeTruthy();
   });
 
   it("opens from the keyboard too", () => {
@@ -324,6 +324,6 @@ describe("useLightboxIn", () => {
 
     fireEvent.keyDown(container.querySelectorAll("img")[0], { key: "Enter" });
 
-    expect(screen.getByText("١ من ٢")).toBeTruthy();
+    expect(screen.getByText("1 من 2")).toBeTruthy();
   });
 });

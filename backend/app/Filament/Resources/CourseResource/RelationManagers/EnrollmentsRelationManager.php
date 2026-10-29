@@ -66,7 +66,7 @@ class EnrollmentsRelationManager extends RelationManager
                     }),
                 TextColumn::make('progress_pct')
                     ->label('التقدّم')
-                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'٪')
+                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'%')
                     ->sortable(),
                 TextColumn::make('enrolled_at')
                     ->label('تاريخ التسجيل')

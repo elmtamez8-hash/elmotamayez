@@ -42,12 +42,12 @@ beforeEach(function (): void {
     [$this->workspace, $this->teacher] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية الفيزياء']);
 
     $this->enrolled = courseWithRate((int) $this->workspace->getKey(), 5000);
-    $this->enrolled->forceFill(['title' => 'الفيزياء ٣'])->save();
+    $this->enrolled->forceFill(['title' => 'الفيزياء 3'])->save();
 
     // Same teacher, no enrolment — reachable only through `isPartyTo`'s SECOND
     // arm, and therefore invisible to any picker built from `/enrollments`.
     $this->sibling = courseWithRate((int) $this->workspace->getKey(), 5000);
-    $this->sibling->forceFill(['title' => 'الكيمياء ١'])->save();
+    $this->sibling->forceFill(['title' => 'الكيمياء 1'])->save();
 
     $this->draft = courseWithRate((int) $this->workspace->getKey(), 5000);
     $this->draft->forceFill(['status' => 'draft', 'title' => 'مسودّة'])->save();

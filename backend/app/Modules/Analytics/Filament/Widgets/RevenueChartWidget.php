@@ -48,7 +48,7 @@ class RevenueChartWidget extends ChartWidget
      */
     protected function getFilters(): array
     {
-        return ['30' => 'آخر ٣٠ يوماً', '90' => 'آخر ٩٠ يوماً', '365' => 'آخر سنة'];
+        return ['30' => 'آخر 30 يوماً', '90' => 'آخر 90 يوماً', '365' => 'آخر سنة'];
     }
 
     protected function getType(): string

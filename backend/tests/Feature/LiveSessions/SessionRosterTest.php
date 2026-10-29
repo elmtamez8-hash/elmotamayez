@@ -154,6 +154,27 @@ it('tells the host who was put out, so they can be let back in', function (): vo
         ->and($roster[$this->owner->uuid]['is_removed'])->toBeFalse();
 });
 
+/*
+| ⛔ Owner decision 2026-10-29 (QA run): a student whose seat was released or
+| cancelled kept reading every other student's name, photo and badges. Read
+| while booked first, so the refusal is the cancellation and not the route.
+*/
+it('stops reading the roster once the reader\'s seat is gone', function (string $status): void {
+    $student = rosterSeatHolder();
+
+    Sanctum::actingAs($student);
+    forgetRosterWorkspaceContext();
+
+    $url = '/api/v1/class-sessions/'.$this->session->uuid.'/participants';
+    $this->getJson($url)->assertOk();
+
+    SessionBooking::query()->withoutWorkspaceScope()
+        ->where('student_user_id', $student->getKey())
+        ->update(['status' => $status]);
+
+    $this->getJson($url)->assertForbidden();
+})->with(['released', 'cancelled_late', 'cancelled_in_window']);
+
 it('refuses somebody with no seat and no host permission', function (): void {
     // The control. Without it every case above would also pass against a route
     // that answered the whole class roll to anyone who asked.

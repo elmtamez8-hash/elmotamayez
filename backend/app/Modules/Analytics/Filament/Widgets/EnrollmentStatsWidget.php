@@ -56,7 +56,7 @@ class EnrollmentStatsWidget extends BaseWidget
                 ->descriptionIcon(Heroicon::OutlinedAcademicCap)
                 ->color('success'),
             Stat::make('الكورسات المكتملة', (string) $completed)
-                ->description('تسجيلاتٌ بلغَت ١٠٠٪')
+                ->description('تسجيلاتٌ بلغَت 100%')
                 ->descriptionIcon(Heroicon::OutlinedCheckBadge)
                 ->color('info'),
         ];

@@ -169,7 +169,7 @@ class EnrollmentResource extends Resource
                 TextColumn::make('progress_pct')
                     ->label('التقدّم')
                     ->badge()
-                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'٪')
+                    ->formatStateUsing(fn (mixed $state): string => (string) ((int) $state).'%')
                     ->color(fn (mixed $state): string => match (true) {
                         ((int) $state) >= 100 => 'success',
                         ((int) $state) > 0 => 'info',

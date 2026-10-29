@@ -33,7 +33,7 @@ describe("Wheel", () => {
     act(() => vi.advanceTimersByTime(5000));
     return screen.getByRole("status").textContent ?? "";
   };
-  const order = () => [...document.querySelectorAll("[data-wheel-order] li")].map((li) => li.textContent?.replace(/^[٠-٩]+\./, ""));
+  const order = () => [...document.querySelectorAll("[data-wheel-order] li")].map((li) => li.textContent?.replace(/^[0-9٠-٩]+\./, ""));
 
   it("records the order of the picks, never repeats in a round, and never edits the names", () => {
     vi.useFakeTimers();

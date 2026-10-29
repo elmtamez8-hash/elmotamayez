@@ -25,7 +25,7 @@ function guardianLinkNotify(User $student, NotificationType $type, ?string $url)
         variables: [
             'student_name' => $student->name,
             'exam_title' => 'اختبار الفصل',
-            'score' => '88٪',
+            'score' => '88%',
             'name' => $student->name,
             'course_title' => 'الرياضيات',
         ],

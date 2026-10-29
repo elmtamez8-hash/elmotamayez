@@ -375,7 +375,7 @@ describe("what the buyer is told a plan sells", () => {
     // «حصّتان» بلا رقم — العربيّةُ تحملُ العدَّ في الكلمةِ نفسِها — و«٣ حصص»
     // بالرقم. القاعدةُ في `counted()` وحدَها، ولا تُهجّى هنا مرّةً ثانية.
     expect(screen.getByText("حصّتان · حصص جماعية")).toBeDefined();
-    expect(screen.getByText("٣ حصص · حصص جماعية")).toBeDefined();
+    expect(screen.getByText("3 حصص · حصص جماعية")).toBeDefined();
 
     // ⛔ ولا كلمةَ «يوماً» في الصفحةِ كلِّها: `null % 30 === 0` صحيحٌ في
     // JavaScript، فالسقوطُ القديمُ كانَ يطبعُ «null يوماً» لمشترٍ يقرأُ سعراً.

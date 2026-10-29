@@ -97,9 +97,9 @@ export function PublishImpactDialog({
           {preview.students_affected > 0 && (
             <p className="text-sm text-ink-muted">
               {preview.largest_drop_pct < 0 && (
-                <>أكبر انخفاض {Math.abs(preview.largest_drop_pct)}٪. </>
+                <>أكبر انخفاض {Math.abs(preview.largest_drop_pct)}%. </>
               )}
-              {preview.largest_gain_pct > 0 && <>أكبر ارتفاع {preview.largest_gain_pct}٪. </>}
+              {preview.largest_gain_pct > 0 && <>أكبر ارتفاع {preview.largest_gain_pct}%. </>}
               {/* FR-050 said in words, where the teacher is deciding: a drop is a
                   drop in a number. Nobody loses a completion they already earned
                   and no certificate is withdrawn. */}

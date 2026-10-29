@@ -129,7 +129,7 @@ export function AdaptiveRunner({
             {session.score !== null && (
               <>
                 {" "}
-                · نتيجتك <bdi>{Math.round(session.score)}</bdi>٪
+                · نتيجتك <bdi>{Math.round(session.score)}</bdi>%
               </>
             )}
             .

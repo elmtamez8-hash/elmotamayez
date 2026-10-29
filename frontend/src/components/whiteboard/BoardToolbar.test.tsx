@@ -30,7 +30,7 @@ describe("BoardToolbar", () => {
   it("starts folded with the pages and «عرض» in reach, opens on a press, and remembers it", () => {
     const { unmount } = render(<BoardToolbar {...props()} />);
 
-    expect(screen.getByText("٢ من ٣")).toBeTruthy();
+    expect(screen.getByText("2 من 3")).toBeTruthy();
     expect(screen.getByRole("button", { name: "عرض" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "PNG" })).toBeNull();
 
@@ -46,7 +46,7 @@ describe("BoardToolbar", () => {
     const p = props();
     render(<BoardToolbar {...p} />);
 
-    expect(screen.getByText("٢ من ٣")).toBeTruthy();
+    expect(screen.getByText("2 من 3")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "الصفحة السابقة" }));
     fireEvent.click(screen.getByRole("button", { name: "الصفحة التالية" }));
 
@@ -137,7 +137,7 @@ describe("the screens of a page", () => {
 
     rerender(<BoardToolbar {...props({ screen: { index: 0, count: 3 }, onScreen })} />);
     expect(screen.getByRole("group", { name: "شاشات الصفحة" })).toBeTruthy();
-    expect(screen.getByText("شاشة ١ من ٣")).toBeTruthy(); // what a screen reader is told
+    expect(screen.getByText("شاشة 1 من 3")).toBeTruthy(); // what a screen reader is told
     fireEvent.click(screen.getByRole("button", { name: "أسفل" }));
     expect(onScreen).toHaveBeenLastCalledWith(1);
   });

@@ -84,7 +84,7 @@ function addCohort(array $tree, array $attributes = []): Cohort
 */
 it('opens the tree even while a joinable group exists, because membership is no longer a condition', function (): void {
     $tree = $this->curriculumTree();
-    addCohort($tree, ['name' => 'السبت ٤م']);
+    addCohort($tree, ['name' => 'السبت 4م']);
 
     Sanctum::actingAs($tree['student']);
     $this->forgetWorkspace();
@@ -199,7 +199,7 @@ it('leaves a course with no groups at all exactly as it was (FR-036)', function 
 */
 it('serves the lesson itself, with the body, to a student in no group', function (): void {
     $tree = $this->curriculumTree();
-    addCohort($tree, ['name' => 'السبت ٤م']);
+    addCohort($tree, ['name' => 'السبت 4م']);
 
     Sanctum::actingAs($tree['student']);
     $this->forgetWorkspace();

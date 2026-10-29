@@ -199,7 +199,7 @@ export default function StudentReviewsPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-ink">{periodLabel(review)}</p>
-                      <p className="text-sm text-ink-muted">المتوسّط {arabicDecimal(review.average)} من ٥</p>
+                      <p className="text-sm text-ink-muted">المتوسّط {arabicDecimal(review.average)} من 5</p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -276,7 +276,7 @@ export default function StudentReviewsPage() {
                           statement from a grade of nothing. */}
                       {segment.segment_pct === null
                         ? "—"
-                        : `${arabicDecimal(segment.segment_pct)}٪`}
+                        : `${arabicDecimal(segment.segment_pct)}%`}
                     </p>
                   </div>
 
@@ -287,7 +287,7 @@ export default function StudentReviewsPage() {
                       <div key={component.key}>
                         <dt className="text-ink-muted">{component.label}</dt>
                         <dd className="font-semibold text-ink">
-                          {arabicDecimal(segment.components[component.key].pct)}٪
+                          {arabicDecimal(segment.components[component.key].pct)}%
                         </dd>
                       </div>
                     ))}

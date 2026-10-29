@@ -48,7 +48,7 @@ export default function NotFound() {
         this product follows.
       */}
       <p aria-hidden="true" className="mb-2 text-6xl font-bold text-primary-soft">
-        ٤٠٤
+        404
       </p>
 
       <h1 className="mb-3 text-2xl font-bold text-ink">لا توجد صفحة على هذا العنوان</h1>

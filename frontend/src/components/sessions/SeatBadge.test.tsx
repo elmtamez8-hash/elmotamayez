@@ -10,10 +10,10 @@ import { SeatBadge } from "./SeatBadge";
 */
 describe("SeatBadge", () => {
   it.each([
-    [1, "مقعد واحد متاح من ٥٠"],
-    [2, "مقعدان متاحان من ٥٠"],
-    [3, "٣ مقاعد متاحة من ٥٠"],
-    [11, "١١ مقعداً متاحاً من ٥٠"],
+    [1, "مقعد واحد متاح من 50"],
+    [2, "مقعدان متاحان من 50"],
+    [3, "3 مقاعد متاحة من 50"],
+    [11, "11 مقعداً متاحاً من 50"],
   ])("%i free", (available, text) => {
     const { container } = render(<SeatBadge seats={{ available, total: 50, taken: 50 - available }} />);
 

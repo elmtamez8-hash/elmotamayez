@@ -75,7 +75,7 @@ describe("FilterBar", () => {
     const pressed = () =>
       Array.from(group.querySelectorAll("button[aria-pressed='true']")).map((b) => b.textContent);
 
-    expect(pressed()).toEqual(["الكل ١٢"]);
+    expect(pressed()).toEqual(["الكل 12"]);
 
     fireEvent.click(screen.getByRole("button", { name: /المسودّات/ }));
 
@@ -83,10 +83,10 @@ describe("FilterBar", () => {
     expect(pressed()).toEqual(["المسودّات"]);
   });
 
-  it("keeps a real space before the count, so the name does not read «المنشورة٣»", () => {
+  it("keeps a real space before the count, so the name does not read «المنشورة3»", () => {
     render(<Harness />);
 
-    expect(screen.getByRole("button", { name: "المنشورة ٣" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "المنشورة 3" })).toBeTruthy();
   });
 
   it("chips are buttons that never submit a surrounding form", () => {

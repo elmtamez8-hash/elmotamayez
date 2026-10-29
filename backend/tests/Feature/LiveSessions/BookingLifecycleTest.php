@@ -66,6 +66,36 @@ it('accepts a late cancellation and keeps it billable', function (): void {
         ->and($session->refresh()->seats_taken)->toBe(1);
 });
 
+/*
+| ⛔ QA 2026-10-29: neither door asked the session. A student cancelling mid-
+| lesson was billed AND locked out with no undo; staff «released» a seat two
+| days after delivery, rewriting the register. Booked while scheduled, then
+| the hour moves on — and both doors refuse, leaving the booking untouched.
+*/
+it('refuses to cancel a booking once its session has started or ended, at both doors', function (string $state): void {
+    $session = ClassSession::factory()->create([
+        'teacher_profile_id' => $this->teacher->getKey(),
+        'starts_at' => CarbonImmutable::now()->addHour(),
+        'ends_at' => CarbonImmutable::now()->addHours(2),
+    ]);
+
+    $booking = app(BookSeat::class)->handle($session, $this->student);
+
+    $session->forceFill($state === 'live'
+        ? ['status' => ClassSessionStatus::Live, 'starts_at' => CarbonImmutable::now()->subMinutes(10)]
+        : ['status' => ClassSessionStatus::Completed, 'starts_at' => CarbonImmutable::now()->subDays(2), 'ends_at' => CarbonImmutable::now()->subDays(2)->addHour()])
+        ->save();
+
+    Sanctum::actingAs($this->student);
+    $this->deleteJson('/api/v1/bookings/'.$booking->uuid)->assertStatus(409);
+
+    Sanctum::actingAs($this->owner);
+    $this->deleteJson('/api/v1/bookings/'.$booking->uuid)->assertStatus(409);
+
+    expect($booking->refresh()->status)->toBe(BookingStatus::Booked)
+        ->and($session->refresh()->seats_taken)->toBe(1);
+})->with(['live', 'completed']);
+
 // FR-006 · FR-026 — nobody is charged and nothing enters a counter.
 it('releases every seat when the teacher cancels the session', function (): void {
     $session = ClassSession::factory()->create(['teacher_profile_id' => $this->teacher->getKey()]);
