@@ -130,6 +130,9 @@ export default async function RootLayout({
         <Toaster
           position="top-center"
           closeButton
+          // Arabic for a screen reader: the default is «Notifications alt+T»,
+          // spoken in English on an Arabic-only product (QA run, 2026-10-29).
+          customAriaLabel="التنبيهات"
           /*
            * ⚠️ NO `richColors` AND NO `theme` PROP — the palette is OURS. Sonner's
            * own colours are hard-coded hexes that know nothing about
@@ -139,6 +142,7 @@ export default async function RootLayout({
            * in both directions, with no second definition to keep in step.
            */
           toastOptions={{
+            closeButtonAriaLabel: "إغلاق التنبيه",
             style: {
               background: "var(--color-surface-raised)",
               color: "var(--color-ink)",

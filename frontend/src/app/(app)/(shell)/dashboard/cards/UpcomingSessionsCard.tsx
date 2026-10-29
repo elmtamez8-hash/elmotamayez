@@ -17,10 +17,22 @@ import { readActiveEnrolments } from "./ProgressChartCard";
 const LINK_CLASS =
   "rounded text-primary-ink underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
-/** «يبدأ بعد ساعتين و١٥ دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها. */
-function untilLabel(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
+/**
+ * «يبدأ بعد ساعتين و15 دقيقة» — الثواني تُعرَضُ في الدقيقةِ الأخيرةِ وحدَها.
+ *
+ * ⛔ والأيّامُ فوقَ يومٍ كامل (QA 2026-10-29): حصّةٌ بعدَ أسبوعٍ كانت تُقرأُ
+ * «يبدأ بعد 174 س و11 د» — رقمٌ يحسبُه القارئُ بنفسِه ليعرفَ أنّها بعدَ سبعةِ أيّام.
+ */
+export function untilLabel(seconds: number): string {
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (days > 0) {
+    const dayPart = counted(days, NOUNS.days);
+
+    return hours > 0 ? `يبدأ بعد ${dayPart} و${arabicNumber(hours)} س` : `يبدأ بعد ${dayPart}`;
+  }
 
   if (hours > 0) return `يبدأ بعد ${arabicNumber(hours)} س و${arabicNumber(minutes)} د`;
   if (minutes > 0) return `يبدأ بعد ${counted(minutes, { ...NOUNS.minutes, two: "دقيقتين" })}`;
@@ -141,11 +153,18 @@ export function SessionRow({ session, tick }: { session: ClassSession; tick: num
 
   // البابُ: جوابُ الخادمِ عندَ الجلب، أو عدُّه هو بلغَ الصفر — ولا ثالثَ لهما.
   const open = (session.join_open || untilOpen === 0) && !session.room_closed;
+  /*
+    ⛔ «جارية» لا تُقرأُ قبلَ موعدِها (QA 2026-10-29). المدرّسُ يفتحُ الغرفةَ
+    مبكّراً فتصيرُ الحصّةُ `live` على الخادم، والصفُّ كانَ يقرأُ «جارية» بجانبِ
+    «يبدأ بعد دقيقة واحدة». قبلَ الموعدِ والغرفةُ مفتوحة: «الغرفة مفتوحة».
+  */
   const state = session.room_closed
     ? "انتهت"
     : untilStart === 0
       ? "جارية"
-      : session.status_label;
+      : session.status === "live"
+        ? "الغرفة مفتوحة"
+        : session.status_label;
 
   return (
     <li className={`${ROW_CLASS} ${open ? "border-primary/40 bg-primary-soft/30" : ""}`}>
