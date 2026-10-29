@@ -44,7 +44,7 @@ class NotifyStudentExamResult implements ShouldQueueAfterCommit
             variables: [
                 'student_name' => $student->name,
                 'exam_title' => $attempt->exam === null ? 'اختبار' : $attempt->exam->title,
-                'score' => rtrim(rtrim(number_format((float) $attempt->score, 2, '.', ''), '0'), '.').'٪',
+                'score' => rtrim(rtrim(number_format((float) $attempt->score, 2, '.', ''), '0'), '.').'%',
             ],
             // ⚠️ `/exams/{attempt}/result`. There is no `/exams/attempts/…`
             // route — the result screen takes the ATTEMPT uuid in the segment

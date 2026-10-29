@@ -677,7 +677,7 @@ describe("MessageList — following the conversation", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "عرض الصورة مكبّرة" })[1]);
 
       expect(document.querySelector("dialog")?.open).toBe(true);
-      expect(screen.getByText("٢ من ٢")).toBeTruthy();
+      expect(screen.getByText("2 من 2")).toBeTruthy();
     });
   });
 

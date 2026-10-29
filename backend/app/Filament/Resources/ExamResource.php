@@ -107,7 +107,7 @@ class ExamResource extends Resource
                             ->required()
                             ->minValue(0)
                             ->maxValue(100)
-                            ->suffix('٪')
+                            ->suffix('%')
                             ->default(60),
                         TextInput::make('max_attempts')
                             ->label('أقصى عدد محاولات')
@@ -148,7 +148,7 @@ class ExamResource extends Resource
                         default => 'gray',
                     }),
                 TextColumn::make('duration_minutes')->label('المدّة')->suffix(' دقيقة'),
-                TextColumn::make('passing_score')->label('درجة النجاح')->suffix('٪'),
+                TextColumn::make('passing_score')->label('درجة النجاح')->suffix('%'),
                 /*
                 | العدّانِ من `withCount` لا من إغلاقٍ داخلَ العمود — المورِدُ يُنفَّذُ
                 | مرّةً لكلِّ صفّ. و«أقصى عدد محاولات» مكتوبٌ بطولِه عمداً: عمودان

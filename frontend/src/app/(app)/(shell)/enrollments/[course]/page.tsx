@@ -311,7 +311,7 @@ export default function CourseCurriculumPage({
           <p className="text-sm text-white/85">
             {/* `bdi` so the digits do not drag the surrounding Arabic around. */}
             أتممتَ <bdi>{arabicNumber(course.completed_count)}</bdi> من <bdi>{arabicNumber(course.countable_count)}</bdi>{" "}
-            — <bdi>{arabicNumber(course.progress_pct)}٪</bdi>
+            — <bdi>{arabicNumber(course.progress_pct)}%</bdi>
           </p>
 
           {/*
@@ -386,8 +386,8 @@ export default function CourseCurriculumPage({
             title="تبدأ هذا الكورس من جديد؟"
             message={
               (course.is_sequential
-                ? "ترجع نسبتك إلى ٠٪، ويُقفل كل درس بعد الأول حتى تُتمّه من جديد."
-                : "ترجع نسبتك إلى ٠٪، ويرجع كل درس أتممتَه غير مكتمل.") +
+                ? "ترجع نسبتك إلى 0%، ويُقفل كل درس بعد الأول حتى تُتمّه من جديد."
+                : "ترجع نسبتك إلى 0%، ويرجع كل درس أتممتَه غير مكتمل.") +
               "\nشهادتك — إن صدرت — تبقى صالحة كما هي، ولا تُصدر ثانية." +
               "\nونتيجة أي اختبار أدّيتَه تبقى كما هي."
             }

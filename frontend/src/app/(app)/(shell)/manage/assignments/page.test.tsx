@@ -92,7 +92,7 @@ describe("grading a submission", () => {
   it("sends the score once one is typed", async () => {
     await openSubmissions();
 
-    fireEvent.change(await screen.findByLabelText("الدرجة (١٠)"), { target: { value: "7" } });
+    fireEvent.change(await screen.findByLabelText("الدرجة (10)"), { target: { value: "7" } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "اعتمد الدرجة" }));
@@ -171,13 +171,14 @@ describe("the handed-in file", () => {
 
 describe("the assignment row", () => {
   // «من 10 درجة» shipped: a Latin digit and the singular where 3–10 takes the plural.
-  it("counts the full mark in Arabic, with the noun agreeing", async () => {
+  it("counts the full mark with the noun agreeing, in Latin digits", async () => {
     await act(async () => {
       render(<ManageAssignmentsPage />);
     });
 
-    expect(await screen.findByText(/من ١٠ درجات/)).toBeTruthy();
-    expect(screen.queryByText(/10/)).toBeNull();
+    expect(await screen.findByText(/من 10 درجات/)).toBeTruthy();
+    // Latin digits everywhere (owner decision 2026-10-29) — never the Arabic-Indic form.
+    expect(screen.queryByText(/١٠/)).toBeNull();
   });
 });
 
@@ -230,10 +231,10 @@ describe("the staff list, paged and filtered on the server", () => {
     });
 
     // «الكل ٢» is the sum of the server's counts, not the one row on screen.
-    expect(await screen.findByRole("button", { name: "الكل ٢" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "الكل 2" })).toBeTruthy();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "المسوّدات ١" }));
+      fireEvent.click(screen.getByRole("button", { name: "المسوّدات 1" }));
     });
 
     expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, status: "draft" }));

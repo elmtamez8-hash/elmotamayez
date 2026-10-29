@@ -40,7 +40,7 @@ describe("BalanceSummary", () => {
     expect(screen.getByText("حصة متاحة للحجز")).toBeTruthy();
     // ⚠️ الرقمُ نفسُه، لا وجودُ العنصر: عرضُ ٩ هنا هو بالضبط العطبُ الذي تمنعُه
     // هذه الحالة، والبطاقةُ تمرُّ على أيِّ توكيدٍ يعدُّ العناصر.
-    expect(screen.getByText("٧")).toBeTruthy();
+    expect(screen.getByText("7")).toBeTruthy();
   });
 
   it("names the frozen credits instead of letting them go missing", () => {

@@ -51,7 +51,7 @@ it('places a hold from the panel and suspends the open erasure', function (): vo
         ->assertActionVisible('place')
         ->callAction('place', data: [
             'subject' => (string) $this->subject->uuid,
-            'reason' => 'أمر قضائي رقم ١٢',
+            'reason' => 'أمر قضائي رقم 12',
         ])
         ->assertHasNoActionErrors();
 
@@ -59,7 +59,7 @@ it('places a hold from the panel and suspends the open erasure', function (): vo
 
     expect((int) $hold->subject_user_id)->toBe((int) $this->subject->getKey())
         ->and((int) $hold->placed_by_user_id)->toBe((int) $this->officer->getKey())
-        ->and($hold->reason)->toBe('أمر قضائي رقم ١٢')
+        ->and($hold->reason)->toBe('أمر قضائي رقم 12')
         // Through `PlaceLegalHold`, not a bare insert: the open request is suspended.
         ->and(DataRequest::query()->whereKey($this->request->getKey())->value('status'))
         ->toBe(DataRequestStatus::OnHold);

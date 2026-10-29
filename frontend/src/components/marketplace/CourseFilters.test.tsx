@@ -53,6 +53,6 @@ describe("CourseFilters", () => {
     query = "grade_level=secondary&type=group";
     renderFilters();
 
-    expect(screen.getByRole("button", { name: /^فلاتر/ }).textContent).toContain("١");
+    expect(screen.getByRole("button", { name: /^فلاتر/ }).textContent).toContain("1");
   });
 });

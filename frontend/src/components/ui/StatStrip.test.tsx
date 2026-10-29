@@ -27,7 +27,7 @@ describe("StatStrip", () => {
   it("two across on a phone whatever the desk width", () => {
     render(
       <StatStrip label="أرقام" columns={3}>
-        <StatTile label="أ" value="١" />
+        <StatTile label="أ" value="1" />
       </StatStrip>,
     );
 
@@ -49,12 +49,12 @@ describe("StatTile", () => {
 
     const tile = screen.getByText("المنشورة").closest("div")!.parentElement!;
 
-    expect(within(tile).getByText("١٬٣٢٥")).toBeTruthy();
+    expect(within(tile).getByText("1,325")).toBeTruthy();
   });
 
   it("shows a string exactly as given", () => {
-    render(<StatTile label="المتوسط" value="٧٥٪" />);
+    render(<StatTile label="المتوسط" value="75%" />);
 
-    expect(screen.getByText("٧٥٪")).toBeTruthy();
+    expect(screen.getByText("75%")).toBeTruthy();
   });
 });

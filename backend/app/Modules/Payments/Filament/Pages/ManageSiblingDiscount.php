@@ -92,7 +92,7 @@ class ManageSiblingDiscount extends Page
                             .'المنصّة وحدَها فلا تمسّ استحقاق المدرّس.')
                         ->schema([
                             TextInput::make('sibling_discount')
-                                ->label('نسبة الخصم (٪)')
+                                ->label('نسبة الخصم (%)')
                                 ->integer()
                                 ->minValue(0)
                                 ->maxValue(100)

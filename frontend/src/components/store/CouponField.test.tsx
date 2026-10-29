@@ -99,7 +99,7 @@ describe("CouponField", () => {
     // A family discount has no code by definition, so the purchase request must
     // not carry one — sending the typed string there would spend a coupon the
     // resolver did not choose.
-    preview.mockResolvedValue({ discount_minor: 900, source: "sibling", label: "خصم الإخوة ١٠٪" });
+    preview.mockResolvedValue({ discount_minor: 900, source: "sibling", label: "خصم الإخوة 10%" });
 
     fireEvent.change(screen.getByLabelText(/كود خصم/), { target: { value: "ANY" } });
     fireEvent.click(screen.getByRole("button", { name: "تطبيق" }));

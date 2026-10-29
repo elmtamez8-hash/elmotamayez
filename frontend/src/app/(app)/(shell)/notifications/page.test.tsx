@@ -34,7 +34,7 @@ function item(overrides: Record<string, unknown> = {}) {
     type_label: "نتيجة اختبار",
     category: { key: "study", label: "الدراسة" },
     title: "ظهرت نتيجتك",
-    body: "حصلت على ٨٢٪ في اختبار الوحدة الأولى.",
+    body: "حصلت على 82% في اختبار الوحدة الأولى.",
     action_url: "/exams/e-1/result",
     subject: null,
     workspace: { uuid: "w-1", name: "أكاديمية التميز" },
@@ -93,8 +93,8 @@ describe("NotificationsPage", () => {
 
     const study = await screen.findByRole("tab", { name: /الدراسة/ });
 
-    expect(study.textContent).toContain("٢");
-    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("١");
+    expect(study.textContent).toContain("2");
+    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("1");
   });
 
   it("asks the server for one subject when its tab is opened, from page one", async () => {
@@ -179,11 +179,11 @@ describe("NotificationsPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "تعليم كمقروء" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /الدراسة/ }).textContent).toContain("١"),
+      expect(screen.getByRole("tab", { name: /الدراسة/ }).textContent).toContain("1"),
     );
 
     // And the other subject is untouched — the row belonged to «الدراسة».
-    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("١");
+    expect(screen.getByRole("tab", { name: /الحصص والمواعيد/ }).textContent).toContain("1");
   });
 
   it("groups the feed by day rather than running it together", async () => {
@@ -264,8 +264,8 @@ describe("the unread count in the heading", () => {
   it.each([
     [1, "لديك إشعار واحد غير مقروء"],
     [2, "لديك إشعاران غير مقروءين"],
-    [3, "لديك ٣ إشعارات غير مقروءة"],
-    [11, "لديك ١١ إشعاراً غير مقروء"],
+    [3, "لديك 3 إشعارات غير مقروءة"],
+    [11, "لديك 11 إشعاراً غير مقروء"],
   ])("%i", async (unread, sentence) => {
     list.mockResolvedValue(page({ meta: { unread_count: unread } }));
 

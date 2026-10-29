@@ -196,7 +196,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
         $window = $this->windowFor($order, $plan);
 
         if ($window === null) {
-            Log::warning('٠٣٦: طلب اشتراك بلا مدّة ولا لقطة شكل', [
+            Log::warning('036: طلب اشتراك بلا مدّة ولا لقطة شكل', [
                 'order_id' => $order->getKey(),
                 'plan_id' => $plan->getKey(),
             ]);
@@ -545,7 +545,7 @@ class ActivateSubscription implements ShouldQueueAfterCommit
             // Logged rather than thrown: the payment is real and the other
             // listeners on this event must still run. Nothing is written, so a
             // retry with the coverage repaired finishes the job.
-            Log::warning('٠٣٦: باقة حصص لا تحمل كورساً يُصَبُّ عليه الرصيد', [
+            Log::warning('036: باقة حصص لا تحمل كورساً يُصَبُّ عليه الرصيد', [
                 'order_id' => $order->getKey(),
                 'plan_id' => $plan->getKey(),
             ]);

@@ -81,7 +81,7 @@ export function ExamPicker({
         placeholder="— اختر اختباراً —"
         options={targets.exams.map((exam) => ({
           value: exam.uuid,
-          label: `${exam.title} — النجاح من ${arabicNumber(exam.passing_score)}٪ · ${counted(exam.questions_count, NOUNS.questions)}`,
+          label: `${exam.title} — النجاح من ${arabicNumber(exam.passing_score)}% · ${counted(exam.questions_count, NOUNS.questions)}`,
         }))}
         onChange={(value) => {
           setSelected(value);

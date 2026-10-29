@@ -98,7 +98,7 @@ const SESSION = {
   seats: { total: 10, taken: 3, available: 7 },
   // ⚠️ اسمٌ مختومٌ لا علاقةٌ محمَّلة: لا `cohort()` على `ClassSession` ولا يجوزُ
   // أن تكون، فـ`CohortNames::stamp()` يضعُه بجوارِ الاستعلامِ عبرَ العقد.
-  cohort_name: "السبت ٤م",
+  cohort_name: "السبت 4م",
   my_booking: null,
   course: { uuid: "c-1", title: "الفيزياء" },
   teacher_name: "أ. منى",
@@ -332,8 +332,8 @@ describe("DashboardPage · الطالب", () => {
     render(<DashboardPage />);
 
     // ٣٧ من `meta.total` فوقَ صفحةٍ من خمسةَ عشرَ صفّاً: الرقمُ الخاطئُ هنا ١٥.
-    expect(await screen.findByText("٣٧")).toBeDefined();
-    expect(screen.queryByText("١٥")).toBeNull();
+    expect(await screen.findByText("37")).toBeDefined();
+    expect(screen.queryByText("15")).toBeNull();
   });
 
   it("keeps every other card when one source is refused", async () => {
@@ -383,7 +383,7 @@ describe("DashboardPage · الطالب", () => {
     | ⚠️ `+10` و`−6` ليست `+4`. الحجبُ لكلِّ كورسٍ على حِدَة، فمجموعٌ واحدٌ يعِدُ
     | بسَعَةٍ في الكورسِ المحجوبِ ويُخفي الكورسَ الذي عليه أن يُدفَع.
     */
-    expect(screen.queryByText("٤")).toBeNull();
+    expect(screen.queryByText("4")).toBeNull();
     expect(screen.getByText(/محجوب/)).toBeDefined();
 
     /*
@@ -393,7 +393,7 @@ describe("DashboardPage · الطالب", () => {
      | وهو بالضبط ما يحدثُ حينَ يتغيّرُ مفتاحُ الحمولةِ ولا تتغيّرُ التجهيزة.
      | توكيدٌ موجِبٌ واحدٌ هو الفرقُ بينَ «لا يجمع» و«لا يعرض».
     */
-    expect(screen.getByText("١٠")).toBeDefined();
+    expect(screen.getByText("10")).toBeDefined();
   });
 
   it("offers the room only when the server says the door is open", async () => {
@@ -939,10 +939,10 @@ describe("DashboardPage · المدرّس", () => {
 
     // From `meta.withheld_students` (4), never from the page's rows — which would
     // give «١» here and undercount any teacher with more than one page.
-    expect(card("طلاب محجوبون").getByText("٤")).toBeDefined();
+    expect(card("طلاب محجوبون").getByText("4")).toBeDefined();
     // والرقمانِ الآخرانِ من `meta.total` لا من طولِ الصفحةِ الفارغة.
-    expect(card("بانتظار التصحيح").getByText("٧")).toBeDefined();
-    expect(card("طلبات الحصص الخاصة").getByText("٣")).toBeDefined();
+    expect(card("بانتظار التصحيح").getByText("7")).toBeDefined();
+    expect(card("طلبات الحصص الخاصة").getByText("3")).toBeDefined();
   });
 
   it("hides every financial card from an assistant, and knocks on no door they lack", async () => {
@@ -1070,7 +1070,7 @@ describe("DashboardPage · المدرّس", () => {
 
     expect(await card.findByText("منى سالم · اختبار المتجهات")).toBeDefined();
     expect(card.getByText("بانتظار التصحيح")).toBeDefined();
-    expect(card.getByText("٨٠٪")).toBeDefined();
+    expect(card.getByText("80%")).toBeDefined();
     expect(card.getByText("ناجح")).toBeDefined();
     // ١٠:٠٠ UTC هي ١:٠٠ م في القاهرة (توقيتُ الصيف) — ساعةُ القارئِ لا ساعةُ الجهاز
     // (الاختبارُ يجري على `TZ=UTC`، فالنصّانِ مختلفانِ وتوكيدةُ القاهرةِ تعضّ).
@@ -1201,8 +1201,8 @@ describe("DashboardPage · الرسوم", () => {
     expect(bars[0]?.getAttribute("aria-valuenow")).toBe("5");
 
     // وكلُّ قيمةٍ مرسومةٍ مقروءةٌ نصّاً بجوارِها.
-    expect(screen.getByText("٥٪")).toBeDefined();
-    expect(screen.getByText("٣٠٪")).toBeDefined();
+    expect(screen.getByText("5%")).toBeDefined();
+    expect(screen.getByText("30%")).toBeDefined();
   });
 
   it("draws the teacher's week from the one read the timetable used", async () => {
@@ -1223,7 +1223,7 @@ describe("DashboardPage · الرسوم", () => {
     );
     expect(chart.getAllByRole("listitem")).toHaveLength(7);
     expect(chart.getAllByText("–").length).toBe(6);
-    expect(chart.getAllByText("١").length).toBe(1);
+    expect(chart.getAllByText("1").length).toBe(1);
   });
 
   it("names each column by DATE as well as weekday, and opens that day on a tap", async () => {
@@ -1272,7 +1272,7 @@ describe("DashboardPage · الرسوم", () => {
     | ثلاثةَ عناوينَ متطابقةً في اليومِ الواحد، ولا شيءَ في اللوحةِ يقولُ أيُّها
     | لِمَن — وهو الفرقُ بينَ لوحةٍ تُقرَأُ ولوحةٍ تُفتَحُ ثمّ يُفتَحُ التقويمُ بعدَها.
     */
-    expect(chart.getByText("السبت ٤م")).toBeDefined();
+    expect(chart.getByText("السبت 4م")).toBeDefined();
 
     // `closest`: العنوانُ صارَ داخلَ الرابطِ لا هو الرابط، وسطرُ المجموعةِ تحتَه.
     expect(chart.getByText("المتجهات").closest("a")?.getAttribute("href")).toBe(
@@ -1330,7 +1330,7 @@ describe("DashboardPage · الرسوم", () => {
       screen.getByText("توزيع حضور كريم").closest("section") as HTMLElement,
     );
     expect(chart.getByText("حاضر")).toBeDefined();
-    expect(chart.getByText("٥")).toBeDefined();
+    expect(chart.getByText("5")).toBeDefined();
     expect(chart.getByText("متأخّر")).toBeDefined();
     expect(chart.getByText("بعذر")).toBeDefined();
   });
@@ -1372,7 +1372,7 @@ describe("DashboardPage · مقارنة الأبناء", () => {
 
     // ثلاثُ خلايا لبدرٍ وحدَه — والحضورُ لآدمَ رقمٌ حقيقيّ.
     expect(within(table).getAllByText("غير ممنوح").length).toBe(3);
-    expect(within(table).getByText("٨٠٪")).toBeDefined();
+    expect(within(table).getByText("80%")).toBeDefined();
   });
 
   it("is not drawn for a guardian with one child", async () => {

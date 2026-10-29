@@ -55,12 +55,12 @@ describe("TopicRail", () => {
     );
   });
 
-  it("counts in Arabic-Indic digits, like every other number in the product", () => {
+  it("counts in Latin digits, like every other number in the product", () => {
     // «6» بجانبِ نصٍّ عربيٍّ هو نظامُ أرقامٍ ثانٍ على صفحةٍ واحدة — العطبُ الذي
     // وُجِدَ `lib/numerals` من أجلِه.
     render(<TopicRail categories={categories} tags={tags} />);
 
-    expect(screen.getByRole("link", { name: /نصائح للطلاب/ }).textContent).toContain("٦");
+    expect(screen.getByRole("link", { name: /نصائح للطلاب/ }).textContent).toContain("6");
   });
 
   it("keeps the tag row out entirely when there are no tags", () => {

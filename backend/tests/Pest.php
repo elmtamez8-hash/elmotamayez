@@ -156,7 +156,7 @@ function trialFixture(array $lesson = [], ?array $asset = null, string $sectionS
         $course = Course::factory()->published()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $teacher->user_id,
-            'title' => 'الفيزياء ٢ ثانوي',
+            'title' => 'الفيزياء 2 ثانوي',
             'slug' => 'trial-physics-'.$sequence,
         ]);
 
@@ -606,8 +606,8 @@ function cohortFixture(?int $capacityA = null, ?int $capacityB = null): array
 
         return [
             'course' => $course,
-            'a' => $make('السبت ٤م', $capacityA),
-            'b' => $make('الأحد ٦م', $capacityB),
+            'a' => $make('السبت 4م', $capacityA),
+            'b' => $make('الأحد 6م', $capacityB),
         ];
     });
 

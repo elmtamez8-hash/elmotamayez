@@ -64,7 +64,7 @@ describe("GradingSchemeForm", () => {
 
     // «ينقص ١٠٪» — actionable. Arabic-Indic, like every other number in the
     // product: a Latin «10» beside «٪» is the tell of a translated layout.
-    expect(screen.getByText(/ينقص ١٠٪/)).toBeTruthy();
+    expect(screen.getByText(/ينقص 10%/)).toBeTruthy();
   });
 
   it("says so when the weighting overshoots", () => {
@@ -76,7 +76,7 @@ describe("GradingSchemeForm", () => {
       />,
     );
 
-    expect(screen.getByText(/يزيد ٢٠٪/)).toBeTruthy();
+    expect(screen.getByText(/يزيد 20%/)).toBeTruthy();
   });
 
   it("recomputes the total as the teacher types", () => {
@@ -88,11 +88,11 @@ describe("GradingSchemeForm", () => {
       />,
     );
 
-    expect(screen.getByTestId("weights-total").textContent).toContain("١٠٠");
+    expect(screen.getByTestId("weights-total").textContent).toContain("100");
 
     fireEvent.change(screen.getByLabelText("الاختبارات"), { target: { value: "40" } });
 
-    expect(screen.getByTestId("weights-total").textContent).toContain("٩٠");
+    expect(screen.getByTestId("weights-total").textContent).toContain("90");
     expect(screen.getByRole("button", { name: "حفظ الأوزان" })).toHaveProperty("disabled", true);
   });
 

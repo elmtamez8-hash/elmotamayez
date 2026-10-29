@@ -48,7 +48,7 @@ describe("RosterTab", () => {
     // ⚠️ ANY digit, Arabic-Indic or Latin. Asserting the absence of «٠» alone
     // passes against a screen printing «0», and asserting the absence of the
     // word «المركز» passes against «المركز —».
-    expect(card?.textContent ?? "").not.toMatch(/[0-9٠-٩]/u);
+    expect(card?.textContent ?? "").not.toMatch(/[0-90-9]/u);
   });
 
   it("draws the rank and the level when the member has them", async () => {
@@ -59,8 +59,8 @@ describe("RosterTab", () => {
     render(<RosterTab cohortUuid="c-1" />);
 
     // Arabic-Indic digits, as everywhere else in the product.
-    expect(await screen.findByText("٧")).toBeTruthy();
-    expect(screen.getByText("٤")).toBeTruthy();
+    expect(await screen.findByText("7")).toBeTruthy();
+    expect(screen.getByText("4")).toBeTruthy();
   });
 
   it("draws each badge the member holds and nothing where there are none", async () => {

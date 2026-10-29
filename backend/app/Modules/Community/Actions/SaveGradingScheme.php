@@ -33,7 +33,7 @@ class SaveGradingScheme extends Action
 
         if ($total !== 100) {
             throw ValidationException::withMessages([
-                'weights' => 'مجموع الأوزان يجب أن يساوي ١٠٠٪ بالضبط.',
+                'weights' => 'مجموع الأوزان يجب أن يساوي 100% بالضبط.',
             ]);
         }
 

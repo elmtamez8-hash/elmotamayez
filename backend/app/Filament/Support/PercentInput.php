@@ -26,7 +26,7 @@ final class PercentInput
             ->maxValue($maxPercent)
             ->step(1)
             ->rule('decimal:0,2')
-            ->suffix('٪')
+            ->suffix('%')
             ->formatStateUsing(fn (mixed $state): mixed => is_numeric($state) ? self::toPercent((float) $state) : $state)
             ->dehydrateStateUsing(fn (mixed $state): ?float => is_numeric($state) ? self::toRatio((float) $state) : null);
     }

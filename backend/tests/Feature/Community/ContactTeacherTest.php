@@ -506,7 +506,7 @@ it('counts rival messages committed while this send waited on the gate', functio
 
         // Two sends from the student's other tab, committed while this one
         // waited on the conversation's row: the thread now holds three.
-        foreach (['من التبويب الآخر ١', 'من التبويب الآخر ٢'] as $body) {
+        foreach (['من التبويب الآخر 1', 'من التبويب الآخر 2'] as $body) {
             DB::table('messages')->insert([
                 'uuid' => (string) Str::uuid(),
                 'workspace_id' => $thread?->workspace_id,
@@ -640,7 +640,7 @@ it('caps a former student from scratch: a reply from while they were enrolled un
     $this->travel(1)->minutes();
 
     Sanctum::actingAs($this->subscriber);
-    foreach (['١', '٢', '٣'] as $n) {
+    foreach (['1', '2', '3'] as $n) {
         $this->postJson($url, ['body' => "بعد الانتهاء {$n}"])->assertCreated();
     }
     $this->postJson($url, ['body' => 'الرابعة'])->assertUnprocessable();

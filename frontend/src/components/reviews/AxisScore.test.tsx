@@ -47,8 +47,8 @@ describe("AxisScore", () => {
     render(<AxisScore label="المشاركة" value={4} Icon={CheckIcon} />);
 
     // Arabic-Indic, as everywhere else in the product.
-    expect(screen.getByText("٤")).toBeTruthy();
-    expect(screen.getByText("المشاركة: ٤ من ٥")).toBeTruthy();
+    expect(screen.getByText("4")).toBeTruthy();
+    expect(screen.getByText("المشاركة: 4 من 5")).toBeTruthy();
   });
 
   it("hides the dots from assistive technology", () => {

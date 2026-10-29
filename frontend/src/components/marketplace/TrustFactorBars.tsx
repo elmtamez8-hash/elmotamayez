@@ -93,7 +93,7 @@ export function TrustFactorBars({ factors }: { factors: TrustFactor[] }) {
                     نقطة
                   </>
                 ) : (
-                  <AnimatedNumber value={width} suffix="٪" />
+                  <AnimatedNumber value={width} suffix="%" />
                 )}
               </dd>
             </div>

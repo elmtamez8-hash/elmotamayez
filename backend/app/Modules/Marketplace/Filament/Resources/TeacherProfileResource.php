@@ -540,10 +540,10 @@ class TeacherProfileResource extends Resource
                     | والاسمُ يُقرأُ على العكس — لذا التسميةُ تقولُها.
                     */
                     TextEntry::make('attendance_rate')
-                        ->label('التزام المدرّس بالحصص ٪')
+                        ->label('التزام المدرّس بالحصص %')
                         ->placeholder('—'),
 
-                    TextEntry::make('response_rate')->label('سرعة الردّ ٪')->placeholder('—'),
+                    TextEntry::make('response_rate')->label('سرعة الردّ %')->placeholder('—'),
                     TextEntry::make('years_experience')->label('سنوات الخبرة'),
                 ]),
 

@@ -48,7 +48,7 @@ beforeEach(function (): void {
     [$this->workspace, $this->teacher] = $this->createWorkspaceWithOwner(['name' => 'أكاديمية خالد']);
 
     $this->course = courseWithRate((int) $this->workspace->getKey());
-    $this->course->forceFill(['status' => 'published', 'title' => 'الفيزياء ٣'])->save();
+    $this->course->forceFill(['status' => 'published', 'title' => 'الفيزياء 3'])->save();
 
     $this->plan = Plan::factory()->group()->create([
         'workspace_id' => $this->workspace->getKey(),

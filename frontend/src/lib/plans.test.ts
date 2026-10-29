@@ -22,12 +22,12 @@ describe("planDuration", () => {
     // شهرٌ كلمةُ تسويقٍ والعمودُ أيّام؛ الترجمةُ هنا لا في قاعدةِ البيانات.
     expect(planDuration(30)).toBe("شهر واحد");
     expect(planDuration(60)).toBe("شهران");
-    expect(planDuration(90)).toBe("٣ أشهر");
+    expect(planDuration(90)).toBe("3 أشهر");
   });
 
   it("falls back to days when the span is not whole months", () => {
     expect(planDuration(1)).toBe("يوم واحد");
-    expect(planDuration(45)).toBe("٤٥ يوماً");
+    expect(planDuration(45)).toBe("45 يوماً");
   });
 
   it.each([
@@ -80,17 +80,17 @@ describe("planDuration", () => {
 const SHAPE_CASES: Array<[number | null, number | null, string | null]> = [
   [1, null, "يوم واحد"],
   [2, null, "يومان"],
-  [7, null, "٧ أيّام"],
-  [11, null, "١١ يوماً"],
+  [7, null, "7 أيّام"],
+  [11, null, "11 يوماً"],
 
   [30, null, "شهر واحد"],
   [60, null, "شهران"],
-  [90, null, "٣ أشهر"],
-  [330, null, "١١ شهراً"],
+  [90, null, "3 أشهر"],
+  [330, null, "11 شهراً"],
 
   [null, 1, "حصّة واحدة"],
   [null, 2, "حصّتان"],
-  [null, 12, "١٢ حصّة"],
+  [null, 12, "12 حصّة"],
 
   // ⚠️ A half-written row is not «٠ يوماً» — the caller drops it.
   [null, null, null],
@@ -105,6 +105,6 @@ describe("a plan is named the same way on both sides", () => {
   it("prefers the sessions it was sold by over a duration left on the row", () => {
     // ⚠️ The order is part of the answer — an older row may carry both, and the
     // two sides must not differ by which one they happened to read first.
-    expect(planShape({ duration_days: 30, session_count: 12 })).toBe("١٢ حصّة");
+    expect(planShape({ duration_days: 30, session_count: 12 })).toBe("12 حصّة");
   });
 });

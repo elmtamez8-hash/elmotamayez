@@ -43,7 +43,7 @@ beforeEach(function (): void {
         */
     $this->courseB->forceFill([
         'status' => 'published',
-        'title' => 'الفيزياء ٣',
+        'title' => 'الفيزياء 3',
         'created_by' => $this->teacherB->getKey(),
     ])->save();
 
@@ -116,7 +116,7 @@ it('reads the four middle facts from the order’s own snapshot', function (): v
         // 024 defect blanks with no error at all. Asserting it PRESENT is the
         // only thing that catches a dropped per-relation bypass — a query budget
         // reports that regression as an improvement.
-        ->assertSee('الفيزياء ٣')
+        ->assertSee('الفيزياء 3')
         /*
         | ⛔ **«شهر واحد»، لا «٣٠ يوماً» (٠٣٦).** الشاشةُ كانت تقولُ للموظَّفِ
         | الذي يُسعِّرُ الباقةَ جملةً غيرَ التي يقرؤُها مشتريها — ومدرّسٌ يقرأُ

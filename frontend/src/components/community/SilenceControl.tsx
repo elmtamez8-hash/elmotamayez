@@ -38,8 +38,8 @@ import { SelectField, TextField } from "@/components/ui/Field";
  * duration the server reads as a validation error.
  */
 const DURATIONS: Array<{ value: string; label: string }> = [
-  { value: "10", label: "١٠ دقائق" },
-  { value: "30", label: "٣٠ دقيقة" },
+  { value: "10", label: "10 دقائق" },
+  { value: "30", label: "30 دقيقة" },
   { value: "60", label: "ساعة" },
   { value: "1440", label: "يوم" },
   { value: "", label: "حتى أرفعه بنفسي" },

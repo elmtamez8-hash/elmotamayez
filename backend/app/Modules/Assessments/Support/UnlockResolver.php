@@ -226,7 +226,7 @@ class UnlockResolver
         }
 
         if (in_array('score', $missing, true)) {
-            $parts[] = 'الوصول إلى '.rtrim(rtrim(number_format($minPct, 2, '.', ''), '0'), '.').'٪ في واجبها';
+            $parts[] = 'الوصول إلى '.rtrim(rtrim(number_format($minPct, 2, '.', ''), '0'), '.').'% في واجبها';
         }
 
         // ⚠️ NAMED, NEVER «غير متاح» (FR-038). A block with no stated cause turns

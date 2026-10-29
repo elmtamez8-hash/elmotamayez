@@ -208,7 +208,7 @@ export default function MyReviewsPage() {
                     <p className="text-lg font-bold leading-none text-primary-ink">
                       <bdi>{arabicDecimal(review.average)}</bdi>
                     </p>
-                    <p className="mt-1 text-[11px] text-ink-muted">من ٥</p>
+                    <p className="mt-1 text-[11px] text-ink-muted">من 5</p>
                   </div>
                 </div>
 

@@ -69,7 +69,7 @@ export default function GradePaperPage() {
             <span className="mt-1 block">
               {/* Named for what it is. A number labelled "الدرجة" over an unmarked
                   paper is a result the student never got. */}
-              المصحَّح آلياً: <bdi>{Math.round(paper.auto_score)}</bdi>٪ ·{" "}
+              المصحَّح آلياً: <bdi>{Math.round(paper.auto_score)}</bdi>% ·{" "}
               {outstanding > 0 ? (
                 <span>
                   يتبقّى {counted(outstanding, NOUNS.questions)}

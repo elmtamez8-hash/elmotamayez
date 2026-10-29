@@ -248,7 +248,7 @@ class ManagePlatformSettings extends Page
                                 ->integer()->minValue(0)->maxValue(3650)->required(),
                             TextInput::make('auth_session_retain_days')
                                 ->label('مدّة الاحتفاظ بسجلّ الجلسات والأجهزة (بالأيام)')
-                                ->helperText('بعدها يبقى الصفّ ويذهب «من أين»: يُمسَح العنوان وتُمسَح البصمة. لا يقلّ عن ٨ أيّام.')
+                                ->helperText('بعدها يبقى الصفّ ويذهب «من أين»: يُمسَح العنوان وتُمسَح البصمة. لا يقلّ عن 8 أيّام.')
                                 ->integer()->minValue(8)->maxValue(65535)->required(),
                             TextInput::make('auth_session_cap_per_user')
                                 ->label('أقصى عدد جلسات منتهية مُجهَّلة لكلّ حساب')
@@ -329,7 +329,7 @@ class ManagePlatformSettings extends Page
                                 ->label('أقصى عدد تجديدات لجلسة مشاهدة واحدة')
                                 ->integer()->minValue(1)->required(),
                             PercentInput::make('watched_share', minPercent: 5)
-                                ->label('نسبة المشاهدة التي تُعدّ «شاهد التسجيل» (من ٥ إلى ١٠٠)')
+                                ->label('نسبة المشاهدة التي تُعدّ «شاهد التسجيل» (من 5 إلى 100)')
                                 ->helperText('تُقاس بساعة الخادم منذ فتح الفيديو، لا بموضع المشغّل. تظهر للمدرّس في كشف الحضور ولا تغيّر الحالة.')
                                 ->step(5)->required(),
                             TextInput::make('watched_fallback_seconds')
@@ -366,7 +366,7 @@ class ManagePlatformSettings extends Page
                             */
                             MoneyInput::make('operating_fee_individual', fn (): string => app(BillingSettings::class)->currency())
                                 ->label('رسوم التشغيل — حصّة فرديّة')
-                                ->helperText('‏٥٫٠٠ تُكتَبُ 5')
+                                ->helperText('‏5.00 تُكتَبُ 5')
                                 ->required(),
                             /*
                             | ⚠️ رسمٌ للمجموعةِ على حدة: استضافةُ حصّةِ مجموعةٍ
@@ -385,7 +385,7 @@ class ManagePlatformSettings extends Page
                             */
                             TextInput::make('gateway_fee_bps')
                                 ->label('نسبة بوابة الدفع (نقاط أساس)')
-                                ->helperText('‏٢٫٥٪ تُكتب 250 — والحدّ الأقصى 9999')
+                                ->helperText('‏2.5% تُكتب 250 — والحدّ الأقصى 9999')
                                 ->integer()->minValue(0)->maxValue(9999)->required(),
                             MoneyInput::make('gateway_fixed_fee', fn (): string => app(BillingSettings::class)->currency())
                                 ->label('الرسم الثابت للبوّابة')

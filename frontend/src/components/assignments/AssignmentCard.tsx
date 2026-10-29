@@ -111,8 +111,8 @@ export function AssignmentCard({
       )}
       {assignment.late_policy === "penalty" && (
         <p className="mb-3 text-sm text-ink-muted">
-          يُخصم <bdi>{arabicNumber(assignment.late_penalty_pct_per_day)}</bdi>٪ عن كل يوم تأخير، بحدٍّ أقصى{" "}
-          <bdi>{arabicNumber(assignment.late_penalty_cap_pct)}</bdi>٪.
+          يُخصم <bdi>{arabicNumber(assignment.late_penalty_pct_per_day)}</bdi>% عن كل يوم تأخير، بحدٍّ أقصى{" "}
+          <bdi>{arabicNumber(assignment.late_penalty_cap_pct)}</bdi>%.
         </p>
       )}
 
@@ -122,7 +122,7 @@ export function AssignmentCard({
               than the student expected. */}
           {(mine.late_penalty_applied_pct ?? 0) > 0 && (
             <span>
-              خُصم <bdi>{arabicNumber(mine.late_penalty_applied_pct ?? 0)}</bdi>٪ للتأخير.{" "}
+              خُصم <bdi>{arabicNumber(mine.late_penalty_applied_pct ?? 0)}</bdi>% للتأخير.{" "}
             </span>
           )}
           {mine.feedback}

@@ -68,11 +68,11 @@ describe("narrowing the queue", () => {
 
     render(<ShipmentQueuePage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "وصل ١" }));
+    fireEvent.click(await screen.findByRole("button", { name: "وصل 1" }));
     expect(screen.queryByText("مريم")).toBeNull();
     expect(screen.getByText("خالد")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "الكل ٢" }));
+    fireEvent.click(screen.getByRole("button", { name: "الكل 2" }));
     fireEvent.change(screen.getByLabelText("ابحث في الشحنات"), { target: { value: "مريم" } });
     expect(screen.getByText("مريم")).toBeTruthy();
     expect(screen.queryByText("خالد")).toBeNull();

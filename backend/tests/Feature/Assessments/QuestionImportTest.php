@@ -93,7 +93,7 @@ it('creates the concepts a file names and reuses them across its rows', function
 
     $before = Concept::where('workspace_id', $workspace->id)->count();
 
-    $body = mcqRow('س١؟', 'المشتقّات').mcqRow('س٢؟', 'المشتقّات').mcqRow('س٣؟', 'التكامل');
+    $body = mcqRow('س1؟', 'المشتقّات').mcqRow('س2؟', 'المشتقّات').mcqRow('س3؟', 'التكامل');
 
     $import = startImport((int) $workspace->id, (int) $owner->id, importFile($body));
 

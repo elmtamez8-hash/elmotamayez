@@ -139,8 +139,8 @@ describe("CohortList", () => {
     // its own word and is not «٢ مقاعد».
     expect(screen.getByText("مقعد واحد متبقٍ")).toBeTruthy();
     expect(screen.getByText("مقعدان متبقّيان")).toBeTruthy();
-    expect(screen.getByText("٤ مقاعد متبقّية")).toBeTruthy();
-    expect(screen.getByText("١٢ مقعداً متبقّياً")).toBeTruthy();
+    expect(screen.getByText("4 مقاعد متبقّية")).toBeTruthy();
+    expect(screen.getByText("12 مقعداً متبقّياً")).toBeTruthy();
   });
 
   it("says so out loud when nothing is scheduled yet", () => {

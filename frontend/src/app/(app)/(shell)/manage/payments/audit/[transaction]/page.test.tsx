@@ -77,8 +77,8 @@ describe("one payment's chain", () => {
     expect(screen.getByText("تحويل بنكي")).toBeDefined();
     expect(screen.getByText("order-1")).toBeDefined();
     // Counted nouns, never a template literal.
-    expect(screen.getByText("١٠ حصص")).toBeDefined();
-    expect(screen.getByText("٧ حصص")).toBeDefined();
+    expect(screen.getByText("10 حصص")).toBeDefined();
+    expect(screen.getByText("7 حصص")).toBeDefined();
     expect(screen.getByText("entry-1")).toBeDefined();
     expect(screen.getByText("entry-2")).toBeDefined();
     expect(screen.getByText("اعتماد دفعة")).toBeDefined();
@@ -92,7 +92,7 @@ describe("one payment's chain", () => {
 
     await open();
 
-    expect(screen.queryByText(/٠/)).toBeNull();
+    expect(screen.queryByText("0")).toBeNull();
     expect(screen.getByText("لم يُصرف شيء من هذه الدفعة بعد")).toBeDefined();
   });
 

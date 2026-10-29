@@ -132,7 +132,7 @@ export default function ReportCardsPage() {
                 >
                   <div className="bg-squares grid min-w-24 shrink-0 place-items-center rounded-2xl bg-primary px-3 py-3 text-center text-white">
                     <span className="text-2xl font-extrabold leading-none tabular-nums">
-                      {card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}٪`}
+                      {card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}%`}
                     </span>
                     <span className="mt-1 text-xs font-semibold opacity-85">التقدير العام</span>
                   </div>

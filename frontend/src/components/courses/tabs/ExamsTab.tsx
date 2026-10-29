@@ -69,7 +69,7 @@ export function ExamsTab({ exams }: { exams: CourseExam[] }) {
             <div className="mb-3 flex flex-wrap gap-2">
               <Badge>{counted(exam.duration_minutes, NOUNS.minutes)}</Badge>
               <Badge>
-                النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}٪</bdi>
+                النجاح&nbsp;<bdi>{arabicNumber(exam.passing_score)}%</bdi>
               </Badge>
             </div>
 
@@ -78,7 +78,7 @@ export function ExamsTab({ exams }: { exams: CourseExam[] }) {
                 ? "لم تُقرأ محاولاتك."
                 : sat ? (
                     <>
-                      أفضل نتيجة <bdi>{arabicNumber(mine.best_score ?? 0)}٪</bdi> من{" "}
+                      أفضل نتيجة <bdi>{arabicNumber(mine.best_score ?? 0)}%</bdi> من{" "}
                       {counted(mine.count, {
                         one: "محاولة واحدة",
                         two: "محاولتين",

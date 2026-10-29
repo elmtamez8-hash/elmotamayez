@@ -45,7 +45,7 @@ export default async function RefundsPage() {
       image="/marketplace/banner-refunds.webp"
       title="سياسة الاسترجاع"
       summary="متى يحقّ لك استرداد قيمة حصة أو كورس، وكيف تُقدَّم الطلبات."
-      updatedAt="٢٧ سبتمبر ٢٠٢٦"
+      updatedAt="27 سبتمبر 2026"
       platformName={identity.name}
       supportWhatsapp={identity.supportWhatsapp}
       legalName={identity.legalName}

@@ -16,9 +16,9 @@ describe("the countdown", () => {
   });
 
   it("reads in Arabic digits, rounding up so zero shows only at the end", () => {
-    expect(formatClock(245_000)).toBe("٤:٠٥");
-    expect(formatClock(500)).toBe("٠:٠١");
-    expect(formatClock(0)).toBe("٠:٠٠");
+    expect(formatClock(245_000)).toBe("4:05");
+    expect(formatClock(500)).toBe("0:01");
+    expect(formatClock(0)).toBe("0:00");
   });
 });
 

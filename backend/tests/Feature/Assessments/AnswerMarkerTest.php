@@ -36,15 +36,15 @@ function markerFixture(object $workspace, object $student): array
         'status' => 'published',
     ]);
 
-    $question = bankQuestion($workspace, $exam, ['content' => 'ما ناتج ١ + ١؟']);
+    $question = bankQuestion($workspace, $exam, ['content' => 'ما ناتج 1 + 1؟']);
 
     $right = QuestionOption::create([
         'workspace_id' => $workspace->getKey(), 'question_id' => $question->id,
-        'content' => '٢', 'is_correct' => true, 'order' => 1,
+        'content' => '2', 'is_correct' => true, 'order' => 1,
     ]);
     $wrong = QuestionOption::create([
         'workspace_id' => $workspace->getKey(), 'question_id' => $question->id,
-        'content' => '٣', 'is_correct' => false, 'order' => 2,
+        'content' => '3', 'is_correct' => false, 'order' => 2,
     ]);
 
     $attempt = app(StartAttempt::class)->handle($exam, $student);

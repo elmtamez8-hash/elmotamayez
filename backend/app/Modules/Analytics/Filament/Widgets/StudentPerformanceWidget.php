@@ -67,7 +67,7 @@ class StudentPerformanceWidget extends BaseWidget
                 TextColumn::make('exam_average')
                     ->label('متوسّط الاختبارات المصحَّحة')
                     ->badge()
-                    ->formatStateUsing(fn (mixed $state): string => $state === null ? '—' : number_format((float) $state, 1).'٪')
+                    ->formatStateUsing(fn (mixed $state): string => $state === null ? '—' : number_format((float) $state, 1).'%')
                     ->color(fn (mixed $state): string => match (true) {
                         $state === null => 'gray',
                         (float) $state >= 75 => 'success',
@@ -78,7 +78,7 @@ class StudentPerformanceWidget extends BaseWidget
                 TextColumn::make('graded_attempts')->label('أوراق مصحَّحة')->sortable(),
                 TextColumn::make('progress')
                     ->label('التقدّم')
-                    ->formatStateUsing(fn (mixed $state): string => $state === null ? '—' : number_format((float) $state, 0).'٪')
+                    ->formatStateUsing(fn (mixed $state): string => $state === null ? '—' : number_format((float) $state, 0).'%')
                     ->sortable(),
                 TextColumn::make('absences')
                     ->label('الغياب')

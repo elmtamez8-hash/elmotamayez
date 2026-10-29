@@ -45,7 +45,7 @@ it('tells the teacher a transfer was requested', function (): void {
     $notice = cohortNotice(NotificationType::CohortTransferRequested, (int) $fx['owner']->getKey());
 
     expect($notice)->not->toBeNull();
-    expect($notice->body)->toContain('السبت ٤م')->toContain('الأحد ٦م');
+    expect($notice->body)->toContain('السبت 4م')->toContain('الأحد 6م');
 
     // The queue, not the course page: the teacher opens this to press one of
     // two buttons.
@@ -69,7 +69,7 @@ it('tells the student their transfer was approved', function (): void {
     $notice = cohortNotice(NotificationType::CohortTransferApproved, (int) $fx['student']->getKey());
 
     expect($notice)->not->toBeNull();
-    expect($notice->body)->toContain('الأحد ٦م');
+    expect($notice->body)->toContain('الأحد 6م');
     expect($notice->action_url)->toBe('/enrollments/'.$fx['course']->uuid);
 });
 

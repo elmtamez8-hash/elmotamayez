@@ -140,7 +140,7 @@ export default function NewExamPage() {
             />
             <NumberField
               id="passing_score"
-              label="درجة النجاح ٪"
+              label="درجة النجاح %"
               value={form.passing_score}
               onChange={set("passing_score")}
               error={fields.passing_score}

@@ -123,7 +123,7 @@ export default function ManageExamsPage() {
       key: "passing",
       header: "درجة النجاح",
       numeric: true,
-      render: (row) => <bdi>{arabicNumber(row.passing_score)}٪</bdi>,
+      render: (row) => <bdi>{arabicNumber(row.passing_score)}%</bdi>,
     },
     {
       key: "open",
