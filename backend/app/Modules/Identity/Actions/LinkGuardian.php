@@ -10,6 +10,7 @@ use App\Modules\Identity\Models\ParentStudentRelation;
 use App\Modules\Identity\Support\PlatformRole;
 use App\Modules\Identity\Support\RelationStatus;
 use App\Modules\Identity\Support\RelationType;
+use App\Modules\Identity\Support\UserStatus;
 use App\Modules\Notifications\Actions\DispatchNotification;
 use App\Modules\Notifications\Data\NotificationRequest;
 use App\Modules\Notifications\Support\NotificationType;
@@ -160,7 +161,17 @@ class LinkGuardian extends Action
             ->where('platform_role', PlatformRole::Student)
             ->first();
 
-        if ($student === null) {
+        /*
+        | ⛔ NOT A MINOR STILL WAITING ON THEIR GUARDIAN (QA 2026-10-29). Such a
+        | child can never sign in, so a request only THEY may accept stayed
+        | `pending` for ever — and `hasLiveParent()` counts a pending parent, so
+        | the REAL guardian, confirming the email the child named, got no
+        | invitation and was refused here with «لهذا الطالب وليّ أمر مسجَّل».
+        | Any stranger holding the uuid locked the child out. That child's
+        | guardian is found by the email they named (`InviteGuardianOnContact-
+        | Verified`), never by this door — so the same undifferentiated sentence.
+        */
+        if ($student === null || $student->status === UserStatus::PendingGuardianConsent->value) {
             throw new DomainException('لم نجد حساب طالب بهذا المعرّف.');
         }
 
