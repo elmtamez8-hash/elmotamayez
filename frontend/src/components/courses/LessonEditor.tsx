@@ -490,7 +490,7 @@ export function LessonEditor({
           <CheckboxField
             id={`preview-${lesson.uuid}`}
             checked={lesson.is_preview}
-            disabled={busy}
+            disabled={busy || !lesson.can_change_access}
             label={
               <span>
                 متاح بلا تسجيل
@@ -512,7 +512,7 @@ export function LessonEditor({
           <CheckboxField
             id={`free-${lesson.uuid}`}
             checked={lesson.is_free}
-            disabled={busy}
+            disabled={busy || !lesson.can_change_access}
             label={
               <span>
                 بلا مقابل داخل الكورس
@@ -530,6 +530,12 @@ export function LessonEditor({
               )
             }
           />
+
+          {!lesson.can_change_access && (
+            <p className="text-xs text-ink-muted">
+              فتح الدرس بلا مقابل قرار مدرّس الكورس.
+            </p>
+          )}
         </div>
 
         {/*

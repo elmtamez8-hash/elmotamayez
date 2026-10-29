@@ -27,6 +27,10 @@ class LessonController extends Controller
     {
         $chapter = $this->chapterFrom($course, $request->string('chapter_uuid')->toString());
 
+        if (self::opensAccess($request->validated(), null)) {
+            $this->authorize('changePricing', $course);
+        }
+
         $lesson = $action->create($course, $chapter, LessonData::fromArray($request->validated()));
 
         return response()->json(LessonResource::make($lesson), 201);
@@ -61,6 +65,11 @@ class LessonController extends Controller
             : null;
 
         $payload = $request->validated();
+
+        if (self::opensAccess($payload, $lesson)) {
+            $this->authorize('changePricing', $course);
+        }
+
         // The type never changes through this path — ChangeLessonType reports
         // what would be lost first. Carrying the current one keeps the DTO one
         // shape for both verbs.
@@ -202,5 +211,35 @@ class LessonController extends Controller
     private function assertBelongsToCourse(Lesson $lesson, Course $course): void
     {
         abort_unless($lesson->course_id === $course->getKey(), 404);
+    }
+
+    /**
+     * Whether this write MOVES who may open the lesson without paying —
+     * `is_free` or `is_preview` (`Lesson::isOpen()` reads nothing else).
+     *
+     * ⛔ That is a price, so it is the teacher's call (`changePricing`), never
+     * `lessons.manage` alone: the assistant holds that, and ticking «بلا مقابل»
+     * on a paid lesson handed its content to every signed-in account — the
+     * course-level hole closed on 2026-09-30, one level down (QA 2026-10-29).
+     * Asked on a CHANGE only, as for the course: a create at the defaults or an
+     * edit that does not touch the two flags must not refuse an assistant.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private static function opensAccess(array $payload, ?Lesson $lesson): bool
+    {
+        foreach (['is_free', 'is_preview'] as $flag) {
+            if (! array_key_exists($flag, $payload) || $payload[$flag] === null) {
+                continue;
+            }
+
+            $stored = $lesson !== null && (bool) $lesson->{$flag};
+
+            if ((bool) $payload[$flag] !== $stored) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
