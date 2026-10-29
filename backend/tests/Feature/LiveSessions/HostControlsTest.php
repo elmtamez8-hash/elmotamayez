@@ -261,6 +261,40 @@ it('keeps a removed student out until the host lets them back in', function (): 
     $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
 });
 
+/*
+| ⛔ QA 2026-10-29: the student's connection dropped for a moment, the provider
+| answered «not in the room», that became a 422 BEFORE the removal was stamped,
+| and the student rejoined with a fresh ticket. The stamp now comes first.
+*/
+it('keeps out a student who was momentarily disconnected when the host removed them', function (): void {
+    Queue::fake([CloseClassSessionJob::class]);
+
+    $student = $this->addWorkspaceMember($this->workspace, Roles::STUDENT);
+    $this->createEnrollment($this->workspace, $this->course, $student);
+    $this->setCurrentWorkspace($this->workspace, $this->owner);
+
+    app(BookSeat::class)->handle($this->session, $student);
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertOk();
+
+    // The provider's answer for a participant who is not connected right now.
+    $this->provider->failWith = new DomainException('هذا المشارك لم يعد في الغرفة.');
+
+    Sanctum::actingAs($this->owner);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/host/remove", [
+        'target_uuid' => $student->uuid,
+    ])->assertOk();
+
+    $this->provider->failWith = null;
+
+    Sanctum::actingAs($student);
+    $this->postJson("/api/v1/class-sessions/{$this->session->uuid}/join")->assertForbidden();
+});
+
 it('never locks the host out with the button meant for a student', function (): void {
     /*
      | ⚠️ `->delay()` RUNS IMMEDIATELY ON THE `sync` CONNECTION. Opening the room

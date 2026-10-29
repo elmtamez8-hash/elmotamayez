@@ -16,6 +16,7 @@ use App\Modules\LiveSessions\Exceptions\BroadcastProviderUnavailable;
 use App\Modules\LiveSessions\Exceptions\InvalidBroadcastSignature;
 use App\Modules\LiveSessions\Exceptions\UnsupportedCapability;
 use App\Modules\LiveSessions\Models\ClassSession;
+use DomainException;
 
 /**
  * Abstraction over a live broadcast provider.
@@ -103,6 +104,7 @@ interface BroadcastProviderInterface
      * @return list<string> the participant identities affected — our user uuids
      *
      * @throws UnsupportedCapability when the provider does not claim hostControls
+     * @throws DomainException when a single named participant is not in the room
      */
     public function hostAction(ClassSession $session, HostAction $action, ?User $target = null, ?User $actor = null, array $studentIdentities = []): array;
 
