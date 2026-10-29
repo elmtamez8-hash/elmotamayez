@@ -151,10 +151,9 @@ class BroadcastController extends Controller
      * ⚠️ THE TWO SPELLINGS ARE THE EXISTING ONES, and inventing a third is the
      * defect `BookingEligibility` and `ListLeaderboardScopes` have each already
      * paid for: one answer on the screen and another at the door. `host` is the
-     * same policy ability the host routes are gated on, and `holdsSeat()` is the
-     * same method the lesson player asks — deliberately wider than the door,
-     * because a student whose seat was released still belongs to the list of
-     * people whose face the room may show.
+     * same policy ability the host routes are gated on, and `holdsLiveSeat()` is
+     * the seat as the room counts it. A released student may still be LISTED —
+     * their face can be in the room's history — but no longer READS the list.
      *
      * The refusal is a plain 403 rather than the door's uniform sentence: this is
      * not a claim to enter, and by the time it is asked the caller already knows
@@ -167,7 +166,15 @@ class BroadcastController extends Controller
         $user = $this->currentUser($request);
         $isHost = Gate::allows('host', $session);
 
-        if (! $session->holdsSeat($user) && ! $isHost) {
+        /*
+        | ⛔ THE READER IS SOMEBODY IN THE ROOM — A LIVE SEAT OR A HOST (owner
+        | decision 2026-10-29). `holdsSeat()` admitted a student whose seat was
+        | released or cancelled, and they kept reading the other students' names,
+        | photos and badges for a lesson they were no longer part of. Who is
+        | LISTED is unchanged — a released student may still appear — only who
+        | may READ the list narrowed.
+        */
+        if (! $session->holdsLiveSeat($user) && ! $isHost) {
             return response()->json(['message' => 'لست من المشاركين في هذه الحصة.'], 403);
         }
 
