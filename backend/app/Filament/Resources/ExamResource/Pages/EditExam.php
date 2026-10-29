@@ -8,12 +8,14 @@ use App\Filament\Resources\ExamResource;
 use App\Modules\Assessments\Actions\ChangeExamStatus;
 use App\Modules\Assessments\Enums\ExamStatus;
 use App\Modules\Assessments\Models\Exam;
+use DomainException;
 use Filament\Actions;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EditExam extends EditRecord
 {
@@ -58,7 +60,13 @@ class EditExam extends EditRecord
             $record->update($data);
 
             if ($status !== null) {
-                app(ChangeExamStatus::class)->handle($record, $status);
+                try {
+                    app(ChangeExamStatus::class)->handle($record, $status);
+                } catch (DomainException $refusal) {
+                    // An empty paper refused at publish — said beside the field,
+                    // never as an error page (the whole save rolls back).
+                    throw ValidationException::withMessages(['data.status' => $refusal->getMessage()]);
+                }
             }
 
             return $record->refresh();

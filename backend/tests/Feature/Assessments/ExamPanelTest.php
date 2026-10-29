@@ -155,8 +155,20 @@ it('still deletes a paper nobody sat', function (): void {
     expect(Exam::query()->withoutWorkspaceScope()->whereKey($this->exam->getKey())->exists())->toBeFalse();
 });
 
+it('refuses to publish an exam with no question, beside the field, saving nothing', function (): void {
+    examPanelAs(User::factory()->create(['is_super_admin' => true]), $this->home);
+
+    Livewire::test(EditExam::class, ['record' => $this->exam->getRouteKey()])
+        ->fillForm(['status' => 'published'])
+        ->call('save')
+        ->assertHasErrors(['data.status']);
+
+    expect(Exam::query()->withoutWorkspaceScope()->whereKey($this->exam->getKey())->value('status'))->not->toBe('published');
+});
+
 it('publishes through the Action, so the activity log records it', function (): void {
     examPanelAs(User::factory()->create(['is_super_admin' => true]), $this->home);
+    bankQuestion($this->home, $this->exam);
 
     Livewire::test(EditExam::class, ['record' => $this->exam->getRouteKey()])
         ->fillForm(['status' => 'published'])

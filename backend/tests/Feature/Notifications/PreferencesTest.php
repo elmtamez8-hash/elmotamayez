@@ -225,3 +225,18 @@ it('hides a channel that is switched off', function (): void {
     // No subscription means no code is ever sent, so no number may be offered.
     expect($channels)->not->toContain(NotificationChannel::WhatsApp->value);
 });
+
+/*
+| ⛔ QA 2026-10-29: a mandatory type saved as WhatsApp-only answered 200, while
+| delivery still goes in-app — the screen then showed a setting that was false.
+*/
+it('refuses a mandatory type without the in-app channel', function (): void {
+    Sanctum::actingAs(User::factory()->create());
+
+    $this->putJson('/api/v1/notifications/preferences', [
+        'preferences' => [[
+            'type' => NotificationType::AccessWithheld->value,
+            'channels' => [NotificationChannel::WhatsApp->value],
+        ]],
+    ])->assertStatus(422);
+});

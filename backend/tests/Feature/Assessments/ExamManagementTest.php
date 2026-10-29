@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Assessments\Actions\PublishExam;
 use App\Modules\Assessments\Models\Exam;
 use App\Modules\Assessments\Models\Question;
 use Illuminate\Support\Str;
@@ -59,6 +60,14 @@ describe('exam management', function (): void {
         ]);
 
         Sanctum::actingAs($owner);
+
+        // ⛔ QA 2026-10-29: an exam with no question is not published.
+        $this->postJson("/api/v1/exams/{$exam->uuid}/publish")
+            ->assertStatus(422)
+            ->assertJsonPath('message', PublishExam::EMPTY_REFUSAL);
+        expect($exam->refresh()->status)->toBe('draft');
+
+        bankQuestion($workspace, $exam);
 
         $this->postJson("/api/v1/exams/{$exam->uuid}/publish")
             ->assertOk()->assertJsonPath('status', 'published')

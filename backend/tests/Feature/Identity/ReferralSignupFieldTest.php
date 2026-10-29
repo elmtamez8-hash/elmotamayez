@@ -95,3 +95,18 @@ it('registers without a referral when the field is empty or absent', function ()
 
     expect(Referral::query()->count())->toBe(0);
 });
+
+/*
+| ⛔ QA 2026-10-29 (beside the signup fixture this file already has): a minor
+| who typed their OWN email in capitals as the guardian's passed `different:email`
+| and was locked waiting for consent for ever. Compared the way they are stored.
+*/
+it('refuses a minor naming their own email as the guardian, whatever its case', function (): void {
+    $this->postJson('/api/v1/auth/register/student', referralSignupPayload([
+        'email' => 'minor-self@example.com',
+        'date_of_birth' => now()->subYears(12)->toDateString(),
+        'guardian_contact' => 'MINOR-SELF@example.com',
+    ]))->assertStatus(422)->assertJsonValidationErrors('guardian_contact');
+
+    expect(User::query()->where('email', 'minor-self@example.com')->exists())->toBeFalse();
+});

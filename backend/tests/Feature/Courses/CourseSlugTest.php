@@ -45,3 +45,21 @@ it('answers a uuid key with that uuid\'s course, whatever slug another course ho
     expect($this->getJson("/api/v1/marketplace/courses/{$victim->uuid}")->assertOk()->json('data.uuid'))
         ->toBe($victim->uuid);
 });
+
+/*
+| ⛔ QA 2026-10-29: «../../admin x» was stored as a slug, and that course's public
+| page could never be reached. A slug carries no URL-breaking character.
+*/
+it('refuses a slug carrying a character that breaks the address', function (string $slug): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+    $course = Course::factory()->create(['workspace_id' => $workspace->getKey(), 'created_by' => $owner->getKey()]);
+    Sanctum::actingAs($owner);
+
+    $this->putJson("/api/v1/courses/{$course->uuid}", ['slug' => $slug])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('slug');
+
+    // A plain one is still taken.
+    $this->putJson("/api/v1/courses/{$course->uuid}", ['slug' => 'physics-3'])->assertOk();
+})->with(['../../admin x', 'a/b', 'a?b', 'a#b', 'a b']);

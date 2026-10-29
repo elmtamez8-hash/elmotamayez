@@ -20,6 +20,7 @@ use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Contracts\AssistantScopeDirectory;
 use App\Shared\Contracts\EnrollmentDirectory;
 use App\Shared\Support\WorkspaceContext;
+use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -313,7 +314,11 @@ class ExamController extends Controller
     {
         $this->authorize('publish', $exam);
 
-        return response()->json(ExamResource::make($action->handle($exam)));
+        try {
+            return response()->json(ExamResource::make($action->handle($exam)));
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
     }
 
     public function destroy(Exam $exam): JsonResponse

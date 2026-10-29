@@ -40,6 +40,17 @@ class UpdateNotificationPreferences extends Action
                 throw new DomainException("«{$type->label()}» إشعار إلزامي ولا يمكن إيقافه.");
             }
 
+            /*
+            | ⛔ AND NOT WITHOUT THE IN-APP CHANNEL EITHER (QA 2026-10-29). A
+            | mandatory type saved as WhatsApp-only answered 200 and echoed it
+            | back, while delivery ignores the choice (`PreferenceResolver`) and
+            | still sends in-app — the screen then showed a setting that was not
+            | true. Refused with the reason rather than stored as a fiction.
+            */
+            if ($type->isMandatory() && ! in_array(NotificationChannel::InApp, $channels, true)) {
+                throw new DomainException("«{$type->label()}» إشعار إلزامي يصلك داخل المنصّة دائماً.");
+            }
+
             foreach ($channels as $channel) {
                 if (! $this->registry->has($channel)) {
                     throw new DomainException("القناة «{$channel->label()}» غير متاحة بعد.");

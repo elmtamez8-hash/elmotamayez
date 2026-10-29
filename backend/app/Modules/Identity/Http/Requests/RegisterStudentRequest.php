@@ -9,6 +9,7 @@ use App\Modules\Marketplace\Actions\Public\ListSchoolYears;
 use App\Modules\Marketplace\Models\Region;
 use App\Modules\Marketplace\Models\SchoolYear;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -129,7 +130,19 @@ class RegisterStudentRequest extends FormRequest
                 */
                 'email',
                 'max:190',
-                'different:email',
+                /*
+                | ⛔ NOT `different:email` — IT COMPARES CASE-SENSITIVELY (QA
+                | 2026-10-29). A minor typed their own address in capitals as the
+                | guardian's, passed, and `RegisterStudent` then lowercased it to
+                | their own email: no parent could ever register it, and the
+                | account waited for consent for ever. Compared the way the two
+                | are stored.
+                */
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (is_string($value) && mb_strtolower(trim($value)) === mb_strtolower(trim((string) $this->input('email')))) {
+                        $fail('اكتب بريد وليّ أمرك، لا بريدك أنت.');
+                    }
+                },
             ],
             // FR-065: ships unchecked, so an absent value must fail rather than
             // quietly default to consent.
