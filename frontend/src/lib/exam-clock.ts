@@ -49,11 +49,20 @@ export function restoreFrom(rows: AnswerRow[] | null | undefined): {
   return { answers, texts };
 }
 
-/** Whole seconds left until the server's deadline, never below zero; null when untimed. */
-export function secondsLeft(deadlineIso: string | null | undefined, nowMs: number): number | null {
-  if (!deadlineIso) return null;
+/**
+ * The deadline on THIS device's clock: the server's «seconds left», added to
+ * the moment its answer arrived. ⚠️ Never `deadline_at` read against the
+ * device's clock — a phone five minutes fast would submit five minutes early.
+ */
+export function localDeadline(secondsLeftOnServer: number | null | undefined, receivedAtMs: number): number | null {
+  return secondsLeftOnServer == null ? null : receivedAtMs + secondsLeftOnServer * 1000;
+}
 
-  return Math.max(0, Math.ceil((Date.parse(deadlineIso) - nowMs) / 1000));
+/** Whole seconds left until a local deadline, never below zero; null when untimed. */
+export function secondsLeft(deadlineMs: number | null, nowMs: number): number | null {
+  if (deadlineMs === null) return null;
+
+  return Math.max(0, Math.ceil((deadlineMs - nowMs) / 1000));
 }
 
 /** `mm:ss` (or `h:mm:ss`) in Latin digits — the platform's digits (owner decision 2026-10-29). */

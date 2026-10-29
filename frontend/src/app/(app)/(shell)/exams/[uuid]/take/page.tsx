@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { TextareaField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { arabicNumber } from "@/lib/numerals";
-import { type AnswerRow, formatClock, payloadOf, restoreFrom, secondsLeft } from "@/lib/exam-clock";
+import { type AnswerRow, formatClock, localDeadline, payloadOf, restoreFrom, secondsLeft } from "@/lib/exam-clock";
 
 interface AttemptResponse {
   attempt: {
@@ -21,6 +21,8 @@ interface AttemptResponse {
     status: string;
     /** The server's deadline — it closes the sitting there, whatever this screen does. */
     deadline_at?: string | null;
+    /** Seconds left, measured on the SERVER — the countdown starts from this. */
+    seconds_left?: number | null;
     /** The answers saved so far, so a reload resumes the paper as it was. */
     draft_answers?: AnswerRow[] | null;
   };
@@ -57,6 +59,8 @@ export default function TakeExamPage({
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  // The deadline on this device's clock, fixed when the server's answer lands.
+  const [deadlineMs, setDeadlineMs] = useState<number | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "retrying">("idle");
   // Once a submit has gone out (by the student or by the clock) nothing else
   // may start one — the clock and the button must not both fire.
@@ -77,6 +81,7 @@ export default function TakeExamPage({
     api
       .post<AttemptResponse>(`/exams/${uuid}/attempts`)
       .then((res) => {
+        setDeadlineMs(localDeadline(res.attempt.seconds_left, Date.now()));
         setData(res);
         // A reload resumes the paper as the server saved it.
         const restored = restoreFrom(res.attempt.draft_answers);
@@ -199,14 +204,14 @@ export default function TakeExamPage({
 
   // The countdown, to the SERVER's deadline. At zero the screen hands in what is
   // on it — inside the server's minute of grace, so it is marked as sent.
-  const left = secondsLeft(data?.attempt.deadline_at, now);
+  const left = secondsLeft(deadlineMs, now);
 
   useEffect(() => {
-    if (!data?.attempt.deadline_at) return;
+    if (deadlineMs === null) return;
     const tick = setInterval(() => setNow(Date.now()), 1000);
 
     return () => clearInterval(tick);
-  }, [data?.attempt.deadline_at]);
+  }, [deadlineMs]);
 
   useEffect(() => {
     if (left === 0) void submit();

@@ -47,7 +47,10 @@ beforeEach(function (): void {
     $started = $this->postJson("/api/v1/exams/{$this->exam->uuid}/attempts")->assertCreated();
     $this->uuid = (string) $started->json('attempt.uuid');
 
-    expect($started->json('attempt.deadline_at'))->not->toBeNull();
+    expect($started->json('attempt.deadline_at'))->not->toBeNull()
+        // The span, measured on the server — the screen counts from this, never
+        // from `deadline_at` against the device's own (possibly wrong) clock.
+        ->and($started->json('attempt.seconds_left'))->toBeBetween(595, 600);
 });
 
 it('marks a sitting the clock closed on the answers it saved', function (): void {

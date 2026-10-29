@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatClock, payloadOf, restoreFrom, secondsLeft } from "./exam-clock";
+import { formatClock, localDeadline, payloadOf, restoreFrom, secondsLeft } from "./exam-clock";
 
 describe("exam clock", () => {
   it("sends every question, a blank as a blank", () => {
@@ -24,12 +24,15 @@ describe("exam clock", () => {
     expect(restoreFrom(null)).toEqual({ answers: {}, texts: {} });
   });
 
-  it("counts down to the server's deadline and stops at zero", () => {
-    const now = Date.parse("2026-10-29T10:00:00Z");
+  it("counts the server's seconds on this device's clock, whatever that clock says", () => {
+    // A device five minutes fast: the wall time is wrong, the span is not.
+    const fastDevice = Date.parse("2026-10-29T10:05:00Z");
+    const deadline = localDeadline(90, fastDevice);
 
-    expect(secondsLeft("2026-10-29T10:01:30Z", now)).toBe(90);
-    expect(secondsLeft("2026-10-29T09:59:00Z", now)).toBe(0);
-    expect(secondsLeft(null, now)).toBeNull();
+    expect(secondsLeft(deadline, fastDevice)).toBe(90);
+    expect(secondsLeft(deadline, fastDevice + 60_000)).toBe(30);
+    expect(secondsLeft(deadline, fastDevice + 120_000)).toBe(0);
+    expect(secondsLeft(localDeadline(null, fastDevice), fastDevice)).toBeNull();
   });
 
   it("shows minutes and seconds, and hours when there are any", () => {

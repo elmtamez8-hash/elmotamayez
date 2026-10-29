@@ -39,6 +39,15 @@ class AttemptResource extends JsonResource
              */
             'duration_minutes' => $this->duration_minutes,
             'deadline_at' => $this->resource->deadline()?->toIso8601String(),
+            /*
+            | ⚠️ AND HOW MANY SECONDS ARE LEFT, MEASURED HERE. The screen counts
+            | down from THIS, anchored to the moment the response arrives — never
+            | to `deadline_at` read against the device's own clock: a phone five
+            | minutes fast would have handed the paper in five minutes early.
+            */
+            'seconds_left' => ($deadline = $this->resource->deadline()) === null
+                ? null
+                : max(0, $deadline->getTimestamp() - now()->getTimestamp()),
             // The answers saved so far, so a reload resumes the paper as it
             // was. While the sitting is open only; afterwards `answers` is the
             // record and this is spent.
