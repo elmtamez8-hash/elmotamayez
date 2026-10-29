@@ -240,6 +240,16 @@ class LessonController extends Controller
             }
         }
 
-        return false;
+        /*
+        | `is_high_value` withholds the lesson's files from a student who owes
+        | (FR-041), so LIFTING it opens them — the same decision, asked in one
+        | direction only (owner decision 2026-10-29): an assistant may still
+        | mark content high-value, which only protects it.
+        */
+        return array_key_exists('is_high_value', $payload)
+            && $payload['is_high_value'] !== null
+            && ! (bool) $payload['is_high_value']
+            && $lesson !== null
+            && (bool) $lesson->is_high_value;
     }
 }
