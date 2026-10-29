@@ -36,6 +36,7 @@ function mistake(overrides: Record<string, unknown> = {}) {
     },
     your_answer: ["٢٤"],
     correct_answer: ["٢١"],
+    answer_withheld: false,
     teacher: { uuid: "w-1", name: "أ. سامي" },
     is_resolved: false,
     times_wrong: 1,
