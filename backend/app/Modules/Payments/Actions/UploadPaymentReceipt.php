@@ -87,9 +87,10 @@ class UploadPaymentReceipt extends Action
         | kept, so a code that ran out in between refuses the upload and leaves
         | nothing behind.
         */
-        if ($order->status === 'rejected') {
-            $this->couponPlaces->reclaim($order);
-        }
+        // Asked whatever the status read above says: a rejection landing
+        // between that read and this line has already released the place, and
+        // `reclaim()` is a no-op for a place still held.
+        $this->couponPlaces->reclaim($order);
 
         $order->addMedia($file)->toMediaCollection('receipt');
 

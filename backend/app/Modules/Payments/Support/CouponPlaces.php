@@ -65,7 +65,18 @@ class CouponPlaces
     {
         $redemption = $this->redemptionOf($order);
 
-        if ($redemption === null || $redemption->getAttribute('released_at') === null) {
+        if ($redemption === null) {
+            return;
+        }
+
+        // The ROW first: of two reclaims racing (two uploads, an upload and an
+        // approval), exactly one flips it, and only that one moves the counter.
+        $taken = CouponRedemption::query()
+            ->whereKey($redemption->getKey())
+            ->whereNotNull('released_at')
+            ->update(['released_at' => null]);
+
+        if ($taken !== 1) {
             return;
         }
 
@@ -77,12 +88,11 @@ class CouponPlaces
             ->increment('redemptions_count');
 
         if ($claimed === 0) {
+            // No place left: the row goes back to «released», as it was.
+            CouponRedemption::query()->whereKey($redemption->getKey())->update(['released_at' => now()]);
+
             throw new DomainException(self::RECLAIM_REFUSAL);
         }
-
-        CouponRedemption::query()
-            ->whereKey($redemption->getKey())
-            ->update(['released_at' => null]);
     }
 
     private function redemptionOf(Order $order): ?CouponRedemption

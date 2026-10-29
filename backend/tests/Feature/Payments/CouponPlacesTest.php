@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\ExpireUnpaidCouponOrders;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
@@ -115,4 +116,44 @@ it('leaves an order with a receipt alone, however old', function (): void {
 
     expect(app(ExpireUnpaidCouponOrders::class)->handle())->toBe(0)
         ->and($order->refresh()->status)->toBe('under_review');
+});
+
+/*
+| The two races the security review named (2026-10-29), each pinned by putting
+| the database in the state the race leaves behind.
+*/
+it('takes a place once however many times it is asked — two uploads racing', function (): void {
+    $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+    app(CouponPlaces::class)->release($order);
+
+    app(CouponPlaces::class)->reclaim($order);
+    app(CouponPlaces::class)->reclaim($order);
+
+    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
+});
+
+it('never approves an order on a place it gave back — a rejection and an upload racing', function (): void {
+    $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+
+    // The race's outcome: under review, place released, and the code's only place gone to someone else.
+    receiptUploaded($order);
+    app(CouponPlaces::class)->release($order);
+    placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+
+    expect(fn () => app(ApproveOrder::class)->handle($order->refresh(), $this->owner))
+        ->toThrow(DomainException::class, CouponPlaces::RECLAIM_REFUSAL);
+
+    expect($order->refresh()->status)->toBe('under_review')
+        ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
+});
+
+it('approves such an order when a place is still free, taking it', function (): void {
+    $this->coupon->forceFill(['max_redemptions' => 5])->save();
+    $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+
+    receiptUploaded($order);
+    app(CouponPlaces::class)->release($order);
+
+    expect(app(ApproveOrder::class)->handle($order->refresh(), $this->owner)->status)->toBe('approved')
+        ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
 });
