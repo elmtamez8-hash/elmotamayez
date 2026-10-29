@@ -103,6 +103,12 @@ class PerformHostAction extends Action
             return;
         }
 
+        if ($action === HostAction::Remove && $target !== null) {
+            $this->removeOne($provider, $session, $target, $actor);
+
+            return;
+        }
+
         $identities = $provider->hostAction(
             $session,
             $action,
@@ -113,6 +119,37 @@ class PerformHostAction extends Action
 
         if ($action === HostAction::Remove || $action === HostAction::RemoveAll) {
             $this->recordRemoval($session, $identities);
+        }
+    }
+
+    /**
+     * «إخراج» on ONE named student: stored first, then applied.
+     *
+     * ⛔ THE STAMP USED TO WAIT FOR THE PROVIDER, AND A DROPPED CONNECTION SKIPPED
+     * IT (QA 2026-10-29). A student whose network blipped for two seconds was not
+     * in the room when the teacher pressed; the provider answered «not found»,
+     * that became a 422 before `recordRemoval()` ran, and the student rejoined a
+     * moment later with a fresh ticket — the «lasted one refresh» defect through
+     * another door. The target is named and already proved a seat-holding
+     * student (`assertStudentTarget()`), so nothing about who was present has to
+     * be guessed: the decision is stored, the same order as the media controls.
+     *
+     * «Not in the room» is then the action already done, not a refusal. An
+     * outage still travels (503) — with the removal standing, which is what the
+     * teacher asked for — and the capability is asked before anything is written.
+     */
+    private function removeOne(BroadcastProviderInterface $provider, ClassSession $session, User $target, ?User $actor): void
+    {
+        if (! $provider->capabilities()->hostControls) {
+            throw UnsupportedCapability::for($provider->identifier(), 'hostControls');
+        }
+
+        $this->recordRemoval($session, [(string) $target->uuid]);
+
+        try {
+            $provider->hostAction($session, HostAction::Remove, $target, $actor, []);
+        } catch (DomainException) {
+            // Already out of the room; the stamp above keeps them out.
         }
     }
 
