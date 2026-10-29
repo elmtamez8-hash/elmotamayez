@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Modules\Notifications\Models\Notification;
+use App\Modules\Notifications\Support\NotificationType;
 use App\Modules\Payments\Actions\ApproveOrder;
 use App\Modules\Payments\Actions\ExpireUnpaidCouponOrders;
 use App\Modules\Payments\Actions\RejectOrder;
 use App\Modules\Payments\Actions\UploadPaymentReceipt;
+use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Models\Coupon;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\CouponPlaces;
@@ -14,6 +17,7 @@ use App\Modules\Store\Actions\PurchaseStoreItem;
 use App\Modules\Store\Data\PurchaseData;
 use App\Modules\Store\Models\StoreItem;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 
 /*
 | ⛔ A COUPON'S PLACE FOLLOWS ITS ORDER (owner decision 2026-10-29).
@@ -99,12 +103,20 @@ it('refuses that receipt when the code ran out in between, and keeps nothing', f
 
 it('expires an order with no receipt after 48 hours and gives the place back, and nothing sooner', function (): void {
     $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+    Event::fake([ReceiptRejected::class]);
 
     $this->travel(47)->hours();
     expect(app(ExpireUnpaidCouponOrders::class)->handle())->toBe(0);
 
     $this->travel(2)->hours();
     expect(app(ExpireUnpaidCouponOrders::class)->handle())->toBe(1);
+
+    // The buyer is told, as after an officer's refusal (owner, 2026-10-29) — once.
+    Event::assertDispatchedTimes(ReceiptRejected::class, 1);
+    Event::assertDispatched(
+        ReceiptRejected::class,
+        fn (ReceiptRejected $e): bool => $e->order->is($order) && $e->approver === null && $e->reason === ExpireUnpaidCouponOrders::REASON,
+    );
 
     $order->refresh();
     expect($order->status)->toBe('rejected')
@@ -202,4 +214,26 @@ it('keeps the place of a refused order whose buyer sent a new receipt inside the
 
     expect($order->refresh()->status)->toBe('under_review')
         ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
+});
+
+/*
+| The buyer of a lapsed order is told in ITS words — «لم يُعتمد الإيصال المرفوع»
+| would describe a receipt they never uploaded (review note, 2026-10-29).
+*/
+it('tells the buyer of a lapsed order that it lapsed, never that a receipt was refused', function (): void {
+    $buyer = User::factory()->create();
+    $order = placesPurchase($buyer, $this->item, $this->coupon->code);
+
+    $this->travel(49)->hours();
+    app(ExpireUnpaidCouponOrders::class)->handle();
+
+    $types = Notification::query()
+        ->withoutGlobalScopes()
+        ->where('recipient_user_id', $buyer->getKey())
+        ->pluck('type')
+        ->map(fn ($type): string => $type instanceof BackedEnum ? (string) $type->value : (string) $type)
+        ->all();
+
+    expect($types)->toContain(NotificationType::OrderLapsed->value)
+        ->and($types)->not->toContain(NotificationType::ReceiptRejected->value);
 });

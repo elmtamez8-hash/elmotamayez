@@ -288,7 +288,10 @@ it('tells every guardian-facing type apart', function (): void {
     // 28 → 29 the same day: `enrollment_created` (owner decision) — the child
     // joining a course, on the `Payments` consent the purchase already uses.
     // Nothing on the timetable moved, so not `Schedule`.
-    expect($guardianTypes)->toHaveCount(29);
+    // 29 → 30 on 2026-10-29: `order_lapsed` — an order the platform closed for
+    // want of a receipt, beside `receipt_rejected` on the `Payments` consent:
+    // the guardian is usually the payer.
+    expect($guardianTypes)->toHaveCount(30);
 
     foreach ($guardianTypes as $type) {
         expect($type->requiredGuardianPermission())->not->toBeNull();

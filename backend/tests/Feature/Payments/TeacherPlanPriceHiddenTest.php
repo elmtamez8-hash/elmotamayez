@@ -92,3 +92,20 @@ it('still shows the buyer the price on the catalogue', function (): void {
         ->and($offered[$this->priced->uuid]['price_minor'])->toBe($this->priced->price_minor)
         ->and($offered[$this->priced->uuid])->toHaveKey('currency');
 });
+
+/*
+| ⛔ QA 2026-10-29: a teacher's `price_minor` was DROPPED by `validated()` and
+| the plan saved unpriced with 201 — the silent drop this file's request was
+| written to prevent. Now the key reaches `SavePlan`, which refuses it.
+*/
+it('refuses a teacher pricing a plan instead of dropping the price in silence', function (): void {
+    $this->postJson('/api/v1/manage/plans', [
+        'title' => 'بسعر',
+        'duration_days' => 30,
+        'session_type' => ClassSessionType::Individual->value,
+        'coverage_type' => PlanCoverage::Workspace->value,
+        'price_minor' => 1,
+    ])->assertStatus(422);
+
+    expect(Plan::query()->where('title', 'بسعر')->exists())->toBeFalse();
+});

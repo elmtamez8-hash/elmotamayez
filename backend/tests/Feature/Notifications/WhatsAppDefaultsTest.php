@@ -74,7 +74,8 @@ it('defaults to whatsapp for exactly the eighteen guardian types plus the securi
     // production, a linked student's enrolment told the student alone — the
     // purchase becoming access, which the guardian heard half of through the
     // receipt. It rides the `Payments` consent beside `subscription_activated`.
-    expect($onWhatsApp)->toHaveCount(31);
+    // 31 → 32 on 2026-10-29: `order_lapsed`, beside `receipt_rejected`.
+    expect($onWhatsApp)->toHaveCount(32);
 });
 
 it('derives the set from targetsGuardians, with two named exceptions and no others', function (): void {

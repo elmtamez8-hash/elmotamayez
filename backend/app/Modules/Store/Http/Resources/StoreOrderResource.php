@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Store\Http\Resources;
 
+use App\Modules\Payments\Enums\OrderStatus;
 use App\Modules\Store\Models\StoreOrder;
 use App\Modules\Store\Support\StoreSettings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 /**
  * One purchase, as the buyer reads it.
@@ -55,6 +57,10 @@ class StoreOrderResource extends JsonResource
             'opened_at' => $this->first_accessed_at?->toIso8601String(),
             'refunded_at' => $this->refunded_at?->toIso8601String(),
             'is_refundable' => $this->refunded_at === null
+                // ⛔ Paid first (QA 2026-10-29): an unpaid order read «قابل
+                // للاسترداد» and its button answered UNPAID_REFUSAL — the same
+                // condition `RefundStorePurchase` refuses on, said in one place.
+                && $this->orderIsPaid()
                 && $this->first_accessed_at === null
                 // The printed copy on its way: refunded by the administration,
                 // never by a button here (owner decision 2026-09-25).
@@ -73,5 +79,18 @@ class StoreOrderResource extends JsonResource
         );
 
         return $deadline !== null && $deadline->isFuture();
+    }
+
+    /**
+     * Whether the Payments order behind this purchase was approved. The list
+     * carries it as `order_status` (a sub-select on its own query); a single
+     * render asks once.
+     */
+    private function orderIsPaid(): bool
+    {
+        $status = $this->getAttribute('order_status')
+            ?? DB::table('orders')->where('id', $this->order_id)->value('status');
+
+        return $status === OrderStatus::Approved->value;
     }
 }

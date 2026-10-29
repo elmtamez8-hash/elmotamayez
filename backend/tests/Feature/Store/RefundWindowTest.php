@@ -253,3 +253,23 @@ it('leaves the refund open when the file was not ready to open', function (): vo
 
     expect($refunded->refunded_at)->not->toBeNull();
 });
+
+/*
+| ⛔ QA 2026-10-29: the list offered «قابل للاسترداد» on an order nobody paid,
+| and the button then answered UNPAID_REFUSAL. Paid is part of the flag now —
+| asserted through the LIST, which reads the status by sub-select.
+*/
+it('does not offer the refund on an unpaid purchase, and still does on a paid one', function (): void {
+    $paid = boughtAndPaid();
+
+    $unpaid = app(PurchaseStoreItem::class)->handle($this->buyer, PurchaseData::fromArray([
+        'item_uuid' => StoreItem::factory()->create(['workspace_id' => $this->workspace->getKey()])->uuid,
+    ]));
+
+    Sanctum::actingAs($this->buyer);
+
+    $rows = collect($this->getJson('/api/v1/store/purchases')->assertOk()->json('data'))->keyBy('uuid');
+
+    expect($rows[$paid->uuid]['is_refundable'])->toBeTrue()
+        ->and($rows[$unpaid->uuid]['is_refundable'])->toBeFalse();
+});
