@@ -169,6 +169,12 @@ export interface LessonDetail {
   is_preview: boolean;
   is_free: boolean;
   /**
+   * Whether the reader may move `is_free` / `is_preview` — a price, so the
+   * course's teacher alone (`CoursePolicy::changePricing`). An assistant reads
+   * the two switches but cannot press them.
+   */
+  can_change_access: boolean;
+  /**
    * Spec 040 — the course's «حصة تجريبية». `is_trial`: this lesson is it.
    * `trial_refusal`: why it cannot be (null when it can) — shown on the
    * disabled switch. `can_choose_trial`: the reader decides it (the course's

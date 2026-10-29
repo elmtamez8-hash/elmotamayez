@@ -114,6 +114,11 @@ class LessonResource extends JsonResource
             // the editor has the course's uuid and nothing else.
             'can_choose_trial' => ($course = $this->trialCourse()) !== null
                 && $request->user()?->can('chooseTrialLesson', $course) === true,
+            // «بلا مقابل» and «متاح بلا تسجيل» are a price — the teacher's call
+            // (`CoursePolicy::changePricing()`), so the editor disables both
+            // switches on this rather than letting an assistant press into a 403.
+            'can_change_access' => ($course = $this->trialCourse()) !== null
+                && $request->user()?->can('changePricing', $course) === true,
             'trial_status' => ($course = $this->trialCourse()) !== null && $course->trial_lesson_id === $this->getKey()
                 ? TrialLessonRule::statusFor($course)
                 : null,
