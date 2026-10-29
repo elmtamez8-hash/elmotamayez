@@ -53,7 +53,22 @@ class StartAttempt extends Action
         | so the allowance could be burnt without one answer being given.
         */
         if (! $isPractice && ($open = $this->openAttempt($exam, $student)) !== null) {
-            return $open;
+            /*
+            | ⛔ …UNLESS ITS CLOCK HAS RUN OUT (owner decision 2026-10-29). It
+            | resumed for ever, so a timed paper had no time limit at all. Closed
+            | here with what was saved — the minute sweep would do the same a
+            | moment later — and the sitting is then spent: the allowance below
+            | decides whether a fresh one may begin.
+            */
+            if (! $open->isClosedByClock()) {
+                return $open;
+            }
+
+            try {
+                app(GradeAttempt::class)->handle($open, []);
+            } catch (DomainException) {
+                // The sweep closed it first.
+            }
         }
 
         $attemptNumber = $isPractice ? null : $this->guardAttemptLimit($exam, $student);
@@ -108,6 +123,9 @@ class StartAttempt extends Action
                     (int) $student->getKey(),
                     $exam->duration_minutes,
                 ),
+                // The server owns this sitting's clock (owner decision
+                // 2026-10-29); rows from before it keep the old behaviour.
+                'clock_enforced' => ! $isPractice,
                 'random_seed' => $seed,
                 'started_at' => now(),
             ]);

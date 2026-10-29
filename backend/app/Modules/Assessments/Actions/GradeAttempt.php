@@ -57,6 +57,20 @@ class GradeAttempt extends Action
             throw new DomainException('هذه المحاولة مصحَّحة بالفعل ولا تُسلَّم مرّةً أخرى.');
         }
 
+        /*
+         | ⛔ PAST THE CLOCK, THE PAPER IS WHAT WAS SAVED BY THE CLOCK (owner
+         | decision 2026-10-29). Whoever arrives here late — the student's own
+         | «سلّم» seventy seconds after a one-minute paper, the resume, or the
+         | sweep — marks `draft_answers`, never the payload in hand: the drafts
+         | stopped being accepted at the deadline, so they ARE the paper as it
+         | stood when time ran out. Here, in the Action, because all three doors
+         | reach it (CLAUDE.md: rules on a model are enforced where the operation
+         | happens).
+         */
+        if ($attempt->isClosedByClock()) {
+            $answersPayload = self::draftOf($attempt);
+        }
+
         // ⚠️ CLAIM BEFORE ANY WRITE. The check and the write are one statement;
         // reading a status and then acting on it is the race two taps win
         // together, and a duplicated answer set double-counts every mistake in
@@ -86,6 +100,38 @@ class GradeAttempt extends Action
 
             throw $exception;
         }
+    }
+
+    /**
+     * The saved answers, in the submit payload's shape — empty when nothing was
+     * saved, which marks every question blank rather than inventing a paper.
+     *
+     * @return array<int, array{question_id: int, selected_option_ids?: array<int>, answer_text?: string|null}>
+     */
+    public static function draftOf(Attempt $attempt): array
+    {
+        $draft = Attempt::query()->withoutWorkspaceScope()->whereKey($attempt->getKey())->value('draft_answers');
+        $rows = is_string($draft) ? json_decode($draft, true) : $draft;
+
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $answers = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row) || ! isset($row['question_id'])) {
+                continue;
+            }
+
+            $answers[] = [
+                'question_id' => (int) $row['question_id'],
+                'selected_option_ids' => array_map('intval', is_array($row['selected_option_ids'] ?? null) ? $row['selected_option_ids'] : []),
+                'answer_text' => is_string($row['answer_text'] ?? null) ? $row['answer_text'] : null,
+            ];
+        }
+
+        return $answers;
     }
 
     /**

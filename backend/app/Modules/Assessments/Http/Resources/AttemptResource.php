@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Assessments\Http\Resources;
 
+use App\Modules\Assessments\Actions\GradeAttempt;
 use App\Modules\Assessments\Models\Attempt;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -27,14 +28,23 @@ class AttemptResource extends JsonResource
              | READER. It is frozen on the attempt at start (FR-054), so an
              | accommodation withdrawn afterwards does not re-time a paper
              | already sat — and without this line the column existed, was
-             | written correctly, and reached nobody. It is ADVISORY: nothing in
-             | this product enforces an exam timer server-side.
+             | written correctly, and reached nobody. Since 2026-10-29 the SERVER
+             | enforces it (`Attempt::deadline()`), and `deadline_at` below is
+             | that same instant — the screen counts down to it rather than
+             | re-adding the minutes to its own clock.
              |
              | On the student's own attempt payload rather than on ExamResource,
              | which every reader shares: a shared object that quietly differed
              | per reader would announce that the accommodation exists (FR-056).
              */
             'duration_minutes' => $this->duration_minutes,
+            'deadline_at' => $this->resource->deadline()?->toIso8601String(),
+            // The answers saved so far, so a reload resumes the paper as it
+            // was. While the sitting is open only; afterwards `answers` is the
+            // record and this is spent.
+            'draft_answers' => $this->status === Attempt::STATUS_IN_PROGRESS
+                ? GradeAttempt::draftOf($this->resource)
+                : null,
             'started_at' => $this->started_at,
             'submitted_at' => $this->submitted_at,
         ];
