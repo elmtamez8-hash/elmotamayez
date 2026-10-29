@@ -89,6 +89,29 @@ it('lets an assistant edit and create at the defaults — the flags echoed uncha
     ])->assertCreated();
 });
 
+/*
+| `is_high_value` withholds a lesson's files from a student who owes. Lifting it
+| opens them, so it is the teacher's; marking it only protects, so an
+| assistant may (owner decision 2026-10-29).
+*/
+it('lets an assistant mark a lesson high-value and refuses them lifting it', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    [$course, , $lesson] = paidLessonFixture((int) $workspace->getKey());
+    $assistant = $this->addWorkspaceMember($workspace, Roles::ASSISTANT_TEACHER);
+    $url = "/api/v1/courses/{$course->uuid}/lessons/{$lesson->uuid}";
+
+    Sanctum::actingAs($assistant);
+    $this->putJson($url, ['is_high_value' => true])->assertOk();
+    $this->putJson($url, ['is_high_value' => false])->assertForbidden();
+
+    expect((bool) $lesson->fresh()?->is_high_value)->toBeTrue();
+
+    Sanctum::actingAs($owner);
+    $this->putJson($url, ['is_high_value' => false])->assertOk();
+
+    expect((bool) $lesson->fresh()?->is_high_value)->toBeFalse();
+});
+
 it('lets the owner open a lesson, and tells the editor so', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     [$course, , $lesson] = paidLessonFixture((int) $workspace->getKey());
