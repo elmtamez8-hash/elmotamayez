@@ -114,6 +114,13 @@ it('marks the paper on submission and hands back the explanations', function ():
     $questionId = $built['questions'][0]['id'];
     $wrongOption = collect($built['questions'][0]['options'])->firstWhere('content', 'خطأ')['id'];
 
+    // ⛔ QA 2026-10-29: asked mid-run, the result handed over the key of the
+    // paper still being answered. Refused until submission, with no key in it.
+    $early = $this->getJson("/api/v1/practice/attempts/{$built['uuid']}/result")
+        ->assertStatus(409)
+        ->assertJsonPath('code', 'not_submitted');
+    expect($early->json('data'))->toBeNull();
+
     $this->postJson("/api/v1/attempts/{$built['uuid']}/submit", [
         'answers' => [['question_id' => $questionId, 'selected_option_ids' => [$wrongOption]]],
     ])->assertOk();
