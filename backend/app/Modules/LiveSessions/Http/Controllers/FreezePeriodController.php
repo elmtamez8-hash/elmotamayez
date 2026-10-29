@@ -59,6 +59,20 @@ class FreezePeriodController extends Controller
             ? null
             : User::query()->where('uuid', $studentUuid)->first();
 
+        /*
+        | ⛔ A NAMED STUDENT WHO DOES NOT RESOLVE IS A MISTAKE, NEVER «NOBODY»
+        | (QA 2026-10-29). `null` here is the WORKSPACE-wide freeze, so a typo or
+        | a stale uuid in a per-student freeze suspended and released every
+        | student's sessions in the range — and spent one of the workspace's
+        | monthly freeze starts. Asked of an explicit uuid only.
+        */
+        if ($studentUuid !== null && $student === null) {
+            return response()->json([
+                'message' => 'لم نجد هذا الطالب. اختره من القائمة مرّة أخرى.',
+                'errors' => ['student_uuid' => ['لم نجد هذا الطالب.']],
+            ], 422);
+        }
+
         try {
             $result = $action->handle(
                 $this->currentUser($request),
