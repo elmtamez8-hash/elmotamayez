@@ -117,13 +117,16 @@ class NotifyPaymentOutcome implements ShouldQueueAfterCommit
     {
         $order = $event->order;
 
+        // No approver: the platform closed an order that never received a
+        // receipt — its own message, never «لم يُعتمد الإيصال المرفوع».
+        $lapsed = $event->approver === null;
+
         $this->dispatch->handle(new NotificationRequest(
             recipient: $order->user,
-            type: NotificationType::ReceiptRejected,
-            variables: [
-                'course' => $this->describe($order),
-                'reason' => $event->reason,
-            ],
+            type: $lapsed ? NotificationType::OrderLapsed : NotificationType::ReceiptRejected,
+            variables: $lapsed
+                ? ['course' => $this->describe($order)]
+                : ['course' => $this->describe($order), 'reason' => $event->reason],
             actionUrl: '/orders',
             subject: $order->user,
             workspaceId: $order->workspace_id,

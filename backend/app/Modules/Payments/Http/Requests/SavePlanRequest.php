@@ -10,11 +10,13 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * ⚠️ `price_minor` IS ABSENT FROM THESE RULES AND STILL REFUSED IN THE ACTION.
- * Validation that simply drops an unlisted key is silent: a teacher who types a
- * price, is told nothing and finds out when nobody can buy. `SavePlan` throws a
- * sentence instead, and it has to, because the panel and any future importer
- * reach it with no form behind them at all.
+ * ⚠️ `price_minor` IS LISTED HERE SO THAT THE ACTION CAN REFUSE IT. It used to be
+ * absent, on the reasoning that `SavePlan` refuses it — but the controller
+ * passes `validated()`, which DROPS an unlisted key, so a teacher's price was
+ * discarded in silence and the refusal was unreachable over HTTP (QA run,
+ * 2026-10-29) — the exact silent drop this paragraph warned against. Listed,
+ * the key reaches `SavePlan`, which throws its sentence to anyone without
+ * `PLANS_PRICE`; the panel and any future importer reach the same refusal.
  *
  * The course is validated for PRESENCE here and for OWNERSHIP in the Action:
  * `exists:courses,uuid` is a raw query with no global scope on it, so it answers
@@ -27,6 +29,8 @@ class SavePlanRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:120'],
+            // Reaches `SavePlan`, which refuses it without `PLANS_PRICE` (above).
+            'price_minor' => ['sometimes', 'nullable', 'integer', 'min:0'],
             /*
             | ⛔ NEITHER SHAPE IS REQUIRED HERE, AND THAT IS NOT A LOOSENING.
             | «Exactly one of these two» is enforced in `SavePlan`, where the

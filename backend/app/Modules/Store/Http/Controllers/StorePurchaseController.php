@@ -19,6 +19,7 @@ use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -69,6 +70,11 @@ class StorePurchaseController extends Controller
             // only as a query count: dropped, the page is cheaper and every
             // purchase lists with no title against it.
             ->with(['item:id,uuid,title,kind,price_minor,currency', 'shipment'])
+            // The order's status rides on the same query (`is_refundable` needs
+            // «paid»), a sub-select rather than an eager load the budget test
+            // would count.
+            ->select('store_orders.*')
+            ->selectSub(DB::table('orders')->select('status')->whereColumn('orders.id', 'store_orders.order_id')->limit(1), 'order_status')
             ->orderByDesc('id')
             ->paginate(20);
 

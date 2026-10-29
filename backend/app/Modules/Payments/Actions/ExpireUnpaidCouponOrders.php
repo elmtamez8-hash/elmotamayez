@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Actions;
 
+use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Models\CouponRedemption;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Support\CouponPlaces;
@@ -53,7 +54,7 @@ class ExpireUnpaidCouponOrders extends Action
             ->whereIn('id', CouponRedemption::query()->whereNull('released_at')->select('order_id'))
             ->chunkById(200, function ($orders) use (&$expired): void {
                 foreach ($orders as $order) {
-                    DB::transaction(function () use ($order, &$expired): void {
+                    $claimed = DB::transaction(function () use ($order): bool {
                         $claimed = Order::query()->withoutWorkspaceScope()
                             ->whereKey($order->getKey())
                             ->where('status', 'pending')
@@ -61,9 +62,18 @@ class ExpireUnpaidCouponOrders extends Action
 
                         if ($claimed === 1) {
                             $this->couponPlaces->release($order);
-                            $expired++;
                         }
+
+                        return $claimed === 1;
                     });
+
+                    if ($claimed) {
+                        $expired++;
+                        // The buyer is told, as after an officer's refusal — the
+                        // orders page alone left them guessing (owner, 2026-10-29).
+                        // After the commit, so a rolled-back expiry tells nobody.
+                        ReceiptRejected::dispatch($order->refresh(), null, self::REASON);
+                    }
                 }
             });
 

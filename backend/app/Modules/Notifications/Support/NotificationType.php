@@ -579,6 +579,7 @@ enum NotificationType: string
             self::PaymentFailed => 'فشل دفع',
             self::ReceiptApproved => 'اعتماد إيصال',
             self::ReceiptRejected => 'رفض إيصال',
+            self::OrderLapsed => 'إلغاء طلب لم يصل إيصاله',
             self::PaymentReversed => 'إعادة دفعة',
             self::ReceiptAwaitingReview => 'إيصال بانتظار المراجعة',
             self::AppointmentReminder => 'تذكير موعد',
@@ -719,6 +720,12 @@ enum NotificationType: string
     case PaymentFailed = 'payment_failed';
     case ReceiptApproved = 'receipt_approved';
     case ReceiptRejected = 'receipt_rejected';
+    /*
+    | An order holding a coupon place with no receipt after 48 hours, closed by
+    | the platform (owner decision 2026-10-29). NOT `ReceiptRejected`: that
+    | template says «لم يُعتمد الإيصال المرفوع», and this buyer never uploaded one.
+    */
+    case OrderLapsed = 'order_lapsed';
     case PaymentReversed = 'payment_reversed';
 
     /*
@@ -756,6 +763,7 @@ enum NotificationType: string
             self::PaymentFailed,
             self::ReceiptApproved,
             self::ReceiptRejected,
+            self::OrderLapsed,
             self::PaymentReversed => true,
             /*
             | Spec 013. Two, on the existing test: does it change what the account
@@ -849,6 +857,7 @@ enum NotificationType: string
             self::PaymentFailed,
             self::ReceiptApproved,
             self::ReceiptRejected,
+            self::OrderLapsed,
             self::PaymentReversed,
             // Spec 009. A redeemed reward can be a discount on a session, which
             // changes what the family pays — so the person who pays hears about
@@ -934,6 +943,7 @@ enum NotificationType: string
             self::PaymentFailed,
             self::ReceiptApproved,
             self::ReceiptRejected,
+            self::OrderLapsed,
             self::PaymentReversed,
             /*
             | ⚠️ WITHOUT THIS LINE, `targetsGuardians()` WOULD BE A LIE THAT COSTS

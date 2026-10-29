@@ -55,6 +55,18 @@ class InitiatePayment extends Action
         }
 
         /*
+        | ⛔ ONLY AN ORDER STILL AWAITING ITS DECISION IS PAID FOR (QA 2026-10-29).
+        | A cancelled, refunded or rejected order answered 201 with transfer
+        | instructions — the student was invited to pay for something that no
+        | longer exists, and a gateway capture there becomes surplus credits
+        | (`HandleProviderCallback::closesOrder()`). A rejected order is answered
+        | with a new RECEIPT (`UploadPaymentReceipt`), never a new charge.
+        */
+        if (! $order->isPending()) {
+            throw new DomainException('لا يمكن الدفع على طلب أُغلق. اطلب من جديد إن أردت.');
+        }
+
+        /*
         | ⚠️ MINTED HERE, NOT LEFT TO THE MODEL. The gateway is told where to send
         | the payer back to at the moment it is asked for a charge, and that URL
         | names this attempt — so the uuid has to exist one line before the

@@ -183,3 +183,16 @@ it('refuses to let anyone but the payer start or read a payment', function (): v
         ->assertJsonPath('amount_minor', 22_000)
         ->assertJsonMissingPath('payload');
 });
+
+/*
+| ⛔ QA 2026-10-29: a cancelled and refunded order answered 201 with transfer
+| instructions. Only an order awaiting its decision is paid for.
+*/
+it('refuses to start a payment on an order that is closed', function (string $status): void {
+    $this->order->forceFill(['status' => $status])->save();
+
+    expect(fn () => app(InitiatePayment::class)->handle($this->order->refresh(), $this->provider))
+        ->toThrow(DomainException::class);
+
+    expect(PaymentTransaction::query()->withoutWorkspaceScope()->count())->toBe(0);
+})->with(['cancelled', 'rejected', 'refund_due']);
