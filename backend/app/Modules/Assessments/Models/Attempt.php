@@ -10,12 +10,14 @@ use App\Modules\Learning\Models\Enrollment;
 use App\Shared\Scopes\WorkspaceScope;
 use App\Shared\Traits\BelongsToWorkspace;
 use App\Shared\Traits\HasUuid;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $status
  * @property int $random_seed
+ * @property CarbonInterface|null $started_at cast `datetime`
  * @property-read Exam|null $exam null for a self-generated practice run, which
  *   belongs to no exam anybody authored (research: exam_id became nullable)
  */
@@ -46,6 +48,7 @@ class Attempt extends BaseModel
         // allowance's claim (see `StartAttempt`). NULL on a practice run.
         'attempt_number',
         'duration_minutes',
+        'clock_enforced',
         'finalized_at',
         'score',
         'max_score',
@@ -66,6 +69,9 @@ class Attempt extends BaseModel
             'is_practice' => 'boolean',
             'attempt_number' => 'integer',
             'duration_minutes' => 'integer',
+            'clock_enforced' => 'boolean',
+            // Written by `SaveAttemptDraft` alone, never mass-assigned.
+            'draft_answers' => 'array',
             'finalized_at' => 'datetime',
             'started_at' => 'datetime',
             'submitted_at' => 'datetime',
@@ -108,6 +114,41 @@ class Attempt extends BaseModel
     public function isGraded(): bool
     {
         return $this->status === 'graded';
+    }
+
+    /**
+     * How long after the clock a submission is still taken: a slow connection
+     * pressing «سلّم» in the last second is not a cheat.
+     */
+    public const GRACE_SECONDS = 60;
+
+    /**
+     * When this official sitting's time runs out — `started_at` plus the
+     * duration frozen at START (accommodation included, so extra time is never
+     * re-derived here). Null when the clock does not apply: a practice run, or
+     * a sitting with no duration.
+     *
+     * ⛔ THE SERVER OWNS THIS NOW (owner decision 2026-10-29). The timer used to
+     * be the browser's alone — a one-minute exam took an answer seventy seconds
+     * in, and an open attempt resumed for ever (QA run, 2026-10-29).
+     */
+    public function deadline(): ?CarbonInterface
+    {
+        // A sitting begun before the server owned the clock keeps the old
+        // behaviour (see the migration that added `clock_enforced`).
+        if (! $this->clock_enforced || $this->is_practice || $this->started_at === null || (int) $this->duration_minutes <= 0) {
+            return null;
+        }
+
+        return $this->started_at->copy()->addMinutes((int) $this->duration_minutes);
+    }
+
+    /** Past the deadline AND its grace — nothing more is taken from the student. */
+    public function isClosedByClock(): bool
+    {
+        $deadline = $this->deadline();
+
+        return $deadline !== null && now()->greaterThan($deadline->copy()->addSeconds(self::GRACE_SECONDS));
     }
 
     /**

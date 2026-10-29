@@ -2,6 +2,7 @@
 
 use App\Modules\Analytics\Jobs\RollUpPlatformMetricsJob;
 use App\Modules\Analytics\Jobs\SendScheduledReportsJob;
+use App\Modules\Assessments\Jobs\CloseTimedOutAttemptsJob;
 use App\Modules\Assessments\Jobs\MarkMissedSubmissionsJob;
 use App\Modules\Assessments\Jobs\RollUpQuestionStatsJob;
 use App\Modules\Community\Jobs\BuildReportCardsJob;
@@ -167,6 +168,14 @@ Schedule::job(new CloseStaleSessionsJob, 'maintenance')->hourlyAt(20);
 | defect.
 */
 Schedule::job(new ExpirePrivateSessionRequestsJob)->everyTenMinutes();
+
+/*
+| A timed exam sitting whose clock ran out is submitted for the student, with
+| the answers they saved (owner decision 2026-10-29). Every minute, because the
+| result is what the student is waiting on; the query reads only open timed
+| sittings, a handful at any instant.
+*/
+Schedule::job(new CloseTimedOutAttemptsJob)->everyMinute();
 
 /*
 | A reschedule request nobody answered stops holding its lesson (049).
