@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Payments\Enums\PaymentMethod;
 use App\Modules\Payments\Events\ReceiptUploaded;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\CouponPlaces;
 use App\Modules\Tenancy\Support\Permissions;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
@@ -32,6 +33,8 @@ use Illuminate\Http\UploadedFile;
 class UploadPaymentReceipt extends Action
 {
     use LogsActivity;
+
+    public function __construct(private readonly CouponPlaces $couponPlaces) {}
 
     /**
      * @param  PaymentMethod  $method  what the payer actually did. `Gateway` is
@@ -77,6 +80,17 @@ class UploadPaymentReceipt extends Action
         if ($method === PaymentMethod::Gateway) {
             throw new DomainException('الدفع عبر البوابة لا يحتاج إيصالاً.');
         }
+
+        /*
+        | ⛔ A REJECTED ORDER GAVE ITS COUPON PLACE BACK (owner decision
+        | 2026-10-29), so answering it again takes one again — before the file is
+        | kept, so a code that ran out in between refuses the upload and leaves
+        | nothing behind.
+        */
+        // Asked whatever the status read above says: a rejection landing
+        // between that read and this line has already released the place, and
+        // `reclaim()` is a no-op for a place still held.
+        $this->couponPlaces->reclaim($order);
 
         $order->addMedia($file)->toMediaCollection('receipt');
 

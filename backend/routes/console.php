@@ -28,6 +28,7 @@ use App\Modules\Payments\Jobs\ChargeUnbilledDeliveriesJob;
 use App\Modules\Payments\Jobs\EvaluateCreditLimitsJob;
 use App\Modules\Payments\Jobs\ExpireCreditLotsJob;
 use App\Modules\Payments\Jobs\ExpireSubscriptionsJob;
+use App\Modules\Payments\Jobs\ExpireUnpaidCouponOrdersJob;
 use App\Modules\Payments\Jobs\NotifyDormantBalancesJob;
 use App\Modules\Payments\Jobs\ReconcileCreditBalancesJob;
 use App\Modules\Payments\Jobs\ReconcilePaymentsJob;
@@ -176,6 +177,13 @@ Schedule::job(new ExpirePrivateSessionRequestsJob)->everyTenMinutes();
 | sittings, a handful at any instant.
 */
 Schedule::job(new CloseTimedOutAttemptsJob)->everyMinute();
+
+/*
+| An order holding a coupon place with no receipt after 48 hours gives the place
+| back (owner decision 2026-10-29). Hourly: the deadline is a day and a half
+| coarse, and the query reads only pending manual orders that hold a place.
+*/
+Schedule::job(new ExpireUnpaidCouponOrdersJob)->hourly();
 
 /*
 | A reschedule request nobody answered stops holding its lesson (049).

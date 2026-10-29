@@ -13,6 +13,7 @@ use App\Modules\Payments\Events\PaymentApproved;
 use App\Modules\Payments\Events\ReceiptApproved;
 use App\Modules\Payments\Models\Order;
 use App\Modules\Payments\Models\PaymentTransaction;
+use App\Modules\Payments\Support\CouponPlaces;
 use App\Shared\Actions\Action;
 use App\Shared\Contracts\CohortDirectory;
 use App\Shared\Traits\LogsActivity;
@@ -41,6 +42,7 @@ class ApproveOrder extends Action
 
     public function __construct(
         private readonly CohortDirectory $cohorts,
+        private readonly CouponPlaces $couponPlaces,
     ) {}
 
     /**
@@ -104,6 +106,15 @@ class ApproveOrder extends Action
                 // simultaneous press is ordinary rather than exotic.
                 throw new DomainException('اتُّخِذ القرار على هذا الطلب بالفعل.');
             }
+
+            /*
+            | ⛔ AN ORDER IS NEVER APPROVED ON A PLACE IT GAVE BACK (owner decision
+            | 2026-10-29). The 48-hour expiry and a receipt upload racing each other can
+            | leave an `under_review` order whose coupon place was released; the
+            | approval takes it again here, inside this transaction, and a code
+            | with no place left rolls the whole approval back.
+            */
+            $this->couponPlaces->reclaim($order);
 
             /*
             | ⛔ **المقعدُ يُطالَبُ به قبلَ قبضِ المال** (FR-024أ).
