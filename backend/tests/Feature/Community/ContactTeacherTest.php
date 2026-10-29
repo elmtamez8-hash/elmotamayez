@@ -234,11 +234,16 @@ it('lets a guardian write as their child, keyed on the child, and labels the lin
     $guardian = contactGuardian($this->subscriber);
     Sanctum::actingAs($guardian);
 
-    $uuid = $this->postJson('/api/v1/conversations', [
+    $created = $this->postJson('/api/v1/conversations', [
         'workspace' => $this->workspace->uuid,
         'student' => $this->subscriber->uuid,
         'body' => 'أنا وليّ أمر الطالب، متى الامتحان؟',
-    ])->assertCreated()->json('uuid');
+    ])->assertCreated();
+    $uuid = $created->json('uuid');
+
+    // ⛔ QA 2026-10-29: the FIRST answer was titled with the child's own name —
+    // only the list stamped the guardian's reading. Now both name the teacher.
+    expect((string) $created->json('counterparty_name'))->toContain('Nour Academy');
 
     $thread = contactThread($this, $this->subscriber);
     expect($thread?->uuid)->toBe($uuid)

@@ -135,6 +135,22 @@ it('refuses a session of another group in the same course', function (bool $stam
         ->and((int) $session->refresh()->seats_taken)->toBe(0);
 })->with('students');
 
+/*
+| ⛔ QA 2026-10-29: the eligibility read said `open: true` for another group's
+| session while «احجز» refused it — the two doors asked different questions.
+*/
+it('tells the eligibility read the same thing the booking door says about another group', function (): void {
+    $session = scopeSession(['cohort_id' => $this->sunday->getKey()]);
+
+    app()->forgetInstance(WorkspaceContext::class);
+    Sanctum::actingAs($this->student);
+
+    $this->getJson("/api/v1/class-sessions/{$session->uuid}/eligibility")
+        ->assertOk()
+        ->assertJsonPath('data.open', false)
+        ->assertJsonPath('data.booking_refusal', 'هذه الحصة لمجموعة لست عضواً فيها.');
+});
+
 it('refuses a session of a course the student is not enrolled in, even with the same teacher', function (bool $stamped): void {
     $session = scopeSession(['course_id' => $this->physics->getKey()]);
 
