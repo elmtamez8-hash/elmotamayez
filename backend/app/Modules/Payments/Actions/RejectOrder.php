@@ -64,13 +64,14 @@ class RejectOrder extends Action
         $order->refresh();
 
         /*
-        | ⛔ AN OFFICER'S REFUSAL KEEPS THE COUPON PLACE (owner decision
-        | 2026-10-29). A refused order carried a receipt, so its buyer has most
-        | likely PAID — usually the photo was unreadable. Releasing the place
-        | here let somebody else take the code's last one, and the payer's
-        | clearer photo was then refused with «انتهى الكود». Only an order that
-        | never received a receipt gives its place back
-        | (`ExpireUnpaidCouponOrders`), which is the drain the release exists for.
+        | ⛔ AN OFFICER'S REFUSAL KEEPS THE COUPON PLACE — FOR SEVEN DAYS (owner
+        | decision 2026-10-29). A refused order carried a receipt, so its buyer
+        | has most likely PAID — usually the photo was unreadable. Releasing the
+        | place here let somebody else take the code's last one, and the payer's
+        | clearer photo was then refused with «انتهى الكود». After seven days
+        | with no new receipt the hourly sweep gives it back
+        | (`ExpireUnpaidCouponOrders`), so fake receipts cannot hold places for
+        | ever.
         */
 
         event(new PaymentRejected($order));

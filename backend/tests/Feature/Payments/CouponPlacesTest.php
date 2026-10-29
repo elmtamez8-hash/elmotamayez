@@ -165,3 +165,41 @@ it('approves such an order when a place is still free, taking it', function (): 
     expect(app(ApproveOrder::class)->handle($order->refresh(), $this->owner)->status)->toBe('approved')
         ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
 });
+
+/*
+| Owner decision 2026-10-29: an officer's refusal keeps the place for SEVEN days
+| (a payer's clearer receipt), then gives it back — held for ever, fake
+| receipts became the drain again.
+*/
+it('gives a refused order\'s place back after seven days with no new receipt, and not before', function (): void {
+    $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
+    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
+
+    $this->travel(6)->days();
+    app(ExpireUnpaidCouponOrders::class)->handle();
+    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
+
+    $this->travel(2)->days();
+    app(ExpireUnpaidCouponOrders::class)->handle();
+    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(0)
+        ->and($order->refresh()->status)->toBe('rejected');
+
+    // A second run moves nothing.
+    app(ExpireUnpaidCouponOrders::class)->handle();
+    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(0);
+});
+
+it('keeps the place of a refused order whose buyer sent a new receipt inside the week', function (): void {
+    $buyer = User::factory()->create();
+    $order = placesPurchase($buyer, $this->item, $this->coupon->code);
+    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
+
+    $this->travel(3)->days();
+    placesReceipt($order, $buyer);
+
+    $this->travel(10)->days();
+    app(ExpireUnpaidCouponOrders::class)->handle();
+
+    expect($order->refresh()->status)->toBe('under_review')
+        ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
+});

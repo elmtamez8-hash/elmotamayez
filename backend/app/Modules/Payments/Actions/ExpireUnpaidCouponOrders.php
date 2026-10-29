@@ -33,6 +33,9 @@ class ExpireUnpaidCouponOrders extends Action
 {
     public const HOURS = 48;
 
+    /** How long an officer's refusal keeps the place for a clearer receipt. */
+    public const REJECTED_GRACE_DAYS = 7;
+
     public const REASON = 'لم يصل إيصال الدفع خلال 48 ساعة، فأُلغي حجز كود الخصم. ارفع الإيصال على هذا الطلب لإكماله ما دام الكود متاحاً.';
 
     public function __construct(private readonly CouponPlaces $couponPlaces) {}
@@ -64,6 +67,40 @@ class ExpireUnpaidCouponOrders extends Action
                 }
             });
 
-        return $expired;
+        return $expired + $this->releaseStaleRejections();
+    }
+
+    /**
+     * ⛔ AN OFFICER'S REFUSAL KEEPS THE PLACE FOR SEVEN DAYS, NOT FOR EVER
+     * (owner decision 2026-10-29). A refused order carried a receipt, so its
+     * buyer most likely paid and gets a week to send a clearer one at the
+     * discount. Held for ever, the place became the drain again through fake
+     * receipts: every throwaway account's refused order kept one.
+     *
+     * The order stays `rejected`; only its place goes back. A receipt uploaded
+     * afterwards reclaims one if the code still has one (`CouponPlaces`), and an
+     * approval reclaims it too, so an upload racing this release never yields
+     * an approval on a place given away.
+     *
+     * ⚠️ `updated_at` is the refusal's moment: a rejected order is written
+     * again only by the upload that moves it out of `rejected`. Orders the
+     * 48-hour pass expired are already released and are not read here.
+     */
+    private function releaseStaleRejections(): int
+    {
+        $released = 0;
+
+        Order::query()->withoutWorkspaceScope()
+            ->where('status', 'rejected')
+            ->where('updated_at', '<=', now()->subDays(self::REJECTED_GRACE_DAYS))
+            ->whereIn('id', CouponRedemption::query()->whereNull('released_at')->select('order_id'))
+            ->chunkById(200, function ($orders) use (&$released): void {
+                foreach ($orders as $order) {
+                    $this->couponPlaces->release($order);
+                    $released++;
+                }
+            });
+
+        return $released;
     }
 }
