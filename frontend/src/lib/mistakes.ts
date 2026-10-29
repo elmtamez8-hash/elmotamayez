@@ -35,6 +35,11 @@ export interface Mistake {
   /** Their essay text, or the options they picked — as words, not ids. */
   your_answer: string | string[];
   correct_answer: string[];
+  /**
+   * The question is also on a published exam this student has not sat yet, so
+   * the server sends no key and no explanation until they have.
+   */
+  answer_withheld: boolean;
   /** Whose question this is. Null only if the workspace row has vanished. */
   teacher: { uuid: string; name: string } | null;
   is_resolved: boolean;
