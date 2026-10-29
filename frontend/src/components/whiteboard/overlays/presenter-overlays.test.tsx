@@ -32,14 +32,14 @@ describe("Timer", () => {
     vi.useFakeTimers();
     const onClose = vi.fn();
     render(<Timer minutes={1} sound={false} onClose={onClose} />);
-    expect(screen.getByRole("timer").textContent).toBe("١:٠٠");
+    expect(screen.getByRole("timer").textContent).toBe("1:00");
 
     act(() => vi.advanceTimersByTime(15_000));
-    expect(screen.getByRole("timer").textContent).toBe("٠:٤٥");
+    expect(screen.getByRole("timer").textContent).toBe("0:45");
 
     fireEvent.click(screen.getByRole("button", { name: "إيقاف مؤقّت" }));
     act(() => vi.advanceTimersByTime(20_000));
-    expect(screen.getByRole("timer").textContent).toBe("٠:٤٥");
+    expect(screen.getByRole("timer").textContent).toBe("0:45");
 
     fireEvent.click(screen.getByRole("button", { name: "متابعة" }));
     act(() => vi.advanceTimersByTime(46_000));
@@ -57,7 +57,7 @@ describe("PresenterBar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "ليزر" }));
     fireEvent.click(screen.getByRole("button", { name: "كشّاف" }));
-    fireEvent.click(screen.getByRole("button", { name: /٥ دقائق/ }));
+    fireEvent.click(screen.getByRole("button", { name: /5 دقائق/ }));
 
     expect(props.onLaser).toHaveBeenCalled();
     expect(props.onSpotlight).toHaveBeenCalled();

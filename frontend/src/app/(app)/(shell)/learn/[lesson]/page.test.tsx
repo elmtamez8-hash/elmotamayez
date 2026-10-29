@@ -512,8 +512,8 @@ describe("an assignment item", () => {
     title: "واجب الكسور",
     course: null,
     teacher: null,
-    description: "حلّ التمارين ١–٥.",
-    description_html: "<p>حلّ التمارين ١–٥.</p>",
+    description: "حلّ التمارين 1–5.",
+    description_html: "<p>حلّ التمارين 1–5.</p>",
     points: 20,
     due_at: "2026-10-01T12:00:00+03:00",
     submission_type: "text",
@@ -559,7 +559,7 @@ describe("an assignment item", () => {
 
     await open();
 
-    expect(await screen.findByText("حلّ التمارين ١–٥.")).toBeDefined();
+    expect(await screen.findByText("حلّ التمارين 1–5.")).toBeDefined();
     expect(get).toHaveBeenCalledWith("/assignments/hw-1");
     expect(screen.getByLabelText("إجابتك")).toBeDefined();
     expect(screen.getByText(/يكتمل هذا العنصر تلقائياً عند تسليم الواجب/)).toBeDefined();

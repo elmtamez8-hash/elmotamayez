@@ -153,7 +153,7 @@ export default function ManageExamPage({
             <StatusBadge status={exam.status} />
             <span>
               {counted(exam.duration_minutes, NOUNS.minutes)} · النجاح{" "}
-              <bdi>{arabicNumber(exam.passing_score)}٪</bdi>
+              <bdi>{arabicNumber(exam.passing_score)}%</bdi>
             </span>
           </span>
         }
@@ -239,7 +239,7 @@ export default function ManageExamPage({
               />
               <NumberField
                 id="passing_score"
-                label="درجة النجاح ٪"
+                label="درجة النجاح %"
                 value={settings.passing_score}
                 onChange={(v) => setSettings({ ...settings, passing_score: v })}
                 error={settingsFields.passing_score}

@@ -27,8 +27,8 @@ function creditsNeededWordingBands(): array
     return [
         [1, 'تحتاج حصة واحدة على الأقل'],
         [2, 'تحتاج حصتين على الأقل'],
-        [3, 'تحتاج ٣ حصص على الأقل'],
-        [11, 'تحتاج ١١ حصة على الأقل'],
+        [3, 'تحتاج 3 حصص على الأقل'],
+        [11, 'تحتاج 11 حصة على الأقل'],
     ];
 }
 
@@ -52,7 +52,8 @@ it('words the booking refusal in the band of the number', function (int $needed,
     )($session, User::factory()->make());
 
     expect($sentence)->toContain($phrase)
-        ->and($sentence)->not->toMatch('/[0-9]/');
+        // Latin digits everywhere (owner decision 2026-10-29) — never the Arabic-Indic form.
+        ->and($sentence)->not->toMatch('/[\x{0660}-\x{0669}]/u');
 })->with(creditsNeededWordingBands());
 
 it('words the file refusal in the band of the number', function (int $needed, string $phrase): void {
@@ -72,7 +73,7 @@ it('words the file refusal in the band of the number', function (int $needed, st
         $this->fail('A withheld high-value file must be refused.');
     } catch (AccessWithheldException $refusal) {
         expect($refusal->getMessage())->toContain($phrase)
-            ->and($refusal->getMessage())->not->toMatch('/[0-9]/')
+            ->and($refusal->getMessage())->not->toMatch('/[\x{0660}-\x{0669}]/u')
             ->and($refusal->creditsNeeded)->toBe($needed);
     }
 })->with(creditsNeededWordingBands());
@@ -81,5 +82,5 @@ it('keeps the shared forms in the accusative', function (): void {
     expect(array_map(
         fn (int $n): string => CountedNoun::of($n, CountedNoun::SESSIONS_OBJECT),
         [1, 2, 3, 11, 100],
-    ))->toBe(['حصة واحدة', 'حصتين', '٣ حصص', '١١ حصة', '١٠٠ حصة']);
+    ))->toBe(['حصة واحدة', 'حصتين', '3 حصص', '11 حصة', '100 حصة']);
 });

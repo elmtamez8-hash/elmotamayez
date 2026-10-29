@@ -122,7 +122,7 @@ function AttemptRowBody({ row, zone }: { row: StaffAttemptRow; zone: string }) {
         <span className="flex shrink-0 items-center gap-2">
           {row.percentage !== null && (
             <span className="text-sm font-semibold text-ink">
-              <bdi>{arabicNumber(row.percentage)}٪</bdi>
+              <bdi>{arabicNumber(row.percentage)}%</bdi>
             </span>
           )}
           {row.passed !== null && (

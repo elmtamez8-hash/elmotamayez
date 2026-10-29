@@ -558,7 +558,7 @@ function SubmissionRow({
               mark lower than the number the teacher just typed. */}
           {(row.late_penalty_applied_pct ?? 0) > 0 && (
             <p className="text-sm text-ink-muted">
-              خُصم <bdi>{arabicNumber(row.late_penalty_applied_pct ?? 0)}</bdi>٪ للتأخير.
+              خُصم <bdi>{arabicNumber(row.late_penalty_applied_pct ?? 0)}</bdi>% للتأخير.
             </p>
           )}
         </div>

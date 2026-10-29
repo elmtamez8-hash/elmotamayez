@@ -88,7 +88,7 @@ export default function ReportCardPage() {
       <div className="grid grid-cols-2 gap-4">
         <StatTile
           label="التقدير العام"
-          value={card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}٪`}
+          value={card.overall_pct === null ? "—" : `${arabicDecimal(card.overall_pct)}%`}
           Icon={ProgressIcon}
           emphasis
         />
@@ -100,7 +100,7 @@ export default function ReportCardPage() {
           value={
             card.improvement_index === null
               ? "—"
-              : `${arabicDecimal(card.improvement_index)}٪`
+              : `${arabicDecimal(card.improvement_index)}%`
           }
           Icon={ArrowUpIcon}
         />
@@ -139,7 +139,7 @@ export default function ReportCardPage() {
                   <p className="text-lg font-bold text-ink">
                     {segment.segment_pct === null
                       ? "—"
-                      : `${arabicDecimal(segment.segment_pct)}٪`}
+                      : `${arabicDecimal(segment.segment_pct)}%`}
                   </p>
                 </div>
 
@@ -156,9 +156,9 @@ export default function ReportCardPage() {
                           {/* The weight AS RE-WEIGHTED, so the shown shares add
                               up to 100 and the reader can check the arithmetic
                               that produced the grade above them. */}
-                          <span className="ms-2 text-xs">(نسبته من التقدير {arabicNumber(Math.round(row.weight))}٪)</span>
+                          <span className="ms-2 text-xs">(نسبته من التقدير {arabicNumber(Math.round(row.weight))}%)</span>
                         </dt>
-                        <dd className="font-semibold text-ink">{arabicDecimal(row.pct)}٪</dd>
+                        <dd className="font-semibold text-ink">{arabicDecimal(row.pct)}%</dd>
                       </div>
                     );
                   })}

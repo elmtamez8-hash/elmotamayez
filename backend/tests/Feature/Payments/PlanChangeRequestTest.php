@@ -331,7 +331,7 @@ it('carries the ask over the wire and lists it back', function (): void {
     $this->getJson('/api/v1/manage/plan-change-requests')
         ->assertOk()
         ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.requested_shape', '١٢ حصّة');
+        ->assertJsonPath('data.0.requested_shape', '12 حصّة');
 });
 
 it('shows the teacher their own proposed price and never the platform\'s current one', function (): void {

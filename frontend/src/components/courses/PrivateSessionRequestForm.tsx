@@ -81,7 +81,7 @@ function dayKey(at: Date, zone: string): string {
 }
 
 function fullLabel(at: Date, zone: string): string {
-  return `${DAYS[weekdayIn(at, zone)]} ${at.toLocaleDateString("ar", { day: "numeric", month: "long", timeZone: zone })} · ${formatSessionClock(at.toISOString(), zone)}`;
+  return `${DAYS[weekdayIn(at, zone)]} ${at.toLocaleDateString("ar", { day: "numeric", month: "long", timeZone: zone, numberingSystem: "latn" })} · ${formatSessionClock(at.toISOString(), zone)}`;
 }
 
 /**
@@ -139,7 +139,7 @@ function SlotPicker({
                 {DAYS[weekdayIn(d.first, zone)]}
               </span>
               <span className="text-2xl font-extrabold leading-tight">
-                {d.first.toLocaleDateString("ar", { day: "numeric", timeZone: zone })}
+                {d.first.toLocaleDateString("ar", { day: "numeric", timeZone: zone, numberingSystem: "latn" })}
               </span>
               <span className={`text-[0.7rem] ${open ? "text-white/85" : "text-ink-muted"}`}>
                 {d.first.toLocaleDateString("ar", { month: "long", timeZone: zone })}

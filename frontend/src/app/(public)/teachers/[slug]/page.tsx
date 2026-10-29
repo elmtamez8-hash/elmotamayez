@@ -135,8 +135,8 @@ function shownStats(stats: TeacherDetail["stats"]) {
   }> = [
     { label: "طالب درّسهم", value: stats.students_taught, Icon: StudentIcon },
     { label: "حصة مكتملة", value: stats.completed_sessions, Icon: SessionsIcon },
-    { label: "معدّل الاستجابة", value: stats.response_rate, suffix: "٪", Icon: MessagesIcon },
-    { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "٪", Icon: ProgressIcon },
+    { label: "معدّل الاستجابة", value: stats.response_rate, suffix: "%", Icon: MessagesIcon },
+    { label: "نسبة الحضور", value: stats.attendance_rate, suffix: "%", Icon: ProgressIcon },
   ];
 
   return items.filter(({ value, suffix }) => value !== null && (suffix !== undefined || value > 0));

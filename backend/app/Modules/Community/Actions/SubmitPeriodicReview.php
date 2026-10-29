@@ -65,7 +65,7 @@ class SubmitPeriodicReview extends Action
             // and Filament reach this method with no request behind them, and the
             // column is an unsignedTinyInteger that SQLite would store happily.
             if ($value < 1 || $value > 5) {
-                throw new DomainException('كل محور يجب أن يكون بين ١ و٥.');
+                throw new DomainException('كل محور يجب أن يكون بين 1 و5.');
             }
         }
 

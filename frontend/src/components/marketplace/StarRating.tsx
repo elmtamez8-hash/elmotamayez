@@ -81,7 +81,7 @@ export function StarRating({
         <span className={`text-sm ${muted}`}>({arabicNumber(count)})</span>
       )}
       <span className="sr-only">
-        {`التقييم ${arabicDecimal(value)} من ٥`}
+        {`التقييم ${arabicDecimal(value)} من 5`}
         {count !== undefined ? ` بناءً على ${counted(count, { one: "تقييم واحد", two: "تقييمين", few: "تقييمات", many: "تقييماً", other: "تقييم" })}` : ""}
       </span>
     </span>

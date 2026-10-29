@@ -17,7 +17,7 @@ it('states the reply deadline from the settings, in the reader\'s digits', funct
 
     $html = (string) $this->getJson('/api/v1/privacy/policy')->assertOk()->json('body_html');
 
-    expect($html)->toContain('٢١ يوماً')
+    expect($html)->toContain('21 يوماً')
         ->not->toContain('{{')
         // The drafting note and the raw endpoint were addressed to us, not the reader.
         ->not->toContain('POST /api')

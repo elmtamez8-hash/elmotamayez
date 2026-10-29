@@ -63,7 +63,7 @@ export function LessonRail({
                 zero: "لم يكتمل درس بعد",
               })}
             </span>
-            <span className="text-primary-ink tabular-nums">{arabicNumber(pct)}٪</span>
+            <span className="text-primary-ink tabular-nums">{arabicNumber(pct)}%</span>
           </div>
 
           {/*

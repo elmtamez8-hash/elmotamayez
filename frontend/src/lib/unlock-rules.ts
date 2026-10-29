@@ -74,7 +74,7 @@ export function ruleSummary(rule: UnlockRule): string {
   if (rule.requires_assignment) {
     parts.push(
       rule.min_score_pct > 0
-        ? `حلّ واجبها بـ${rule.min_score_pct}٪ على الأقل`
+        ? `حلّ واجبها بـ${rule.min_score_pct}% على الأقل`
         : "تسليم واجبها",
     );
   }

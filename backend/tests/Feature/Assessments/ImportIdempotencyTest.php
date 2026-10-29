@@ -130,7 +130,7 @@ it('does nothing when the job runs a second time on the same import', function (
     $import = startImport(
         (int) $workspace->id,
         (int) $owner->id,
-        importFile(mcqRow('س١؟').mcqRow('س٢؟').mcqRow('س٣؟')),
+        importFile(mcqRow('س1؟').mcqRow('س2؟').mcqRow('س3؟')),
     );
 
     $context = app(WorkspaceContext::class);

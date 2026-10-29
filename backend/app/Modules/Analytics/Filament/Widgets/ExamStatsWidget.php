@@ -48,7 +48,7 @@ class ExamStatsWidget extends BaseWidget
                 ->description('محاولاتُ اختبارٍ صُحِّحَت')
                 ->descriptionIcon(Heroicon::OutlinedClipboardDocumentCheck)
                 ->color('primary'),
-            Stat::make('نسبة النجاح', $passRate.'٪')
+            Stat::make('نسبة النجاح', $passRate.'%')
                 ->description('نجح '.$passed.' من '.$total)
                 ->descriptionIcon($passRate >= 50 ? Heroicon::OutlinedArrowTrendingUp : Heroicon::OutlinedArrowTrendingDown)
                 ->color($passRate >= 50 ? 'success' : 'danger'),

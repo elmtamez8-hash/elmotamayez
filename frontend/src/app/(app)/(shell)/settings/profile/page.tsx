@@ -420,7 +420,7 @@ export default function ProfileSettingsPage() {
               value={form.headline}
               onChange={(value) => setForm({ ...form, headline: value })}
               error={fields.headline}
-              hint="سطر واحد يظهر تحت اسمك، حتى ١٥٠ حرفاً."
+              hint="سطر واحد يظهر تحت اسمك، حتى 150 حرفاً."
               required
             />
 

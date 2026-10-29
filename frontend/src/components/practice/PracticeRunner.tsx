@@ -84,7 +84,7 @@ export function PracticeRunner({
       <div className="space-y-4">
         <Card>
           <h2 className="text-2xl font-bold text-ink">
-            نتيجتك <bdi>{Math.round(result.score)}</bdi>٪
+            نتيجتك <bdi>{Math.round(result.score)}</bdi>%
           </h2>
           <p className="mt-2 text-sm text-ink-muted">
             ورقةُ تدريب: لا تُحتسب في درجاتك ولا تستهلك محاولةً رسمية.

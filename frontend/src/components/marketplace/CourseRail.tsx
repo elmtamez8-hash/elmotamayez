@@ -369,7 +369,7 @@ function OwnerRail({
           <p className="flex items-baseline justify-between text-sm text-ink-muted">
             <span>تقدّمك</span>
             <b className="text-3xl font-black text-ink">
-              <bdi>{pct}٪</bdi>
+              <bdi>{pct}%</bdi>
             </b>
           </p>
 

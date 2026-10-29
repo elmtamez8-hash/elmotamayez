@@ -81,7 +81,7 @@ describe("LivePoll — the teacher", () => {
     act(() => room.emit("attributesChanged"));
 
     expect(await screen.findByText("منى، عمر")).toBeTruthy();
-    expect(screen.getByText(/صوّت ٢/)).toBeTruthy();
+    expect(screen.getByText(/صوّت 2/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "اقفل التصويت وأعلن النتيجة" }));
     await waitFor(() => expect(room.localParticipant.publishData).toHaveBeenCalledTimes(2));
@@ -111,13 +111,13 @@ describe("LivePoll — a teacher who reloads, and a second host", () => {
   it("reads the votes already cast once the room connects, and tells the room again", async () => {
     sessionStorage.setItem("live-poll:sess", JSON.stringify(poll));
     render(<LivePoll sessionUuid="sess" isHost />);
-    expect(await screen.findByText(/صوّت ٠/)).toBeTruthy();
+    expect(await screen.findByText(/صوّت 0/)).toBeTruthy();
 
     // The seats came with the join answer: no ParticipantConnected, only Connected.
     room.remoteParticipants.set("s1", { identity: "s1", attributes: { poll: "abcd1234:1" } });
     act(() => room.emit("roomConnected"));
 
-    expect(await screen.findByText(/صوّت ١/)).toBeTruthy();
+    expect(await screen.findByText(/صوّت 1/)).toBeTruthy();
     await waitFor(() => expect(room.localParticipant.publishData).toHaveBeenCalledTimes(1));
     expect(room.localParticipant.publishData.mock.calls[0][1]).toMatchObject({ destinationIdentities: undefined });
   });
@@ -130,37 +130,37 @@ describe("LivePoll — a teacher who reloads, and a second host", () => {
 });
 
 describe("LivePoll — the student", () => {
-  const poll: Poll = { v: 1, id: "abcd1234", question: "ناتج ٢+٢؟", options: ["٣", "٤"], state: "open" };
+  const poll: Poll = { v: 1, id: "abcd1234", question: "ناتج 2+2؟", options: ["3", "4"], state: "open" };
   const arrive = (p: Poll, topic = "poll") => act(() => room.emit("dataReceived", encodePoll(p), undefined, undefined, topic));
 
   it("answers with their own attribute, then sees the result once the teacher closes it", async () => {
     room.localParticipant.attributes = { hand: "1" };
     render(<LivePoll sessionUuid="sess" isHost={false} />);
     arrive(poll, "chat");
-    expect(screen.queryByText("ناتج ٢+٢؟")).toBeNull();
+    expect(screen.queryByText("ناتج 2+2؟")).toBeNull();
 
     arrive(poll);
-    fireEvent.click(await screen.findByRole("button", { name: "٤" }));
+    fireEvent.click(await screen.findByRole("button", { name: "4" }));
     expect(room.localParticipant.setAttributes).toHaveBeenCalledWith({ poll: "abcd1234:1" });
     // Chosen is announced, not only coloured (the shared Button dropped `aria-pressed`).
     room.localParticipant.attributes = { hand: "1", poll: "abcd1234:1" };
     arrive({ ...poll });
-    expect((await screen.findByRole("button", { name: "٤" })).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "٣" }).getAttribute("aria-pressed")).toBe("false");
+    expect((await screen.findByRole("button", { name: "4" })).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "3" }).getAttribute("aria-pressed")).toBe("false");
 
     arrive({ ...poll, state: "closed", counts: [1, 3] });
-    expect(await screen.findByText("٣ · ٧٥٪")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "٤" })).toBeNull();
+    expect(await screen.findByText("3 · 75%")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "4" })).toBeNull();
 
     arrive({ ...poll, state: "ended" });
-    expect(screen.queryByText("ناتج ٢+٢؟")).toBeNull();
+    expect(screen.queryByText("ناتج 2+2؟")).toBeNull();
   });
 
   it("says its vote again after a reload: the new connection has none, and the teacher's count lost it", async () => {
     const { unmount } = render(<LivePoll sessionUuid="sess" isHost={false} />);
     arrive(poll);
     room.localParticipant.setAttributes.mockImplementationOnce(() => new Promise(() => {})); // reloaded before the answer came back
-    fireEvent.click(await screen.findByRole("button", { name: "٤" }));
+    fireEvent.click(await screen.findByRole("button", { name: "4" }));
     expect(sessionStorage.getItem("live-poll-vote:me")).toBe("abcd1234:1");
     unmount();
 
@@ -179,14 +179,14 @@ describe("LivePoll — the student", () => {
     room.localParticipant.identity = "someone-else";
     render(<LivePoll sessionUuid="sess" isHost={false} />);
     arrive(poll);
-    await screen.findByRole("button", { name: "٤" });
+    await screen.findByRole("button", { name: "4" });
     expect(room.localParticipant.setAttributes).not.toHaveBeenCalled();
     room.localParticipant.identity = "me";
 
     // A later poll is a new question: nothing is said for it.
     vi.clearAllMocks();
     arrive({ ...poll, id: "efgh5678" });
-    await screen.findByRole("button", { name: "٤" });
+    await screen.findByRole("button", { name: "4" });
     expect(room.localParticipant.setAttributes).not.toHaveBeenCalled();
   });
 });

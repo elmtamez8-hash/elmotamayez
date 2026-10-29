@@ -76,9 +76,9 @@ it('refuses a second private group for the same student in the same course', fun
     [$course] = courseForIndividualCohorts();
     $student = User::factory()->create();
 
-    makeCohort($course, $student, 'حصص خاصة ١');
+    makeCohort($course, $student, 'حصص خاصة 1');
 
-    expect(fn () => makeCohort($course, $student, 'حصص خاصة ٢'))
+    expect(fn () => makeCohort($course, $student, 'حصص خاصة 2'))
         ->toThrow(UniqueConstraintViolationException::class);
 
     expect(Cohort::query()->withoutWorkspaceScope()->individual()->where('course_id', $course->getKey())->count())->toBe(1);

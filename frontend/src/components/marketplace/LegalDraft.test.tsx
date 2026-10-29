@@ -19,7 +19,7 @@ function draft(supportWhatsapp: string) {
       image="/x.webp"
       title="الشروط والأحكام"
       summary="ملخّص"
-      updatedAt="٢٦ سبتمبر ٢٠٢٦"
+      updatedAt="26 سبتمبر 2026"
       platformName="المتميّز"
       supportWhatsapp={supportWhatsapp}
     >
@@ -34,7 +34,7 @@ describe("LegalDraft", () => {
 
     expect(screen.getByText("مسودة — قيد المراجعة القانونية")).toBeDefined();
     expect(screen.getByText("نصّ البند")).toBeDefined();
-    expect(screen.getByText(/آخر تحديث: ٢٦ سبتمبر ٢٠٢٦/)).toBeDefined();
+    expect(screen.getByText(/آخر تحديث: 26 سبتمبر 2026/)).toBeDefined();
   });
 
   it("names the platform from the settings", () => {
@@ -57,7 +57,7 @@ describe("LegalDraft", () => {
         image="/x.webp"
         title="سياسة الاسترجاع"
         summary="ملخّص"
-        updatedAt="٢٦ سبتمبر ٢٠٢٦"
+        updatedAt="26 سبتمبر 2026"
         platformName="المتميّز"
         supportWhatsapp=""
         legalName="شركة المتميّز للتعليم"
@@ -80,10 +80,10 @@ describe("LegalDraft", () => {
     expect(screen.queryByText(/البريد الإلكتروني:/)).toBeNull();
   });
 
-  it("prints the support number when one is set, in Arabic digits", () => {
+  it("prints the support number when one is set, in Latin digits", () => {
     draft("97455501234");
 
     // Digit by digit, never grouped — a phone number is text, not a quantity.
-    expect(screen.getByText("+٩٧٤٥٥٥٠١٢٣٤")).toBeDefined();
+    expect(screen.getByText("+97455501234")).toBeDefined();
   });
 });

@@ -540,7 +540,7 @@ function SubscribeScreen() {
           <Field
             id="subscribe-receipt"
             label="صورة الإيصال"
-            hint="صورة أو PDF، حتى ١٠ ميغابايت."
+            hint="صورة أو PDF، حتى 10 ميغابايت."
             required
           >
             <input

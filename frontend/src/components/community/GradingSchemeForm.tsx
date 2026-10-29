@@ -117,7 +117,7 @@ export function GradingSchemeForm({
       </div>
 
       <p className="text-sm text-ink-muted" data-testid="weights-total">
-        المجموع: <strong className="text-ink">{arabicNumber(total)}٪</strong>
+        المجموع: <strong className="text-ink">{arabicNumber(total)}%</strong>
       </p>
 
       {/* The sentence names the gap, not merely the rule: «ينقص ١٠٪» is
@@ -126,8 +126,8 @@ export function GradingSchemeForm({
       {!balanced && (
         <Alert tone="warning" title="الأوزان غير مكتملة">
           {total < 100
-            ? `ينقص ${arabicNumber(100 - total)}٪ لبلوغ المئة.`
-            : `يزيد ${arabicNumber(total - 100)}٪ عن المئة.`}
+            ? `ينقص ${arabicNumber(100 - total)}% لبلوغ المئة.`
+            : `يزيد ${arabicNumber(total - 100)}% عن المئة.`}
         </Alert>
       )}
 

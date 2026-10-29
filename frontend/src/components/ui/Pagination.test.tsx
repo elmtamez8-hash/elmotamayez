@@ -25,7 +25,7 @@ describe("Pagination", () => {
 
     expect(screen.getByRole("link", { name: "السابق" }).getAttribute("href")).toBe("/courses?subject=math");
     expect(screen.getByRole("link", { name: "التالي" }).getAttribute("href")).toBe("/courses?subject=math&page=3");
-    expect(screen.getByRole("link", { name: "الصفحة ٢" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("link", { name: "الصفحة 2" }).getAttribute("aria-current")).toBe("page");
   });
 
   it("pages one list of a page by its own parameter and returns the reader to it", () => {

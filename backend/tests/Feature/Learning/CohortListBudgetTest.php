@@ -96,8 +96,8 @@ it('answers two groups and twenty in the same number of queries, and still lists
     | what stops this file from passing over a contract that answers an empty
     | array at a beautifully flat cost.
     */
-    expect($smallNames)->toContain('السبت ٤م')
+    expect($smallNames)->toContain('السبت 4م')
         ->and($smallNames)->toHaveCount(2)
-        ->and($largeNames)->toContain('السبت ٤م')
+        ->and($largeNames)->toContain('السبت 4م')
         ->and($largeNames)->toHaveCount(20);
 });

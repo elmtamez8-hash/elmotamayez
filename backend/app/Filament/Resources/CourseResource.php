@@ -187,7 +187,7 @@ class CourseResource extends Resource
                             ->label('السعر')
                             ->disabled(fn (?Course $record): bool => ! self::mayPrice($record))
                             ->required()
-                            ->helperText('بالعملةِ المختارة — ٤٩٫٩٩ تُكتَبُ 49.99')
+                            ->helperText('بالعملةِ المختارة، مثل 49.99')
                             ->default(0),
                         /*
                         | ⚠️ الافتراضُ كانَ `'USD'` — بقيّةٌ من هيكلِ لارافيل لا من

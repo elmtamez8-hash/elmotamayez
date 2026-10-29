@@ -74,5 +74,5 @@ export function formatMetric(metric: PlatformMetric): string {
   // for a day with no orders would read as a collection failure.
   if (metric.denominator === 0) return "—";
 
-  return `${(metric.value * 100).toFixed(1)}٪`;
+  return `${(metric.value * 100).toFixed(1)}%`;
 }

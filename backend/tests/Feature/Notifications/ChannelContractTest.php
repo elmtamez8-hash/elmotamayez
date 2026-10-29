@@ -89,7 +89,7 @@ function dispatchOf(User $user, NotificationType $type): void
             // templates refuse to render, both notifications are logged and
             // dropped, and the count came back 59 against 61 — a channel
             // contract that looked broken because a variable bag was short.
-            'schedule' => 'مجموعة السبت — الأحد ٥م.',
+            'schedule' => 'مجموعة السبت — الأحد 5م.',
             'next_session' => 'أقرب حصة: 2026-09-10.',
             'sessions' => 'حصّة الجبر (2026-09-10 17:00)',
             'period_start' => '2026-08-01',
@@ -152,8 +152,8 @@ function dispatchOf(User $user, NotificationType $type): void
             // channel never sees the message — so every assertion about it passes
             // by finding nothing.
             'request_type' => 'تصدير نسخة من البيانات',
-            'due_date' => '٣٠ سبتمبر',
-            'notice_end_date' => '٣٠ سبتمبر',
+            'due_date' => '30 سبتمبر',
+            'notice_end_date' => '30 سبتمبر',
             // A SEVENTH time, with spec 010's `chat_message`. The count came back
             // 44 against 45 the moment the type landed — same mechanism, seventh
             // reading of it.
@@ -173,8 +173,8 @@ function dispatchOf(User $user, NotificationType $type): void
             // sees the message. Derive this map and it would supply whatever each
             // template asked for and could never fail again.
             'course_title' => 'الرياضيات',
-            'from_cohort' => 'السبت ٤م',
-            'to_cohort' => 'الأحد ٦م',
+            'from_cohort' => 'السبت 4م',
+            'to_cohort' => 'الأحد 6م',
             'decision_reason' => 'المجموعة تكاد تكتمل',
             // A TENTH time, with spec 011's two store types. 51 against 53 the
             // moment they landed, and the mechanism has not changed once: a
@@ -194,9 +194,9 @@ function dispatchOf(User $user, NotificationType $type): void
             | than failing the operation that triggered it, and the channel never
             | sees the message.
             */
-            'period' => 'أغسطس ٢٠٢٦',
-            'date' => '٣٠ أغسطس',
-            'summary' => '١٢ حصّة · ٤ طلاب جدد',
+            'period' => 'أغسطس 2026',
+            'date' => '30 أغسطس',
+            'summary' => '12 حصّة · 4 طلاب جدد',
             /*
             | A TWELFTH time, with spec 030's `guardian_link_requested`. 62 against
             | 63 the moment it landed, and the eleven restatements above did not
@@ -219,7 +219,7 @@ function dispatchOf(User $user, NotificationType $type): void
             | product was created in their name at a price they did not set.
             */
             'cohort_name' => 'مجموعة السبت',
-            'price' => '٣٠٠ ر.ق',
+            'price' => '300 ر.ق',
             // ٠٣٦: صارَ «الشكل» بدلَ المدّةِ — باقةُ الحصصِ لا تحملُ مدّةً،
             // ومتغيّرٌ فارغٌ يرفضُه المُحوِّلُ فتسقطُ الرسالةُ في صمت.
             'shape' => 'شهر واحد',

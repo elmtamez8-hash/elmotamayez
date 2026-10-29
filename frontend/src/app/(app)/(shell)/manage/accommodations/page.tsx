@@ -171,8 +171,8 @@ export default function AccommodationsPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <NumberField
                 id="extra_time_pct"
-                label="وقت إضافي في الاختبارات (٪)"
-                hint="من ٠ إلى ٢٠٠. ٥٠ تعني نصف المدّة زيادة."
+                label="وقت إضافي في الاختبارات (%)"
+                hint="من 0 إلى 200. 50 تعني نصف المدّة زيادة."
                 value={extraTime}
                 onChange={setExtraTime}
                 min={0}
@@ -183,7 +183,7 @@ export default function AccommodationsPage() {
               <NumberField
                 id="extended_days"
                 label="أيام إضافية لتسليم الواجبات"
-                hint="من ٠ إلى ٣٠."
+                hint="من 0 إلى 30."
                 value={extraDays}
                 onChange={setExtraDays}
                 min={0}
@@ -278,7 +278,7 @@ export default function AccommodationsPage() {
                       key: "time",
                       label: "وقت إضافي في الاختبارات",
                       Icon: ExtraTimeIcon,
-                      value: `${arabicNumber(row.extra_time_pct)}٪`,
+                      value: `${arabicNumber(row.extra_time_pct)}%`,
                     });
                   }
 

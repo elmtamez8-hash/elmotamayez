@@ -51,15 +51,15 @@ describe("formatDuration", () => {
     // «٢ ساعة» is wrong in a way «2 hours» never is.
     expect(formatDuration(60)).toBe("ساعة");
     expect(formatDuration(120)).toBe("ساعتان");
-    expect(formatDuration(180)).toBe("٣ ساعات");
+    expect(formatDuration(180)).toBe("3 ساعات");
   });
 
   it("returns to the singular from eleven upwards", () => {
     // The band an English-shaped plural always gets wrong — and the one a
     // weekly total lands in. «12 ساعات» is not Arabic.
-    expect(formatDuration(600)).toBe("١٠ ساعات");
-    expect(formatDuration(660)).toBe("١١ ساعة");
-    expect(formatDuration(720)).toBe("١٢ ساعة");
+    expect(formatDuration(600)).toBe("10 ساعات");
+    expect(formatDuration(660)).toBe("11 ساعة");
+    expect(formatDuration(720)).toBe("12 ساعة");
   });
 
   it("says the half hour as a word", () => {
@@ -69,14 +69,14 @@ describe("formatDuration", () => {
   });
 
   it("falls back to minutes when there is no whole hour", () => {
-    expect(formatDuration(45)).toBe("٤٥ دقيقة");
-    expect(formatDuration(75)).toBe("ساعة و١٥ دقيقة");
+    expect(formatDuration(45)).toBe("45 دقيقة");
+    expect(formatDuration(75)).toBe("ساعة و15 دقيقة");
   });
 
   it("gives the minutes the same bands as the hours", () => {
     // The ladder this replaced covered hours only, so a slot ending five
     // minutes past the hour read «ساعة و5 دقيقة».
-    expect(formatDuration(65)).toBe("ساعة و٥ دقائق");
+    expect(formatDuration(65)).toBe("ساعة و5 دقائق");
     expect(formatDuration(62)).toBe("ساعة ودقيقتان");
     expect(formatDuration(1)).toBe("دقيقة");
   });
@@ -87,7 +87,7 @@ describe("formatDays", () => {
     // «1 أيام» is the same mistake as «12 ساعات», one band along.
     expect(formatDays(1)).toBe("يوم واحد");
     expect(formatDays(2)).toBe("يومان");
-    expect(formatDays(3)).toBe("٣ أيام");
-    expect(formatDays(7)).toBe("٧ أيام");
+    expect(formatDays(3)).toBe("3 أيام");
+    expect(formatDays(7)).toBe("7 أيام");
   });
 });

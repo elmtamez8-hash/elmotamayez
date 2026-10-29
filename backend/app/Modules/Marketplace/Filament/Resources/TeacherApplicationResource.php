@@ -188,10 +188,10 @@ class TeacherApplicationResource extends Resource implements AwaitsDecision
                 SelectFilter::make('current_step')
                     ->label('الخطوة')
                     ->options([
-                        1 => 'الخطوة ١',
-                        2 => 'الخطوة ٢',
-                        3 => 'الخطوة ٣',
-                        4 => 'الخطوة ٤',
+                        1 => 'الخطوة 1',
+                        2 => 'الخطوة 2',
+                        3 => 'الخطوة 3',
+                        4 => 'الخطوة 4',
                     ]),
             ])
             ->recordActions([

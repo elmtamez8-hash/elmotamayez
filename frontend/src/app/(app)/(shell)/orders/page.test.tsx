@@ -127,13 +127,13 @@ describe("what the order row says was bought", () => {
       }),
     ]);
 
-    expect(screen.getByText("٣ حصص · حصص جماعية · مجموعة السبت")).toBeDefined();
+    expect(screen.getByText("3 حصص · حصص جماعية · مجموعة السبت")).toBeDefined();
   });
 
   it("counts the sessions a credit order bought instead of saying «شراء أرصدة» alone", async () => {
     await show([order({ kind: "credits", credits: 4 })]);
 
-    expect(screen.getByText("٤ حصص")).toBeDefined();
+    expect(screen.getByText("4 حصص")).toBeDefined();
   });
 
   it("falls back to the kind when the count was never loaded", async () => {

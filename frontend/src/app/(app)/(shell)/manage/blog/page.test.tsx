@@ -138,9 +138,9 @@ describe("ManageBlogPage", () => {
     render(<ManageBlogPage />);
 
     await screen.findByText("خطة المراجعة");
-    expect(screen.getByRole("button", { name: "الكل ٢" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "الكل 2" })).toBeTruthy();
 
-    await userEvent.click(screen.getByRole("button", { name: "المسوّدات ١" }));
+    await userEvent.click(screen.getByRole("button", { name: "المسوّدات 1" }));
 
     expect(blog.list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, status: "draft" }));
     expect(await screen.findByText("مسوّدة الأسبوع")).toBeTruthy();

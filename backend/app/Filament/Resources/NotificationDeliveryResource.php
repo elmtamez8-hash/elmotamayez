@@ -80,7 +80,7 @@ class NotificationDeliveryResource extends Resource
 
     public static function getNavigationBadgeTooltip(): ?string
     {
-        return 'رسائل فشل تسليمها في آخر ٢٤ ساعة';
+        return 'رسائل فشل تسليمها في آخر 24 ساعة';
     }
 
     public static function canCreate(): bool

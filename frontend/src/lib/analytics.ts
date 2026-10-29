@@ -56,6 +56,6 @@ export const analytics = {
  */
 export function ratioLabel(stat: { wrong_pct: number | null; has_enough_data: boolean }): string {
   return stat.has_enough_data && stat.wrong_pct !== null
-    ? `${arabicDecimal(stat.wrong_pct, 1)}٪`
+    ? `${arabicDecimal(stat.wrong_pct, 1)}%`
     : "بيانات غير كافية";
 }

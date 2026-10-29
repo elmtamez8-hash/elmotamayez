@@ -38,7 +38,7 @@ it('hands back a ticket the client can upload to', function (): void {
     $lesson = lessonForUpload();
 
     $this->postJson("/api/v1/lessons/{$lesson->uuid}/assets", [
-        'original_filename' => 'درس-١.mp4',
+        'original_filename' => 'درس-1.mp4',
         'size_bytes' => 1_048_576,
         'duration_seconds' => 600,
     ])

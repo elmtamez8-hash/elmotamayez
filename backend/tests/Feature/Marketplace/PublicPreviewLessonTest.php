@@ -44,7 +44,7 @@ function previewFixture(
         $course = Course::factory()->published()->create([
             'workspace_id' => $workspace->getKey(),
             'created_by' => $teacher->user_id,
-            'title' => 'الفيزياء ٣',
+            'title' => 'الفيزياء 3',
             'slug' => 'physics-'.(++$sequence),
             'status' => $courseStatus,
         ]);

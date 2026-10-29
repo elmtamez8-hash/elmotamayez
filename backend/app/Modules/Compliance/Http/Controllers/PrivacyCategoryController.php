@@ -115,10 +115,8 @@ class PrivacyCategoryController extends Controller
             '{{postal_address}}' => (string) PlatformSettings::get('platform.postal_address'),
             '{{contact_email}}' => (string) PlatformSettings::get('platform.contact_email'),
             '{{support_whatsapp}}' => (string) preg_replace('/\D/', '', (string) PlatformSettings::get('platform.support_whatsapp')),
-            '{{request_due_days}}' => strtr((string) ComplianceSettings::requestDueDays(), [
-                '0' => '٠', '1' => '١', '2' => '٢', '3' => '٣', '4' => '٤',
-                '5' => '٥', '6' => '٦', '7' => '٧', '8' => '٨', '9' => '٩',
-            ]),
+            // Latin digits, as everywhere (owner decision 2026-10-29).
+            '{{request_due_days}}' => (string) ComplianceSettings::requestDueDays(),
         ];
 
         $lines = [];

@@ -256,7 +256,7 @@ class CmsArticleResource extends Resource
                     */
                     FileUpload::make('cover_path')
                         ->label('صورة الغلاف')
-                        ->helperText('تظهر في بطاقة المقال وفي أعلى الصفحة وفي بطاقة المشاركة. الأفضل ١٦:٩.')
+                        ->helperText('تظهر في بطاقة المقال وفي أعلى الصفحة وفي بطاقة المشاركة. الأفضل 16:9.')
                         ->image()
                         // ⚠️ `image()` alone is `image/*` — GIF and SVG pass — and the
                         // stored name keeps the CLIENT's extension, so a GIF polyglot

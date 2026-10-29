@@ -104,7 +104,7 @@ it('counts rival requests committed while this one waited on the gate', function
     });
 
     expect(fn () => privateRaceSubmit($fx))
-        ->toThrow(DomainException::class, 'لديك ٣ طلبات تنتظر الردّ عند هذا المدرّس. انتظر الردّ أو اسحب أحدها.');
+        ->toThrow(DomainException::class, 'لديك 3 طلبات تنتظر الردّ عند هذا المدرّس. انتظر الردّ أو اسحب أحدها.');
 
     expect($fired)->toBeTrue('the gate never ran — the test proved nothing');
 

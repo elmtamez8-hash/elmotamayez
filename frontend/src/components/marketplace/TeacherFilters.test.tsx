@@ -70,6 +70,6 @@ describe("TeacherFilters", () => {
     renderFilters();
 
     // Two of the three are sheet filters; the subject has its own chips.
-    expect(screen.getByRole("button", { name: /^فلاتر/ }).textContent).toContain("٢");
+    expect(screen.getByRole("button", { name: /^فلاتر/ }).textContent).toContain("2");
   });
 });

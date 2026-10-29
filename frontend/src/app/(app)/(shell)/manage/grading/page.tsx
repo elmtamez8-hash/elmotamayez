@@ -163,7 +163,7 @@ export default function GradingQueuePage() {
                         key: "auto",
                         label: "المصحَّح آلياً",
                         Icon: AutoGradedIcon,
-                        value: `${arabicNumber(Math.round(row.auto_score))}٪`,
+                        value: `${arabicNumber(Math.round(row.auto_score))}%`,
                       },
                     ]}
                     actions={

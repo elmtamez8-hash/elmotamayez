@@ -84,7 +84,7 @@ export default async function TermsPage() {
       image="/marketplace/banner-terms.webp"
       title="الشروط والأحكام"
       summary="القواعد التي تحكم استخدام المنصة للطلاب وأولياء الأمور والمدرّسين."
-      updatedAt="٢٧ سبتمبر ٢٠٢٦"
+      updatedAt="27 سبتمبر 2026"
       platformName={identity.name}
       supportWhatsapp={identity.supportWhatsapp}
       legalName={identity.legalName}
@@ -93,7 +93,7 @@ export default async function TermsPage() {
     >
       <p>
         باستخدامك المنصّة توافق على هذه الشروط. نقصد بـ«أنت» صاحبَ الحساب، أو وليَّ أمرِه إن كان
-        قاصراً (أقل من ١٨ سنة). الأرقام المذكورة هنا هي الإعدادات المعمول بها حالياً، وقد تعدّلها
+        قاصراً (أقل من 18 سنة). الأرقام المذكورة هنا هي الإعدادات المعمول بها حالياً، وقد تعدّلها
         إدارة المنصّة.
       </p>
 

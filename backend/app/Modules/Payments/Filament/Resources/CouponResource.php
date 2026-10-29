@@ -134,18 +134,18 @@ class CouponResource extends Resource
                         ->minValue(1)
                         ->maxValue(100)
                         ->rule('integer')
-                        ->suffix('٪')
+                        ->suffix('%')
                         ->visible(fn (Get $get): bool => ! self::isFixed($get('value_kind')))
                         ->formatStateUsing(fn (mixed $state, ?Coupon $record): mixed => $record?->value_kind === CouponValueKind::FixedMinor ? null : $state)
                         ->dehydrateStateUsing(fn (mixed $state): ?int => is_numeric($state) ? (int) $state : null)
-                        ->helperText('عددٌ صحيحٌ من ١ إلى ١٠٠.'),
+                        ->helperText('عددٌ صحيحٌ من 1 إلى 100.'),
 
                     MoneyInput::make('amount', fn (): string => app(BillingSettings::class)->currency())
                         ->label('المبلغ')
                         ->required()
                         ->minValue(0.01)
                         ->visible(fn (Get $get): bool => self::isFixed($get('value_kind')))
-                        ->helperText('بالعملة نفسِها (٤٩٫٩٩ تُكتَبُ 49.99)، ويُقَصّ عند قيمة السطر فلا يهبط المبلغُ تحت الصفر.'),
+                        ->helperText('بالعملة نفسِها (مثل 49.99)، ويُقَصّ عند قيمة السطر فلا يهبط المبلغُ تحت الصفر.'),
                 ]),
 
             Section::make('النطاق')
@@ -241,7 +241,7 @@ class CouponResource extends Resource
                 TextColumn::make('code')->label('الكود')->searchable()->sortable(),
                 TextColumn::make('value')->label('القيمة')->formatStateUsing(
                     fn (mixed $state, Coupon $record): string => $record->value_kind === CouponValueKind::Percent
-                        ? (int) $state.'٪'
+                        ? (int) $state.'%'
                         : (string) MinorUnits::display($record->value, MoneyInput::currencyLabel(app(BillingSettings::class)->currency())),
                 ),
                 TextColumn::make('scope_type')->label('النطاق')->badge()

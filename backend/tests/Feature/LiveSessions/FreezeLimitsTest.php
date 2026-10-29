@@ -61,7 +61,7 @@ it('accepts a period of exactly thirty days and refuses thirty-one', function ()
     $start = $this->month->addDays(2);
 
     expect(fn () => freezeLimitsCreate($start, $start->addDays(30)))
-        ->toThrow(DomainException::class, 'لا يجوز أن تتجاوز فترة التجميد الواحدة ٣٠ يوماً.');
+        ->toThrow(DomainException::class, 'لا يجوز أن تتجاوز فترة التجميد الواحدة 30 يوماً.');
     expect(FreezePeriod::query()->count())->toBe(0);
 
     // Both ends included: day 1 .. day 30.
@@ -153,7 +153,7 @@ it('answers 422 in Arabic over the API and shows the limits beside the list', fu
         'starts_on' => $this->month->toDateString(),
         'ends_on' => $this->month->addDays(40)->toDateString(),
     ])->assertStatus(422)
-        ->assertJsonPath('message', 'لا يجوز أن تتجاوز فترة التجميد الواحدة ٣٠ يوماً.');
+        ->assertJsonPath('message', 'لا يجوز أن تتجاوز فترة التجميد الواحدة 30 يوماً.');
 });
 
 /*

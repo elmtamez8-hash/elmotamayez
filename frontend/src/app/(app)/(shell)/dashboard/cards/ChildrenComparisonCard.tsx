@@ -146,9 +146,9 @@ const COLUMNS: Column<Row>[] = [
   { key: "name", header: "الابن", render: (row) => row.name },
   {
     key: "attendance",
-    header: "الحضور (٣٠ يوماً)",
+    header: "الحضور (30 يوماً)",
     numeric: true,
-    render: (row) => cell(row, "attendance", row.attendancePct, "٪"),
+    render: (row) => cell(row, "attendance", row.attendancePct, "%"),
   },
   {
     key: "upcoming",
@@ -166,6 +166,6 @@ const COLUMNS: Column<Row>[] = [
     key: "overall",
     header: "آخر معدّل",
     numeric: true,
-    render: (row) => cell(row, "results", row.overallPct, "٪"),
+    render: (row) => cell(row, "results", row.overallPct, "%"),
   },
 ];
