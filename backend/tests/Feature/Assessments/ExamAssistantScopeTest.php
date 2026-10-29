@@ -279,7 +279,7 @@ it('never opens another workspace\'s exam to the owner or the assistant', functi
     foreach ([$this->owner, $this->assistant] as $reader) {
         Sanctum::actingAs($reader);
 
-        $this->getJson("/api/v1/exams/{$foreign->uuid}")->assertForbidden();
+        $this->getJson("/api/v1/exams/{$foreign->uuid}")->assertNotFound();
         $this->putJson("/api/v1/exams/{$foreign->uuid}", ['title' => 'x'])->assertNotFound();
         $this->getJson("/api/v1/manage/exams/{$foreign->uuid}/items")->assertNotFound();
         $this->postJson("/api/v1/exams/{$foreign->uuid}/publish")->assertNotFound();
