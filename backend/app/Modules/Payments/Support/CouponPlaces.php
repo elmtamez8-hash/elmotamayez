@@ -8,6 +8,7 @@ use App\Modules\Payments\Models\Coupon;
 use App\Modules\Payments\Models\CouponRedemption;
 use App\Modules\Payments\Models\Order;
 use DomainException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A coupon's place follows its order (owner decision 2026-10-29).
@@ -69,30 +70,38 @@ class CouponPlaces
             return;
         }
 
-        // The ROW first: of two reclaims racing (two uploads, an upload and an
-        // approval), exactly one flips it, and only that one moves the counter.
-        $taken = CouponRedemption::query()
-            ->whereKey($redemption->getKey())
-            ->whereNotNull('released_at')
-            ->update(['released_at' => null]);
+        /*
+        | ⚠️ ONE TRANSACTION, AND THE ROW'S UPDATE IS ITS FIRST STATEMENT. On
+        | MySQL that UPDATE holds the redemption row's lock until commit, so a
+        | second reclaim (two uploads, an upload and an approval) WAITS on it and
+        | then reads the final state — never the in-between «held» of a reclaim
+        | that is about to fail. A code with no place left throws inside the
+        | transaction, so the row goes back to «released» by the rollback, with
+        | no moment in which anybody saw it otherwise. (Security review,
+        | 2026-10-29.) Nested inside `ApproveOrder`'s own transaction it is a
+        | savepoint, and its refusal rolls the approval back with it.
+        */
+        DB::transaction(function () use ($redemption): void {
+            $taken = CouponRedemption::query()
+                ->whereKey($redemption->getKey())
+                ->whereNotNull('released_at')
+                ->update(['released_at' => null]);
 
-        if ($taken !== 1) {
-            return;
-        }
+            if ($taken !== 1) {
+                return;
+            }
 
-        $claimed = Coupon::query()
-            ->whereKey($redemption->coupon_id)
-            ->where(fn ($query) => $query
-                ->whereNull('max_redemptions')
-                ->orWhereRaw('redemptions_count < max_redemptions'))
-            ->increment('redemptions_count');
+            $claimed = Coupon::query()
+                ->whereKey($redemption->coupon_id)
+                ->where(fn ($query) => $query
+                    ->whereNull('max_redemptions')
+                    ->orWhereRaw('redemptions_count < max_redemptions'))
+                ->increment('redemptions_count');
 
-        if ($claimed === 0) {
-            // No place left: the row goes back to «released», as it was.
-            CouponRedemption::query()->whereKey($redemption->getKey())->update(['released_at' => now()]);
-
-            throw new DomainException(self::RECLAIM_REFUSAL);
-        }
+            if ($claimed === 0) {
+                throw new DomainException(self::RECLAIM_REFUSAL);
+            }
+        });
     }
 
     private function redemptionOf(Order $order): ?CouponRedemption
