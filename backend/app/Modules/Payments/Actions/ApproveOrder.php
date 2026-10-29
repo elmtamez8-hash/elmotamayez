@@ -109,7 +109,7 @@ class ApproveOrder extends Action
 
             /*
             | ⛔ AN ORDER IS NEVER APPROVED ON A PLACE IT GAVE BACK (owner decision
-            | 2026-10-29). A rejection and a receipt upload racing each other can
+            | 2026-10-29). The 48-hour expiry and a receipt upload racing each other can
             | leave an `under_review` order whose coupon place was released; the
             | approval takes it again here, inside this transaction, and a code
             | with no place left rolls the whole approval back.

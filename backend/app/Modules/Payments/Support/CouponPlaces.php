@@ -18,8 +18,10 @@ use Illuminate\Support\Facades\DB;
  * a limited code with orders they never paid (QA run, 2026-10-29), and an
  * honest buyer whose receipt was refused lost their place for good.
  *
- * Now: a REJECTED order releases its place; a receipt uploaded onto that
- * rejected order claims a place AGAIN — through the same conditional increment
+ * Now: an order that never received a receipt releases its place after 48
+ * hours (`ExpireUnpaidCouponOrders`) — an officer's refusal does NOT, because
+ * a refused order carried a receipt and its buyer has most likely paid. A
+ * receipt uploaded onto that expired order claims a place AGAIN — through the same conditional increment
  * `RedeemCoupon` uses, so a code that ran out in between refuses the upload
  * rather than being oversold. Released → reclaimed is why the redemption row
  * carries `released_at` instead of being deleted.

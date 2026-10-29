@@ -19,11 +19,11 @@ use Illuminate\Http\UploadedFile;
 | ⛔ A COUPON'S PLACE FOLLOWS ITS ORDER (owner decision 2026-10-29).
 |
 | It was taken at purchase and never given back, so throwaway accounts drained a
-| limited code with orders nobody paid (QA run, 2026-10-29), and a buyer whose
-| receipt was refused lost their place. Now a rejection — an officer's, or the
-| 48-hour sweep of an order with no receipt — gives it back, and a receipt
-| uploaded onto that rejected order takes one again, or is refused when the
-| code ran out meanwhile.
+| limited code with orders nobody paid (QA run, 2026-10-29). Now an order with no
+| receipt after 48 hours gives it back, and a receipt uploaded onto that expired
+| order takes one again, or is refused when the code ran out meanwhile. An
+| OFFICER'S refusal keeps the place: that order carried a receipt, so its buyer
+| most likely paid, and must be able to send a clearer photo at the discount.
 */
 beforeEach(function (): void {
     [$this->workspace, $this->owner] = $this->createWorkspaceWithOwner();
@@ -48,35 +48,43 @@ function placesReceipt(Order $order, User $buyer): Order
     return app(UploadPaymentReceipt::class)->handle($order->refresh(), UploadedFile::fake()->image('receipt.png'), $buyer);
 }
 
-it('gives the place back when the order is rejected, so the next buyer can use the code', function (): void {
-    $first = User::factory()->create();
-    $order = placesPurchase($first, $this->item, $this->coupon->code);
+it('keeps the place through an officer refusal, so the payer can send a clearer receipt', function (): void {
+    $buyer = User::factory()->create();
+    $order = placesPurchase($buyer, $this->item, $this->coupon->code);
 
+    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
+
+    // The place is still this order's: nobody else can take the code's only place…
     expect((int) $this->coupon->refresh()->redemptions_count)->toBe(1)
         ->and(fn () => placesPurchase(User::factory()->create(), $this->item, $this->coupon->code))
         ->toThrow(DomainException::class);
 
-    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
-
-    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(0);
-
-    $second = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
-    expect($second->exists)->toBeTrue();
+    // …and the clearer photo goes through at the discount.
+    expect(placesReceipt($order, $buyer)->status)->toBe('under_review')
+        ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
 });
 
-it('takes the place again for a receipt uploaded onto the rejected order', function (): void {
+function placesExpire(Order $order): void
+{
+    test()->travel(49)->hours();
+    app(ExpireUnpaidCouponOrders::class)->handle();
+    $order->refresh();
+}
+
+it('takes the place again for a receipt uploaded onto an expired order', function (): void {
     $buyer = User::factory()->create();
     $order = placesPurchase($buyer, $this->item, $this->coupon->code);
-    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
+    placesExpire($order);
 
-    expect(placesReceipt($order, $buyer)->status)->toBe('under_review')
+    expect((int) $this->coupon->refresh()->redemptions_count)->toBe(0)
+        ->and(placesReceipt($order, $buyer)->status)->toBe('under_review')
         ->and((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
 });
 
 it('refuses that receipt when the code ran out in between, and keeps nothing', function (): void {
     $buyer = User::factory()->create();
     $order = placesPurchase($buyer, $this->item, $this->coupon->code);
-    app(RejectOrder::class)->handle(receiptUploaded($order), $this->owner, 'الإيصال غير واضح');
+    placesExpire($order);
 
     // Somebody else took the only place.
     placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
@@ -119,8 +127,8 @@ it('leaves an order with a receipt alone, however old', function (): void {
 });
 
 /*
-| The two races the security review named (2026-10-29), each pinned by putting
-| the database in the state the race leaves behind.
+| The races the security review named (2026-10-29), each pinned by putting the
+| database in the state the race leaves behind.
 */
 it('takes a place once however many times it is asked — two uploads racing', function (): void {
     $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
@@ -132,7 +140,7 @@ it('takes a place once however many times it is asked — two uploads racing', f
     expect((int) $this->coupon->refresh()->redemptions_count)->toBe(1);
 });
 
-it('never approves an order on a place it gave back — a rejection and an upload racing', function (): void {
+it('never approves an order on a place it gave back — the expiry and an upload racing', function (): void {
     $order = placesPurchase(User::factory()->create(), $this->item, $this->coupon->code);
 
     // The race's outcome: under review, place released, and the code's only place gone to someone else.

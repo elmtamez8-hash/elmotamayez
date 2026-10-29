@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Modules\Payments\Events\PaymentRejected;
 use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Models\Order;
-use App\Modules\Payments\Support\CouponPlaces;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -26,8 +25,6 @@ use DomainException;
 class RejectOrder extends Action
 {
     use LogsActivity;
-
-    public function __construct(private readonly CouponPlaces $couponPlaces) {}
 
     public function handle(
         Order $order,
@@ -66,9 +63,15 @@ class RejectOrder extends Action
 
         $order->refresh();
 
-        // The coupon's place goes back with the refusal (owner decision
-        // 2026-10-29); a receipt uploaded later claims it again.
-        $this->couponPlaces->release($order);
+        /*
+        | ⛔ AN OFFICER'S REFUSAL KEEPS THE COUPON PLACE (owner decision
+        | 2026-10-29). A refused order carried a receipt, so its buyer has most
+        | likely PAID — usually the photo was unreadable. Releasing the place
+        | here let somebody else take the code's last one, and the payer's
+        | clearer photo was then refused with «انتهى الكود». Only an order that
+        | never received a receipt gives its place back
+        | (`ExpireUnpaidCouponOrders`), which is the drain the release exists for.
+        */
 
         event(new PaymentRejected($order));
 

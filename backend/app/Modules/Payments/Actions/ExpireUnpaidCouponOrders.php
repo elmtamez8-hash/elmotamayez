@@ -24,8 +24,9 @@ use Illuminate\Support\Facades\DB;
  * - only orders that HOLD a place — no other pending order changes here.
  *
  * Rejected, not cancelled: the buyer can still upload a receipt onto it, which
- * claims a place again (`CouponPlaces::reclaim()`), exactly as after an
- * officer's refusal. The status flip is one conditional UPDATE, so an upload
+ * claims a place again (`CouponPlaces::reclaim()`), or is refused when the
+ * code ran out meanwhile. This is the ONLY release: an officer's refusal keeps
+ * the place, because that order carried a receipt. The status flip is one conditional UPDATE, so an upload
  * landing in the same instant wins or loses cleanly.
  */
 class ExpireUnpaidCouponOrders extends Action
