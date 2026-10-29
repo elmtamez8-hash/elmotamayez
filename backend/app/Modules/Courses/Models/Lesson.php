@@ -187,6 +187,42 @@ class Lesson extends BaseModel implements OrdersSiblings
     }
 
     /**
+     * Whether the lesson's COURSE is published and not deleted — what an open
+     * lesson needs before it opens to somebody holding no enrolment.
+     *
+     * ⛔ `isVisibleChain()` asks the lesson, chapter and section, never the
+     * course, so a free lesson stayed readable — text and files — after its
+     * course was unpublished, deleted, or before it was ever published (QA
+     * 2026-10-29). Asked at the doors for a viewer WITHOUT an enrolment only:
+     * an enrolled student keeps an open lesson of a course pulled back, as they
+     * keep the rest of it. Soft-deleted rows are excluded by the default scope.
+     */
+    public function courseIsLive(): bool
+    {
+        return self::liveCourseIds([(int) $this->course_id]) !== [];
+    }
+
+    /**
+     * The bulk form, for a list: which of these course ids are live.
+     *
+     * @param  list<int>  $courseIds
+     * @return list<int>
+     */
+    public static function liveCourseIds(array $courseIds): array
+    {
+        if ($courseIds === []) {
+            return [];
+        }
+
+        return array_values(array_map(intval(...), Course::query()
+            ->withoutWorkspaceScope()
+            ->whereIn('id', array_values(array_unique($courseIds)))
+            ->where('status', 'published')
+            ->pluck('id')
+            ->all()));
+    }
+
+    /**
      * Whether a visitor with no account may read THIS lesson (032 · FR-019).
      *
      * ⛔ THIS, NEVER {@see isOpen}, IS WHAT THE PUBLIC SIDE ASKS. Every place

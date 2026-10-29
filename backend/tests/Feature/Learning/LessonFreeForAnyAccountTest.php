@@ -160,6 +160,30 @@ it('keeps an unpublished free lesson closed, at both doors', function (bool $sta
     }
 })->with('reader shapes');
 
+/*
+| ⛔ QA 2026-10-29: the chain asked the lesson, chapter and section — never the
+| COURSE — so a free lesson stayed readable, text and files, after the course
+| was unpublished or deleted. Opened first, so a refusal below is the course and
+| not a reader who could never get in.
+*/
+it('closes a free lesson once its course is unpublished or deleted, at both doors', function (string $how, bool $stamped): void {
+    $reader = freeLessonReader($stamped);
+
+    $this->getJson("/api/v1/learn/lessons/{$this->free->uuid}")->assertOk();
+
+    $how === 'unpublished'
+        ? $this->course->forceFill(['status' => 'draft'])->save()
+        : $this->course->delete();
+
+    $this->getJson("/api/v1/learn/lessons/{$this->free->uuid}")->assertNotFound();
+
+    $lesson = $this->free->fresh();
+    $playback = app(IssuePlaybackGrant::class);
+
+    expect($playback->mayWatch($lesson, $reader))->toBeFalse()
+        ->and($playback->mayWatchMany([$lesson], $reader)[(int) $lesson->getKey()])->toBeFalse();
+})->with(['unpublished', 'deleted'])->with('reader shapes');
+
 it('keeps a free lesson narrowed to one group closed to everybody else, at both doors', function (bool $stamped): void {
     $reader = freeLessonReader($stamped);
 
