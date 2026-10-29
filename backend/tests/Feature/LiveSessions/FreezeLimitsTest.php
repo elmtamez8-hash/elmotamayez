@@ -157,6 +157,34 @@ it('answers 422 in Arabic over the API and shows the limits beside the list', fu
 });
 
 /*
+| ⛔ QA 2026-10-29: an unknown `student_uuid` resolved to null — the WORKSPACE
+| freeze — so a typo suspended every student and spent a monthly start. A real
+| student still freezes alone.
+*/
+it('refuses a named student who does not resolve instead of freezing everybody', function (): void {
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/freeze-periods', [
+        'starts_on' => $this->month->toDateString(),
+        'ends_on' => $this->month->addDay()->toDateString(),
+        'student_uuid' => '00000000-0000-4000-8000-000000000000',
+    ])->assertStatus(422)->assertJsonValidationErrors('student_uuid');
+
+    expect(FreezePeriod::query()->count())->toBe(0);
+
+    $student = freezeLimitsStudent();
+    Sanctum::actingAs($this->owner);
+
+    $this->postJson('/api/v1/freeze-periods', [
+        'starts_on' => $this->month->toDateString(),
+        'ends_on' => $this->month->addDay()->toDateString(),
+        'student_uuid' => $student->uuid,
+    ])->assertCreated();
+
+    expect(FreezePeriod::query()->sole()->student_user_id)->toBe($student->getKey());
+});
+
+/*
 | Audit 2026-09-27 — a period dated into the past counted against the month of
 | its `starts_on` (last month, whose ceiling nobody was watching) and extended
 | subscriptions by days already used. Today, in the PLATFORM zone, is the floor.
