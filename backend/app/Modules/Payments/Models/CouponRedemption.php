@@ -45,6 +45,8 @@ class CouponRedemption extends BaseModel
     {
         return [
             'discount_minor' => 'integer',
+            // Written by `CouponPlaces` alone, never mass-assigned.
+            'released_at' => 'datetime',
         ];
     }
 

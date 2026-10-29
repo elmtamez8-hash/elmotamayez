@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Payments\Events\PaymentRejected;
 use App\Modules\Payments\Events\ReceiptRejected;
 use App\Modules\Payments\Models\Order;
+use App\Modules\Payments\Support\CouponPlaces;
 use App\Shared\Actions\Action;
 use App\Shared\Traits\LogsActivity;
 use DomainException;
@@ -25,6 +26,8 @@ use DomainException;
 class RejectOrder extends Action
 {
     use LogsActivity;
+
+    public function __construct(private readonly CouponPlaces $couponPlaces) {}
 
     public function handle(
         Order $order,
@@ -62,6 +65,10 @@ class RejectOrder extends Action
         }
 
         $order->refresh();
+
+        // The coupon's place goes back with the refusal (owner decision
+        // 2026-10-29); a receipt uploaded later claims it again.
+        $this->couponPlaces->release($order);
 
         event(new PaymentRejected($order));
 
