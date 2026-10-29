@@ -440,7 +440,8 @@ class EnrollmentController extends Controller
         if ($lesson->class_session_id === null
             && LessonAudience::hiddenFor($viewer, $lesson) === null
             && $lesson->isVisibleChain()
-            && $lesson->isOpen()) {
+            && $lesson->isOpen()
+            && $lesson->courseIsLive()) {
             return response()->json($this->lessonPayload($lesson, LessonAccess::allow()));
         }
 

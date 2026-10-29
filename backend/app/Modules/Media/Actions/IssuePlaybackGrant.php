@@ -253,7 +253,10 @@ class IssuePlaybackGrant extends Action
             return false;
         }
 
-        if ($lesson->is_free || $lesson->is_preview) {
+        // An open lesson opens without an enrolment only inside a LIVE course
+        // (`Lesson::courseIsLive()`, QA 2026-10-29); an enrolled student reaches
+        // it through the line below either way.
+        if ($lesson->isOpen() && $lesson->courseIsLive()) {
             return true;
         }
 
@@ -303,6 +306,16 @@ class IssuePlaybackGrant extends Action
         );
 
         $courseIds = array_flip($this->enrollments->activeCourseIdsFor($viewer));
+        // The bulk twin of `courseIsLive()` — one query for the list, and only
+        // for an OPEN lesson the viewer is not enrolled behind: the ordinary
+        // curriculum page of an enrolled student pays nothing for it (SC-011).
+        $liveCourseIds = array_flip(Lesson::liveCourseIds(array_values(array_unique(array_map(
+            static fn (Lesson $row): int => (int) $row->course_id,
+            array_filter(
+                [...$lessons],
+                static fn (Lesson $row): bool => $row->isOpen() && ! isset($courseIds[$row->course_id]),
+            ),
+        )))));
         // التوأمُ الجمليُّ للسؤالِ نفسِه: الدورُ لا العضويّة (انظرْ `mayWatch()`).
         $workspaceIds = array_flip($viewer->workspaces()
             ->wherePivot('role', '!=', Roles::STUDENT)
@@ -373,7 +386,7 @@ class IssuePlaybackGrant extends Action
                 // condition present in only one of them is a hole reachable
                 // through whichever caller uses the other.
                 $allowed[$lessonId] = isset($visibleIds[$lessonId])
-                    && ($lesson->is_free || $lesson->is_preview || isset($courseIds[$lesson->course_id]));
+                    && (($lesson->isOpen() && isset($liveCourseIds[$lesson->course_id])) || isset($courseIds[$lesson->course_id]));
             }
 
             /*
