@@ -31,6 +31,10 @@ class MistakeResource extends JsonResource
     {
         $question = $this->question;
         $selected = is_array($this->selected_option_ids) ? array_map('intval', $this->selected_option_ids) : [];
+        // Stamped by `MistakeNotebook::stampWithheld()`: the question is on a
+        // published paper this student has not sat, so the key and the
+        // explanation wait until they have.
+        $withheld = (bool) $this->getAttribute('answer_withheld');
 
         return [
             'uuid' => $this->uuid,
@@ -38,7 +42,7 @@ class MistakeResource extends JsonResource
                 'uuid' => $question->uuid,
                 'type' => $question->type,
                 'content' => $question->content,
-                'explanation' => $question->explanation,
+                'explanation' => $withheld ? null : $question->explanation,
                 'concept' => $question->relationLoaded('concept')
                     ? ['uuid' => $question->concept->uuid, 'name' => $question->concept->name]
                     : null,
@@ -52,9 +56,10 @@ class MistakeResource extends JsonResource
             'your_answer' => $this->answer_text ?? $this->optionContents(
                 fn (QuestionOption $option): bool => in_array((int) $option->getKey(), $selected, true),
             ),
-            'correct_answer' => $this->optionContents(
+            'correct_answer' => $withheld ? [] : $this->optionContents(
                 fn (QuestionOption $option): bool => (bool) $option->is_correct,
             ),
+            'answer_withheld' => $withheld,
             // Derived by MistakeNotebook and set on the model there — a later
             // correct answer from the same student on the same question. Not a
             // column, deliberately: a stored status drifts at the first regrade.

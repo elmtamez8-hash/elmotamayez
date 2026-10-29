@@ -258,7 +258,11 @@ export default function MistakesPage() {
                       الصواب
                     </dt>
                     <dd className="text-sm text-ink">
-                      {row.correct_answer.length === 0 ? "—" : row.correct_answer.join(" · ")}
+                      {row.answer_withheld
+                        ? "يظهر بعد أن تؤدّي امتحاناً قادماً فيه هذا السؤال."
+                        : row.correct_answer.length === 0
+                          ? "—"
+                          : row.correct_answer.join(" · ")}
                     </dd>
                   </div>
                 </dl>

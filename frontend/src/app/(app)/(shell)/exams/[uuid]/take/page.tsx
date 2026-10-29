@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useState } from "react";
-import { api } from "@/lib/api";
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiError } from "@/lib/api";
 import { userMessage } from "@/lib/errors";
 import { counted, NOUNS } from "@/lib/labels";
 import { useRouter } from "next/navigation";
@@ -13,9 +13,19 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { TextareaField } from "@/components/ui/Field";
 import { RowsSkeleton } from "@/components/ui/states/LoadingSkeleton";
 import { arabicNumber } from "@/lib/numerals";
+import { type AnswerRow, formatClock, localDeadline, payloadOf, restoreFrom, secondsLeft } from "@/lib/exam-clock";
 
 interface AttemptResponse {
-  attempt: { uuid: string; status: string };
+  attempt: {
+    uuid: string;
+    status: string;
+    /** The server's deadline — it closes the sitting there, whatever this screen does. */
+    deadline_at?: string | null;
+    /** Seconds left, measured on the SERVER — the countdown starts from this. */
+    seconds_left?: number | null;
+    /** The answers saved so far, so a reload resumes the paper as it was. */
+    draft_answers?: AnswerRow[] | null;
+  };
   questions: Array<{
     id: number;
     type: string;
@@ -48,6 +58,15 @@ export default function TakeExamPage({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  // The deadline on this device's clock, fixed when the server's answer lands.
+  const [deadlineMs, setDeadlineMs] = useState<number | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "retrying">("idle");
+  // Once a submit has gone out (by the student or by the clock) nothing else
+  // may start one — the clock and the button must not both fire.
+  const submittedRef = useRef(false);
+  // The first render after a restore is the saved paper itself, not an edit.
+  const restoredRef = useRef(true);
 
   /*
     ⛔ STARTED BY A PRESS, NEVER BY OPENING THE PAGE (security scan 2026-10-10,
@@ -62,12 +81,17 @@ export default function TakeExamPage({
     api
       .post<AttemptResponse>(`/exams/${uuid}/attempts`)
       .then((res) => {
+        setDeadlineMs(localDeadline(res.attempt.seconds_left, Date.now()));
         setData(res);
+        // A reload resumes the paper as the server saved it.
+        const restored = restoreFrom(res.attempt.draft_answers);
         const initial: Record<number, number[]> = {};
         res.questions.forEach((q) => {
-          initial[q.id] = [];
+          initial[q.id] = restored.answers[q.id] ?? [];
         });
+        restoredRef.current = true;
         setAnswers(initial);
+        setTexts(restored.texts);
       })
       .catch((err: unknown) => setError(userMessage(err)))
       .finally(() => setLoading(false));
@@ -92,23 +116,16 @@ export default function TakeExamPage({
     }));
   };
 
-  const submit = async () => {
-    if (!data) return;
+  const submit = useCallback(async () => {
+    if (!data || submittedRef.current) return;
+    submittedRef.current = true;
     setSubmitting(true);
     setError("");
 
     try {
       // Unanswered questions are submitted with an empty selection and graded
       // as zero — the exam total never shrinks to what was answered.
-      const payload = data.questions.map((q) =>
-        isEssay(q)
-          ? {
-              question_id: q.id,
-              selected_option_ids: [],
-              answer_text: (texts[q.id] ?? "").trim() === "" ? null : texts[q.id],
-            }
-          : { question_id: q.id, selected_option_ids: answers[q.id] ?? [] },
-      );
+      const payload = payloadOf(data.questions, answers, texts);
 
       const result = await api.post<{ uuid: string }>(
         `/attempts/${data.attempt.uuid}/submit`,
@@ -116,11 +133,89 @@ export default function TakeExamPage({
       );
       router.push(`/exams/${result.uuid}/result`);
     } catch (err: unknown) {
+      submittedRef.current = false;
       setError(userMessage(err));
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [answers, data, router, texts]);
+
+  /*
+    ⛔ EVERY ANSWER IS SAVED THE MOMENT IT IS CHOSEN (owner decision 2026-10-29).
+    The server closes a timed sitting on what it saved, so an answer that lived
+    only on this screen when the clock ran out would be marked blank. A short
+    pause gathers typing into one save; a failed save is retried until it lands
+    or the sitting closes — and a 409 means the server already closed it, so the
+    screen submits at once (it is marked on the saves, not on this payload).
+  */
+  useEffect(() => {
+    if (!data || submittedRef.current) return;
+    if (restoredRef.current) {
+      restoredRef.current = false;
+      return;
+    }
+
+    let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+
+    const save = () => {
+      setSaveState("saving");
+      api
+        .put(`/attempts/${data.attempt.uuid}/answers`, { answers: payloadOf(data.questions, answers, texts) })
+        .then(() => !cancelled && setSaveState("saved"))
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          if (err instanceof ApiError && err.status === 409) {
+            void submit();
+            return;
+          }
+          setSaveState("retrying");
+          retry = setTimeout(save, 3000);
+        });
+    };
+
+    const pause = setTimeout(save, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(pause);
+      if (retry !== undefined) clearTimeout(retry);
+    };
+  }, [answers, data, submit, texts]);
+
+  /*
+    And when the tab is closed or hidden mid-pause, the last answer still goes:
+    `putKeepalive` outlives the page, so a choice made a second before closing
+    is on the server when the clock closes the sitting.
+  */
+  const latest = useRef<{ uuid: string; rows: ReturnType<typeof payloadOf> } | null>(null);
+  latest.current = data ? { uuid: data.attempt.uuid, rows: payloadOf(data.questions, answers, texts) } : null;
+
+  useEffect(() => {
+    const flush = () => {
+      if (latest.current && !submittedRef.current) {
+        void api.putKeepalive(`/attempts/${latest.current.uuid}/answers`, { answers: latest.current.rows }).catch(() => undefined);
+      }
+    };
+    window.addEventListener("pagehide", flush);
+
+    return () => window.removeEventListener("pagehide", flush);
+  }, []);
+
+  // The countdown, to the SERVER's deadline. At zero the screen hands in what is
+  // on it — inside the server's minute of grace, so it is marked as sent.
+  const left = secondsLeft(deadlineMs, now);
+
+  useEffect(() => {
+    if (deadlineMs === null) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+
+    return () => clearInterval(tick);
+  }, [deadlineMs]);
+
+  useEffect(() => {
+    if (left === 0) void submit();
+  }, [left, submit]);
 
   if (!started) {
     return (
@@ -172,6 +267,29 @@ export default function TakeExamPage({
           </>
         }
       />
+
+      {left !== null && (
+        <div
+          role="timer"
+          aria-live="off"
+          className={`sticky top-2 z-10 flex items-center justify-between rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+            left <= 60 ? "border-danger/40 bg-danger/10 text-danger-ink" : "border-line bg-surface text-ink"
+          }`}
+        >
+          <span>
+            الوقت المتبقي: <bdi className="font-bold tabular-nums">{formatClock(left)}</bdi>
+          </span>
+          <span className="text-xs text-ink-muted">
+            {saveState === "saving"
+              ? "جارٍ حفظ إجاباتك…"
+              : saveState === "retrying"
+                ? "لم تُحفَظ آخر إجابة بعد — نعيد المحاولة."
+                : saveState === "saved"
+                  ? "حُفظت إجاباتك."
+                  : "تُحفَظ إجاباتك تلقائياً، ويُسلَّم الاختبار عند انتهاء الوقت."}
+          </span>
+        </div>
+      )}
 
       {error && <Alert tone="danger" title={error} />}
 

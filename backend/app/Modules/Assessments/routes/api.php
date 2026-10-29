@@ -306,5 +306,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // Attempts (student-facing).
     Route::post('/exams/{examUuid}/attempts', [AttemptController::class, 'start']);
     Route::post('/attempts/{attemptUuid}/submit', [AttemptController::class, 'submit']);
+    // The answers so far on a timed sitting — what the clock marks if «سلّم» never comes.
+    Route::put('/attempts/{attemptUuid}/answers', [AttemptController::class, 'saveDraft']);
     Route::get('/attempts/{attemptUuid}', [AttemptController::class, 'show']);
 });

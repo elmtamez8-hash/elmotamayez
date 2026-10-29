@@ -6,7 +6,9 @@ namespace App\Modules\Assessments\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Assessments\Actions\GradeAttempt;
+use App\Modules\Assessments\Actions\SaveAttemptDraft;
 use App\Modules\Assessments\Actions\StartAttempt;
+use App\Modules\Assessments\Http\Requests\SaveAttemptDraftRequest;
 use App\Modules\Assessments\Http\Requests\SubmitAttemptRequest;
 use App\Modules\Assessments\Http\Resources\AttemptResource;
 use App\Modules\Assessments\Models\Attempt;
@@ -70,6 +72,26 @@ class AttemptController extends Controller
         }
 
         return response()->json(AttemptResource::make($graded));
+    }
+
+    /**
+     * Keep the answers so far on a timed sitting (owner decision 2026-10-29).
+     * 409 once the clock has closed it or it was submitted: the screen then
+     * submits, and is marked on what was saved here.
+     */
+    public function saveDraft(SaveAttemptDraftRequest $request, string $attemptUuid, SaveAttemptDraft $action): JsonResponse
+    {
+        $attempt = Attempt::forStudentDoor($attemptUuid);
+
+        $this->authorize('submit', $attempt);
+
+        try {
+            $action->handle($attempt, $request->validated('answers'));
+        } catch (DomainException $exception) {
+            return response()->json(['message' => $exception->getMessage(), 'code' => 'attempt_closed'], 409);
+        }
+
+        return response()->json(['saved' => true]);
     }
 
     public function show(string $attemptUuid): JsonResponse

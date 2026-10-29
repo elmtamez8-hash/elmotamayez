@@ -101,6 +101,53 @@ it('holds back a question sitting in an exam the student has not taken', functio
         ->toBe([(int) $free->getKey()]);
 });
 
+it('keeps the key of a question on an exam not yet sat out of the notebook as well', function (): void {
+    [$workspace, $owner] = $this->createWorkspaceWithOwner();
+    $this->setCurrentWorkspace($workspace, $owner);
+
+    $student = $this->addWorkspaceMember($workspace);
+    $workspaceId = (int) $workspace->getKey();
+
+    /*
+    | ⛔ QA 2026-10-29: the paper above left this question out, and `GET
+    | /mistakes` printed its correct option beside it in the same minute — the
+    | student read the key, sat the exam and scored 100. Two doors, one rule.
+    */
+    $exam = Exam::factory()->create(['workspace_id' => $workspaceId, 'status' => 'published']);
+    $onNextExam = practiceQuestion($workspace, 'سؤال امتحان قادم؟');
+    $free = practiceQuestion($workspace, 'سؤال حرّ؟');
+
+    $exam->items()->create(['workspace_id' => $workspaceId, 'question_id' => $onNextExam->getKey(), 'order' => 1]);
+
+    answerRow($workspaceId, $student, (int) $onNextExam->getKey(), correct: false);
+    answerRow($workspaceId, $student, (int) $free->getKey(), correct: false);
+
+    Sanctum::actingAs($student);
+
+    $rows = collect($this->getJson('/api/v1/mistakes')->assertOk()->json('data'))
+        ->keyBy(fn (array $row): string => (string) $row['question']['content']);
+
+    // The mistake is still listed — only its correction waits.
+    expect($rows->get('سؤال امتحان قادم؟'))
+        ->toMatchArray(['answer_withheld' => true, 'correct_answer' => []])
+        ->and($rows->get('سؤال امتحان قادم؟')['question']['explanation'])->toBeNull()
+        ->and($rows->get('سؤال حرّ؟')['answer_withheld'])->toBeFalse()
+        ->and($rows->get('سؤال حرّ؟')['correct_answer'])->not->toBe([]);
+
+    // Once the paper is sat, the key comes back.
+    Attempt::query()->create([
+        'workspace_id' => $workspaceId, 'exam_id' => $exam->getKey(),
+        'student_user_id' => $student->getKey(), 'is_practice' => false,
+        'status' => 'graded', 'started_at' => now(), 'submitted_at' => now(), 'random_seed' => 1,
+    ]);
+
+    $row = collect($this->getJson('/api/v1/mistakes')->json('data'))
+        ->firstWhere('question.content', 'سؤال امتحان قادم؟');
+
+    expect($row['answer_withheld'])->toBeFalse()
+        ->and($row['correct_answer'])->not->toBe([]);
+});
+
 it('leaves a disabled question in the notebook and out of the paper', function (): void {
     [$workspace, $owner] = $this->createWorkspaceWithOwner();
     $this->setCurrentWorkspace($workspace, $owner);
